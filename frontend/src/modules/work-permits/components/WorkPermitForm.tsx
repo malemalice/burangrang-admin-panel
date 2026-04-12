@@ -16,7 +16,7 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import {
   Select,
@@ -34,8 +34,18 @@ import workPermitService from '../services/workPermitService';
 import { userService, type User } from '@/modules/users';
 import { roleService } from '@/modules/roles';
 import AddWorkerModal from './AddWorkerModal';
+import { WorkPermitSection, WorkPermitSubsectionTitle } from './WorkPermitSection';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
+import {
+  WORK_PERMIT_SECTIONS,
+  WORK_PERMIT_SECTION_A_SUB,
+  WORK_PERMIT_SECTION_B_SUB,
+  WORK_PERMIT_SECTION_C_SUB,
+  WORK_PERMIT_SECTION_D_SUB,
+  WORK_PERMIT_SECTION_E_SUB,
+  WORK_PERMIT_SECTION_F_SUB,
+} from '../constants/workPermitSections';
 
 // Form schema for validation
 const formSchema = z.object({
@@ -747,11 +757,83 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Section 1: Permit Identity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Permit Identity</CardTitle>
-            <CardDescription>Basic permit information</CardDescription>
+        {/* Section A — PRD */}
+        <WorkPermitSection
+          id="work-permit-section-a"
+          title={WORK_PERMIT_SECTIONS.A}
+          description="Select work classifications for this permit"
+        >
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_A_SUB.classifications}</WorkPermitSubsectionTitle>
+                <CardDescription>Add one or more classification rows as needed</CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendClassification({ workClassificationId: '', order: classificationFields.length })}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add Classification
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {classificationFields.map((field, index) => {
+                const allClassificationValues = form.watch('classifications') || [];
+                const selectedIds = allClassificationValues
+                  .filter((_, i) => i !== index)
+                  .map((c) => c?.workClassificationId)
+                  .filter(Boolean);
+
+                return (
+                  <div key={field.id} className="flex gap-2 items-end">
+                    <FormField
+                      control={form.control}
+                      name={`classifications.${index}.workClassificationId`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select classification" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {workClassifications
+                                  .filter((wc) => !selectedIds.includes(wc.id) || wc.id === field.value)
+                                  .map((wc) => (
+                                    <SelectItem key={wc.id} value={wc.id}>
+                                      {wc.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeClassification(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+
+        {/* Section B — PRD */}
+        <WorkPermitSection id="work-permit-section-b" title={WORK_PERMIT_SECTIONS.B}>
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.projectSchedule}</WorkPermitSubsectionTitle>
+            <CardDescription>Project, area, company, and proposed dates</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -838,11 +920,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
 
-        {/* Section 2: Project and Work */}
         <Card>
           <CardHeader>
-            <CardTitle>Project and Work</CardTitle>
-            <CardDescription>Project and work details</CardDescription>
+            <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workDescription}</WorkPermitSubsectionTitle>
+            <CardDescription>Work stages, analysis, and guidelines</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -897,75 +978,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 </FormItem>
               )}
             />
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <FormLabel>Work Classifications</FormLabel>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => appendClassification({ workClassificationId: '', order: classificationFields.length })}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Add Classification
-                </Button>
-              </div>
-              {classificationFields.map((field, index) => {
-                // Get all classification values from form for reactive updates
-                const allClassificationValues = form.watch('classifications') || [];
-
-                // Get already selected classification IDs (excluding current field)
-                const selectedIds = allClassificationValues
-                  .filter((_, i) => i !== index)
-                  .map((c) => c?.workClassificationId)
-                  .filter(Boolean);
-
-                return (
-                  <div key={field.id} className="flex gap-2 items-end">
-                    <FormField
-                      control={form.control}
-                      name={`classifications.${index}.workClassificationId`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormControl>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select classification" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {workClassifications
-                                  .filter((wc) => !selectedIds.includes(wc.id) || wc.id === field.value)
-                                  .map((wc) => (
-                                    <SelectItem key={wc.id} value={wc.id}>
-                                      {wc.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeClassification(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
           </CardContent>
         </Card>
 
-        {/* Section 3: Workers */}
+        {/* Workers — Section B */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Workers</CardTitle>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
               <CardDescription>List of workers assigned to this permit</CardDescription>
             </div>
             <Button
@@ -1231,11 +1251,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
 
-        {/* Section: Employees */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Employees</CardTitle>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.employees}</WorkPermitSubsectionTitle>
               <CardDescription>Employees assigned to this permit</CardDescription>
             </div>
             <Button
@@ -1301,310 +1320,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
 
-        {/* Section 4: Course Verification */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Course Verification</CardTitle>
-            <CardDescription>Require course verification for workers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              control={form.control}
-              name="requireCourseVerification"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel>Require Course Verification</FormLabel>
-                    <div className="text-sm text-muted-foreground">
-                      Require workers/employees to complete required courses
-                    </div>
-                  </div>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Heavy Equipment */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Heavy Equipment</CardTitle>
-              <CardDescription>Heavy equipment for this project</CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                appendHeavyEquipment({
-                  heavyEquipmentId: '',
-                  quantity: 1,
-                  order: heavyEquipmentFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {heavyEquipmentFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name={`heavyEquipment.${index}.heavyEquipmentId`}
-                  render={({ field: f }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <SearchableSelect
-                          options={heavyEquipmentOptions}
-                          value={f.value}
-                          onValueChange={f.onChange}
-                          placeholder="Select heavy equipment"
-                          searchPlaceholder="Search..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`heavyEquipment.${index}.quantity`}
-                  render={({ field: f }) => (
-                    <FormItem className="w-24">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...f}
-                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeHeavyEquipment(index)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Tools */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Tools</CardTitle>
-              <CardDescription>Tools required for this project</CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                appendTool({
-                  toolId: '',
-                  quantity: 1,
-                  order: toolFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {toolFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name={`tools.${index}.toolId`}
-                  render={({ field: f }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <SearchableSelect
-                          options={toolOptions}
-                          value={f.value}
-                          onValueChange={f.onChange}
-                          placeholder="Select tool"
-                          searchPlaceholder="Search..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`tools.${index}.quantity`}
-                  render={({ field: f }) => (
-                    <FormItem className="w-24">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...f}
-                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeTool(index)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Materials */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Materials</CardTitle>
-              <CardDescription>Materials required for this project</CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                appendMaterial({
-                  materialId: '',
-                  quantity: 1,
-                  order: materialFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {materialFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name={`materials.${index}.materialId`}
-                  render={({ field: f }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <SearchableSelect
-                          options={materialOptions}
-                          value={f.value}
-                          onValueChange={f.onChange}
-                          placeholder="Select material"
-                          searchPlaceholder="Search..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`materials.${index}.quantity`}
-                  render={({ field: f }) => (
-                    <FormItem className="w-24">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...f}
-                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeMaterial(index)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Machines */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Machines</CardTitle>
-              <CardDescription>Machines required for this project</CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                appendMachine({
-                  machineId: '',
-                  quantity: 1,
-                  order: machineFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {machineFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name={`machines.${index}.machineId`}
-                  render={({ field: f }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <SearchableSelect
-                          options={machineOptions}
-                          value={f.value}
-                          onValueChange={f.onChange}
-                          placeholder="Select machine"
-                          searchPlaceholder="Search..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`machines.${index}.quantity`}
-                  render={({ field: f }) => (
-                    <FormItem className="w-24">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...f}
-                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeMachine(index)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Professions */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Professions</CardTitle>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
               <CardDescription>Professions required for this project</CardDescription>
             </div>
             <Button
@@ -1668,22 +1387,137 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
 
-        {/* Required Courses */}
+        <Card>
+          <CardHeader>
+            <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.supervisors}</WorkPermitSubsectionTitle>
+            <CardDescription>Select supervisors (guests) for this project</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 flex-wrap items-center">
+              {(form.watch('supervisorIds') ?? []).map((id) => {
+                const guest = guests.find((g) => g.id === id);
+                return (
+                  <Badge
+                    key={id}
+                    variant="secondary"
+                    className="flex items-center gap-1 pr-1"
+                  >
+                    {guest?.name ?? guest?.email ?? id}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 hover:bg-transparent"
+                      onClick={() => {
+                        const current = form.getValues('supervisorIds') ?? [];
+                        form.setValue(
+                          'supervisorIds',
+                          current.filter((x) => x !== id),
+                        );
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                );
+              })}
+              <div className="flex-1 min-w-[200px]">
+                <SearchableSelect
+                  options={supervisorOptions.filter(
+                    (o) => !(form.watch('supervisorIds') ?? []).includes(o.value),
+                  )}
+                  value=""
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    const current = form.getValues('supervisorIds') ?? [];
+                    if (!current.includes(value)) {
+                      form.setValue('supervisorIds', [...current, value]);
+                    }
+                  }}
+                  placeholder="Add supervisor..."
+                  searchPlaceholder="Search guest..."
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.hseOfficers}</WorkPermitSubsectionTitle>
+            <CardDescription>Select HSE officers (users) for this project</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 flex-wrap items-center">
+              {(form.watch('hseOfficerIds') ?? []).map((id) => {
+                const user = users.find((u) => u.id === id);
+                const label = user
+                  ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+                  : id;
+                return (
+                  <Badge
+                    key={id}
+                    variant="secondary"
+                    className="flex items-center gap-1 pr-1"
+                  >
+                    {label}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 hover:bg-transparent"
+                      onClick={() => {
+                        const current = form.getValues('hseOfficerIds') ?? [];
+                        form.setValue(
+                          'hseOfficerIds',
+                          current.filter((x) => x !== id),
+                        );
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                );
+              })}
+              <div className="flex-1 min-w-[200px]">
+                <SearchableSelect
+                  options={hseOfficerOptions.filter(
+                    (o) => !(form.watch('hseOfficerIds') ?? []).includes(o.value),
+                  )}
+                  value=""
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    const current = form.getValues('hseOfficerIds') ?? [];
+                    if (!current.includes(value)) {
+                      form.setValue('hseOfficerIds', [...current, value]);
+                    }
+                  }}
+                  placeholder="Add HSE officer..."
+                  searchPlaceholder="Search user..."
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        </WorkPermitSection>
+
+        {/* Section C — PRD (Tools → Machines → Materials → Heavy Equipment) */}
+        <WorkPermitSection id="work-permit-section-c" title={WORK_PERMIT_SECTIONS.C}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Required Courses</CardTitle>
-              <CardDescription>Courses required for workers on this project</CardDescription>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.tools}</WorkPermitSubsectionTitle>
+              <CardDescription>Tools required for this project</CardDescription>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() =>
-                appendRequiredCourse({
-                  courseId: '',
-                  isRequired: true,
-                  order: requiredCourseFields.length,
+                appendTool({
+                  toolId: '',
+                  quantity: 1,
+                  order: toolFields.length,
                 })
               }
             >
@@ -1691,19 +1525,19 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {requiredCourseFields.map((field, index) => (
+            {toolFields.map((field, index) => (
               <div key={field.id} className="flex gap-2 items-end">
                 <FormField
                   control={form.control}
-                  name={`requiredCourses.${index}.courseId`}
+                  name={`tools.${index}.toolId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
                       <FormControl>
                         <SearchableSelect
-                          options={courseOptions}
+                          options={toolOptions}
                           value={f.value}
                           onValueChange={f.onChange}
-                          placeholder="Select course"
+                          placeholder="Select tool"
                           searchPlaceholder="Search..."
                         />
                       </FormControl>
@@ -1713,17 +1547,22 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 />
                 <FormField
                   control={form.control}
-                  name={`requiredCourses.${index}.isRequired`}
+                  name={`tools.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="flex items-center gap-2">
+                    <FormItem className="w-24">
                       <FormControl>
-                        <Switch checked={f.value} onCheckedChange={f.onChange} />
+                        <Input
+                          type="number"
+                          min={1}
+                          {...f}
+                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
+                        />
                       </FormControl>
-                      <FormLabel className="!mt-0">Required</FormLabel>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeRequiredCourse(index)}>
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeTool(index)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -1731,12 +1570,218 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
 
-        {/* Hazards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Hazards</CardTitle>
-              <CardDescription>Identify hazards and control measures</CardDescription>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.machines}</WorkPermitSubsectionTitle>
+              <CardDescription>Machines required for this project</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                appendMachine({
+                  machineId: '',
+                  quantity: 1,
+                  order: machineFields.length,
+                })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {machineFields.map((field, index) => (
+              <div key={field.id} className="flex gap-2 items-end">
+                <FormField
+                  control={form.control}
+                  name={`machines.${index}.machineId`}
+                  render={({ field: f }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <SearchableSelect
+                          options={machineOptions}
+                          value={f.value}
+                          onValueChange={f.onChange}
+                          placeholder="Select machine"
+                          searchPlaceholder="Search..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`machines.${index}.quantity`}
+                  render={({ field: f }) => (
+                    <FormItem className="w-24">
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          {...f}
+                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeMachine(index)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.materials}</WorkPermitSubsectionTitle>
+              <CardDescription>Materials required for this project</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                appendMaterial({
+                  materialId: '',
+                  quantity: 1,
+                  order: materialFields.length,
+                })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {materialFields.map((field, index) => (
+              <div key={field.id} className="flex gap-2 items-end">
+                <FormField
+                  control={form.control}
+                  name={`materials.${index}.materialId`}
+                  render={({ field: f }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <SearchableSelect
+                          options={materialOptions}
+                          value={f.value}
+                          onValueChange={f.onChange}
+                          placeholder="Select material"
+                          searchPlaceholder="Search..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`materials.${index}.quantity`}
+                  render={({ field: f }) => (
+                    <FormItem className="w-24">
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          {...f}
+                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeMaterial(index)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.heavyEquipment}</WorkPermitSubsectionTitle>
+              <CardDescription>Heavy equipment for this project</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                appendHeavyEquipment({
+                  heavyEquipmentId: '',
+                  quantity: 1,
+                  order: heavyEquipmentFields.length,
+                })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {heavyEquipmentFields.map((field, index) => (
+              <div key={field.id} className="flex gap-2 items-end">
+                <FormField
+                  control={form.control}
+                  name={`heavyEquipment.${index}.heavyEquipmentId`}
+                  render={({ field: f }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <SearchableSelect
+                          options={heavyEquipmentOptions}
+                          value={f.value}
+                          onValueChange={f.onChange}
+                          placeholder="Select heavy equipment"
+                          searchPlaceholder="Search..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`heavyEquipment.${index}.quantity`}
+                  render={({ field: f }) => (
+                    <FormItem className="w-24">
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          {...f}
+                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeHeavyEquipment(index)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        </WorkPermitSection>
+
+        {/* Section D — PRD */}
+        <WorkPermitSection
+          id="work-permit-section-d"
+          title={WORK_PERMIT_SECTIONS.D}
+          description="Identify hazards and control measures for this work"
+        >
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_D_SUB.hazards}</WorkPermitSubsectionTitle>
             </div>
             <Button
               type="button"
@@ -1808,189 +1853,17 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             ))}
           </CardContent>
         </Card>
+        </WorkPermitSection>
 
-        {/* Attachments */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Attachments</CardTitle>
-              <CardDescription>Attach documents for this work permit</CardDescription>
-            </div>
-            <div>
-              <input
-                type="file"
-                id="attachment-upload"
-                className="hidden"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAttachmentUpload(file);
-                  e.target.value = '';
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => document.getElementById('attachment-upload')?.click()}
-                disabled={!workPermitDocumentsCategoryId}
-              >
-                <Upload className="mr-2 h-4 w-4" /> Upload
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {attachmentFields.map((field, index) => (
-              <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <p className="font-medium">{form.watch(`attachments.${index}.fileName`)}</p>
-                  <FormField
-                    control={form.control}
-                    name={`attachments.${index}.description`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input placeholder="Description (optional)" className="mt-1" {...f} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => removeAttachment(index)}
-                >
-                  <XIcon className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Supervisors */}
+        {/* Section E — PRD */}
+        <WorkPermitSection
+          id="work-permit-section-e"
+          title={WORK_PERMIT_SECTIONS.E}
+          description="Select safety equipment required for this project"
+        >
         <Card>
           <CardHeader>
-            <CardTitle>Supervisors</CardTitle>
-            <CardDescription>Select supervisors (guests) for this project</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2 flex-wrap items-center">
-              {(form.watch('supervisorIds') ?? []).map((id) => {
-                const guest = guests.find((g) => g.id === id);
-                return (
-                  <Badge
-                    key={id}
-                    variant="secondary"
-                    className="flex items-center gap-1 pr-1"
-                  >
-                    {guest?.name ?? guest?.email ?? id}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-transparent"
-                      onClick={() => {
-                        const current = form.getValues('supervisorIds') ?? [];
-                        form.setValue(
-                          'supervisorIds',
-                          current.filter((x) => x !== id),
-                        );
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                );
-              })}
-              <div className="flex-1 min-w-[200px]">
-                <SearchableSelect
-                  options={supervisorOptions.filter(
-                    (o) => !(form.watch('supervisorIds') ?? []).includes(o.value),
-                  )}
-                  value=""
-                  onValueChange={(value) => {
-                    if (!value) return;
-                    const current = form.getValues('supervisorIds') ?? [];
-                    if (!current.includes(value)) {
-                      form.setValue('supervisorIds', [...current, value]);
-                    }
-                  }}
-                  placeholder="Add supervisor..."
-                  searchPlaceholder="Search guest..."
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* HSE Officers */}
-        <Card>
-          <CardHeader>
-            <CardTitle>HSE Officers</CardTitle>
-            <CardDescription>Select HSE officers (users) for this project</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2 flex-wrap items-center">
-              {(form.watch('hseOfficerIds') ?? []).map((id) => {
-                const user = users.find((u) => u.id === id);
-                const label = user
-                  ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
-                  : id;
-                return (
-                  <Badge
-                    key={id}
-                    variant="secondary"
-                    className="flex items-center gap-1 pr-1"
-                  >
-                    {label}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-transparent"
-                      onClick={() => {
-                        const current = form.getValues('hseOfficerIds') ?? [];
-                        form.setValue(
-                          'hseOfficerIds',
-                          current.filter((x) => x !== id),
-                        );
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                );
-              })}
-              <div className="flex-1 min-w-[200px]">
-                <SearchableSelect
-                  options={hseOfficerOptions.filter(
-                    (o) => !(form.watch('hseOfficerIds') ?? []).includes(o.value),
-                  )}
-                  value=""
-                  onValueChange={(value) => {
-                    if (!value) return;
-                    const current = form.getValues('hseOfficerIds') ?? [];
-                    if (!current.includes(value)) {
-                      form.setValue('hseOfficerIds', [...current, value]);
-                    }
-                  }}
-                  placeholder="Add HSE officer..."
-                  searchPlaceholder="Search user..."
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Safety Equipment */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Safety Equipment</CardTitle>
-            <CardDescription>Select safety equipment required for this project</CardDescription>
+            <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_E_SUB.selectedEquipment}</WorkPermitSubsectionTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2 flex-wrap items-center">
@@ -2041,6 +1914,159 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             </div>
           </CardContent>
         </Card>
+        </WorkPermitSection>
+
+        {/* Section F — PRD */}
+        <WorkPermitSection id="work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.courseVerification}</WorkPermitSubsectionTitle>
+                <CardDescription>Require course verification for workers</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={form.control}
+                  name="requireCourseVerification"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel>Require Course Verification</FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Require workers/employees to complete required courses
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.requiredCourses}</WorkPermitSubsectionTitle>
+                  <CardDescription>Courses required for workers on this project</CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    appendRequiredCourse({
+                      courseId: '',
+                      isRequired: true,
+                      order: requiredCourseFields.length,
+                    })
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {requiredCourseFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-2 items-end">
+                    <FormField
+                      control={form.control}
+                      name={`requiredCourses.${index}.courseId`}
+                      render={({ field: f }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <SearchableSelect
+                              options={courseOptions}
+                              value={f.value}
+                              onValueChange={f.onChange}
+                              placeholder="Select course"
+                              searchPlaceholder="Search..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`requiredCourses.${index}.isRequired`}
+                      render={({ field: f }) => (
+                        <FormItem className="flex items-center gap-2">
+                          <FormControl>
+                            <Switch checked={f.value} onCheckedChange={f.onChange} />
+                          </FormControl>
+                          <FormLabel className="!mt-0">Required</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRequiredCourse(index)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
+                  <CardDescription>Attach documents for this work permit</CardDescription>
+                </div>
+                <div>
+                  <input
+                    type="file"
+                    id="attachment-upload"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAttachmentUpload(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('attachment-upload')?.click()}
+                    disabled={!workPermitDocumentsCategoryId}
+                  >
+                    <Upload className="mr-2 h-4 w-4" /> Upload
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {attachmentFields.map((field, index) => (
+                  <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="font-medium">{form.watch(`attachments.${index}.fileName`)}</p>
+                      <FormField
+                        control={form.control}
+                        name={`attachments.${index}.description`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="Description (optional)" className="mt-1" {...f} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => removeAttachment(index)}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+        </WorkPermitSection>
 
         {/* Submit Buttons */}
         <div className="flex justify-end gap-4">

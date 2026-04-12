@@ -46,3 +46,6 @@ export { useWorkPermits, useWorkPermit, useWorkPermitActions } from './hooks/use
 
 // Utils
 export { getWorkPermitStatusColor, getWorkPermitStatusType } from './utils/statusColors';
+
+// Section layout (PRD A–F)
+export { WorkPermitSection, WorkPermitSubsectionTitle } from './components/WorkPermitSection';
