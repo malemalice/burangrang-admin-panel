@@ -1,8 +1,10 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import AuditCriteriaPage from '../pages/AuditCriteriaPage';
-import CreateAuditCriteriaPage from '../pages/CreateAuditCriteriaPage';
-import EditAuditCriteriaPage from '../pages/EditAuditCriteriaPage';
-import AuditCriteriaDetailPage from '../pages/AuditCriteriaDetailPage';
+
+const AuditCriteriaPage = lazy(() => import('../pages/AuditCriteriaPage'));
+const CreateAuditCriteriaPage = lazy(() => import('../pages/CreateAuditCriteriaPage'));
+const EditAuditCriteriaPage = lazy(() => import('../pages/EditAuditCriteriaPage'));
+const AuditCriteriaDetailPage = lazy(() => import('../pages/AuditCriteriaDetailPage'));
 
 /**
  * Audit Criteria module routes

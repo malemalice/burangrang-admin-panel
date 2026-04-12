@@ -1,5 +1,11 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import { RiskMatrixViewPage, RiskMatrixManagementPage, RiskMatricesPage, CreateRiskMatrixPage, EditRiskMatrixPage } from '../pages';
+
+const RiskMatrixViewPage = lazy(() => import('../pages/RiskMatrixViewPage'));
+const RiskMatrixManagementPage = lazy(() => import('../pages/RiskMatrixManagementPage'));
+const RiskMatricesPage = lazy(() => import('../pages/RiskMatricesPage'));
+const CreateRiskMatrixPage = lazy(() => import('../pages/CreateRiskMatrixPage'));
+const EditRiskMatrixPage = lazy(() => import('../pages/EditRiskMatrixPage'));
 
 /**
  * Risk Matrix module routes

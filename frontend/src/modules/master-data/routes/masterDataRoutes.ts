@@ -1,42 +1,42 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import {
-  OfficesPage,
-  CreateOfficePage,
-  EditOfficePage,
-  OfficeDetailPage,
-  DepartmentsPage,
-  CreateDepartmentPage,
-  DepartmentDetailPage,
-  EditDepartmentPage,
-  JobPositionsPage,
-  CreateJobPositionPage,
-  EditJobPositionPage,
-  RiskCategoriesPage,
-  CreateRiskCategoryPage,
-  EditRiskCategoryPage,
-  RiskCategoryDetailPage,
-  RisksPage,
-  CreateRiskPage,
-  EditRiskPage,
-  RiskDetailPage,
-  RiskMitigationsPage,
-  CreateRiskMitigationPage,
-  EditRiskMitigationPage,
-  ViewRiskMitigationPage,
-  MasterApprovalsPage,
-  CreateMasterApprovalPage,
-  EditMasterApprovalPage,
-  MasterApprovalDetailPage,
-  RoomsPage,
-  CreateRoomPage,
-  EditRoomPage,
-  AreasPage,
-  CreateAreaPage,
-  EditAreaPage,
-  CompaniesPage,
-  CreateCompanyPage,
-  EditCompanyPage,
-} from '../pages';
+
+const OfficesPage = lazy(() => import('../pages/offices/OfficesPage'));
+const CreateOfficePage = lazy(() => import('../pages/offices/CreateOfficePage'));
+const OfficeDetailPage = lazy(() => import('../pages/offices/OfficeDetailPage'));
+const EditOfficePage = lazy(() => import('../pages/offices/EditOfficePage'));
+const DepartmentsPage = lazy(() => import('../pages/departments/DepartmentsPage'));
+const CreateDepartmentPage = lazy(() => import('../pages/departments/CreateDepartmentPage'));
+const DepartmentDetailPage = lazy(() => import('../pages/departments/DepartmentDetailPage'));
+const EditDepartmentPage = lazy(() => import('../pages/departments/EditDepartmentPage'));
+const JobPositionsPage = lazy(() => import('../pages/job-positions/JobPositionsPage'));
+const CreateJobPositionPage = lazy(() => import('../pages/job-positions/CreateJobPositionPage'));
+const EditJobPositionPage = lazy(() => import('../pages/job-positions/EditJobPositionPage'));
+const RiskCategoriesPage = lazy(() => import('../pages/risk-categories/RiskCategoriesPage'));
+const CreateRiskCategoryPage = lazy(() => import('../pages/risk-categories/CreateRiskCategoryPage'));
+const RiskCategoryDetailPage = lazy(() => import('../pages/risk-categories/RiskCategoryDetailPage'));
+const EditRiskCategoryPage = lazy(() => import('../pages/risk-categories/EditRiskCategoryPage'));
+const RisksPage = lazy(() => import('../pages/risks/RisksPage'));
+const CreateRiskPage = lazy(() => import('../pages/risks/CreateRiskPage'));
+const RiskDetailPage = lazy(() => import('../pages/risks/RiskDetailPage'));
+const EditRiskPage = lazy(() => import('../pages/risks/EditRiskPage'));
+const RiskMitigationsPage = lazy(() => import('../pages/risk-mitigations/RiskMitigationsPage'));
+const CreateRiskMitigationPage = lazy(() => import('../pages/risk-mitigations/CreateRiskMitigationPage'));
+const EditRiskMitigationPage = lazy(() => import('../pages/risk-mitigations/EditRiskMitigationPage'));
+const ViewRiskMitigationPage = lazy(() => import('../pages/risk-mitigations/ViewRiskMitigationPage'));
+const MasterApprovalsPage = lazy(() => import('../pages/approvals/MasterApprovalsPage'));
+const CreateMasterApprovalPage = lazy(() => import('../pages/approvals/CreateMasterApprovalPage'));
+const MasterApprovalDetailPage = lazy(() => import('../pages/approvals/MasterApprovalDetailPage'));
+const EditMasterApprovalPage = lazy(() => import('../pages/approvals/EditMasterApprovalPage'));
+const RoomsPage = lazy(() => import('../pages/rooms/RoomsPage'));
+const CreateRoomPage = lazy(() => import('../pages/rooms/CreateRoomPage'));
+const EditRoomPage = lazy(() => import('../pages/rooms/EditRoomPage'));
+const AreasPage = lazy(() => import('../pages/areas/AreasPage'));
+const CreateAreaPage = lazy(() => import('../pages/areas/CreateAreaPage'));
+const EditAreaPage = lazy(() => import('../pages/areas/EditAreaPage'));
+const CompaniesPage = lazy(() => import('../pages/companies/CompaniesPage'));
+const CreateCompanyPage = lazy(() => import('../pages/companies/CreateCompanyPage'));
+const EditCompanyPage = lazy(() => import('../pages/companies/EditCompanyPage'));
 
 /**
  * Master data module routes
@@ -188,4 +188,4 @@ const masterDataRoutes: RouteConfig[] = [
   },
 ];
 
-export default masterDataRoutes; 
+export default masterDataRoutes;

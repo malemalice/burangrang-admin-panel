@@ -1,7 +1,9 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import EnrollmentsPage from '../pages/EnrollmentsPage';
-import EnrollmentDetailPage from '../pages/EnrollmentDetailPage';
-import EditEnrollmentPage from '../pages/EditEnrollmentPage';
+
+const EnrollmentsPage = lazy(() => import('../pages/EnrollmentsPage'));
+const EnrollmentDetailPage = lazy(() => import('../pages/EnrollmentDetailPage'));
+const EditEnrollmentPage = lazy(() => import('../pages/EditEnrollmentPage'));
 
 /**
  * Enrollment module routes

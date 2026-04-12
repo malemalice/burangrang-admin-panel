@@ -60,6 +60,10 @@ export async function seedCertificates(prisma: PrismaClient) {
             return `${prefix}-${dateStr}-${certSequence.toString().padStart(4, '0')}`;
         };
 
+        /** Matches certificate form: either linked user id OR free-text name, not both */
+        const personnelIdOrName = (user: (typeof users)[number] | undefined, fallbackName: string) =>
+            user?.id ? { personnelId: user.id } : { personnelName: fallbackName };
+
         const certificates = [
             // ========================================================================
             // ACTIVE CERTIFICATES (Valid, not expiring soon)
@@ -72,8 +76,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addMonths(today, 6),
                 issuerName: 'Ministry of Manpower',
                 documentUrl: 'https://example.com/certs/so-license-001.pdf',
-                personnelId: users[0]?.id,
-                personnelName: users[0] ? `${users[0].firstName} ${users[0].lastName}` : 'John Doe',
+                ...personnelIdOrName(users[0], 'John Doe'),
                 departmentId: departments[0].id,
                 reminderDays: 30,
                 notes: 'Valid safety officer license',
@@ -88,8 +91,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addMonths(today, 9),
                 issuerName: 'Occupational Safety Authority',
                 documentUrl: 'https://example.com/certs/fl-license-002.pdf',
-                personnelId: users[1]?.id,
-                personnelName: users[1] ? `${users[1].firstName} ${users[1].lastName}` : 'Jane Smith',
+                ...personnelIdOrName(users[1], 'Jane Smith'),
                 departmentId: departments[1]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'Forklift operation certified',
@@ -104,8 +106,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addMonths(today, 10),
                 issuerName: 'Red Cross Society',
                 documentUrl: 'https://example.com/certs/fa-cert-003.pdf',
-                personnelId: users[2]?.id,
-                personnelName: users[2] ? `${users[2].firstName} ${users[2].lastName}` : 'Bob Johnson',
+                ...personnelIdOrName(users[2], 'Bob Johnson'),
                 departmentId: departments[2]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'First aid training completed',
@@ -120,8 +121,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addMonths(today, 8),
                 issuerName: 'Fire Safety Training Institute',
                 documentUrl: 'https://example.com/certs/fs-cert-004.pdf',
-                personnelId: users[3]?.id,
-                personnelName: users[3] ? `${users[3].firstName} ${users[3].lastName}` : 'Alice Brown',
+                ...personnelIdOrName(users[3], 'Alice Brown'),
                 departmentId: departments[3]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'Fire safety training completed',
@@ -188,8 +188,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addDays(today, 25), // Expiring in 25 days
                 issuerName: 'Ministry of Manpower',
                 documentUrl: 'https://example.com/certs/so-license-expiring.pdf',
-                personnelId: users[4]?.id,
-                personnelName: users[4] ? `${users[4].firstName} ${users[4].lastName}` : 'Mike Wilson',
+                ...personnelIdOrName(users[4], 'Mike Wilson'),
                 departmentId: departments[0].id,
                 reminderDays: 30,
                 notes: 'Expiring soon - renewal needed',
@@ -204,8 +203,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addDays(today, 20), // Expiring in 20 days
                 issuerName: 'Red Cross Society',
                 documentUrl: 'https://example.com/certs/fa-cert-expiring.pdf',
-                personnelId: users[5]?.id,
-                personnelName: users[5] ? `${users[5].firstName} ${users[5].lastName}` : 'Sarah Davis',
+                ...personnelIdOrName(users[5], 'Sarah Davis'),
                 departmentId: departments[1]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'Expiring soon - renewal needed',
@@ -240,8 +238,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: subDays(today, 30), // Expired 30 days ago
                 issuerName: 'Occupational Safety Authority',
                 documentUrl: 'https://example.com/certs/fl-license-expired.pdf',
-                personnelId: users[6]?.id,
-                personnelName: users[6] ? `${users[6].firstName} ${users[6].lastName}` : 'Tom Anderson',
+                ...personnelIdOrName(users[6], 'Tom Anderson'),
                 departmentId: departments[3]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'Expired - renewal required',
@@ -256,8 +253,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: subDays(today, 15), // Expired 15 days ago
                 issuerName: 'Fire Safety Training Institute',
                 documentUrl: 'https://example.com/certs/fs-cert-expired.pdf',
-                personnelId: users[7]?.id,
-                personnelName: users[7] ? `${users[7].firstName} ${users[7].lastName}` : 'Lisa Martinez',
+                ...personnelIdOrName(users[7], 'Lisa Martinez'),
                 departmentId: departments[4]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'Expired - renewal required',
@@ -308,8 +304,7 @@ export async function seedCertificates(prisma: PrismaClient) {
                 validityDate: addMonths(today, 4),
                 issuerName: 'Ministry of Manpower',
                 documentUrl: 'https://example.com/certs/so-license-inactive.pdf',
-                personnelId: users[8]?.id,
-                personnelName: users[8] ? `${users[8].firstName} ${users[8].lastName}` : 'David Lee',
+                ...personnelIdOrName(users[8], 'David Lee'),
                 departmentId: departments[2]?.id || departments[0].id,
                 reminderDays: 30,
                 notes: 'Inactive - employee on leave',
