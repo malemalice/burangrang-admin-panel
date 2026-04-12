@@ -3,7 +3,6 @@
  * Seeds master data for waste management module
  */
 import {
-  PrismaClient,
   WasteTypeEnum,
   MonthEnum,
   ReportStatusEnum,
@@ -14,8 +13,7 @@ import {
   GeneralStatusEnum,
 } from '@prisma/client';
 import { APPROVAL_ENTITIES } from '../../src/shared/constants/approval-entities';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 export const seedWasteManagement = async () => {
   console.log('🌱 Seeding waste management data...');

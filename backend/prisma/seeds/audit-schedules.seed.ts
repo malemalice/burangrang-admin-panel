@@ -2,9 +2,8 @@
  * Audit Schedules seed data
  * Following seed.ts patterns for seed data
  */
-import { PrismaClient, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { CompliantStatusEnum, GeneralStatusEnum, PrismaClient } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
  * Generate audit code: AUD{YY}{MM}{DD}{HH}{MM}{SS}
@@ -306,7 +305,7 @@ export const seedAuditSchedules = async (
             ? candidateUserIdsWithDept
             : candidateUserIds;
 
-        const selectedUserIds = pickRandom(
+        const selectedUserIds = pickRandom<string>(
           userPickPool,
           userPickPool.length === 0
             ? 0

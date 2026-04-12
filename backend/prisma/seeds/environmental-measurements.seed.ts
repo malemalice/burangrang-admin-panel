@@ -2,9 +2,7 @@
  * Environmental Measurement seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 export const seedEnvironmentalMeasurements = async () => {
   console.log('🌱 Seeding environmental measurements...');

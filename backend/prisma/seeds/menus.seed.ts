@@ -2,9 +2,7 @@
  * Menu seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 export const seedMenus = async () => {
   console.log('🌱 Seeding menus...');
@@ -1006,13 +1004,50 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create Work Permit menu - accessible to all users
-    await prisma.menu.create({
+    // Work Permit menu group (parent + sub-modules)
+    const workPermitMenu = await prisma.menu.create({
       data: {
         name: 'Work Permit',
         icon: 'FileText',
-        path: '/work-permits',
         order: 15,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Work Permits',
+        path: '/work-permits',
+        icon: 'FileText',
+        parentId: workPermitMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Work Classifications',
+        path: '/master/work-classifications',
+        icon: 'Tag',
+        parentId: workPermitMenu.id,
+        order: 2,
         isActive: true,
         roles: {
           connect: [

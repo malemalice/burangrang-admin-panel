@@ -2,8 +2,9 @@
  * Incident seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient, Incident, Room } from '@prisma/client';
 import {
+  Incident,
+  Room,
   IncidentTypeEnum,
   IncidentClassificationEnum,
   IncidentActivitiesEnum,
@@ -20,8 +21,7 @@ import {
   TypeOfInjuryEnum,
   MechanismOfInjuryEnum,
 } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 // Helper function to generate incident code: INC-YYYYMMDD-XXXX (general)
 const generateIncidentCode = async (dateStr: string): Promise<string> => {
