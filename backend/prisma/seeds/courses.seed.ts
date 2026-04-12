@@ -2,9 +2,8 @@
  * Course seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient, Course, EnrollmentStatusEnum } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Course, EnrollmentStatusEnum } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 function daysAgo(days: number): Date {
   const d = new Date();

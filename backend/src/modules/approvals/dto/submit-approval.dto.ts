@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export enum ApprovalStatus {
   APPROVED = 'APPROVED',
@@ -33,10 +33,11 @@ export class SubmitApprovalDto {
   status: ApprovalStatus;
 
   @ApiProperty({
-    description: 'Notes or comments for the approval',
+    description: 'Notes or comments for the approval (required when rejecting)',
     example: 'All requirements have been met',
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  notes: string;
+  notes?: string;
 } 

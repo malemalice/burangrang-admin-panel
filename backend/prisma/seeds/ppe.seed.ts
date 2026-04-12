@@ -2,9 +2,7 @@
  * PPE sample data seeder - Complete with all statuses
  * Following service logic flow for accurate status transitions
  */
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 // Helper function to generate stock code
 const generateStockCode = async (dateStr: string): Promise<string> => {

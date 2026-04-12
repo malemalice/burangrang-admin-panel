@@ -1,11 +1,11 @@
-import { PrismaClient, ManHourGroupEnum, MonthEnum } from '@prisma/client';
+import { ManHourGroupEnum, MonthEnum } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
  * Seed data for Man Hours
  * Creates sample man hour records for students and non-students across multiple months/years
  */
 export async function seedManHours(): Promise<void> {
-  const prisma = new PrismaClient();
 
   try {
     console.log('📊 Seeding Man Hours...');
@@ -106,7 +106,5 @@ export async function seedManHours(): Promise<void> {
   } catch (error) {
     console.error('❌ Error seeding man hours:', error);
     throw error;
-  } finally {
-    await prisma.$disconnect();
   }
 }

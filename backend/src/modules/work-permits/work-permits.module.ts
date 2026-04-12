@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { WorkPermitsService } from './work-permits.service';
 import { WorkPermitsController } from './work-permits.controller';
+import { WorkClassificationsService } from './work-classifications.service';
+import { WorkClassificationsController } from './work-classifications.controller';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { SharedModule } from '../../shared/shared.module';
 import { MasterApprovalsModule } from '../approvals/master-approvals.module';
@@ -15,8 +17,8 @@ export const WORK_PERMIT_APPROVAL_ENTITY = APPROVAL_ENTITIES.WORK_PERMIT;
 
 @Module({
   imports: [PrismaModule, SharedModule, MasterApprovalsModule, NotificationsModule],
-  controllers: [WorkPermitsController],
-  providers: [WorkPermitsService],
+  controllers: [WorkPermitsController, WorkClassificationsController],
+  providers: [WorkPermitsService, WorkClassificationsService],
   exports: [WorkPermitsService],
 })
 export class WorkPermitsModule { }

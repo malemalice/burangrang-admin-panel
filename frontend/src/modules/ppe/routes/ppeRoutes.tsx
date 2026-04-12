@@ -1,19 +1,21 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import PPEStockInPage from '../pages/PPEStockInPage';
-import PPEWithdrawPage from '../pages/PPEWithdrawPage';
-import CreatePPEStockPage from '../pages/stocks/CreatePPEStockPage';
-import PPEStockDetailPage from '../pages/stocks/PPEStockDetailPage';
-import EditPPEStockPage from '../pages/stocks/EditPPEStockPage';
-import CreatePPEWithdrawalPage from '../pages/withdrawals/CreatePPEWithdrawalPage';
-import PPEWithdrawalDetailPage from '../pages/withdrawals/PPEWithdrawalDetailPage';
-import EditPPEWithdrawalPage from '../pages/withdrawals/EditPPEWithdrawalPage';
-import SafetyEquipmentTypesPage from '../pages/SafetyEquipmentTypesPage';
-import SafetyEquipmentsPage from '../pages/SafetyEquipmentsPage';
-import SafetyEquipmentDetailPage from '../pages/safety-equipments/SafetyEquipmentDetailPage';
-import CreateSafetyEquipmentTypePage from '../pages/safety-equipment-types/CreateSafetyEquipmentTypePage';
-import EditSafetyEquipmentTypePage from '../pages/safety-equipment-types/EditSafetyEquipmentTypePage';
-import CreateSafetyEquipmentPage from '../pages/safety-equipments/CreateSafetyEquipmentPage';
-import EditSafetyEquipmentPage from '../pages/safety-equipments/EditSafetyEquipmentPage';
+
+const PPEStockInPage = lazy(() => import('../pages/PPEStockInPage'));
+const PPEWithdrawPage = lazy(() => import('../pages/PPEWithdrawPage'));
+const CreatePPEStockPage = lazy(() => import('../pages/stocks/CreatePPEStockPage'));
+const PPEStockDetailPage = lazy(() => import('../pages/stocks/PPEStockDetailPage'));
+const EditPPEStockPage = lazy(() => import('../pages/stocks/EditPPEStockPage'));
+const CreatePPEWithdrawalPage = lazy(() => import('../pages/withdrawals/CreatePPEWithdrawalPage'));
+const PPEWithdrawalDetailPage = lazy(() => import('../pages/withdrawals/PPEWithdrawalDetailPage'));
+const EditPPEWithdrawalPage = lazy(() => import('../pages/withdrawals/EditPPEWithdrawalPage'));
+const SafetyEquipmentTypesPage = lazy(() => import('../pages/SafetyEquipmentTypesPage'));
+const SafetyEquipmentsPage = lazy(() => import('../pages/SafetyEquipmentsPage'));
+const SafetyEquipmentDetailPage = lazy(() => import('../pages/safety-equipments/SafetyEquipmentDetailPage'));
+const CreateSafetyEquipmentTypePage = lazy(() => import('../pages/safety-equipment-types/CreateSafetyEquipmentTypePage'));
+const EditSafetyEquipmentTypePage = lazy(() => import('../pages/safety-equipment-types/EditSafetyEquipmentTypePage'));
+const CreateSafetyEquipmentPage = lazy(() => import('../pages/safety-equipments/CreateSafetyEquipmentPage'));
+const EditSafetyEquipmentPage = lazy(() => import('../pages/safety-equipments/EditSafetyEquipmentPage'));
 
 const ppeRoutes: RouteConfig[] = [
     // PPE Stock routes
@@ -82,4 +84,3 @@ const ppeRoutes: RouteConfig[] = [
 ];
 
 export default ppeRoutes;
-

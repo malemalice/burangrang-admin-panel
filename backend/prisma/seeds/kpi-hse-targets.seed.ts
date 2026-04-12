@@ -1,11 +1,11 @@
-import { PrismaClient, HseTargetTypeEnum, MonthEnum } from '@prisma/client';
+import { HseTargetTypeEnum, MonthEnum } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
  * Seed data for KPI HSE Targets
  * Creates sample HSE targets for incident, risk, inspection, and audit types
  */
 export async function seedKpiHseTargets(): Promise<void> {
-  const prisma = new PrismaClient();
 
   try {
     console.log('🎯 Seeding KPI HSE Targets...');
@@ -102,7 +102,5 @@ export async function seedKpiHseTargets(): Promise<void> {
   } catch (error) {
     console.error('❌ Error seeding KPI HSE targets:', error);
     throw error;
-  } finally {
-    await prisma.$disconnect();
   }
 }

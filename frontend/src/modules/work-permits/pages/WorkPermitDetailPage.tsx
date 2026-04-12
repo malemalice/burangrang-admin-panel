@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText, FileDown } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useWorkPermit, useWorkPermitActions } from '../hooks/useWorkPermits';
@@ -22,8 +22,32 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Label } from '@/core/components/ui/label';
 import { Input } from '@/core/components/ui/input';
 import { WorkPermitPDFTemplate } from '../components/WorkPermitPDFTemplate';
+import { WorkPermitSection, WorkPermitSubsectionTitle } from '../components/WorkPermitSection';
+import {
+  WORK_PERMIT_SECTIONS,
+  WORK_PERMIT_SECTION_A_SUB,
+  WORK_PERMIT_SECTION_B_SUB,
+  WORK_PERMIT_SECTION_C_SUB,
+  WORK_PERMIT_SECTION_D_SUB,
+  WORK_PERMIT_SECTION_E_SUB,
+  WORK_PERMIT_SECTION_F_SUB,
+} from '../constants/workPermitSections';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/core/components/ui/table';
 import { approvalService, APPROVAL_ENTITIES, type ApprovalStatusHistory } from '@/modules/master-data';
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
+
+const displayField = (v: string | number | boolean | null | undefined) => {
+  if (v == null) return '—';
+  const s = String(v).trim();
+  return s !== '' ? s : '—';
+};
 
 const WorkPermitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -336,110 +360,556 @@ const WorkPermitDetailPage = () => {
         }
       />
 
-      <div className="grid gap-6">
-        {/* Basic Information and Approval Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-500">Status</Label>
-                  <div className="mt-1">
-                    <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+      <div className="max-w-4xl mx-auto space-y-6 mt-6">
+        <WorkPermitSection
+          id="work-permit-detail-approval-timeline"
+          title={WORK_PERMIT_SECTION_F_SUB.approvalTimeline}
+        >
+          <Card>
+            <CardContent className="pt-6 min-h-[120px]">
+              <ApprovalTimelineCard
+                approvalHistory={approvalHistory}
+                isLoading={isLoadingHistory}
+                assessmentStatus={
+                  ['APPROVED', 'REJECTED', 'CLOSED'].includes(workPermit.status) ? 'DONE' : workPermit.status
+                }
+                entityDepartmentName={workPermit.area?.name}
+                entityJobPositionName="Department Head"
+              />
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+
+        <WorkPermitSection id="work-permit-detail-section-a" title={WORK_PERMIT_SECTIONS.A}>
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_A_SUB.classifications}</WorkPermitSubsectionTitle>
+            </CardHeader>
+            <CardContent>
+              {(workPermit.classifications?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">No classifications selected.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {workPermit.classifications!.map((c) => (
+                    <Badge key={c.id} variant="secondary">
+                      {c.workClassification
+                        ? `${c.workClassification.name ?? ''}${c.workClassification.code ? ` (${c.workClassification.code})` : ''}`.trim() ||
+                          '—'
+                        : '—'}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+
+        <WorkPermitSection id="work-permit-detail-section-b" title={WORK_PERMIT_SECTIONS.B}>
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.projectSchedule}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Status</Label>
+                    <div className="mt-1">
+                      <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Project Name</Label>
+                    <p className="mt-1">{workPermit.projectName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Area</Label>
+                    <p className="mt-1">{displayField(workPermit.area?.name)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Company</Label>
+                    <p className="mt-1">{displayField(workPermit.company?.name)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Proposed start date</Label>
+                    <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Proposed end date</Label>
+                    <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workDescription}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-gray-500">Project Name</Label>
-                  <p className="mt-1">{workPermit.projectName}</p>
+                  <Label className="text-muted-foreground">Work Stages Description</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workStagesDescription)}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Area</Label>
-                  <p className="mt-1">{workPermit.area?.name || '-'}</p>
+                  <Label className="text-muted-foreground">Job Safety Analysis</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.jobSafetyAnalysis)}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Company</Label>
-                  <p className="mt-1">{workPermit.company?.name || '-'}</p>
+                  <Label className="text-muted-foreground">Work Requirements</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workRequirements)}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Start Date</Label>
+                  <Label className="text-muted-foreground">Safety Guideline</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.workers?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No workers listed.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {workPermit.workers!.map((worker) => (
+                      <div key={worker.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div>
+                          <p className="font-medium">
+                            {worker.user
+                              ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
+                              : 'Unknown'}
+                          </p>
+                          {worker.idNumber ? (
+                            <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.employees}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.employees?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No employees listed.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {workPermit.employees!.map((e) => (
+                      <li key={e.id} className="text-sm border rounded-md p-2">
+                        {e.user
+                          ? `${e.user.firstName ?? ''} ${e.user.lastName ?? ''}`.trim() || e.user.email || '—'
+                          : displayField(e.employeeName)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.professions?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No professions listed.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Profession</TableHead>
+                        <TableHead className="w-24 text-right">Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.professions!.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell>
+                            {displayField(p.profession?.name)} ({displayField(p.profession?.code)})
+                          </TableCell>
+                          <TableCell className="text-right">{p.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.supervisors}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.supervisors?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No supervisors listed.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {workPermit.supervisors!.map((s) => (
+                      <li key={s.id} className="text-sm border rounded-md p-2">
+                        {displayField(s.guest?.name)}
+                        {s.guest?.phone ? ` · ${s.guest.phone}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.hseOfficers}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.hseOfficers?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No HSE officers listed.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {workPermit.hseOfficers!.map((h) => (
+                      <li key={h.id} className="text-sm border rounded-md p-2">
+                        {h.user
+                          ? `${h.user.firstName ?? ''} ${h.user.lastName ?? ''}`.trim() || h.user.email || '—'
+                          : '—'}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </WorkPermitSection>
+
+        <WorkPermitSection id="work-permit-detail-section-c" title={WORK_PERMIT_SECTIONS.C}>
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.tools}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.tools?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No items.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead className="w-24 text-right">Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.tools!.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell>{displayField(t.tool?.name)}</TableCell>
+                          <TableCell>{displayField(t.tool?.code)}</TableCell>
+                          <TableCell className="text-right">{t.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.machines}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.machines?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No items.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead className="w-24 text-right">Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.machines!.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell>{displayField(m.machine?.name)}</TableCell>
+                          <TableCell>{displayField(m.machine?.code)}</TableCell>
+                          <TableCell className="text-right">{m.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.materials}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.materials?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No items.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead className="w-24 text-right">Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.materials!.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell>{displayField(m.material?.name)}</TableCell>
+                          <TableCell>{displayField(m.material?.code)}</TableCell>
+                          <TableCell className="text-right">{m.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.heavyEquipment}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.heavyEquipment?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No items.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead className="w-24 text-right">Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.heavyEquipment!.map((e) => (
+                        <TableRow key={e.id}>
+                          <TableCell>{displayField(e.heavyEquipment?.name)}</TableCell>
+                          <TableCell>{displayField(e.heavyEquipment?.code)}</TableCell>
+                          <TableCell className="text-right">{e.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </WorkPermitSection>
+
+        <WorkPermitSection id="work-permit-detail-section-d" title={WORK_PERMIT_SECTIONS.D}>
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_D_SUB.hazards}</WorkPermitSubsectionTitle>
+            </CardHeader>
+            <CardContent>
+              {(workPermit.hazards?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">No hazard rows.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">No</TableHead>
+                      <TableHead>Activity</TableHead>
+                      <TableHead>Potential risk</TableHead>
+                      <TableHead>Worksafe method</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {workPermit.hazards!.map((h, i) => (
+                      <TableRow key={h.id}>
+                        <TableCell>{i + 1}</TableCell>
+                        <TableCell className="whitespace-pre-wrap">{displayField(h.hazardName)}</TableCell>
+                        <TableCell className="whitespace-pre-wrap">{displayField(h.description)}</TableCell>
+                        <TableCell className="whitespace-pre-wrap">{displayField(h.controlMeasure)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+
+        <WorkPermitSection id="work-permit-detail-section-e" title={WORK_PERMIT_SECTIONS.E}>
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_E_SUB.selectedEquipment}</WorkPermitSubsectionTitle>
+            </CardHeader>
+            <CardContent>
+              {(workPermit.safetyEquipment?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">No safety equipment selected.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {workPermit.safetyEquipment!.map((s) => (
+                    <Badge key={s.id} variant="secondary">
+                      {s.safetyEquipment
+                        ? `${s.safetyEquipment.name ?? ''}${s.safetyEquipment.code ? ` (${s.safetyEquipment.code})` : ''}`.trim() || '—'
+                        : '—'}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+
+        <WorkPermitSection id="work-permit-detail-section-f" title={WORK_PERMIT_SECTIONS.F}>
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.initialPermitGrant}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Work start date</Label>
                   <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">End Date</Label>
+                  <Label className="text-muted-foreground">Work end date</Label>
                   <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
                 </div>
-              </div>
-              <div className="lg:border-l lg:pl-6 flex flex-col">
-                <ApprovalTimelineCard
-                  approvalHistory={approvalHistory}
-                  isLoading={isLoadingHistory}
-                  assessmentStatus={
-                    ['APPROVED', 'REJECTED', 'CLOSED'].includes(workPermit.status) ? 'DONE' : workPermit.status
-                  }
-                  entityDepartmentName={workPermit.area?.name}
-                  entityJobPositionName="Department Head"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                <div>
+                  <Label className="text-muted-foreground">Work start time</Label>
+                  <p className="mt-1">—</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Work end time</Label>
+                  <p className="mt-1">—</p>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Work Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Work Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-gray-500">Work Stages Description</Label>
-              <p className="mt-1 whitespace-pre-wrap">{workPermit.workStagesDescription}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Job Safety Analysis</Label>
-              <p className="mt-1 whitespace-pre-wrap">{workPermit.jobSafetyAnalysis}</p>
-            </div>
-            {workPermit.workRequirements && (
-              <div>
-                <Label className="text-gray-500">Work Requirements</Label>
-                <p className="mt-1 whitespace-pre-wrap">{workPermit.workRequirements}</p>
-              </div>
-            )}
-            {workPermit.safetyGuideline && (
-              <div>
-                <Label className="text-gray-500">Safety Guideline</Label>
-                <p className="mt-1 whitespace-pre-wrap">{workPermit.safetyGuideline}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.permitExtension}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Extended start date</Label>
+                  <p className="mt-1">—</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Extended end date</Label>
+                  <p className="mt-1">—</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Extended start time</Label>
+                  <p className="mt-1">—</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Extended end time</Label>
+                  <p className="mt-1">—</p>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Workers */}
-        {workPermit.workers && workPermit.workers.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Workers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {workPermit.workers.map((worker) => (
-                  <div key={worker.id} className="flex items-center justify-between p-2 border rounded">
-                    <div>
-                      <p className="font-medium">
-                        {worker.user
-                          ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
-                          : 'Unknown'}
-                      </p>
-                      {worker.idNumber && <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.workResultVerification}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Work result status</Label>
+                  <p className="mt-1">—</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Notes</Label>
+                  <p className="mt-1">—</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.courseVerification}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">
+                  Require course verification:{' '}
+                  <span className="font-medium">{workPermit.requireCourseVerification ? 'Yes' : 'No'}</span>
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.requiredCourses}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.requiredCourses?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No required courses.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Course</TableHead>
+                        <TableHead className="w-28">Required</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.requiredCourses!.map((c) => (
+                        <TableRow key={c.id}>
+                          <TableCell>{displayField(c.course?.title)}</TableCell>
+                          <TableCell>{c.isRequired ? 'Yes' : 'No'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                {(workPermit.attachments?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No attachments.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>File</TableHead>
+                        <TableHead>Description</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workPermit.attachments!.map((a) => (
+                        <TableRow key={a.id}>
+                          <TableCell>
+                            <a
+                              href={a.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary underline underline-offset-2"
+                            >
+                              {displayField(a.fileName)}
+                            </a>
+                          </TableCell>
+                          <TableCell className="whitespace-pre-wrap">{displayField(a.description)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </WorkPermitSection>
       </div>
 
       {/* Approve Dialog */}

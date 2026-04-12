@@ -2,9 +2,8 @@
  * Quiz seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient, QuizAttemptStatusEnum } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { QuizAttemptStatusEnum } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 export const seedQuizzes = async () => {
   console.log('🌱 Seeding quizzes...');

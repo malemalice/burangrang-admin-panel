@@ -36,7 +36,13 @@ import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.se
 import { seedIncidents } from './seeds/incidents.seed';
 import { seedKpiHseTargets } from './seeds/kpi-hse-targets.seed';
 
-const prisma = new PrismaClient();
+const dbUrl = process.env.DATABASE_URL ?? '';
+const dbUrlSep = dbUrl.includes('?') ? '&' : '?';
+const prisma = new PrismaClient({
+  datasources: {
+    db: { url: `${dbUrl}${dbUrlSep}connection_limit=1&pool_timeout=30` },
+  },
+});
 
 // Get the table name from command line arguments
 const tableToSeed = process.argv[2]?.toLowerCase();

@@ -1,8 +1,10 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import EmailTemplatesPage from '../pages/EmailTemplatesPage';
-import CreateEmailTemplatePage from '../pages/CreateEmailTemplatePage';
-import EditEmailTemplatePage from '../pages/EditEmailTemplatePage';
-import EmailTemplateDetailPage from '../pages/EmailTemplateDetailPage';
+
+const EmailTemplatesPage = lazy(() => import('../pages/EmailTemplatesPage'));
+const CreateEmailTemplatePage = lazy(() => import('../pages/CreateEmailTemplatePage'));
+const EditEmailTemplatePage = lazy(() => import('../pages/EditEmailTemplatePage'));
+const EmailTemplateDetailPage = lazy(() => import('../pages/EmailTemplateDetailPage'));
 
 /**
  * Email templates management module routes
@@ -27,5 +29,3 @@ const emailTemplateRoutes: RouteConfig[] = [
 ];
 
 export default emailTemplateRoutes;
-
-

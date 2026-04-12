@@ -1069,6 +1069,15 @@ export class MasterApprovalsService {
       throw new BadRequestException('User does not have approval rights');
     }
 
+    if (
+      submitApprovalDto.status === ApprovalStatus.REJECTED &&
+      !submitApprovalDto.notes?.trim()
+    ) {
+      throw new BadRequestException('Notes are required when rejecting');
+    }
+
+    const notes = submitApprovalDto.notes?.trim() ?? '';
+
     // Create approval record
     try {
       await this.prisma.approval.create({
@@ -1078,7 +1087,7 @@ export class MasterApprovalsService {
           departmentId: user.departmentId!,
           jobPositionId: user.jobPositionId!,
           status: submitApprovalDto.status,
-          notes: submitApprovalDto.notes,
+          notes,
           createdBy: user.id,
         },
       });
@@ -1131,11 +1140,13 @@ export class MasterApprovalsService {
       );
     }
 
-    // PPE Withdrawal uses PPEWithdrawalStatusEnum; other entities use GeneralStatusEnum
+    // PPE Withdrawal uses PPEWithdrawalStatusEnum; WeightReport uses WeightReportStatusEnum; others use GeneralStatusEnum
     const statusCast =
       entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL
         ? `'${status}'::"PPEWithdrawalStatusEnum"`
-        : `'${status}'::"GeneralStatusEnum"`;
+        : entityName === APPROVAL_ENTITIES.WEIGHT_REPORT
+          ? `'${status}'::"WeightReportStatusEnum"`
+          : `'${status}'::"GeneralStatusEnum"`;
 
     await this.prisma.$executeRaw(
       Prisma.sql`UPDATE ${Prisma.raw(`"${tableName}"`)} SET status = ${Prisma.raw(statusCast)} WHERE id = ${entityId}`

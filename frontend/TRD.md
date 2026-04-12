@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.12
+- **Version**: 1.13
 - **Date**: 2025-02-21
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: PDF — Verification and approval (digital) section for Master Approval–integrated exports
+- **Last Updated**: Route-level code splitting (`React.lazy`) and edit-page vs form data-fetch principles
 
 ---
 
@@ -14,6 +14,7 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.13 Updates**: Added **Route-level code splitting** and **Edit page vs form data fetching** under Technical Implementation Guidelines. Module route files should use `React.lazy()` for page components so each route loads on demand (smaller dev-time graphs per navigation, clearer production chunks). Root `Suspense` is required (see `App.tsx`). Edit pages that only wrap a form must not duplicate entity hooks (`useX`, `fetchX`) already used inside the form—avoid redundant API calls and keep the page a thin shell (header + navigation). Reference: `quizRoutes.ts`, `certificateRoutes.tsx`, `EditCertificatePage.tsx`, `CertificateForm.tsx`.
 **Version 1.12 Updates**: Added **PDF — Verification and approval (digital)** under Advanced Features: mandatory structure for PDF templates when an entity uses Master Approvals (`ApprovalStatusHistory`: summary line, workflow-by-step table, chronological log, empty state). Reference: `EnvironmentalMeasurementPDFTemplate`, `WeightReportPDFTemplate`.
 **Version 1.11 Updates**: Added "Workflow Guideline UI — Principles for Creating Workflow Information" under Document Workflow & Status Management Patterns. Defines content principles (status per step, concrete ownership Who/Role-Dept, one-line description, terminal state), structure principles (sequential steps, consistent fields per step, short intro), and UI/UX principles (one card per step, semantic color, connectors, terminal callout, dialog layout). **Workflow guidelines must be dynamic**: approval steps (who approves) are driven by Master Approval configuration — fetch by entity from `approval-entities`, render approval lines from `masterApproval.items` (with sentinel labels), fallback when no config. Reference: MasterApprovalForm, InspectionItemsPage.
 **Version 1.10 Updates**: Added "Data-Level Access (Backend)" — for data-scoped modules (Enrollments, Work Permits, Certificates, PPE Withdrawals) the backend enforces row-level access (SELF / DEPARTMENT / SUPER). Lists may return fewer rows or empty; single-record requests (get by id, update, delete) may return 403. Handle 403 with a clear message (e.g. "You do not have access to this record"); treat empty lists as valid, not as errors. Reference: Error Handling Patterns, docs/auth.md.
@@ -171,18 +172,52 @@ export * from './routes';
 ```
 
 ### 2. Route Registration Pattern
+
+Central registration in [`core/routes/index.ts`](src/core/routes/index.ts) aggregates each module’s route array. Modules export route configs from `modules/[name]/routes/*Routes.ts(x)`.
+
+#### Principles — route-level code splitting
+
+- **Lazy-load page components**: In module route files, register pages with `React.lazy(() => import('../pages/...'))` instead of static `import ... from` for every page. That way the bundler splits by route; navigating to a URL loads that route’s chunk instead of pulling the entire module page tree up front.
+- **Why it matters**: In Vite dev, many small JS requests are normal; without lazy routes, the dependency graph for *all* statically imported pages is evaluated together, which inflates initial work and confuses network debugging. In production, lazy routes map to separate async chunks and better caching.
+- **Suspense**: The app root must wrap routed content in `<Suspense fallback={...}>` so lazy components can suspend (see `App.tsx`).
+- **Keep route files thin**: Only `lazy`, `RouteConfig[]`, and path → component mapping—no business logic.
+
 ```typescript
-// core/routes/index.ts
+// modules/[feature]/routes/[feature]Routes.ts
+import { lazy } from 'react';
+import { RouteConfig } from '@/core/routes/types';
+
+const FeatureListPage = lazy(() => import('../pages/FeatureListPage'));
+const FeatureDetailPage = lazy(() => import('../pages/FeatureDetailPage'));
+
+const featureRoutes: RouteConfig[] = [
+  { path: '/features', component: FeatureListPage },
+  { path: '/features/:id', component: FeatureDetailPage },
+];
+
+export default featureRoutes;
+```
+
+```typescript
+// core/routes/index.ts (aggregate only; still imports route modules)
 import userRoutes from '@/modules/users/routes/userRoutes';
 import roleRoutes from '@/modules/roles/routes/roleRoutes';
 
-export const allRoutes = [
-  ...coreRoutes,
+const routes: RouteConfig[] = [
+  ...coreRoutes.filter(/* ... */),
   ...userRoutes,
   ...roleRoutes,
-  // ... other routes
+  // ... other route arrays
 ];
+
+export default routes;
 ```
+
+#### Principles — edit page vs form data fetching
+
+- **Single source of fetch for one entity**: If a form component already calls a hook that loads the record by id (e.g. `useCertificate(id)` in edit mode), the parent **edit page** should not call the same hook again or duplicate `useEffect` + `fetch`—that causes multiple identical API requests and races.
+- **Thin edit shell**: Prefer an edit route page that only provides layout (e.g. `PageHeader`, back button) and renders `<EntityForm mode="edit" />`. Loading and “not found” handling live in the form (or a dedicated data boundary), unless the product explicitly needs a full-page loading state driven by the parent.
+- **Shared id**: The form reads `id` from `useParams` or receives it via props; avoid fetching in both parent and child for the same id.
 
 ### 3. Module Communication Guidelines
 - **Keep module state local** when possible

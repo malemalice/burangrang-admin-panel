@@ -2017,7 +2017,7 @@ export class WorkPermitsService {
           }),
           this.prisma.workClassification.findMany({
             where: { isActive: true },
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, safetyGuideline: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.guest.findMany({

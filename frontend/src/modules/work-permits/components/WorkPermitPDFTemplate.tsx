@@ -3,6 +3,12 @@ import type {
   WorkPermit,
   ApprovalTimelineItem,
 } from '../types/work-permit.types';
+import {
+  WORK_PERMIT_SECTIONS,
+  WORK_PERMIT_SECTION_B_SUB,
+  WORK_PERMIT_SECTION_C_SUB,
+  WORK_PERMIT_SECTION_F_SUB,
+} from '../constants/workPermitSections';
 
 const na = (v: unknown) => (v != null && v !== '' ? String(v) : '—');
 
@@ -12,7 +18,7 @@ interface WorkPermitPDFTemplateProps {
 }
 
 export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTemplateProps) {
-  const rows: [string, string][] = [
+  const rowsB: [string, string][] = [
     ['ID', na(workPermit.id)],
     ['Code', na(workPermit.code)],
     ['Project Name', na(workPermit.projectName)],
@@ -26,7 +32,35 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
     ['Job Safety Analysis', na(workPermit.jobSafetyAnalysis)],
     ['Work Requirements', na(workPermit.workRequirements)],
     ['Safety Guideline', na(workPermit.safetyGuideline)],
-    ['Require Course Verification', workPermit.requireCourseVerification != null ? String(workPermit.requireCourseVerification) : '—'],
+  ];
+
+  const rowsInitialGrant: [string, string][] = [
+    ['Work start date', workPermit.proposedStartDate ? format(new Date(workPermit.proposedStartDate), 'dd MMM yyyy') : '—'],
+    ['Work end date', workPermit.proposedEndDate ? format(new Date(workPermit.proposedEndDate), 'dd MMM yyyy') : '—'],
+    ['Work start time', '—'],
+    ['Work end time', '—'],
+  ];
+
+  const rowsExtension: [string, string][] = [
+    ['Extended start date', '—'],
+    ['Extended end date', '—'],
+    ['Extended start time', '—'],
+    ['Extended end time', '—'],
+  ];
+
+  const rowsWorkResult: [string, string][] = [
+    ['Work result status', '—'],
+    ['Notes', '—'],
+  ];
+
+  const rowsCourseVerification: [string, string][] = [
+    [
+      'Require course verification',
+      workPermit.requireCourseVerification != null ? String(workPermit.requireCourseVerification) : '—',
+    ],
+  ];
+
+  const rowsFRecord: [string, string][] = [
     ['Created By', workPermit.creator ? `${workPermit.creator.firstName ?? ''} ${workPermit.creator.lastName ?? ''}`.trim() || workPermit.creator.email || '—' : na(workPermit.createdBy)],
     ['Created At', workPermit.createdAt ? format(new Date(workPermit.createdAt), 'dd MMM yyyy HH:mm') : '—'],
     ['Updated At', workPermit.updatedAt ? format(new Date(workPermit.updatedAt), 'dd MMM yyyy HH:mm') : '—'],
@@ -47,6 +81,25 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
   const hseOfficers = workPermit.hseOfficers ?? [];
   const safetyEquipment = workPermit.safetyEquipment ?? [];
 
+  const attrTable = (rows: [string, string][]) => (
+    <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+      <thead>
+        <tr className="bg-gray-100">
+          <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 w-1/3">Attribute</th>
+          <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(([attr, value], i) => (
+          <tr key={i}>
+            <td className="border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 break-words">{attr}</td>
+            <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
@@ -57,32 +110,9 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
       </div>
 
-      {/* Main attributes */}
+      {/* Section A — PRD */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">
-          Work Permit Details
-        </h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 w-1/3">Attribute</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([attr, value], i) => (
-              <tr key={i}>
-                <td className="border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 break-words">{attr}</td>
-                <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Classifications */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Classifications</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.A}</h2>
         <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
@@ -109,10 +139,13 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
       </div>
 
-      {/* Employees */}
+      {/* Section B — PRD */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Employees</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.B}</h2>
+        <div className="mb-6">{attrTable(rowsB)}</div>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.employees}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -138,12 +171,9 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
             )}
           </tbody>
         </table>
-      </div>
 
-      {/* Workers */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Workers</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.workers}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -173,11 +203,175 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
             )}
           </tbody>
         </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.professions}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {professions.length === 0 ? (
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              professions.map((p, i) => (
+                <tr key={p.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.name)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.code)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.quantity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.order)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.supervisors}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Guest Name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            {supervisors.length === 0 ? (
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              supervisors.map((s, i) => (
+                <tr key={s.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(s.guest?.name)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(s.guest?.email)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(s.guest?.phone)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.hseOfficers}</h3>
+        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">User (Name / Email)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {hseOfficers.length === 0 ? (
+              <tr><td colSpan={2} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              hseOfficers.map((h, i) => (
+                <tr key={h.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {h.user ? `${na(h.user.firstName)} ${na(h.user.lastName)} / ${na(h.user.email)}` : '—'}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Heavy Equipment */}
+      {/* Section C — PRD (Tools → Machines → Materials → Heavy Equipment) */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Heavy Equipment</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.C}</h2>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.tools}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tools.length === 0 ? (
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              tools.map((t, i) => (
+                <tr key={t.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(t.tool?.name)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(t.tool?.code)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(t.quantity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(t.order)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.machines}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {machines.length === 0 ? (
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              machines.map((m, i) => (
+                <tr key={m.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.machine?.name)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.machine?.code)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.quantity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.order)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.materials}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {materials.length === 0 ? (
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              materials.map((m, i) => (
+                <tr key={m.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.material?.name)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.material?.code)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.quantity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.order)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.heavyEquipment}</h3>
         <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
@@ -206,164 +400,9 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
       </div>
 
-      {/* Tools */}
+      {/* Section D — PRD */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Tools</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tools.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              tools.map((t, i) => (
-                <tr key={t.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(t.tool?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(t.tool?.code)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(t.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(t.order)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Materials */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Materials</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
-            </tr>
-          </thead>
-          <tbody>
-            {materials.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              materials.map((m, i) => (
-                <tr key={m.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.material?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.material?.code)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.order)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Machines */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Machines</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
-            </tr>
-          </thead>
-          <tbody>
-            {machines.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              machines.map((m, i) => (
-                <tr key={m.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.machine?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.machine?.code)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.order)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Professions */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Professions</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
-            </tr>
-          </thead>
-          <tbody>
-            {professions.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              professions.map((p, i) => (
-                <tr key={p.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.code)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.order)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Required Courses */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Required Courses</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Title</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Slug</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Is Required</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requiredCourses.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              requiredCourses.map((c, i) => (
-                <tr key={c.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(c.course?.title)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(c.course?.slug)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{c.isRequired != null ? String(c.isRequired) : '—'}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(c.order)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Hazards */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Hazards</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.D}</h2>
         <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
@@ -392,98 +431,9 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
       </div>
 
-      {/* Attachments */}
+      {/* Section E — PRD */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Attachments</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File URL</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Type</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
-            </tr>
-          </thead>
-          <tbody>
-            {attachments.length === 0 ? (
-              <tr><td colSpan={6} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              attachments.map((a, i) => (
-                <tr key={a.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileName)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileUrl)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileType)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(a.description)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(a.order)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Supervisors */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Supervisors</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Guest Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Phone</th>
-            </tr>
-          </thead>
-          <tbody>
-            {supervisors.length === 0 ? (
-              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              supervisors.map((s, i) => (
-                <tr key={s.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(s.guest?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(s.guest?.email)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(s.guest?.phone)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* HSE Officers */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">HSE Officers</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">User (Name / Email)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {hseOfficers.length === 0 ? (
-              <tr><td colSpan={2} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              hseOfficers.map((h, i) => (
-                <tr key={h.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
-                    {h.user ? `${na(h.user.firstName)} ${na(h.user.lastName)} / ${na(h.user.email)}` : '—'}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Safety Equipment */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Safety Equipment</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.E}</h2>
         <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
@@ -508,10 +458,18 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
       </div>
 
-      {/* Approval Timeline */}
+      {/* Section F — PRD */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">Approval Timeline</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.F}</h2>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.initialPermitGrant}</h3>
+        <div className="mb-6">{attrTable(rowsInitialGrant)}</div>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.permitExtension}</h3>
+        <div className="mb-6">{attrTable(rowsExtension)}</div>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.approvalTimeline}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -541,6 +499,73 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
             )}
           </tbody>
         </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.workResultVerification}</h3>
+        <div className="mb-6">{attrTable(rowsWorkResult)}</div>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.courseVerification}</h3>
+        <div className="mb-6">{attrTable(rowsCourseVerification)}</div>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.requiredCourses}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Title</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Slug</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Is Required</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requiredCourses.length === 0 ? (
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              requiredCourses.map((c, i) => (
+                <tr key={c.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(c.course?.title)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(c.course?.slug)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{c.isRequired != null ? String(c.isRequired) : '—'}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(c.order)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.attachments}</h3>
+        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File URL</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Type</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {attachments.length === 0 ? (
+              <tr><td colSpan={6} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+            ) : (
+              attachments.map((a, i) => (
+                <tr key={a.id}>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileName)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileUrl)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileType)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(a.description)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(a.order)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-2">Record</h3>
+        <div className="mb-0">{attrTable(rowsFRecord)}</div>
       </div>
     </div>
   );

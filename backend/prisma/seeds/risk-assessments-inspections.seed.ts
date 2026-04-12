@@ -2,9 +2,8 @@
  * Risk Assessment and Inspection seed data
  * Following seed.ts patterns for seed data
  */
-import { PrismaClient, GeneralStatusEnum, RiskRatingEnum } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { GeneralStatusEnum, PrismaClient, RiskRatingEnum } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
  * Generate risk assessment code: RA{YY}{MM}{DD}{HH}{MM}{SS}

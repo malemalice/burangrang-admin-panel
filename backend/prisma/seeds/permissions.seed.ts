@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Permission } from '@prisma/client';
 
 export const permissions = [
   // User Management
@@ -364,15 +364,15 @@ export const permissions = [
 
 export async function seedPermissions(prisma: PrismaClient) {
   console.log('Creating permissions...');
-  const createdPermissions = await Promise.all(
-    permissions.map((permission) =>
-      prisma.permission.upsert({
-        where: { name: permission.name },
-        update: permission,
-        create: permission,
-      })
-    )
-  );
+  const createdPermissions: Permission[] = [];
+  for (const permission of permissions) {
+    const result = await prisma.permission.upsert({
+      where: { name: permission.name },
+      update: permission,
+      create: permission,
+    });
+    createdPermissions.push(result);
+  }
   console.log(`Created/Updated ${createdPermissions.length} permissions`);
   return createdPermissions;
 } 

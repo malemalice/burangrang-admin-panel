@@ -1,10 +1,12 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import AuditSchedulesPage from '../pages/AuditSchedulesPage';
-import CreateAuditSchedulePage from '../pages/CreateAuditSchedulePage';
-import EditAuditSchedulePage from '../pages/EditAuditSchedulePage';
-import AuditScheduleDetailPage from '../pages/AuditScheduleDetailPage';
-import AuditClauseCriteriaPage from '../pages/AuditClauseCriteriaPage';
-import ViewAuditCriteriaPage from '../pages/ViewAuditCriteriaPage';
+
+const AuditSchedulesPage = lazy(() => import('../pages/AuditSchedulesPage'));
+const CreateAuditSchedulePage = lazy(() => import('../pages/CreateAuditSchedulePage'));
+const EditAuditSchedulePage = lazy(() => import('../pages/EditAuditSchedulePage'));
+const AuditScheduleDetailPage = lazy(() => import('../pages/AuditScheduleDetailPage'));
+const AuditClauseCriteriaPage = lazy(() => import('../pages/AuditClauseCriteriaPage'));
+const ViewAuditCriteriaPage = lazy(() => import('../pages/ViewAuditCriteriaPage'));
 
 /**
  * Audit Schedules module routes
