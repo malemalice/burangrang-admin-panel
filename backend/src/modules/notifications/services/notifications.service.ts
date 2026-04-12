@@ -198,8 +198,6 @@ export class NotificationsService {
           context: {
             title,
             message,
-            context,
-            contextId,
             ...(actionUrl ? { actionUrl } : {}),
           },
         })

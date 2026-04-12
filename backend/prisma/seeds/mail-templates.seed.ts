@@ -394,16 +394,6 @@ const defaultMailTemplates = [
       <a href="{{actionUrl}}" class="cta-button">View Details</a>
     </div>
     {{/if}}
-    {{#if context}}
-    <p style="color: #475569; font-size: 14px; margin-top: 20px;">
-      <strong>Context:</strong> {{context}}
-    </p>
-    {{/if}}
-    {{#if contextId}}
-    <p style="color: #475569; font-size: 14px;">
-      <strong>Reference ID:</strong> {{contextId}}
-    </p>
-    {{/if}}
   </div>
   <div class="footer">
     <p>This is an automated notification from HSSE Dashboard. Please do not reply to this email.</p>

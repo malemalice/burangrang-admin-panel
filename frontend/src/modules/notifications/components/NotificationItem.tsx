@@ -6,6 +6,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Notification } from '../types/notification.types';
 import { cn } from '@/core/lib/utils';
 import { useNotificationNavigation } from '../utils/notificationRoutes';
+import { formatNotificationContextLabel } from '../utils/formatNotificationContextLabel';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -119,7 +120,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   getContextBadgeColor(notification.context)
                 )}
               >
-                {notification.context}
+                {formatNotificationContextLabel(notification.context)}
               </Badge>
             )}
             
