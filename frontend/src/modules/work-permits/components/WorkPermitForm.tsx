@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, X, Trash2 } from 'lucide-react';
@@ -46,6 +46,15 @@ import {
   WORK_PERMIT_SECTION_E_SUB,
   WORK_PERMIT_SECTION_F_SUB,
 } from '../constants/workPermitSections';
+import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification';
+
+function selectionIncludesOthers(
+  classifications: { workClassificationId: string }[] | undefined,
+  masters: MasterDataOption[],
+): boolean {
+  const ids = classifications?.map((c) => c.workClassificationId).filter(Boolean) ?? [];
+  return ids.some((id) => masters.find((w) => w.id === id)?.code === WORK_CLASSIFICATION_OTHER_CODE);
+}
 
 // Form schema for validation
 const formSchema = z.object({
@@ -58,6 +67,7 @@ const formSchema = z.object({
   jobSafetyAnalysis: z.string().min(1, 'Job safety analysis is required'),
   workRequirements: z.string().optional(),
   safetyGuideline: z.string().optional(),
+  workClassificationOtherDetail: z.string().max(2000).optional(),
   requireCourseVerification: z.boolean().default(false),
   classifications: z
     .array(
@@ -272,6 +282,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       jobSafetyAnalysis: '',
       workRequirements: '',
       safetyGuideline: '',
+      workClassificationOtherDetail: '',
       requireCourseVerification: false,
       classifications: [],
       employees: [],
@@ -397,6 +408,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     name: 'attachments',
   });
 
+  // useWatch (not form.watch + useMemo): nested field changes must re-render this block so
+  // "Others" detail shows as soon as OTHERS is selected — watch() can miss array item updates.
+  const watchedClassifications = useWatch({ control: form.control, name: 'classifications' });
+  const showOthersDetailField = selectionIncludesOthers(watchedClassifications, workClassifications);
+
+  useEffect(() => {
+    if (isLoadingData || !workClassifications.length) return;
+    if (!selectionIncludesOthers(watchedClassifications, workClassifications)) {
+      form.setValue('workClassificationOtherDetail', '');
+    }
+  }, [watchedClassifications, workClassifications, form, isLoadingData]);
+
   // Fetch reference data
   useEffect(() => {
     const fetchData = async () => {
@@ -521,6 +544,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         jobSafetyAnalysis: workPermit.jobSafetyAnalysis,
         workRequirements: workPermit.workRequirements || '',
         safetyGuideline: workPermit.safetyGuideline || '',
+        workClassificationOtherDetail: workPermit.workClassificationOtherDetail || '',
         requireCourseVerification: workPermit.requireCourseVerification,
         classifications:
           workPermit.classifications?.map((c) => ({
@@ -738,6 +762,19 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         hazards: sanitizeHazards(data.hazards),
       };
 
+      if (
+        selectionIncludesOthers(sanitizedData.classifications, workClassifications) &&
+        !String(sanitizedData.workClassificationOtherDetail ?? '').trim()
+      ) {
+        toast.error('Please describe the work type when "Lainnya / Others" is selected.');
+        form.setError('workClassificationOtherDetail', {
+          type: 'manual',
+          message: 'Required when Others is selected',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       await onSubmit(sanitizedData as CreateWorkPermitDTO);
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -780,7 +817,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             </CardHeader>
             <CardContent className="space-y-4">
               {classificationFields.map((field, index) => {
-                const allClassificationValues = form.watch('classifications') || [];
+                const allClassificationValues = watchedClassifications ?? [];
                 const selectedIds = allClassificationValues
                   .filter((_, i) => i !== index)
                   .map((c) => c?.workClassificationId)
@@ -824,6 +861,27 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   </div>
                 );
               })}
+              {showOthersDetailField && (
+                <FormField
+                  control={form.control}
+                  name="workClassificationOtherDetail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Others (write the work classification name) <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="write the other type of work name"
+                          className="min-h-[88px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
         </WorkPermitSection>

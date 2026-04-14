@@ -39,6 +39,8 @@ export interface WorkPermit {
   jobSafetyAnalysis: string;
   workRequirements?: string;
   safetyGuideline?: string;
+  /** Free text when "Others" (OTHERS) classification is selected */
+  workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
   status: WorkPermitStatus;
   isActive: boolean;
@@ -263,6 +265,7 @@ export interface WorkPermitDTO {
   jobSafetyAnalysis: string;
   workRequirements?: string;
   safetyGuideline?: string;
+  workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
   status: string;
   isActive: boolean;
@@ -311,6 +314,7 @@ export interface CreateWorkPermitDTO {
   jobSafetyAnalysis: string;
   workRequirements?: string;
   safetyGuideline?: string;
+  workClassificationOtherDetail?: string;
   requireCourseVerification?: boolean;
   classifications?: Array<{
     workClassificationId: string;
@@ -430,6 +434,7 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   jobSafetyAnalysis: workPermit.jobSafetyAnalysis,
   workRequirements: workPermit.workRequirements,
   safetyGuideline: workPermit.safetyGuideline,
+  workClassificationOtherDetail: workPermit.workClassificationOtherDetail,
   requireCourseVerification: workPermit.requireCourseVerification,
   classifications: workPermit.classifications?.map((c) => ({
     workClassificationId: c.workClassificationId || c.id,

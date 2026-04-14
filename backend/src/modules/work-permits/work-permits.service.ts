@@ -23,6 +23,7 @@ import { MasterApprovalsService } from '../approvals/master-approvals.service';
 import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
+import { WORK_CLASSIFICATION_OTHER_CODE } from './constants/work-classification.constants';
 
 @Injectable()
 export class WorkPermitsService {
@@ -277,6 +278,13 @@ export class WorkPermitsService {
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
+      if (createDto.classifications?.length) {
+        await this.ensureOthersClassificationHasDetail(
+          createDto.classifications.map((c) => c.workClassificationId),
+          createDto.workClassificationOtherDetail,
+        );
+      }
+
       // Generate code
       const code = await this.generateCode();
 
@@ -293,6 +301,7 @@ export class WorkPermitsService {
           jobSafetyAnalysis: createDto.jobSafetyAnalysis,
           workRequirements: createDto.workRequirements,
           safetyGuideline: createDto.safetyGuideline,
+          workClassificationOtherDetail: createDto.workClassificationOtherDetail,
           requireCourseVerification: createDto.requireCourseVerification || false,
           status: 'DRAFT',
           createdBy,
@@ -491,6 +500,28 @@ export class WorkPermitsService {
 
       return this.mapWorkPermitWithRelations(workPermit);
     }, 'Creating work permit');
+  }
+
+  private async ensureOthersClassificationHasDetail(
+    workClassificationIds: string[],
+    detail: string | null | undefined,
+  ): Promise<void> {
+    if (!workClassificationIds.length) {
+      return;
+    }
+    const rows = await this.prisma.workClassification.findMany({
+      where: { id: { in: workClassificationIds } },
+      select: { code: true },
+    });
+    const hasOthers = rows.some((r) => r.code === WORK_CLASSIFICATION_OTHER_CODE);
+    if (!hasOthers) {
+      return;
+    }
+    if (!detail?.trim()) {
+      this.errorHandler.throwBadRequest(
+        'When work classification "Others" (Lainnya) is selected, the detail field is required.',
+      );
+    }
   }
 
   /**
@@ -1035,6 +1066,26 @@ export class WorkPermitsService {
         }
       }
 
+      if (updateDto.classifications !== undefined) {
+        const mergedDetail =
+          updateDto.workClassificationOtherDetail !== undefined
+            ? updateDto.workClassificationOtherDetail
+            : existing.workClassificationOtherDetail;
+        await this.ensureOthersClassificationHasDetail(
+          updateDto.classifications.map((c) => c.workClassificationId),
+          mergedDetail,
+        );
+      } else if (updateDto.workClassificationOtherDetail !== undefined) {
+        const withClass = await this.prisma.workPermit.findUnique({
+          where: { id },
+          include: { classifications: true },
+        });
+        await this.ensureOthersClassificationHasDetail(
+          withClass!.classifications.map((c) => c.workClassificationId),
+          updateDto.workClassificationOtherDetail,
+        );
+      }
+
       // Prepare update data
       const updateData: any = {};
 
@@ -1052,6 +1103,9 @@ export class WorkPermitsService {
       if (updateDto.jobSafetyAnalysis !== undefined) updateData.jobSafetyAnalysis = updateDto.jobSafetyAnalysis;
       if (updateDto.workRequirements !== undefined) updateData.workRequirements = updateDto.workRequirements;
       if (updateDto.safetyGuideline !== undefined) updateData.safetyGuideline = updateDto.safetyGuideline;
+      if (updateDto.workClassificationOtherDetail !== undefined) {
+        updateData.workClassificationOtherDetail = updateDto.workClassificationOtherDetail;
+      }
       if (updateDto.requireCourseVerification !== undefined) updateData.requireCourseVerification = updateDto.requireCourseVerification;
 
       // Handle nested relations updates
@@ -1419,6 +1473,13 @@ export class WorkPermitsService {
       await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
+        include: {
+          classifications: {
+            include: {
+              workClassification: true,
+            },
+          },
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
@@ -1427,6 +1488,11 @@ export class WorkPermitsService {
       if (workPermit.status !== WorkPermitStatusEnum.DRAFT) {
         this.errorHandler.throwBadRequest(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
       }
+
+      await this.ensureOthersClassificationHasDetail(
+        workPermit.classifications.map((c) => c.workClassificationId),
+        workPermit.workClassificationOtherDetail,
+      );
 
       // Update status to IN_REVIEW_HSE
       const updated = await this.prisma.workPermit.update({

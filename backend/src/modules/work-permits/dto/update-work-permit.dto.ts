@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsBoolean, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsBoolean, IsArray, ValidateNested, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   WorkPermitClassificationDto,
@@ -60,6 +60,16 @@ export class UpdateWorkPermitDto {
   @IsOptional()
   @IsString()
   safetyGuideline?: string;
+
+  @ApiProperty({
+    description:
+      'Required when work classification "Others" (code OTHERS) is selected — free-text description of the other work type',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  workClassificationOtherDetail?: string;
 
   @ApiProperty({ description: 'Require course verification', required: false })
   @IsOptional()

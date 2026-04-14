@@ -2138,6 +2138,7 @@ Table t_work_permits {
   jobSafetyAnalysis text [not null]
   workRequirements text [null]
   safetyGuideline text [null]
+  work_classification_other_detail text [null, note: 'Free text when m_work_classification.code = OTHERS (Lainnya) is selected']
   requireCourseVerification boolean [not null, default: false]
   status varchar [not null, note: 'DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_HSE, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED']
   isActive boolean [not null, default: true]

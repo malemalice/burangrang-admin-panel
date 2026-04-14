@@ -389,15 +389,23 @@ const WorkPermitDetailPage = () => {
               {(workPermit.classifications?.length ?? 0) === 0 ? (
                 <p className="text-sm text-muted-foreground">No classifications selected.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {workPermit.classifications!.map((c) => (
-                    <Badge key={c.id} variant="secondary">
-                      {c.workClassification
-                        ? `${c.workClassification.name ?? ''}${c.workClassification.code ? ` (${c.workClassification.code})` : ''}`.trim() ||
-                          '—'
-                        : '—'}
-                    </Badge>
-                  ))}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {workPermit.classifications!.map((c) => (
+                      <Badge key={c.id} variant="secondary">
+                        {c.workClassification
+                          ? `${c.workClassification.name ?? ''}${c.workClassification.code ? ` (${c.workClassification.code})` : ''}`.trim() ||
+                            '—'
+                          : '—'}
+                      </Badge>
+                    ))}
+                  </div>
+                  {workPermit.workClassificationOtherDetail?.trim() ? (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Lainnya (detail)</p>
+                      <p className="text-sm whitespace-pre-wrap">{workPermit.workClassificationOtherDetail}</p>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </CardContent>

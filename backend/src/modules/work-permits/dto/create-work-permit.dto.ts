@@ -10,6 +10,7 @@ import {
   IsInt,
   Min,
   ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -270,6 +271,16 @@ export class CreateWorkPermitDto {
   @IsOptional()
   @IsString()
   safetyGuideline?: string;
+
+  @ApiProperty({
+    description:
+      'Required when work classification "Others" (code OTHERS) is selected — free-text description of the other work type',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  workClassificationOtherDetail?: string;
 
   @ApiProperty({ description: 'Require course verification', default: false })
   @IsOptional()

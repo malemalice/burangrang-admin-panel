@@ -73,6 +73,15 @@ export class WorkPermitDto {
   @IsString()
   safetyGuideline?: string;
 
+  @ApiProperty({
+    description: 'Free-text when "Others" work classification is used',
+    required: false,
+  })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  workClassificationOtherDetail?: string;
+
   @ApiProperty({ description: 'Require course verification', default: false })
   @Expose()
   @IsBoolean()
