@@ -159,11 +159,17 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
                 <FormItem>
                   <FormLabel>Safety guidelines</FormLabel>
                   <FormControl>
-                    <RichEditor value={field.value || EMPTY_HTML} onChange={field.onChange} />
+                    <RichEditor
+                      value={field.value || EMPTY_HTML}
+                      onChange={field.onChange}
+                      pageLayout
+                      enablePdfExport
+                    />
                   </FormControl>
                   <FormDescription>
                     Rich text with tables; merge or split cells from the table toolbar when a table
-                    is selected.
+                    is selected. Page breaks in the editor are visual guides only (the document still
+                    grows with content); use Preview PDF to see the exact paginated output.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
