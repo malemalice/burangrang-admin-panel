@@ -109,7 +109,12 @@ export function SearchableSelect({
   }, []);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) {
+        setSearchQuery("");
+      }
+    }}>
       <PopoverTrigger asChild>
         <Button
           id={id}
