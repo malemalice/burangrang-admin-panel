@@ -1460,7 +1460,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
-              <CardDescription>Professions required for this project</CardDescription>
+              <CardDescription>
+                For each line, choose the profession and enter how many workers you need in that role for this
+                permit.
+              </CardDescription>
             </div>
             <Button
               type="button"
@@ -1485,6 +1488,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`professions.${index}.professionId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Profession</FormLabel>
                       <FormControl>
                         <ModalCombobox
                           options={professionOptions}
@@ -1504,7 +1508,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`professions.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Workers in this role</FormLabel>
                       <FormControl>
                         <Input
                           type="number"

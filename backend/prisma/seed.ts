@@ -35,6 +35,7 @@ import { seedAuditSchedules } from './seeds/audit-schedules.seed';
 import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.seed';
 import { seedIncidents } from './seeds/incidents.seed';
 import { seedKpiHseTargets } from './seeds/kpi-hse-targets.seed';
+import { seedWorkClassificationSafetyGuidelines } from './seeds/work-classification-safety-guidelines.seed';
 
 const dbUrl = process.env.DATABASE_URL ?? '';
 const dbUrlSep = dbUrl.includes('?') ? '&' : '?';
@@ -507,10 +508,14 @@ async function main() {
           await prisma.waterQualityParameter.deleteMany();
           await prisma.treatmentPlant.deleteMany();
           break;
+        case 'work-classification-safety-guidelines':
+        case 'work_classification_safety_guidelines':
+          // No rows to clear — seeder only updates existing classifications
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents, work-classification-safety-guidelines',
           );
           process.exit(1);
       }
@@ -558,6 +563,7 @@ async function main() {
       await seedCourses();
       await seedQuizzes();
       await seedWorkPermitsData(prisma);
+      await seedWorkClassificationSafetyGuidelines(prisma);
       await seedAreas();
       await seedRooms();
       await seedEnvironmentalMeasurements();
@@ -734,6 +740,10 @@ async function main() {
           await prisma.guest.deleteMany();
           // Note: Master data (work classifications, equipment, etc.) are not cleared
           await seedWorkPermitsData(prisma);
+          break;
+        case 'work-classification-safety-guidelines':
+        case 'work_classification_safety_guidelines':
+          await seedWorkClassificationSafetyGuidelines(prisma);
           break;
         case 'man_hours':
         case 'man-hours':
