@@ -402,7 +402,7 @@ const WorkPermitDetailPage = () => {
                   </div>
                   {workPermit.workClassificationOtherDetail?.trim() ? (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Lainnya (detail)</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Others (detail)</p>
                       <p className="text-sm whitespace-pre-wrap">{workPermit.workClassificationOtherDetail}</p>
                     </div>
                   ) : null}
@@ -436,7 +436,10 @@ const WorkPermitDetailPage = () => {
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Company</Label>
-                    <p className="mt-1">{displayField(workPermit.company?.name)}</p>
+                    <p className="mt-1">
+                      {displayField(workPermit.company?.name)}
+                      {workPermit.company?.phone ? ` · ${workPermit.company.phone}` : ''}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Proposed start date</Label>
@@ -470,6 +473,10 @@ const WorkPermitDetailPage = () => {
                 <div>
                   <Label className="text-muted-foreground">Safety Guideline</Label>
                   <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Safety guideline acknowledged</Label>
+                  <p className="mt-1">{workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -562,12 +569,14 @@ const WorkPermitDetailPage = () => {
                   <p className="text-sm text-muted-foreground">No supervisors listed.</p>
                 ) : (
                   <ul className="space-y-2">
-                    {workPermit.supervisors!.map((s) => (
-                      <li key={s.id} className="text-sm border rounded-md p-2">
-                        {displayField(s.guest?.name)}
-                        {s.guest?.phone ? ` · ${s.guest.phone}` : ''}
-                      </li>
-                    ))}
+                    {workPermit.supervisors!.map((s) => {
+                      const nm = displayField(s.guest?.name);
+                      return (
+                        <li key={s.id} className="text-sm border rounded-md p-2">
+                          {s.guest?.phone ? `${nm} · ${s.guest.phone}` : nm}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </CardContent>

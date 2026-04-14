@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsBoolean, IsArray, ValidateNested, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+  MaxLength,
+  Equals,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   WorkPermitClassificationDto,
@@ -75,6 +84,16 @@ export class UpdateWorkPermitDto {
   @IsOptional()
   @IsBoolean()
   requireCourseVerification?: boolean;
+
+  @ApiProperty({
+    description:
+      'When provided, must be true — user confirms they have read the safety guideline',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Equals(true, { message: 'You must confirm that you have read the safety guideline' })
+  acknowledgedSafetyGuideline?: boolean;
 
   @ApiProperty({ description: 'Work classifications', type: [WorkPermitClassificationDto], required: false })
   @IsOptional()

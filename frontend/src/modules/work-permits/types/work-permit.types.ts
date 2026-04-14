@@ -8,6 +8,9 @@ export interface MasterDataOption {
   code: string;
 }
 
+/** Company row from work-permit master-data (includes phone for display) */
+export type CompanyOption = MasterDataOption & { phone?: string | null };
+
 export interface GuestOption {
   id: string;
   name: string;
@@ -17,7 +20,7 @@ export interface GuestOption {
 
 export interface WorkPermitMasterData {
   areas: MasterDataOption[];
-  companies: MasterDataOption[];
+  companies: CompanyOption[];
   workClassifications: MasterDataOption[];
   guests: GuestOption[];
   heavyEquipment: MasterDataOption[];
@@ -42,6 +45,7 @@ export interface WorkPermit {
   /** Free text when "Others" (OTHERS) classification is selected */
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
+  acknowledgedSafetyGuideline: boolean;
   status: WorkPermitStatus;
   isActive: boolean;
   createdBy: string;
@@ -57,6 +61,7 @@ export interface WorkPermit {
     id: string;
     name: string;
     code: string;
+    phone?: string | null;
   };
   creator?: {
     id: string;
@@ -267,6 +272,7 @@ export interface WorkPermitDTO {
   safetyGuideline?: string;
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
+  acknowledgedSafetyGuideline?: boolean;
   status: string;
   isActive: boolean;
   createdBy: string;
@@ -281,6 +287,7 @@ export interface WorkPermitDTO {
     id: string;
     name: string;
     code: string;
+    phone?: string | null;
   };
   creator?: {
     id: string;
@@ -316,6 +323,7 @@ export interface CreateWorkPermitDTO {
   safetyGuideline?: string;
   workClassificationOtherDetail?: string;
   requireCourseVerification?: boolean;
+  acknowledgedSafetyGuideline: boolean;
   classifications?: Array<{
     workClassificationId: string;
     order: number;
@@ -422,6 +430,7 @@ export interface ApprovalTimelineItem {
 export const mapWorkPermitDtoToWorkPermit = (dto: WorkPermitDTO): WorkPermit => ({
   ...dto,
   status: dto.status as WorkPermitStatus,
+  acknowledgedSafetyGuideline: dto.acknowledgedSafetyGuideline ?? false,
 });
 
 export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): UpdateWorkPermitDTO => ({
@@ -436,6 +445,7 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   safetyGuideline: workPermit.safetyGuideline,
   workClassificationOtherDetail: workPermit.workClassificationOtherDetail,
   requireCourseVerification: workPermit.requireCourseVerification,
+  acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline,
   classifications: workPermit.classifications?.map((c) => ({
     workClassificationId: c.workClassificationId || c.id,
     order: c.order,

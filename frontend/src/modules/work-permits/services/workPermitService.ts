@@ -160,6 +160,18 @@ const workPermitService = {
     const response = await api.get('/work-permits/master-data');
     return response.data;
   },
+
+  /**
+   * Create profession master data (from work permit form when no match exists)
+   */
+  createProfession: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<{ id: string; name: string; code: string }> => {
+    const response = await api.post('/work-permits/professions', data);
+    return response.data;
+  },
 };
 
 export default workPermitService;

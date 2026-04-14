@@ -87,6 +87,14 @@ export class WorkPermitDto {
   @IsBoolean()
   requireCourseVerification: boolean;
 
+  @ApiProperty({
+    description: 'User confirmed they have read the safety guideline',
+    default: false,
+  })
+  @Expose()
+  @IsBoolean()
+  acknowledgedSafetyGuideline: boolean;
+
   @ApiProperty({ description: 'Work permit status', enum: WorkPermitStatusEnum })
   @Expose()
   @IsString()
@@ -129,6 +137,7 @@ export class WorkPermitDto {
     id: string;
     name: string;
     code: string;
+    phone?: string | null;
   };
 
   @ApiProperty({ description: 'Creator user', required: false })

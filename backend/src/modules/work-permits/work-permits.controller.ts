@@ -30,6 +30,7 @@ import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
 import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
+import { CreateProfessionDto } from './dto/create-profession.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
@@ -214,6 +215,17 @@ export class WorkPermitsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMasterData() {
     return this.workPermitsService.getMasterData();
+  }
+
+  @Post('professions')
+  @Permissions('work-permit:create')
+  @ApiOperation({ summary: 'Create a profession (master data) for use on work permits' })
+  @ApiBody({ type: CreateProfessionDto })
+  @ApiResponse({ status: 201, description: 'Profession created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or duplicate code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createProfession(@Body() dto: CreateProfessionDto) {
+    return this.workPermitsService.createProfession(dto);
   }
 
   @Get(':id')

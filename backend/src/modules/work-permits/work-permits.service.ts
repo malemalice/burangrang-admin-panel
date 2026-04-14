@@ -5,6 +5,7 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { DataScopeService } from '../../shared/services/data-scope.service';
 import { UserContext } from '../../shared/types/user-context';
 import { CreateWorkPermitDto } from './dto/create-work-permit.dto';
+import { CreateProfessionDto } from './dto/create-profession.dto';
 import { UpdateWorkPermitDto } from './dto/update-work-permit.dto';
 import { WorkPermitDto } from './dto/work-permit.dto';
 import { FindWorkPermitsDto } from './dto/find-work-permits.dto';
@@ -52,6 +53,7 @@ export class WorkPermitsService {
           id: company.id,
           name: company.name,
           code: company.code,
+          phone: company.phone ?? undefined,
         }),
         isArray: false,
       },
@@ -303,6 +305,7 @@ export class WorkPermitsService {
           safetyGuideline: createDto.safetyGuideline,
           workClassificationOtherDetail: createDto.workClassificationOtherDetail,
           requireCourseVerification: createDto.requireCourseVerification || false,
+          acknowledgedSafetyGuideline: createDto.acknowledgedSafetyGuideline,
           status: 'DRAFT',
           createdBy,
           classifications: createDto.classifications
@@ -428,7 +431,7 @@ export class WorkPermitsService {
               })),
             }
             : undefined,
-        },
+        } as any,
         include: {
           area: true,
           company: true,
@@ -1107,6 +1110,9 @@ export class WorkPermitsService {
         updateData.workClassificationOtherDetail = updateDto.workClassificationOtherDetail;
       }
       if (updateDto.requireCourseVerification !== undefined) updateData.requireCourseVerification = updateDto.requireCourseVerification;
+      if (updateDto.acknowledgedSafetyGuideline !== undefined) {
+        updateData.acknowledgedSafetyGuideline = updateDto.acknowledgedSafetyGuideline;
+      }
 
       // Handle nested relations updates
       // Delete existing relations and create new ones
@@ -2065,6 +2071,44 @@ export class WorkPermitsService {
   }
 
   /**
+   * Create profession master data (used when user adds a missing profession from the work permit form)
+   */
+  async createProfession(dto: CreateProfessionDto) {
+    return this.errorHandler.safeExecute(
+      async () => {
+        const trimmed = dto.name.trim();
+        if (!trimmed) {
+          this.errorHandler.throwBadRequest('Profession name is required');
+        }
+        let code = dto.code?.trim();
+        if (!code) {
+          code = trimmed.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        }
+        if (!code) {
+          code = `PROF-${Date.now()}`;
+        }
+        try {
+          return await this.prisma.profession.create({
+            data: {
+              name: trimmed,
+              code,
+              description: dto.description?.trim() || undefined,
+              isActive: true,
+            },
+            select: { id: true, name: true, code: true },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            this.errorHandler.throwBadRequest('A profession with this code already exists');
+          }
+          throw e;
+        }
+      },
+      'Create profession',
+    );
+  }
+
+  /**
    * Get master data for work permit form
    */
   async getMasterData() {
@@ -2078,7 +2122,7 @@ export class WorkPermitsService {
           }),
           this.prisma.company.findMany({
             where: { isActive: true },
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, phone: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.workClassification.findMany({

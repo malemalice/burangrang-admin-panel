@@ -25,13 +25,20 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
     ['Status', na(workPermit.status)],
     ['Is Active', workPermit.isActive != null ? String(workPermit.isActive) : '—'],
     ['Area', workPermit.area ? `${workPermit.area.name ?? ''} (${workPermit.area.code ?? ''})`.trim() || '—' : na(workPermit.areaId)],
-    ['Company', workPermit.company ? `${workPermit.company.name ?? ''} (${workPermit.company.code ?? ''})`.trim() || '—' : na(workPermit.companyId)],
+    [
+      'Company',
+      workPermit.company
+        ? `${workPermit.company.name ?? ''} (${workPermit.company.code ?? ''})${workPermit.company.phone ? ` · ${workPermit.company.phone}` : ''}`.trim() ||
+          '—'
+        : na(workPermit.companyId),
+    ],
     ['Proposed Start Date', workPermit.proposedStartDate ? format(new Date(workPermit.proposedStartDate), 'dd MMM yyyy') : '—'],
     ['Proposed End Date', workPermit.proposedEndDate ? format(new Date(workPermit.proposedEndDate), 'dd MMM yyyy') : '—'],
     ['Work Stages Description', na(workPermit.workStagesDescription)],
     ['Job Safety Analysis', na(workPermit.jobSafetyAnalysis)],
     ['Work Requirements', na(workPermit.workRequirements)],
     ['Safety Guideline', na(workPermit.safetyGuideline)],
+    ['Safety guideline acknowledged', workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'],
   ];
 
   const rowsInitialGrant: [string, string][] = [
@@ -139,7 +146,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
         {workPermit.workClassificationOtherDetail?.trim() ? (
           <p className="mt-3 text-xs text-gray-900 whitespace-pre-wrap">
-            <span className="font-semibold">Lainnya (detail): </span>
+            <span className="font-semibold">Others (detail): </span>
             {workPermit.workClassificationOtherDetail}
           </p>
         ) : null}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,7 +26,17 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
-import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit, MasterDataOption, GuestOption } from '../types/work-permit.types';
+import { ModalCombobox } from '@/core/components/ui/modal-combobox';
+import { Checkbox } from '@/core/components/ui/checkbox';
+import {
+  CreateWorkPermitDTO,
+  UpdateWorkPermitDTO,
+  WorkPermit,
+  MasterDataOption,
+  GuestOption,
+  CompanyOption,
+} from '../types/work-permit.types';
+import { createProfessionFromQuery } from '../utils/professionHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
@@ -69,6 +79,11 @@ const formSchema = z.object({
   safetyGuideline: z.string().optional(),
   workClassificationOtherDetail: z.string().max(2000).optional(),
   requireCourseVerification: z.boolean().default(false),
+  acknowledgedSafetyGuideline: z
+    .boolean()
+    .refine((v) => v === true, {
+      message: 'You must confirm that you have read the safety guideline',
+    }),
   classifications: z
     .array(
       z.object({
@@ -76,7 +91,7 @@ const formSchema = z.object({
         order: z.number().min(0),
       }),
     )
-    .optional(),
+    .min(1, 'At least one work classification is required'),
   employees: z
     .array(
       z.object({
@@ -189,7 +204,7 @@ interface WorkPermitFormProps {
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
-  const [companies, setCompanies] = useState<MasterDataOption[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
   const [workerUsers, setWorkerUsers] = useState<User[]>([]);
@@ -213,7 +228,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
   // Memoized options for SearchableSelect
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
-  const companyOptions = useMemo(() => companies.map((c) => ({ value: c.id, label: c.name })), [companies]);
+  const companyOptions = useMemo(
+    () =>
+      companies.map((c) => ({
+        value: c.id,
+        label: c.phone ? `${c.name} · ${c.phone}` : c.name,
+      })),
+    [companies],
+  );
   const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
   const workerOptions = useMemo(
     () =>
@@ -246,9 +268,19 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     [courses],
   );
   const supervisorOptions = useMemo(
-    () => guests.map((g) => ({ value: g.id, label: g.name ?? g.email ?? g.id })),
+    () =>
+      guests.map((g) => {
+        const base = g.name ?? g.email ?? g.id;
+        return { value: g.id, label: g.phone ? `${base} · ${g.phone}` : base };
+      }),
     [guests],
   );
+
+  const handleCreateProfession = useCallback(async (searchQuery: string) => {
+    return createProfessionFromQuery(searchQuery, (newProf) => {
+      setProfessions((prev) => [newProf, ...prev]);
+    });
+  }, []);
   const hseOfficerOptions = useMemo(
     () =>
       users.map((u) => ({
@@ -284,7 +316,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       safetyGuideline: '',
       workClassificationOtherDetail: '',
       requireCourseVerification: false,
-      classifications: [],
+      acknowledgedSafetyGuideline: false,
+      classifications: [{ workClassificationId: '', order: 0 }],
       employees: [],
       workers: [
         {
@@ -505,12 +538,16 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   // Populate form when editing
   useEffect(() => {
     if (workPermit && mode === 'edit') {
+      const str = (v: string | null | undefined) => v ?? '';
+      const qty = (v: number | null | undefined) =>
+        v != null && !Number.isNaN(Number(v)) ? Number(v) : 1;
+
       const workersData =
         workPermit.workers?.map((w) => ({
-          userId: w.userId,
-          idNumber: w.idNumber || '',
-          certificateUrl: w.certificateUrl || '',
-          healthDeclarationUrl: w.healthDeclarationUrl,
+          userId: str(w.userId),
+          idNumber: str(w.idNumber),
+          certificateUrl: str(w.certificateUrl),
+          healthDeclarationUrl: str(w.healthDeclarationUrl),
           order: w.order,
         })) || [
           {
@@ -535,84 +572,93 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       setUploadedFileNames(fileNames);
 
       form.reset({
-        projectName: workPermit.projectName,
-        areaId: workPermit.areaId,
-        companyId: workPermit.companyId,
-        proposedStartDate: workPermit.proposedStartDate.split('T')[0],
-        proposedEndDate: workPermit.proposedEndDate.split('T')[0],
-        workStagesDescription: workPermit.workStagesDescription,
-        jobSafetyAnalysis: workPermit.jobSafetyAnalysis,
-        workRequirements: workPermit.workRequirements || '',
-        safetyGuideline: workPermit.safetyGuideline || '',
-        workClassificationOtherDetail: workPermit.workClassificationOtherDetail || '',
-        requireCourseVerification: workPermit.requireCourseVerification,
+        projectName: str(workPermit.projectName),
+        areaId: str(workPermit.areaId),
+        companyId: str(workPermit.companyId),
+        proposedStartDate: str(workPermit.proposedStartDate?.split('T')[0]),
+        proposedEndDate: str(workPermit.proposedEndDate?.split('T')[0]),
+        workStagesDescription: str(workPermit.workStagesDescription),
+        jobSafetyAnalysis: str(workPermit.jobSafetyAnalysis),
+        workRequirements: str(workPermit.workRequirements),
+        safetyGuideline: str(workPermit.safetyGuideline),
+        workClassificationOtherDetail: str(workPermit.workClassificationOtherDetail),
+        requireCourseVerification: workPermit.requireCourseVerification ?? false,
+        acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline ?? false,
         classifications:
-          workPermit.classifications?.map((c) => ({
-            workClassificationId: c.workClassificationId || c.id,
-            order: c.order,
-          })) || [],
+          workPermit.classifications?.length ?
+            workPermit.classifications.map((c) => ({
+              workClassificationId: str(c.workClassificationId || c.id),
+              order: c.order,
+            }))
+          : [{ workClassificationId: '', order: 0 }],
         employees:
           workPermit.employees?.map((e) => ({
-            userId: e.userId,
-            employeeName: e.employeeName,
+            userId: str(e.userId),
+            employeeName: str(e.employeeName),
             order: e.order,
           })) || [],
         workers: workersData,
         heavyEquipment:
           workPermit.heavyEquipment?.map((e) => ({
-            heavyEquipmentId: e.heavyEquipmentId,
-            quantity: e.quantity,
+            heavyEquipmentId: str(e.heavyEquipmentId),
+            quantity: qty(e.quantity),
             order: e.order,
           })) || [],
         tools:
           workPermit.tools?.map((t) => ({
-            toolId: t.toolId,
-            quantity: t.quantity,
+            toolId: str(t.toolId),
+            quantity: qty(t.quantity),
             order: t.order,
           })) || [],
         materials:
           workPermit.materials?.map((m) => ({
-            materialId: m.materialId,
-            quantity: m.quantity,
+            materialId: str(m.materialId),
+            quantity: qty(m.quantity),
             order: m.order,
           })) || [],
         machines:
           workPermit.machines?.map((m) => ({
-            machineId: m.machineId,
-            quantity: m.quantity,
+            machineId: str(m.machineId),
+            quantity: qty(m.quantity),
             order: m.order,
           })) || [],
         professions:
           workPermit.professions?.map((p) => ({
-            professionId: p.professionId,
-            quantity: p.quantity,
+            professionId: str(p.professionId),
+            quantity: qty(p.quantity),
             order: p.order,
           })) || [],
         requiredCourses:
           workPermit.requiredCourses?.map((c) => ({
-            courseId: c.courseId,
-            isRequired: c.isRequired,
+            courseId: str(c.courseId),
+            isRequired: c.isRequired ?? true,
             order: c.order,
           })) || [],
         hazards:
           workPermit.hazards?.map((h) => ({
-            hazardId: h.hazardId,
-            hazardName: h.hazardName,
-            description: h.description || '',
-            controlMeasure: h.controlMeasure || '',
+            hazardId: str(h.hazardId),
+            hazardName: str(h.hazardName),
+            description: str(h.description),
+            controlMeasure: str(h.controlMeasure),
             order: h.order,
           })) || [],
         attachments:
           workPermit.attachments?.map((a) => ({
-            fileUrl: a.fileUrl,
-            fileName: a.fileName,
-            fileType: a.fileType || '',
-            description: a.description || '',
+            fileUrl: str(a.fileUrl),
+            fileName: str(a.fileName),
+            fileType: str(a.fileType),
+            description: str(a.description),
             order: a.order,
           })) || [],
-        supervisorIds: workPermit.supervisors?.map((s) => s.guestId) || [],
-        hseOfficerIds: workPermit.hseOfficers?.map((h) => h.userId) || [],
-        safetyEquipmentIds: workPermit.safetyEquipment?.map((s) => s.safetyEquipmentId) || [],
+        supervisorIds: (workPermit.supervisors ?? [])
+          .map((s) => str(s.guestId))
+          .filter((id) => id.length > 0),
+        hseOfficerIds: (workPermit.hseOfficers ?? [])
+          .map((h) => str(h.userId))
+          .filter((id) => id.length > 0),
+        safetyEquipmentIds: (workPermit.safetyEquipment ?? [])
+          .map((s) => str(s.safetyEquipmentId))
+          .filter((id) => id.length > 0),
       });
     }
   }, [workPermit, mode, form]);
@@ -798,13 +844,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         <WorkPermitSection
           id="work-permit-section-a"
           title={WORK_PERMIT_SECTIONS.A}
-          description="Select work classifications for this permit"
+          description="Select at least one work classification for this permit (required)"
         >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_A_SUB.classifications}</WorkPermitSubsectionTitle>
-                <CardDescription>Add one or more classification rows as needed</CardDescription>
+                <WorkPermitSubsectionTitle>
+                  {WORK_PERMIT_SECTION_A_SUB.classifications}{' '}
+                  <span className="text-destructive" aria-hidden>
+                    *
+                  </span>
+                </WorkPermitSubsectionTitle>
+                <CardDescription>Add one or more classification rows; at least one must be selected</CardDescription>
               </div>
               <Button
                 type="button"
@@ -830,6 +881,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                       name={`classifications.${index}.workClassificationId`}
                       render={({ field }) => (
                         <FormItem className="flex-1">
+                          <FormLabel>
+                            Classification <span className="text-destructive">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <SelectTrigger>
@@ -850,14 +904,17 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeClassification(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    {classificationFields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeClassification(index)}
+                        aria-label="Remove classification row"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}
@@ -1033,6 +1090,27 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <Textarea placeholder="Safety guidelines..." rows={3} {...field} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="acknowledgedSafetyGuideline"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3 rounded-md border border-border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(c) => field.onChange(c === true)}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-snug">
+                    <FormLabel className="!mt-0 font-normal cursor-pointer">
+                      I confirm that I have read the safety guideline{' '}
+                      <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -1408,12 +1486,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
                       <FormControl>
-                        <SearchableSelect
+                        <ModalCombobox
                           options={professionOptions}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select profession"
                           searchPlaceholder="Search..."
+                          onCreateNew={handleCreateProfession}
+                          createNewText="Create new profession"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1454,13 +1534,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             <div className="flex gap-2 flex-wrap items-center">
               {(form.watch('supervisorIds') ?? []).map((id) => {
                 const guest = guests.find((g) => g.id === id);
+                const supLabel = guest?.name ?? guest?.email ?? id;
                 return (
                   <Badge
                     key={id}
                     variant="secondary"
                     className="flex items-center gap-1 pr-1"
                   >
-                    {guest?.name ?? guest?.email ?? id}
+                    {guest?.phone ? `${supLabel} · ${guest.phone}` : supLabel}
                     <Button
                       type="button"
                       variant="ghost"
