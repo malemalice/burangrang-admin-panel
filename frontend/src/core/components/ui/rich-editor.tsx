@@ -36,7 +36,7 @@ import {
   Eye,
   Loader2,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 interface RichEditorProps {
   value: string;
@@ -51,6 +51,14 @@ const EMPTY_DOC = '<p></p>';
 
 /** Matches editor content inset; pagination uses padding only (pageMargin 0) to avoid double top gap. */
 const PAGE_CONTENT_INSET = 'px-[96px] pt-10 pb-16';
+/**
+ * Keep these in sync across Pagination + editor canvas + PDF target.
+ * A4 at 96dpi ≈ 794 x 1123 px.
+ */
+const A4_PAGE_WIDTH_PX = 794;
+const A4_PAGE_HEIGHT_PX = 1123;
+const A4_PAGE_MIN_HEIGHT_CLASS = 'min-h-[1123px]';
+const PAGE_GAP_PX = 32;
 
 const PDF_BUILD_OPTIONS = {
   method: 'build' as const,
@@ -80,6 +88,8 @@ export function RichEditor({
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pageGuideOffsets, setPageGuideOffsets] = useState<number[]>([]);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   const pdfFilename = useMemo(() => {
     // Keep it simple/consistent; callers can rename after download if needed.
@@ -118,8 +128,8 @@ export function RichEditor({
       ...(pageLayout
         ? [
             Pagination.configure({
-              pageHeight: 1056,
-              pageWidth: 816,
+              pageHeight: A4_PAGE_HEIGHT_PX,
+              pageWidth: A4_PAGE_WIDTH_PX,
               // Use 0 here; content inset comes from Tailwind padding on `.ProseMirror` only.
               pageMargin: 0,
               label: 'Page',
@@ -138,7 +148,7 @@ export function RichEditor({
         class: cn(
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border',
           pageLayout
-            ? `min-h-[1056px] rounded-sm bg-transparent shadow-none ${PAGE_CONTENT_INSET}`
+            ? `${A4_PAGE_MIN_HEIGHT_CLASS} rounded-sm bg-transparent shadow-none ${PAGE_CONTENT_INSET}`
             : 'min-h-[200px] px-4 py-3',
         ),
       },
@@ -215,6 +225,70 @@ export function RichEditor({
     a.remove();
   }, [pdfFilename, pdfPreviewUrl]);
 
+  const updatePageGuideOffsets = useCallback(() => {
+    if (!pageLayout) {
+      setPageGuideOffsets([]);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const pagePeriod = A4_PAGE_HEIGHT_PX + PAGE_GAP_PX;
+    const measurableHeight = Math.max(canvas.scrollHeight, canvas.clientHeight);
+
+    if (measurableHeight <= A4_PAGE_HEIGHT_PX) {
+      setPageGuideOffsets([]);
+      return;
+    }
+
+    const breakCount =
+      Math.floor((measurableHeight - A4_PAGE_HEIGHT_PX) / pagePeriod) + 1;
+    const nextOffsets = Array.from(
+      { length: Math.max(0, breakCount) },
+      (_, index) => A4_PAGE_HEIGHT_PX + index * pagePeriod,
+    );
+
+    setPageGuideOffsets((prev) => {
+      if (
+        prev.length === nextOffsets.length &&
+        prev.every((value, index) => value === nextOffsets[index])
+      ) {
+        return prev;
+      }
+      return nextOffsets;
+    });
+  }, [pageLayout]);
+
+  useEffect(() => {
+    if (!pageLayout) {
+      setPageGuideOffsets([]);
+      return undefined;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+
+    updatePageGuideOffsets();
+
+    const observer = new ResizeObserver(() => {
+      updatePageGuideOffsets();
+    });
+
+    observer.observe(canvas);
+    const proseMirror = canvas.querySelector('.ProseMirror');
+    if (proseMirror instanceof HTMLElement) {
+      observer.observe(proseMirror);
+    }
+
+    window.addEventListener('resize', updatePageGuideOffsets);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updatePageGuideOffsets);
+    };
+  }, [editor, pageLayout, updatePageGuideOffsets, value]);
+
   if (!editor) {
     return null;
   }
@@ -236,6 +310,7 @@ export function RichEditor({
           style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
           aria-hidden="true"
         >
+          {/* Keep capture inset identical to editor inset so wrap/break geometry stays aligned. */}
           <div className={cn('bg-background', PAGE_CONTENT_INSET)}>
             <div
               className="prose prose-sm max-w-none [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border"
@@ -250,22 +325,14 @@ export function RichEditor({
         <style>{`
           .rich-editor-pageLayout .ProseMirror {
             margin: 0 auto !important;
+            position: relative;
+            z-index: 10;
           }
           .rich-editor-pageLayout .page-break {
-            height: 20px;
-            width: 100%;
-            border-top: 1px dashed hsl(var(--border));
-            margin: 10px 0;
-            position: relative;
+            display: none !important;
           }
           .rich-editor-pageLayout .page-number {
-            position: absolute;
-            right: 0;
-            top: -10px;
-            font-size: 12px;
-            color: hsl(var(--muted-foreground));
-            background: hsl(var(--background));
-            padding: 0 4px;
+            display: none !important;
           }
         `}</style>
       )}
@@ -524,21 +591,47 @@ export function RichEditor({
 
       {pageLayout ? (
         <div
+          ref={canvasRef}
           className={cn(
-            'h-[650px] overflow-y-auto p-4',
+            // Taller viewport so multi-page content is easier to scroll; first page-break guide appears only after content height exceeds A4_PAGE_HEIGHT_PX.
+            'relative h-[min(750px,75vh)] min-h-[400px] overflow-y-auto p-4',
             // A Google Docs-like canvas
             'bg-muted/40',
             // Repeating fixed-height "paper" pages behind the editor
-            // - page: 1056px height (Letter-ish)
+            // - page: A4 height
             // - gap: 32px between pages
-            // - width: 816px (Letter-ish)
+            // - width: A4 width
             // Background is centered and repeats vertically.
             // We draw both page fill + 1px top/bottom borders.
-            '[--pageWidth:816px] [--pageHeight:1056px] [--pageGap:32px]',
+            // CSS vars must be set via style (not dynamic Tailwind classes) so JIT emits gradient utilities.
             'bg-[linear-gradient(to_bottom,hsl(var(--background))_0,var(--pageHeight),transparent_var(--pageHeight),transparent_calc(var(--pageHeight)+var(--pageGap))),linear-gradient(to_bottom,hsl(var(--border))_0,transparent_1px,transparent_calc(var(--pageHeight)-1px),hsl(var(--border))_calc(var(--pageHeight)-1px),hsl(var(--border))_var(--pageHeight),transparent_var(--pageHeight),transparent_calc(var(--pageHeight)+var(--pageGap)))]',
             'bg-[length:var(--pageWidth)_calc(var(--pageHeight)+var(--pageGap)),var(--pageWidth)_calc(var(--pageHeight)+var(--pageGap))] bg-[position:center_top,center_top] bg-repeat-y',
           )}
+          style={
+            {
+              '--pageWidth': `${A4_PAGE_WIDTH_PX}px`,
+              '--pageHeight': `${A4_PAGE_HEIGHT_PX}px`,
+              '--pageGap': `${PAGE_GAP_PX}px`,
+            } as CSSProperties
+          }
         >
+          {/* Fixed A4 guides: independent from editor node splitting, accurate for long pasted paragraphs. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[1]"
+          >
+            {pageGuideOffsets.map((offset) => (
+              <div
+                key={offset}
+                className="absolute left-1/2 border-t border-dashed border-border/70"
+                style={{
+                  top: `${offset}px`,
+                  width: `${A4_PAGE_WIDTH_PX}px`,
+                  transform: 'translateX(-50%)',
+                }}
+              />
+            ))}
+          </div>
           <EditorContent editor={editor} />
         </div>
       ) : (

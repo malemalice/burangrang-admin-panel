@@ -137,6 +137,12 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
             )}
           </tbody>
         </table>
+        {workPermit.workClassificationOtherDetail?.trim() ? (
+          <p className="mt-3 text-xs text-gray-900 whitespace-pre-wrap">
+            <span className="font-semibold">Lainnya (detail): </span>
+            {workPermit.workClassificationOtherDetail}
+          </p>
+        ) : null}
       </div>
 
       {/* Section B — PRD */}
