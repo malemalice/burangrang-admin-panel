@@ -60,6 +60,8 @@ export interface WorkPermit {
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
   acknowledgedSafetyGuideline: boolean;
+  applicantSignedAt?: string;
+  applicantSignature?: string;
   status: WorkPermitStatus;
   isActive: boolean;
   createdBy: string;
@@ -103,7 +105,9 @@ export type WorkPermitStatus =
   | 'DRAFT'
   | 'OPEN'
   | 'WAITING_APPROVAL'
+  | 'IN_REVIEW_PROJECT_OWNER'
   | 'IN_REVIEW_HSE'
+  | 'WAITING_APPLICANT_SIGN'
   | 'IN_REVIEW_SECURITY'
   | 'NEED_INFO'
   | 'APPROVED'
@@ -287,6 +291,8 @@ export interface WorkPermitDTO {
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
   acknowledgedSafetyGuideline?: boolean;
+  applicantSignedAt?: string;
+  applicantSignature?: string;
   status: string;
   isActive: boolean;
   createdBy: string;

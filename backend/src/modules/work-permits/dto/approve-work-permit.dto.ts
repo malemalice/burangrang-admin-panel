@@ -6,4 +6,12 @@ export class ApproveWorkPermitDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({
+    description: 'Safety guideline (SK) authored by HSE before applicant acknowledgment',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  safetyGuideline?: string;
 }

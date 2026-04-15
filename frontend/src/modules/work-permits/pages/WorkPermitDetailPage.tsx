@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText, FileDown } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText, FileDown, PenLine } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
@@ -42,6 +42,7 @@ import {
 } from '@/core/components/ui/table';
 import { approvalService, APPROVAL_ENTITIES, type ApprovalStatusHistory } from '@/modules/master-data';
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
+import { useAuth } from '@/core/lib/auth';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
   if (v == null) return '—';
@@ -53,7 +54,8 @@ const WorkPermitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { workPermit, isLoading, fetchWorkPermit } = useWorkPermit(id || null);
-  const { submit, approve, reject, requestInfo, extend, close, isLoading: isActionLoading } = useWorkPermitActions();
+  const { submit, approve, reject, requestInfo, extend, close, signSk, isLoading: isActionLoading } = useWorkPermitActions();
+  const { user: currentUser } = useAuth();
 
   const [approvalRights, setApprovalRights] = useState<{
     canApprove: boolean;
@@ -77,12 +79,15 @@ const WorkPermitDetailPage = () => {
   });
 
   const [approveNotes, setApproveNotes] = useState('');
+  const [approveSafetyGuideline, setApproveSafetyGuideline] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [rejectNotes, setRejectNotes] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [extendDate, setExtendDate] = useState('');
   const [extendReason, setExtendReason] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
+  const [signSkDialogOpen, setSignSkDialogOpen] = useState(false);
+  const [applicantSignature, setApplicantSignature] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -138,7 +143,11 @@ const WorkPermitDetailPage = () => {
     if (id && workPermit) {
       const status = workPermit.status;
       // Only check rights if in review status
-      if (['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(status)) {
+      if (
+        ['IN_REVIEW_PROJECT_OWNER', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(
+          status,
+        )
+      ) {
         import('../services/workPermitService').then((module) => {
           module.default
             .checkApprovalRights(id)
@@ -168,9 +177,25 @@ const WorkPermitDetailPage = () => {
   const handleApprove = async () => {
     if (!id) return;
     try {
-      await approve(id, approveNotes);
+      await approve(id, {
+        notes: approveNotes,
+        safetyGuideline: approveSafetyGuideline || undefined,
+      });
       setApproveDialogOpen(false);
       setApproveNotes('');
+      setApproveSafetyGuideline('');
+      await fetchWorkPermit(id);
+    } catch (error) {
+      // Error handled in hook
+    }
+  };
+
+  const handleSignSk = async () => {
+    if (!id) return;
+    try {
+      await signSk(id, applicantSignature || undefined);
+      setSignSkDialogOpen(false);
+      setApplicantSignature('');
       await fetchWorkPermit(id);
     } catch (error) {
       // Error handled in hook
@@ -269,6 +294,8 @@ const WorkPermitDetailPage = () => {
   const canApprove = approvalRights?.canApprove ?? false;
   const canReject = approvalRights?.canReject ?? false;
   const canRequestInfo = approvalRights?.canRequestInfo ?? false;
+  const canSignSk =
+    workPermit?.status === 'WAITING_APPLICANT_SIGN' && Boolean(currentUser?.id) && workPermit.createdBy === currentUser.id;
   
   const canExtend = workPermit?.status === 'APPROVED';
   const canClose = ['APPROVED', 'EXTENDED'].includes(workPermit?.status || '');
@@ -346,6 +373,11 @@ const WorkPermitDetailPage = () => {
                 <MessageSquare className="mr-2 h-4 w-4" /> Request Info
               </Button>
             )}
+            {canSignSk && (
+              <Button onClick={() => setSignSkDialogOpen(true)} disabled={isActionLoading}>
+                <PenLine className="mr-2 h-4 w-4" /> Sign SK
+              </Button>
+            )}
             {canExtend && (
               <Button variant="outline" onClick={() => setExtendDialogOpen(true)} disabled={isActionLoading}>
                 <Clock className="mr-2 h-4 w-4" /> Extend
@@ -379,6 +411,26 @@ const WorkPermitDetailPage = () => {
             </CardContent>
           </Card>
         </WorkPermitSection>
+
+        {workPermit.status === 'WAITING_APPLICANT_SIGN' && (
+          <WorkPermitSection
+            id="work-permit-detail-section-sk-ack"
+            title="Safety Guideline Acknowledgment"
+            description="Review the safety guideline authored by HSE before signing."
+          >
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>Safety Guideline (SK)</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Status: waiting applicant signature before final security approval.
+                </p>
+              </CardContent>
+            </Card>
+          </WorkPermitSection>
+        )}
 
         <WorkPermitSection id="work-permit-detail-section-a" title={WORK_PERMIT_SECTIONS.A}>
           <Card>
@@ -945,6 +997,16 @@ const WorkPermitDetailPage = () => {
                 placeholder="Optional approval notes..."
               />
             </div>
+            {workPermit?.status === 'IN_REVIEW_HSE' && (
+              <div>
+                <Label>Safety Guideline (SK)</Label>
+                <Textarea
+                  value={approveSafetyGuideline}
+                  onChange={(e) => setApproveSafetyGuideline(e.target.value)}
+                  placeholder="Write safety terms and conditions for applicant acknowledgment..."
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
@@ -952,6 +1014,42 @@ const WorkPermitDetailPage = () => {
             </Button>
             <Button onClick={handleApprove} disabled={isActionLoading}>
               Approve
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sign SK Dialog */}
+      <Dialog open={signSkDialogOpen} onOpenChange={setSignSkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign Safety Guideline (SK)</DialogTitle>
+            <DialogDescription>
+              Confirm that you have reviewed and accepted the safety guideline from HSE.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Safety Guideline</Label>
+              <div className="rounded-md border p-3 text-sm whitespace-pre-wrap bg-muted/30">
+                {displayField(workPermit?.safetyGuideline)}
+              </div>
+            </div>
+            <div>
+              <Label>Signature / Acknowledgment (optional)</Label>
+              <Input
+                value={applicantSignature}
+                onChange={(e) => setApplicantSignature(e.target.value)}
+                placeholder="Type your name or signature token"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignSkDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSignSk} disabled={isActionLoading}>
+              Sign & Continue
             </Button>
           </DialogFooter>
         </DialogContent>

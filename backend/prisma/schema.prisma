@@ -1762,10 +1762,12 @@ model WorkPermit {
   jobSafetyAnalysis         String   @db.Text
   workRequirements          String?  @db.Text
   safetyGuideline           String?  @db.Text
+  applicantSignedAt         DateTime?
+  applicantSignature        String?
   workClassificationOtherDetail String? @db.Text @map("work_classification_other_detail")
   requireCourseVerification Boolean  @default(false)
   acknowledgedSafetyGuideline Boolean  @default(false) @map("acknowledged_safety_guideline")
-  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_HSE, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED
+  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_PROJECT_OWNER, IN_REVIEW_HSE, WAITING_APPLICANT_SIGN, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED
   isActive                  Boolean  @default(true)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

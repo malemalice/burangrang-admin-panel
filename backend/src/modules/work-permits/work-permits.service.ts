@@ -15,6 +15,7 @@ import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
 import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
+import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
 import { WorkPermitStatusEnum } from './dto/work-permit.dto';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
@@ -182,6 +183,7 @@ export class WorkPermitsService {
 
     // If not in review status, no one can approve
     const reviewStatuses = [
+      WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER,
       WorkPermitStatusEnum.IN_REVIEW_HSE,
       WorkPermitStatusEnum.IN_REVIEW_SECURITY,
       WorkPermitStatusEnum.WAITING_APPROVAL,
@@ -1500,11 +1502,11 @@ export class WorkPermitsService {
         workPermit.workClassificationOtherDetail,
       );
 
-      // Update status to IN_REVIEW_HSE
+      // Update status to IN_REVIEW_PROJECT_OWNER
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: WorkPermitStatusEnum.IN_REVIEW_HSE,
+          status: WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER,
         },
         include: {
           area: true,
@@ -1541,6 +1543,8 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       const user = await this.getFullUser(userId);
+      const currentDepartmentName = String(user?.department?.name ?? '').toUpperCase();
+      const isHseApprover = currentDepartmentName.includes('HSE') || currentDepartmentName.includes('HEALTH');
 
       // Check approval rights
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
@@ -1551,6 +1555,15 @@ export class WorkPermitsService {
 
       if (!approvalRights.canApprove) {
         this.errorHandler.throwForbidden('You do not have permission to approve this work permit');
+      }
+
+      if (isHseApprover && approveDto.safetyGuideline !== undefined) {
+        await this.prisma.workPermit.update({
+          where: { id },
+          data: {
+            safetyGuideline: approveDto.safetyGuideline,
+          },
+        });
       }
 
       // Submit approval record
@@ -1572,18 +1585,28 @@ export class WorkPermitsService {
 
       let nextStatus: WorkPermitStatusEnum;
       if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
-        nextStatus = WorkPermitStatusEnum.APPROVED;
+        nextStatus =
+          currentDepartmentName.includes('SECURITY')
+            ? WorkPermitStatusEnum.APPROVED
+            : WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
       } else if (approvalStatus.nextApprover) {
         const nextDept = approvalStatus.nextApprover.department.name.toUpperCase();
-        if (nextDept.includes('SECURITY')) {
+        if (isHseApprover && nextDept.includes('SECURITY')) {
+          nextStatus = WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
+        } else if (nextDept.includes('SECURITY')) {
           nextStatus = WorkPermitStatusEnum.IN_REVIEW_SECURITY;
         } else if (nextDept.includes('HSE')) {
           nextStatus = WorkPermitStatusEnum.IN_REVIEW_HSE;
+        } else if (nextDept.includes('PROJECT') || nextDept.includes('OWNER')) {
+          nextStatus = WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER;
         } else {
           nextStatus = WorkPermitStatusEnum.OPEN; // Generic fallback (OPEN used as in-review)
         }
       } else {
-        nextStatus = WorkPermitStatusEnum.APPROVED;
+        nextStatus =
+          currentDepartmentName.includes('SECURITY')
+            ? WorkPermitStatusEnum.APPROVED
+            : WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
       }
 
       // Update status
@@ -1719,6 +1742,57 @@ export class WorkPermitsService {
 
       return this.workPermitMapper(updated);
     }, 'Requesting additional information');
+  }
+
+  /**
+   * Applicant signs/acknowledges HSE safety guideline before security review
+   */
+  async signSk(
+    id: string,
+    signSkDto: SignSkWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
+    return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
+      const workPermit = await this.prisma.workPermit.findUnique({
+        where: { id },
+      });
+
+      this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
+
+      if (workPermit.status !== WorkPermitStatusEnum.WAITING_APPLICANT_SIGN) {
+        this.errorHandler.throwBadRequest(
+          `Cannot sign SK for work permit with status ${workPermit.status}. Only WAITING_APPLICANT_SIGN permits can be signed.`,
+        );
+      }
+
+      if (workPermit.createdBy !== userId) {
+        this.errorHandler.throwForbidden('Only the applicant can sign and acknowledge this safety guideline');
+      }
+
+      if (!workPermit.safetyGuideline?.trim()) {
+        this.errorHandler.throwBadRequest('Safety guideline is not available yet. Please wait for HSE to provide it.');
+      }
+
+      const updated = await this.prisma.workPermit.update({
+        where: { id },
+        data: {
+          applicantSignedAt: new Date(),
+          applicantSignature: signSkDto.signature,
+          status: WorkPermitStatusEnum.IN_REVIEW_SECURITY,
+        } as any,
+        include: {
+          area: true,
+          company: true,
+          creator: true,
+        },
+      });
+
+      await this.sendNotificationToSecurityReview(id, updated);
+
+      return this.workPermitMapper(updated);
+    }, 'Signing safety guideline acknowledgement');
   }
 
   /**
@@ -1937,6 +2011,52 @@ export class WorkPermitsService {
       }
     } catch (error) {
       console.error('Failed to send HSE notification:', error);
+    }
+  }
+
+  /**
+   * Send notification to Security when applicant has signed SK and permit is ready for final review
+   */
+  private async sendNotificationToSecurityReview(workPermitId: string, workPermit: any): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: 'WORK_PERMIT_READY_FOR_SECURITY_REVIEW' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: 'WORK_PERMIT_READY_FOR_SECURITY_REVIEW',
+            description: 'Work permit ready for security final review',
+          },
+        });
+      }
+
+      const securityRole = await this.prisma.role.findFirst({
+        where: {
+          name: {
+            contains: 'SECURITY',
+            mode: 'insensitive',
+          },
+          isActive: true,
+        },
+      });
+
+      if (securityRole) {
+        await this.notificationsService.createNotificationForRoles(
+          {
+            title: `Work Permit Ready for Security Review: ${workPermit.code}`,
+            message: `Applicant has acknowledged safety guideline for work permit "${workPermit.projectName}" (${workPermit.code}).`,
+            context: 'work-permit',
+            contextId: workPermitId,
+            typeId: notificationType.id,
+            roleIds: [securityRole.id],
+          },
+          workPermit.createdBy,
+        );
+      }
+    } catch (error) {
+      console.error('Failed to send Security review notification:', error);
     }
   }
 

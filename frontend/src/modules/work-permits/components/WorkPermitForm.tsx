@@ -77,7 +77,6 @@ const formSchema = z.object({
   workStagesDescription: z.string().min(1, 'Work stages description is required'),
   jobSafetyAnalysis: z.string().min(1, 'Job safety analysis is required'),
   workRequirements: z.string().optional(),
-  safetyGuideline: z.string().optional(),
   workClassificationOtherDetail: z.string().max(2000).optional(),
   requireCourseVerification: z.boolean().default(false),
   acknowledgedSafetyGuideline: z
@@ -195,6 +194,14 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type WizardStep = 1 | 2 | 3 | 4;
+
+const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
+  { id: 1, title: 'Classification & Scope', description: 'Section A and project scope details' },
+  { id: 2, title: 'Equipment', description: 'Section C tools, machines, materials, heavy equipment' },
+  { id: 3, title: 'Hazards & Safety', description: 'Section D and E controls/equipment' },
+  { id: 4, title: 'Courses & Attachments', description: 'Section F and final review before submit' },
+];
 
 interface WorkPermitFormProps {
   workPermit?: WorkPermit;
@@ -204,6 +211,7 @@ interface WorkPermitFormProps {
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
@@ -314,7 +322,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workStagesDescription: '',
       jobSafetyAnalysis: '',
       workRequirements: '',
-      safetyGuideline: '',
       workClassificationOtherDetail: '',
       requireCourseVerification: false,
       acknowledgedSafetyGuideline: false,
@@ -581,7 +588,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         workStagesDescription: str(workPermit.workStagesDescription),
         jobSafetyAnalysis: str(workPermit.jobSafetyAnalysis),
         workRequirements: str(workPermit.workRequirements),
-        safetyGuideline: str(workPermit.safetyGuideline),
         workClassificationOtherDetail: str(workPermit.workClassificationOtherDetail),
         requireCourseVerification: workPermit.requireCourseVerification ?? false,
         acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline ?? false,
@@ -838,10 +844,53 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     );
   }
 
+  const isFirstStep = currentStep === 1;
+  const isLastStep = currentStep === 4;
+
+  const goToNextStep = () => {
+    setCurrentStep((prev) => Math.min(4, prev + 1) as WizardStep);
+  };
+
+  const goToPreviousStep = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1) as WizardStep);
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <WorkPermitSubsectionTitle>Form Progress</WorkPermitSubsectionTitle>
+            <CardDescription>Complete all steps before submitting the work permit.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-4">
+            {WIZARD_STEPS.map((step) => {
+              const isActive = step.id === currentStep;
+              const isCompleted = step.id < currentStep;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    isActive
+                      ? 'border-primary bg-primary/5'
+                      : isCompleted
+                        ? 'border-emerald-500/50 bg-emerald-500/5'
+                        : 'border-border bg-background'
+                  }`}
+                  onClick={() => setCurrentStep(step.id)}
+                >
+                  <p className="text-xs font-medium text-muted-foreground">Step {step.id}</p>
+                  <p className="text-sm font-semibold">{step.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{step.description}</p>
+                </button>
+              );
+            })}
+          </CardContent>
+        </Card>
+
         {/* Section A — PRD */}
+        {currentStep === 1 && (
         <WorkPermitSection
           id="work-permit-section-a"
           title={WORK_PERMIT_SECTIONS.A}
@@ -943,8 +992,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             </CardContent>
           </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section B — PRD */}
+        {currentStep === 1 && (
         <WorkPermitSection id="work-permit-section-b" title={WORK_PERMIT_SECTIONS.B}>
           <Card>
             <CardHeader>
@@ -1076,19 +1127,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   <FormLabel>Work Requirements</FormLabel>
                   <FormControl>
                     <Textarea placeholder="Work requirements..." rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="safetyGuideline"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Safety Guideline</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Safety guidelines..." rows={3} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1645,8 +1683,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section C — PRD (Tools → Machines → Materials → Heavy Equipment) */}
+        {currentStep === 2 && (
         <WorkPermitSection id="work-permit-section-c" title={WORK_PERMIT_SECTIONS.C}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -1916,8 +1956,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section D — PRD */}
+        {currentStep === 3 && (
         <WorkPermitSection
           id="work-permit-section-d"
           title={WORK_PERMIT_SECTIONS.D}
@@ -1999,8 +2041,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section E — PRD */}
+        {currentStep === 3 && (
         <WorkPermitSection
           id="work-permit-section-e"
           title={WORK_PERMIT_SECTIONS.E}
@@ -2060,8 +2104,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section F — PRD */}
+        {currentStep === 4 && (
         <WorkPermitSection id="work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
             <Card>
               <CardHeader>
@@ -2212,15 +2258,26 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               </CardContent>
             </Card>
         </WorkPermitSection>
+        )}
 
         {/* Submit Buttons */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-between gap-4">
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={goToPreviousStep} disabled={isFirstStep}>
+              Back
+            </Button>
+            <Button type="button" variant="outline" onClick={goToNextStep} disabled={isLastStep}>
+              Next
+            </Button>
+          </div>
+          <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || !isLastStep}>
             {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Work Permit' : 'Save Changes'}
           </Button>
+          </div>
         </div>
       </form>
 

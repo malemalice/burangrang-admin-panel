@@ -83,8 +83,19 @@ const workPermitService = {
   /**
    * Approve work permit
    */
-  approveWorkPermit: async (id: string, notes?: string): Promise<WorkPermit> => {
-    const response = await api.post(`/work-permits/${id}/approve`, { notes });
+  approveWorkPermit: async (id: string, payload?: { notes?: string; safetyGuideline?: string }): Promise<WorkPermit> => {
+    const response = await api.post(`/work-permits/${id}/approve`, {
+      notes: payload?.notes,
+      safetyGuideline: payload?.safetyGuideline,
+    });
+    return mapWorkPermitDtoToWorkPermit(response.data);
+  },
+
+  /**
+   * Applicant signs/acknowledges HSE safety guideline (SK)
+   */
+  signSk: async (id: string, signature?: string): Promise<WorkPermit> => {
+    const response = await api.post(`/work-permits/${id}/sign-sk`, { signature });
     return mapWorkPermitDtoToWorkPermit(response.data);
   },
 
