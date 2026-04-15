@@ -202,7 +202,7 @@ const RiskDetailPage = () => {
                     )}
 
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500">Risk Category</h3>
+                      <h3 className="text-sm font-medium text-gray-500">Type of Hazard</h3>
                       <p className="mt-1">
                         {risk.riskCategory ? (
                           <Button

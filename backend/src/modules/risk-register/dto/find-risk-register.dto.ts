@@ -47,7 +47,7 @@ export class FindRiskRegisterDto {
   @IsOptional()
   riskId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by risk category ID' })
+  @ApiPropertyOptional({ description: 'Filter by type of hazard ID' })
   @IsUUID()
   @IsOptional()
   riskCategoryId?: string;

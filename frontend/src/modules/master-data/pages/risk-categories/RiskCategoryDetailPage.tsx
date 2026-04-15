@@ -31,7 +31,7 @@ const RiskCategoryDetailPage = () => {
         setRiskCategory(categoryData);
       } catch (error) {
         console.error('Failed to fetch risk category:', error);
-        toast.error('Failed to load risk category data');
+        toast.error('Failed to load type of hazard data');
       } finally {
         setIsLoading(false);
       }
@@ -50,11 +50,11 @@ const RiskCategoryDetailPage = () => {
     setIsDeleting(true);
     try {
       await riskCategoryService.delete(id);
-      toast.success('Risk category deleted successfully');
+      toast.success('Type of hazard deleted successfully');
       navigate('/master/risk-categories');
     } catch (error) {
       console.error('Failed to delete risk category:', error);
-      toast.error('Failed to delete risk category. It might have associated risks.');
+      toast.error('Failed to delete type of hazard. It might have associated risks.');
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -102,8 +102,8 @@ const RiskCategoryDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={riskCategory?.name || 'Risk Category Details'}
-        subtitle="View and manage risk category information"
+        title={riskCategory?.name || 'Type of Hazard Details'}
+        subtitle="View and manage type of hazard information"
         actions={
           <div className="flex gap-2">
             <Button
@@ -151,7 +151,7 @@ const RiskCategoryDetailPage = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center">
-                    <Shield className="mr-2 h-5 w-5" /> Risk Category Information
+                    <Shield className="mr-2 h-5 w-5" /> Type of Hazard Information
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -242,8 +242,8 @@ const RiskCategoryDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Risk Category"
-        description={`Are you sure you want to delete the risk category "${riskCategory?.name}"? This action cannot be undone. Note that categories with associated risks cannot be deleted.`}
+        title="Delete Type of Hazard"
+        description={`Are you sure you want to delete the type of hazard "${riskCategory?.name}"? This action cannot be undone. Note that types of hazard with associated risks cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"
         confirmText="Delete"

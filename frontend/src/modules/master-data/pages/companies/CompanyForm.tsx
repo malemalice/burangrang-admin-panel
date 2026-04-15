@@ -25,7 +25,7 @@ const formSchema = z.object({
   code: z.string().min(1, 'Company code is required'),
   address: z.string().optional(),
   contactPerson: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z.string().trim().min(1, 'Phone is required'),
   email: z.union([z.string().email('Invalid email address'), z.literal('')]).optional(),
   isActive: z.boolean().default(true),
 });
@@ -83,7 +83,7 @@ const CompanyForm = ({ company, mode }: CompanyFormProps) => {
           code: data.code,
           address: data.address || undefined,
           contactPerson: data.contactPerson || undefined,
-          phone: data.phone || undefined,
+          phone: data.phone,
           email: data.email || undefined,
           isActive: data.isActive,
         };
@@ -96,7 +96,7 @@ const CompanyForm = ({ company, mode }: CompanyFormProps) => {
           code: data.code,
           address: data.address || undefined,
           contactPerson: data.contactPerson || undefined,
-          phone: data.phone || undefined,
+          phone: data.phone,
           email: data.email || undefined,
           isActive: data.isActive,
         };
@@ -137,7 +137,9 @@ const CompanyForm = ({ company, mode }: CompanyFormProps) => {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Name *</FormLabel>
+                    <FormLabel>
+                      Company Name <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Enter company name" {...field} />
                     </FormControl>
@@ -151,7 +153,9 @@ const CompanyForm = ({ company, mode }: CompanyFormProps) => {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Code *</FormLabel>
+                    <FormLabel>
+                      Company Code <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Enter company code" {...field} />
                     </FormControl>
@@ -181,7 +185,9 @@ const CompanyForm = ({ company, mode }: CompanyFormProps) => {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel>
+                      Phone <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Enter phone number" {...field} />
                     </FormControl>

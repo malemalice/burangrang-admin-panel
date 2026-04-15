@@ -62,7 +62,7 @@ const RiskRegisterPage = () => {
     },
     {
       id: 'riskCategoryId',
-      label: 'Risk Category',
+      label: 'Type of Hazard',
       type: 'searchableSelect',
       options: [],
     },

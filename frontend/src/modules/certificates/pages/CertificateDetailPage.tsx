@@ -245,20 +245,25 @@ const CertificateDetailPage = () => {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    {certificate.personnelName ? (
+                                    {(certificate.personnelName || certificate.personnel) ? (
                                         <User className="h-5 w-5" />
                                     ) : (
                                         <Building className="h-5 w-5" />
                                     )}
-                                    {certificate.personnelName ? 'Personnel' : 'Equipment'} Information
+                                    {(certificate.personnelName || certificate.personnel) ? 'Personnel' : 'Equipment'} Information
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {certificate.personnelName ? (
+                                {certificate.personnelName || certificate.personnel ? (
                                     <>
                                         <div>
                                             <p className="text-sm text-gray-500">Personnel Name</p>
-                                            <p className="font-medium">{certificate.personnelName}</p>
+                                            <p className="font-medium">
+                                                {certificate.personnelName || 
+                                                 (certificate.personnel ? 
+                                                  `${certificate.personnel.firstName} ${certificate.personnel.lastName}`.trim() : 
+                                                  'N/A')}
+                                            </p>
                                         </div>
                                     </>
                                 ) : certificate.equipmentName ? (

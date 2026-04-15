@@ -4,8 +4,18 @@ import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
+import { Pagination } from 'tiptap-pagination-breaks';
+import generatePDF, { Margin, usePDF } from 'react-to-pdf';
 import { cn } from '@/core/lib/utils';
 import { Button } from '@/core/components/ui/button';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
 import {
   Bold,
   Italic,
@@ -23,19 +33,69 @@ import {
   Rows2,
   Merge,
   SplitSquareHorizontal,
+  FileDown,
+  Eye,
+  Loader2,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 interface RichEditorProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  pageLayout?: boolean;
+  enablePdfExport?: boolean;
 }
 
 const EMPTY_DOC = '<p></p>';
 
-export function RichEditor({ value, onChange, className, disabled }: RichEditorProps) {
+/** Matches editor content inset; pagination uses padding only (pageMargin 0) to avoid double top gap. */
+const PAGE_CONTENT_INSET = 'px-[96px] pt-10 pb-16';
+/**
+ * Keep these in sync across Pagination + editor canvas + PDF target.
+ * A4 at 96dpi ≈ 794 x 1123 px.
+ */
+const A4_PAGE_WIDTH_PX = 794;
+const A4_PAGE_HEIGHT_PX = 1123;
+const A4_PAGE_MIN_HEIGHT_CLASS = 'min-h-[1123px]';
+const PAGE_GAP_PX = 32;
+
+const PDF_BUILD_OPTIONS = buildPdfOptions({
+  method: 'build',
+  page: {
+    // Rich editor has its own internal content inset; keep page margin minimal so we don't double-pad.
+    // (Other exports use 12mm via DEFAULT_PDF_MARGIN_MM.)
+    margin: Margin.NONE,
+  },
+  canvas: {
+    mimeType: 'image/png',
+  },
+});
+
+export function RichEditor({
+  value,
+  onChange,
+  className,
+  disabled,
+  pageLayout,
+  enablePdfExport,
+}: RichEditorProps) {
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pageGuideOffsets, setPageGuideOffsets] = useState<number[]>([]);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+
+  const pdfFilename = useMemo(() => {
+    // Keep it simple/consistent; callers can rename after download if needed.
+    return 'safety-guidelines.pdf';
+  }, []);
+
+  // Do not pass options to usePDF — its merge ignores per-call options when hook options exist.
+  const { targetRef } = usePDF();
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -62,6 +122,18 @@ export function RichEditor({ value, onChange, className, disabled }: RichEditorP
           class: 'border border-border px-3 py-2 align-top',
         },
       }),
+      ...(pageLayout
+        ? [
+            Pagination.configure({
+              pageHeight: A4_PAGE_HEIGHT_PX,
+              pageWidth: A4_PAGE_WIDTH_PX,
+              // Use 0 here; content inset comes from Tailwind padding on `.ProseMirror` only.
+              pageMargin: 0,
+              label: 'Page',
+              showPageNumber: true,
+            }),
+          ]
+        : []),
     ],
     content: value || EMPTY_DOC,
     editable: !disabled,
@@ -70,8 +142,12 @@ export function RichEditor({ value, onChange, className, disabled }: RichEditorP
     },
     editorProps: {
       attributes: {
-        class:
-          'prose prose-sm dark:prose-invert max-w-none min-h-[200px] px-4 py-3 focus:outline-none [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border',
+        class: cn(
+          'prose prose-sm dark:prose-invert max-w-none focus:outline-none [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border',
+          pageLayout
+            ? `${A4_PAGE_MIN_HEIGHT_CLASS} rounded-sm bg-transparent shadow-none ${PAGE_CONTENT_INSET}`
+            : 'min-h-[200px] px-4 py-3',
+        ),
       },
     },
   });
@@ -90,6 +166,126 @@ export function RichEditor({ value, onChange, className, disabled }: RichEditorP
     }
   }, [editor, value]);
 
+  const pdfHtml = value || EMPTY_DOC;
+
+  useEffect(() => {
+    if (!enablePdfExport || !pdfOpen) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    setPdfGenerating(true);
+    setPdfError(null);
+
+    void (async () => {
+      try {
+        await new Promise((r) => setTimeout(r, 200));
+        const pdf = await generatePDF(targetRef, {
+          ...PDF_BUILD_OPTIONS,
+          filename: pdfFilename,
+        });
+        if (cancelled || !pdf) return;
+        const url = URL.createObjectURL(pdf.output('blob'));
+        setPdfPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setPdfError(e instanceof Error ? e.message : 'Failed to generate PDF');
+        }
+      } finally {
+        if (!cancelled) {
+          setPdfGenerating(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      setPdfPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setPdfGenerating(false);
+    };
+  }, [enablePdfExport, pdfFilename, pdfOpen, targetRef, value]);
+
+  const handleDownloadPdf = useCallback(() => {
+    if (!pdfPreviewUrl) return;
+    const a = document.createElement('a');
+    a.href = pdfPreviewUrl;
+    a.download = pdfFilename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, [pdfFilename, pdfPreviewUrl]);
+
+  const updatePageGuideOffsets = useCallback(() => {
+    if (!pageLayout) {
+      setPageGuideOffsets([]);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const pagePeriod = A4_PAGE_HEIGHT_PX + PAGE_GAP_PX;
+    const measurableHeight = Math.max(canvas.scrollHeight, canvas.clientHeight);
+
+    if (measurableHeight <= A4_PAGE_HEIGHT_PX) {
+      setPageGuideOffsets([]);
+      return;
+    }
+
+    const breakCount =
+      Math.floor((measurableHeight - A4_PAGE_HEIGHT_PX) / pagePeriod) + 1;
+    const nextOffsets = Array.from(
+      { length: Math.max(0, breakCount) },
+      (_, index) => A4_PAGE_HEIGHT_PX + index * pagePeriod,
+    );
+
+    setPageGuideOffsets((prev) => {
+      if (
+        prev.length === nextOffsets.length &&
+        prev.every((value, index) => value === nextOffsets[index])
+      ) {
+        return prev;
+      }
+      return nextOffsets;
+    });
+  }, [pageLayout]);
+
+  useEffect(() => {
+    if (!pageLayout) {
+      setPageGuideOffsets([]);
+      return undefined;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+
+    updatePageGuideOffsets();
+
+    const observer = new ResizeObserver(() => {
+      updatePageGuideOffsets();
+    });
+
+    observer.observe(canvas);
+    const proseMirror = canvas.querySelector('.ProseMirror');
+    if (proseMirror instanceof HTMLElement) {
+      observer.observe(proseMirror);
+    }
+
+    window.addEventListener('resize', updatePageGuideOffsets);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updatePageGuideOffsets);
+    };
+  }, [editor, pageLayout, updatePageGuideOffsets, value]);
+
   if (!editor) {
     return null;
   }
@@ -100,11 +296,50 @@ export function RichEditor({ value, onChange, className, disabled }: RichEditorP
     <div
       className={cn(
         'rounded-md border border-input bg-background ring-offset-background',
+        pageLayout && 'rich-editor-pageLayout',
         disabled && 'pointer-events-none opacity-60',
         className,
       )}
     >
-      <div className="flex flex-wrap gap-1 border-b border-border bg-muted/40 p-2">
+      {enablePdfExport && (
+        <div
+          ref={targetRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          {/* Keep capture inset identical to editor inset so wrap/break geometry stays aligned. */}
+          <div className={cn('bg-background', PAGE_CONTENT_INSET)}>
+            <div
+              className="prose prose-sm max-w-none [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border"
+              // The HTML comes from our own editor, not arbitrary user HTML.
+              dangerouslySetInnerHTML={{ __html: pdfHtml }}
+            />
+          </div>
+        </div>
+      )}
+
+      {pageLayout && (
+        <style>{`
+          .rich-editor-pageLayout .ProseMirror {
+            margin: 0 auto !important;
+            position: relative;
+            z-index: 10;
+          }
+          .rich-editor-pageLayout .page-break {
+            display: none !important;
+          }
+          .rich-editor-pageLayout .page-number {
+            display: none !important;
+          }
+        `}</style>
+      )}
+
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2',
+          pageLayout && 'sticky top-0 z-10',
+        )}
+      >
         <Button
           type="button"
           variant="ghost"
@@ -200,9 +435,23 @@ export function RichEditor({ value, onChange, className, disabled }: RichEditorP
         >
           <Code className="h-4 w-4" />
         </Button>
+
+        {enablePdfExport && (
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPdfOpen(true)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Preview PDF
+            </Button>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-border bg-muted/20 p-2">
+      <div className={cn('flex flex-wrap gap-1 border-b border-border bg-muted/20 p-2', pageLayout && 'sticky top-[48px] z-10')}>
         <Button
           type="button"
           variant="secondary"
@@ -337,7 +586,103 @@ export function RichEditor({ value, onChange, className, disabled }: RichEditorP
         </BubbleMenu>
       )}
 
-      <EditorContent editor={editor} />
+      {pageLayout ? (
+        <div
+          ref={canvasRef}
+          className={cn(
+            // Taller viewport so multi-page content is easier to scroll; first page-break guide appears only after content height exceeds A4_PAGE_HEIGHT_PX.
+            'relative h-[min(750px,75vh)] min-h-[400px] overflow-y-auto p-4',
+            // A Google Docs-like canvas
+            'bg-muted/40',
+            // Repeating fixed-height "paper" pages behind the editor
+            // - page: A4 height
+            // - gap: 32px between pages
+            // - width: A4 width
+            // Background is centered and repeats vertically.
+            // We draw both page fill + 1px top/bottom borders.
+            // CSS vars must be set via style (not dynamic Tailwind classes) so JIT emits gradient utilities.
+            'bg-[linear-gradient(to_bottom,hsl(var(--background))_0,var(--pageHeight),transparent_var(--pageHeight),transparent_calc(var(--pageHeight)+var(--pageGap))),linear-gradient(to_bottom,hsl(var(--border))_0,transparent_1px,transparent_calc(var(--pageHeight)-1px),hsl(var(--border))_calc(var(--pageHeight)-1px),hsl(var(--border))_var(--pageHeight),transparent_var(--pageHeight),transparent_calc(var(--pageHeight)+var(--pageGap)))]',
+            'bg-[length:var(--pageWidth)_calc(var(--pageHeight)+var(--pageGap)),var(--pageWidth)_calc(var(--pageHeight)+var(--pageGap))] bg-[position:center_top,center_top] bg-repeat-y',
+          )}
+          style={
+            {
+              '--pageWidth': `${A4_PAGE_WIDTH_PX}px`,
+              '--pageHeight': `${A4_PAGE_HEIGHT_PX}px`,
+              '--pageGap': `${PAGE_GAP_PX}px`,
+            } as CSSProperties
+          }
+        >
+          {/* Fixed A4 guides: independent from editor node splitting, accurate for long pasted paragraphs. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[1]"
+          >
+            {pageGuideOffsets.map((offset) => (
+              <div
+                key={offset}
+                className="absolute left-1/2 border-t border-dashed border-border/70"
+                style={{
+                  top: `${offset}px`,
+                  width: `${A4_PAGE_WIDTH_PX}px`,
+                  transform: 'translateX(-50%)',
+                }}
+              />
+            ))}
+          </div>
+          <EditorContent editor={editor} />
+        </div>
+      ) : (
+        <EditorContent editor={editor} />
+      )}
+
+      {enablePdfExport && (
+        <Dialog open={pdfOpen} onOpenChange={setPdfOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Safety guidelines PDF preview</DialogTitle>
+            </DialogHeader>
+
+            <div className="relative max-h-[70vh] min-h-[400px] overflow-hidden rounded-md border bg-muted/30">
+              {pdfGenerating && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+                  <p className="text-sm text-muted-foreground">Generating PDF…</p>
+                </div>
+              )}
+              {pdfError && (
+                <div className="p-4 text-sm text-destructive" role="alert">
+                  {pdfError}
+                </div>
+              )}
+              {pdfPreviewUrl && (
+                <iframe
+                  title="Safety guidelines PDF preview"
+                  src={pdfPreviewUrl}
+                  className="h-[min(70vh,800px)] w-full min-h-[400px] border-0"
+                />
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPdfOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                disabled={!pdfPreviewUrl || pdfGenerating || Boolean(pdfError)}
+                onClick={handleDownloadPdf}
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

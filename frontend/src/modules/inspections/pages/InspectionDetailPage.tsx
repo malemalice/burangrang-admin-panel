@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/core/lib/auth';
 import api from '@/core/lib/api';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import roleService from '@/modules/roles/services/roleService';
 import { Button } from '@/core/components/ui/button';
@@ -62,9 +63,11 @@ const InspectionDetailPage = () => {
     return inspection?.code ?? 'inspection';
   }, [inspection]);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);

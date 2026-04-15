@@ -15,6 +15,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -84,9 +85,11 @@ export default function EnvironmentalMeasurementDetailPage() {
   const baseFilename = measurement
     ? `environmental-measurement-${measurement.id}-${format(new Date(measurement.date), 'yyyyMMdd')}`
     : 'environmental-measurement';
-  const { toPDF, targetRef } = usePDF({
-    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const fetchApprovalData = useCallback(async (measurementId: string) => {
     setIsLoadingHistory(true);
@@ -193,13 +196,16 @@ export default function EnvironmentalMeasurementDetailPage() {
 
   const handleSubmit = async () => {
     if (!id || !measurement) return;
+    const wasRejected = measurement.status === GeneralStatusEnum.REJECTED;
     try {
       setIsUpdatingStatus(true);
       await environmentalMeasurementService.submitMeasurement(id);
-      toast.success('Measurement submitted successfully');
+      toast.success(
+        wasRejected ? 'Measurement reopened for editing and approval' : 'Measurement submitted successfully',
+      );
       await fetchMeasurement();
     } catch {
-      toast.error('Failed to submit measurement');
+      toast.error(wasRejected ? 'Failed to resubmit measurement' : 'Failed to submit measurement');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -280,6 +286,13 @@ export default function EnvironmentalMeasurementDetailPage() {
               </Button>
             )}
 
+            {status === GeneralStatusEnum.REJECTED && (
+              <Button variant="default" onClick={handleSubmit} disabled={isUpdatingStatus}>
+                <Send className="h-4 w-4 mr-2" />
+                {isUpdatingStatus ? 'Submitting...' : 'Resubmit'}
+              </Button>
+            )}
+
             {status === GeneralStatusEnum.OPEN && (
               <Button variant="default" onClick={handleRequestApproval} disabled={isUpdatingStatus}>
                 <Send className="h-4 w-4 mr-2" />
@@ -322,9 +335,7 @@ export default function EnvironmentalMeasurementDetailPage() {
               <FileDown className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
-            {status !== GeneralStatusEnum.DONE &&
-              status !== GeneralStatusEnum.REJECTED &&
-              status !== GeneralStatusEnum.WAITING_APPROVAL && (
+            {status !== GeneralStatusEnum.DONE && status !== GeneralStatusEnum.WAITING_APPROVAL && (
                 <PermissionGuard permission="environmental-measurement:update">
                   <Button size="sm" onClick={() => navigate(`/environmental-measurements/${id}/edit`)}>
                     <FileEdit className="h-4 w-4 mr-2" />
@@ -515,11 +526,27 @@ export default function EnvironmentalMeasurementDetailPage() {
                       .filter((line) => line.status !== 'completed')
                       .map((line) => {
                         const isCurrent = line.status === 'current';
+                        const isRejectedStep =
+                          isCurrent && status === GeneralStatusEnum.REJECTED;
+                        const isDraftOrOpenPending =
+                          isCurrent &&
+                          (status === GeneralStatusEnum.DRAFT || status === GeneralStatusEnum.OPEN);
+                        const lineStatusLabel = !isCurrent
+                          ? 'Pending'
+                          : isRejectedStep
+                            ? 'Rejected'
+                            : isDraftOrOpenPending
+                              ? 'Pending'
+                              : 'Waiting for Approval';
                         return (
                           <div key={`line-${line.line}`} className="relative pl-8">
                             <div className="absolute left-0 w-8 flex items-center justify-center">
                               {isCurrent ? (
-                                <div className="w-3 h-3 rounded-full border-2 border-background bg-blue-500 animate-pulse" />
+                                isRejectedStep ? (
+                                  <div className="w-3 h-3 rounded-full border-2 border-background bg-red-500" />
+                                ) : (
+                                  <div className="w-3 h-3 rounded-full border-2 border-background bg-blue-500 animate-pulse" />
+                                )
                               ) : (
                                 <Circle className="w-3 h-3 text-muted-foreground" />
                               )}
@@ -527,37 +554,49 @@ export default function EnvironmentalMeasurementDetailPage() {
                             <div
                               className={`rounded-lg p-4 border ${
                                 isCurrent
-                                  ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                                  ? isRejectedStep
+                                    ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                                    : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
                                   : 'bg-muted/20 border-dashed opacity-60'
                               }`}
                             >
                               <div className="flex items-center gap-2 mb-2">
                                 {isCurrent ? (
-                                  <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                  isRejectedStep ? (
+                                    <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                  ) : (
+                                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                  )
                                 ) : null}
                                 <p
                                   className={`text-xs font-semibold ${
                                     isCurrent
-                                      ? 'text-blue-900 dark:text-blue-100'
+                                      ? isRejectedStep
+                                        ? 'text-red-900 dark:text-red-100'
+                                        : 'text-blue-900 dark:text-blue-100'
                                       : 'text-muted-foreground'
                                   }`}
                                 >
-                                  {isCurrent ? 'Waiting for Approval' : 'Pending'}
+                                  {lineStatusLabel}
                                 </p>
                               </div>
                               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                                 <span
                                   className={
-                                    isCurrent
+                                    isCurrent && !isRejectedStep
                                       ? 'text-blue-700 dark:text-blue-300'
-                                      : 'text-muted-foreground'
+                                      : isRejectedStep
+                                        ? 'text-red-700 dark:text-red-300'
+                                        : 'text-muted-foreground'
                                   }
                                 >
                                   Dept:{' '}
                                   <span
                                     className={`font-medium ${
                                       isCurrent
-                                        ? 'text-blue-900 dark:text-blue-100'
+                                        ? isRejectedStep
+                                          ? 'text-red-900 dark:text-red-100'
+                                          : 'text-blue-900 dark:text-blue-100'
                                         : 'text-foreground'
                                     }`}
                                   >
@@ -566,16 +605,20 @@ export default function EnvironmentalMeasurementDetailPage() {
                                 </span>
                                 <span
                                   className={
-                                    isCurrent
+                                    isCurrent && !isRejectedStep
                                       ? 'text-blue-700 dark:text-blue-300'
-                                      : 'text-muted-foreground'
+                                      : isRejectedStep
+                                        ? 'text-red-700 dark:text-red-300'
+                                        : 'text-muted-foreground'
                                   }
                                 >
                                   Pos:{' '}
                                   <span
                                     className={`font-medium ${
                                       isCurrent
-                                        ? 'text-blue-900 dark:text-blue-100'
+                                        ? isRejectedStep
+                                          ? 'text-red-900 dark:text-red-100'
+                                          : 'text-blue-900 dark:text-blue-100'
                                         : 'text-foreground'
                                     }`}
                                   >

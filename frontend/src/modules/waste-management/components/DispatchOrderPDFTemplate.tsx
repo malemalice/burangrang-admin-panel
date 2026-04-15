@@ -107,6 +107,14 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
               <TableHead className="w-[38%] bg-muted/50 font-semibold">Status</TableHead>
               <TableCell>{formatEntityStatus(dispatchOrder.status)}</TableCell>
             </TableRow>
+            <TableRow>
+              <TableHead className="w-[38%] bg-muted/50 font-semibold">Approval status</TableHead>
+              <TableCell>
+                {approvalHistory?.currentStatus
+                  ? formatEntityStatus(approvalHistory.currentStatus)
+                  : '—'}
+              </TableCell>
+            </TableRow>
             {dispatchOrder.memo && (
               <TableRow>
                 <TableHead className="w-[38%] bg-muted/50 font-semibold align-top">Memo</TableHead>

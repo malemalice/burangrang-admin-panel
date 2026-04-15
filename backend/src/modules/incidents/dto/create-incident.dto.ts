@@ -98,7 +98,7 @@ export class CreateIncidentDto {
 
   @IsNotEmpty()
   @IsUUID()
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   riskCategoryId: string;
 
   @IsString()

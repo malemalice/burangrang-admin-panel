@@ -284,6 +284,7 @@ model Risk {
   riskCategoryId      String
   riskCategory        RiskCategory         @relation(fields: [riskCategoryId], references: [id])
   mitigations         RiskMitigation[]
+  workClassifications WorkClassificationRiskEquipment[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
   inspectionItems     InspectionItem[]
@@ -982,6 +983,7 @@ model SafetyEquipment {
   updatedAt             DateTime                      @updatedAt
   ppeStockItems         PPEStockItem[]
   workPermits           WorkPermitToSafetyEquipment[]
+  workClassifications   WorkClassificationRiskEquipment[]
   // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_safety_equipment")
@@ -1414,10 +1416,47 @@ model WorkClassification {
   safetyGuideline  String?                    @db.Text @map("safety_guideline")
   isActive         Boolean                    @default(true)
   createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
+  updatedAt        DateTime                           @updatedAt
   workPermits      WorkPermitClassification[]
+  attachments      WorkClassificationAttachment[]
+  riskEquipmentRows WorkClassificationRiskEquipment[]
 
   @@map("m_work_classification")
+}
+
+// Documents linked to master work classification (e.g. safety references)
+model WorkClassificationAttachment {
+  id                   String             @id @default(uuid())
+  workClassificationId String
+  fileUrl              String
+  fileName             String
+  fileType             String?
+  description          String?            @db.Text
+  order                Int
+  createdAt            DateTime           @default(now())
+
+  workClassification WorkClassification @relation(fields: [workClassificationId], references: [id], onDelete: Cascade)
+
+  @@index([workClassificationId])
+  @@map("t_work_classification_attachments")
+}
+
+model WorkClassificationRiskEquipment {
+  id                   String         @id @default(uuid())
+  workClassificationId String
+  riskId               String
+  safetyEquipmentId    String
+  notes                String?        @db.Text
+  order                Int            @default(0)
+  createdAt            DateTime       @default(now())
+
+  workClassification WorkClassification @relation(fields: [workClassificationId], references: [id], onDelete: Cascade)
+  risk              Risk              @relation(fields: [riskId], references: [id])
+  safetyEquipment    SafetyEquipment    @relation(fields: [safetyEquipmentId], references: [id])
+
+  @@unique([workClassificationId, riskId, safetyEquipmentId])
+  @@index([workClassificationId])
+  @@map("t_work_classification_risk_equipment")
 }
 
 model HeavyEquipment {
@@ -1720,8 +1759,12 @@ model WorkPermit {
   jobSafetyAnalysis         String   @db.Text
   workRequirements          String?  @db.Text
   safetyGuideline           String?  @db.Text
+  applicantSignedAt         DateTime?
+  applicantSignature        String?
+  workClassificationOtherDetail String? @db.Text @map("work_classification_other_detail")
   requireCourseVerification Boolean  @default(false)
-  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_HSE, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED
+  acknowledgedSafetyGuideline Boolean  @default(false) @map("acknowledged_safety_guideline")
+  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_PROJECT_OWNER, IN_REVIEW_HSE, WAITING_APPLICANT_SIGN, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED
   isActive                  Boolean  @default(true)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

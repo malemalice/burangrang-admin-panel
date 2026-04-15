@@ -15,6 +15,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import {
     Dialog,
     DialogContent,
@@ -54,18 +55,22 @@ const PPEWithdrawPage = () => {
         approval: ApprovalStatusHistory | null;
     } | null>(null);
 
-    const { toPDF, targetRef } = usePDF({
-        filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-    });
+    const { toPDF, targetRef } = usePDF(
+        buildPdfOptions({
+            filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+    );
 
     const handleExportPDF = async () => {
         try {
             setIsExportingPDF(true);
             setRowPdfPayload(null);
             await new Promise((resolve) => setTimeout(resolve, 200));
-            await toPDF({
-                filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-            });
+            await toPDF(
+                buildPdfOptions({
+                    filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                }),
+            );
             toast.success('PDF exported successfully');
         } catch (error) {
             console.error('Failed to export PDF:', error);
@@ -88,9 +93,11 @@ const PPEWithdrawPage = () => {
                     : emptyApprovalHistory;
             setRowPdfPayload({ withdrawal: full, approval });
             await new Promise((resolve) => setTimeout(resolve, 200));
-            await toPDF({
-                filename: `ppe-withdrawal-${full.withdrawalCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-            });
+            await toPDF(
+                buildPdfOptions({
+                    filename: `ppe-withdrawal-${full.withdrawalCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                }),
+            );
             toast.success('PDF exported successfully');
         } catch (error) {
             console.error('Failed to export withdrawal PDF:', error);

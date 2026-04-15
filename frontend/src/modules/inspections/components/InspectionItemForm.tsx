@@ -90,7 +90,7 @@ const inspectionFieldsSchema = z.object({
 const baseItemFormSchema = z.object({
   areaId: z.string().min(1, 'Area is required'),
   status: z.nativeEnum(GeneralStatusEnum),
-  riskCategoryId: z.string().min(1, 'Risk Category is required'),
+  riskCategoryId: z.string().min(1, 'Type of Hazard is required'),
   riskId: z.string().min(1, 'Risk is required'),
   assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
   assigneeId: z.string().optional(),
@@ -1191,7 +1191,7 @@ const InspectionItemForm = ({
           </div>
         )}
 
-        {/* Section 1: Creator Section - Area, Risk, Risk Category, Findings, Description, Due Date, Risk Mitigation */}
+        {/* Section 1: Creator Section - Area, Risk, Type of Hazard, Findings, Description, Due Date, Risk Mitigation */}
         {showCreatorSection && (
           <>
             <div className="space-y-4">
@@ -1275,7 +1275,7 @@ const InspectionItemForm = ({
                   formMode={formMode}
                   readOnlyComponent={
                     <ReadOnlyField
-                      label="Risk Category"
+                      label="Type of Hazard"
                       value={getDisplayValue('riskCategoryId', form.watch('riskCategoryId'))}
                       required
                     />
@@ -1287,7 +1287,7 @@ const InspectionItemForm = ({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Risk Category <span className="text-destructive">*</span>
+                          Type of Hazard <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <ModalCombobox
@@ -1298,8 +1298,8 @@ const InspectionItemForm = ({
                               // Clear risk when category changes
                               form.setValue('riskId', '');
                             }}
-                            placeholder="Select risk category"
-                            searchPlaceholder="Search risk category..."
+                            placeholder="Select type of hazard"
+                            searchPlaceholder="Search type of hazard..."
                           />
                         </FormControl>
                         <FormMessage />
@@ -1332,9 +1332,9 @@ const InspectionItemForm = ({
                             options={filteredRiskOptions}
                             value={field.value}
                             onValueChange={field.onChange}
-                            placeholder={selectedRiskCategoryId ? "Select risk" : "Select risk category first"}
+                            placeholder={selectedRiskCategoryId ? "Select risk" : "Select type of hazard first"}
                             searchPlaceholder="Search risk..."
-                            emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a risk category first"}
+                            emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a type of hazard first"}
                           />
                         </FormControl>
                         <FormMessage />

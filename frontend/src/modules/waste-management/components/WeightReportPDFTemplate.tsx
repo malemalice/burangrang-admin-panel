@@ -32,6 +32,9 @@ function formatWorkflowStatusLabel(
     lineStatus: 'completed' | 'current' | 'pending',
     lastApprovalStatus: string | undefined,
 ): string {
+    if (String(lastApprovalStatus).toUpperCase() === 'REJECTED') {
+        return 'Rejected';
+    }
     if (lineStatus === 'completed') {
         return lastApprovalStatus || 'Completed';
     }
@@ -64,6 +67,13 @@ export function WeightReportPDFTemplate({ report, approvalHistory }: WeightRepor
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) ?? [];
     const approvalLines = approvalHistory?.allApprovalLines ?? [];
     const isDone = report.status === WeightReportStatusEnum.DONE;
+    const isInApprovalFlow =
+        report.status === WeightReportStatusEnum.WAITING_APPROVAL ||
+        report.status === WeightReportStatusEnum.DONE ||
+        report.status === WeightReportStatusEnum.REJECTED;
+    const currentApprovalStatusLabel = isInApprovalFlow
+        ? (approvalHistory?.currentStatus ?? formatEntityStatus(report.status))
+        : formatEntityStatus(report.status);
 
     return (
         <div
@@ -177,8 +187,8 @@ export function WeightReportPDFTemplate({ report, approvalHistory }: WeightRepor
                 </h2>
                 <div className="mb-4 text-sm text-gray-800 leading-relaxed">
                     <span className="font-semibold">Current approval status: </span>
-                    <span>{approvalHistory?.currentStatus ?? report.status ?? '—'}</span>
-                    {!isDone && approvalHistory?.nextApprover && (
+                    <span>{currentApprovalStatusLabel || '—'}</span>
+                    {!isDone && isInApprovalFlow && approvalHistory?.nextApprover && (
                         <>
                             <span className="mx-2 text-gray-400">·</span>
                             <span className="font-semibold">Next responsible party: </span>
@@ -191,7 +201,7 @@ export function WeightReportPDFTemplate({ report, approvalHistory }: WeightRepor
                     )}
                 </div>
 
-                {approvalLines.length > 0 && (
+                {isInApprovalFlow && approvalLines.length > 0 && (
                     <div className="mb-6">
                         <p className="text-sm font-semibold text-gray-900 mb-2">Approval workflow (by step)</p>
                         <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
@@ -259,7 +269,7 @@ export function WeightReportPDFTemplate({ report, approvalHistory }: WeightRepor
                     </div>
                 )}
 
-                {allApprovals.length > 0 ? (
+                {isInApprovalFlow && allApprovals.length > 0 ? (
                     <div>
                         <p className="text-sm font-semibold text-gray-900 mb-2">Chronological approval log</p>
                         <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
@@ -319,6 +329,8 @@ export function WeightReportPDFTemplate({ report, approvalHistory }: WeightRepor
                             </tbody>
                         </table>
                     </div>
+                ) : !isInApprovalFlow ? (
+                    <p className="text-sm text-gray-700">Approval has not been requested yet.</p>
                 ) : shouldShowNoWorkflowMessage(
                       report.status,
                       approvalLines.length,

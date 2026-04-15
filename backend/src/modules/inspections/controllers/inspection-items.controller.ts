@@ -46,7 +46,7 @@ export class InspectionItemsController {
   @ApiQuery({ name: 'assignedDepartmentId', required: false, type: String, description: 'Filter by assigned department ID' })
   @ApiQuery({ name: 'assigneeId', required: false, type: String, description: 'Filter by assignee user ID' })
   @ApiQuery({ name: 'riskId', required: false, type: String, description: 'Filter by risk ID' })
-  @ApiQuery({ name: 'riskCategoryId', required: false, type: String, description: 'Filter by risk category ID' })
+  @ApiQuery({ name: 'riskCategoryId', required: false, type: String, description: 'Filter by type of hazard ID' })
   @ApiQuery({ name: 'inspectionCode', required: false, type: String, description: 'Search by inspection code' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })

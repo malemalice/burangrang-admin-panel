@@ -26,7 +26,7 @@ const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   code: z.string().min(1, 'Code is required'),
   description: z.string().optional(),
-  riskCategoryId: z.string().min(1, 'Risk Category is required'),
+  riskCategoryId: z.string().min(1, 'Type of Hazard is required'),
   isActive: z.boolean().default(true),
 });
 
@@ -92,7 +92,7 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
         setRiskCategories(withSelected);
       } catch (error) {
         console.error('Failed to search risk categories:', error);
-        toast.error('Failed to search risk categories');
+        toast.error('Failed to search types of hazard');
       } finally {
         setIsLoadingRiskCategories(false);
       }
@@ -159,18 +159,18 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
               name="riskCategoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Risk Category <span className="text-destructive">*</span></FormLabel>
+                  <FormLabel>Type of Hazard <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <SearchableSelect
                       options={riskCategories.map((c) => ({ value: c.id, label: c.name }))}
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder="Select a risk category"
-                      searchPlaceholder="Search risk category..."
+                      placeholder="Select a type of hazard"
+                      searchPlaceholder="Search type of hazard..."
                       onSearch={handleSearchRiskCategories}
                       isLoading={isLoadingRiskCategories}
                       onCreateNew={handleCreateNewRiskCategory}
-                      createNewText="Create new risk category"
+                      createNewText="Create new type of hazard"
                     />
                   </FormControl>
                   <FormMessage />

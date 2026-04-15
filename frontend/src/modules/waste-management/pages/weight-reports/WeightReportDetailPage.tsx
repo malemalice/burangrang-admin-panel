@@ -11,6 +11,7 @@ import {
     CheckCircle2,
     XCircle,
     Loader2,
+    RotateCcw,
 } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
@@ -18,6 +19,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { ApprovalStatus } from '@/core/lib/types';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { weightReportService } from '../../services/wasteManagementService';
@@ -60,7 +62,11 @@ export default function WeightReportDetailPage() {
     const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
     const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
 
-    const { toPDF, targetRef } = usePDF({ filename: `weight-report-${data?.reportCode || 'document'}.pdf` });
+    const { toPDF, targetRef } = usePDF(
+        buildPdfOptions({
+            filename: `weight-report-${data?.reportCode || 'document'}.pdf`,
+        }),
+    );
 
     const fetchData = useCallback(async () => {
         if (!id) return;
@@ -217,7 +223,10 @@ export default function WeightReportDetailPage() {
 
     if (!data) return null;
 
-    const isEditable = data.status === WeightReportStatusEnum.DRAFT || data.status === WeightReportStatusEnum.OPEN;
+    const isEditable =
+        data.status === WeightReportStatusEnum.DRAFT ||
+        data.status === WeightReportStatusEnum.OPEN ||
+        data.status === WeightReportStatusEnum.REJECTED;
 
     return (
         <div className="space-y-6">
@@ -247,6 +256,12 @@ export default function WeightReportDetailPage() {
                             <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
                                 <ClipboardCheck className="mr-2 h-4 w-4" />
                                 {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
+                            </Button>
+                        )}
+                        {data.status === WeightReportStatusEnum.REJECTED && (
+                            <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                {isUpdatingStatus ? 'Resubmitting...' : 'Resubmit for Approval'}
                             </Button>
                         )}
                         {data.status === WeightReportStatusEnum.WAITING_APPROVAL && canApprove && (

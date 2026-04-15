@@ -86,9 +86,9 @@ export const useWorkPermits = () => {
     }
   }, []);
 
-  const approveWorkPermit = useCallback(async (id: string, notes?: string) => {
+  const approveWorkPermit = useCallback(async (id: string, payload?: { notes?: string; safetyGuideline?: string }) => {
     try {
-      const updated = await workPermitService.approveWorkPermit(id, notes);
+      const updated = await workPermitService.approveWorkPermit(id, payload);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
       toast.success('Work permit approved successfully');
       return updated;
@@ -151,6 +151,19 @@ export const useWorkPermits = () => {
     }
   }, []);
 
+  const signSk = useCallback(async (id: string, signature?: string) => {
+    try {
+      const updated = await workPermitService.signSk(id, signature);
+      setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      toast.success('Safety guideline acknowledged successfully');
+      return updated;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign safety guideline';
+      toast.error(errorMessage);
+      throw err;
+    }
+  }, []);
+
   return {
     workPermits,
     totalWorkPermits,
@@ -167,6 +180,7 @@ export const useWorkPermits = () => {
     requestInfo,
     extendWorkPermit,
     closeWorkPermit,
+    signSk,
   };
 };
 
@@ -217,10 +231,19 @@ export const useWorkPermitActions = () => {
     }
   };
 
-  const approve = async (id: string, notes?: string) => {
+  const approve = async (id: string, payload?: { notes?: string; safetyGuideline?: string }) => {
     setIsLoading(true);
     try {
-      return await workPermitService.approveWorkPermit(id, notes);
+      return await workPermitService.approveWorkPermit(id, payload);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signSk = async (id: string, signature?: string) => {
+    setIsLoading(true);
+    try {
+      return await workPermitService.signSk(id, signature);
     } finally {
       setIsLoading(false);
     }
@@ -270,5 +293,6 @@ export const useWorkPermitActions = () => {
     requestInfo,
     extend,
     close,
+    signSk,
   };
 };

@@ -247,7 +247,10 @@ const WorkPermitsPage = () => {
         <div>
           <div className="font-medium">{workPermit.projectName}</div>
           {workPermit.company && (
-            <div className="text-sm text-muted-foreground">{workPermit.company.name}</div>
+            <div className="text-sm text-muted-foreground">
+              {workPermit.company.name}
+              {workPermit.company.phone ? ` · ${workPermit.company.phone}` : ''}
+            </div>
           )}
         </div>
       ),

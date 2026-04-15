@@ -1,5 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 
+/** Must match `WORK_CLASSIFICATION_OTHER_CODE` in work-classification.constants.ts */
+const SEED_WORK_CLASSIFICATION_OTHER_CODE = 'OTHERS';
+
 export async function seedWorkPermitMasters(prisma: PrismaClient) {
   console.log('🌱 Seeding Work Permit master data...');
 
@@ -13,6 +16,11 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
     { name: 'Plumbing', code: 'PLUMB', description: 'Plumbing installation and repair' },
     { name: 'Painting', code: 'PAINT', description: 'Painting and coating work' },
     { name: 'General Maintenance', code: 'MAINT', description: 'General maintenance work' },
+    {
+      name: 'Lainnya / Others',
+      code: SEED_WORK_CLASSIFICATION_OTHER_CODE,
+      description: 'Other work types — specify in work permit (workClassificationOtherDetail)',
+    },
   ];
 
   for (const classification of workClassifications) {

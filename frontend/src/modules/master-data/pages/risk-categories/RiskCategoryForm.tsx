@@ -77,21 +77,21 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
     try {
       if (mode === 'create') {
         await riskCategoryService.create(data);
-        toast.success('Risk category created successfully');
+        toast.success('Type of hazard created successfully');
       } else {
         await riskCategoryService.update(riskCategory!.id, data);
-        toast.success('Risk category updated successfully');
+        toast.success('Type of hazard updated successfully');
       }
       navigate('/master/risk-categories');
     } catch (error) {
-      toast.error(`Failed to ${mode} risk category`);
+      toast.error(`Failed to ${mode} type of hazard`);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Risk Category</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Type of Hazard</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -162,7 +162,7 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
                   <div className="space-y-0.5">
                     <FormLabel>Active Status</FormLabel>
                     <div className="text-sm text-gray-500">
-                      Enable or disable this risk category
+                      Enable or disable this type of hazard
                     </div>
                   </div>
                   <FormControl>

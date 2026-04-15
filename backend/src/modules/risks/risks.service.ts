@@ -21,13 +21,13 @@ export class RisksService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createRiskDto: CreateRiskDto): Promise<RiskDto> {
-    // Verify the risk category exists first
+    // Verify the type of hazard exists first
     const riskCategory = await (this.prisma as any).riskCategory.findUnique({
       where: { id: createRiskDto.riskCategoryId }
     });
 
     if (!riskCategory) {
-      throw new NotFoundException(`Risk category with ID ${createRiskDto.riskCategoryId} not found`);
+      throw new NotFoundException(`Type of hazard with ID ${createRiskDto.riskCategoryId} not found`);
     }
 
     // Create the risk
@@ -122,14 +122,14 @@ export class RisksService {
       throw new NotFoundException(`Risk with ID ${id} not found`);
     }
 
-    // If updating Risk Category ID, verify it exists
+    // If updating type of hazard ID, verify it exists
     if (updateRiskDto.riskCategoryId) {
       const riskCategory = await (this.prisma as any).riskCategory.findUnique({
         where: { id: updateRiskDto.riskCategoryId }
       });
 
       if (!riskCategory) {
-        throw new NotFoundException(`Risk category with ID ${updateRiskDto.riskCategoryId} not found`);
+        throw new NotFoundException(`Type of hazard with ID ${updateRiskDto.riskCategoryId} not found`);
       }
     }
 

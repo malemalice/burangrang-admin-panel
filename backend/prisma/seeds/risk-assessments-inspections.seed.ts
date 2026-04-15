@@ -133,7 +133,7 @@ export const seedRiskAssessmentsAndInspections = async (
     });
 
     if (riskCategories.length === 0) {
-      console.log('⚠️  No risk categories found. Please run risk-categories seed first.');
+      console.log('⚠️  No types of hazard found. Please run risk-categories seed first.');
       return;
     }
 

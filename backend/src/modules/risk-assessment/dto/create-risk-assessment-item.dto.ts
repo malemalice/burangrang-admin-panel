@@ -10,7 +10,7 @@ export class CreateRiskAssessmentItemDto {
   mRiskId: string;
 
   @IsUUID()
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   mRiskCategoryId: string;
 
   @IsString()

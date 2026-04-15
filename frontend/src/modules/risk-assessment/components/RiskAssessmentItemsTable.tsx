@@ -58,7 +58,7 @@ export const RiskAssessmentItemsTable = ({
   const columns = [
     {
       id: 'category',
-      header: 'Risk Category',
+      header: 'Type of Hazard',
       cell: (item: RiskAssessmentItem) => (
         <div className="font-medium">
           {item.mRiskCategory

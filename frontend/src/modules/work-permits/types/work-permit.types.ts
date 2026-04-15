@@ -8,6 +8,23 @@ export interface MasterDataOption {
   code: string;
 }
 
+/** Work classification row from GET work-permits/master-data */
+export interface WorkClassificationMasterOption extends MasterDataOption {
+  safetyGuideline?: string | null;
+  attachments?: Array<{
+    id: string;
+    fileUrl: string;
+    fileName: string;
+    fileType?: string | null;
+    description?: string | null;
+    order: number;
+    createdAt: string;
+  }>;
+}
+
+/** Company row from work-permit master-data (includes phone for display) */
+export type CompanyOption = MasterDataOption & { phone?: string | null };
+
 export interface GuestOption {
   id: string;
   name: string;
@@ -17,8 +34,8 @@ export interface GuestOption {
 
 export interface WorkPermitMasterData {
   areas: MasterDataOption[];
-  companies: MasterDataOption[];
-  workClassifications: MasterDataOption[];
+  companies: CompanyOption[];
+  workClassifications: WorkClassificationMasterOption[];
   guests: GuestOption[];
   heavyEquipment: MasterDataOption[];
   tools: MasterDataOption[];
@@ -39,7 +56,12 @@ export interface WorkPermit {
   jobSafetyAnalysis: string;
   workRequirements?: string;
   safetyGuideline?: string;
+  /** Free text when "Others" (OTHERS) classification is selected */
+  workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
+  acknowledgedSafetyGuideline: boolean;
+  applicantSignedAt?: string;
+  applicantSignature?: string;
   status: WorkPermitStatus;
   isActive: boolean;
   createdBy: string;
@@ -55,6 +77,7 @@ export interface WorkPermit {
     id: string;
     name: string;
     code: string;
+    phone?: string | null;
   };
   creator?: {
     id: string;
@@ -82,7 +105,9 @@ export type WorkPermitStatus =
   | 'DRAFT'
   | 'OPEN'
   | 'WAITING_APPROVAL'
+  | 'IN_REVIEW_PROJECT_OWNER'
   | 'IN_REVIEW_HSE'
+  | 'WAITING_APPLICANT_SIGN'
   | 'IN_REVIEW_SECURITY'
   | 'NEED_INFO'
   | 'APPROVED'
@@ -263,7 +288,11 @@ export interface WorkPermitDTO {
   jobSafetyAnalysis: string;
   workRequirements?: string;
   safetyGuideline?: string;
+  workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
+  acknowledgedSafetyGuideline?: boolean;
+  applicantSignedAt?: string;
+  applicantSignature?: string;
   status: string;
   isActive: boolean;
   createdBy: string;
@@ -278,6 +307,7 @@ export interface WorkPermitDTO {
     id: string;
     name: string;
     code: string;
+    phone?: string | null;
   };
   creator?: {
     id: string;
@@ -311,7 +341,9 @@ export interface CreateWorkPermitDTO {
   jobSafetyAnalysis: string;
   workRequirements?: string;
   safetyGuideline?: string;
+  workClassificationOtherDetail?: string;
   requireCourseVerification?: boolean;
+  acknowledgedSafetyGuideline: boolean;
   classifications?: Array<{
     workClassificationId: string;
     order: number;
@@ -418,6 +450,7 @@ export interface ApprovalTimelineItem {
 export const mapWorkPermitDtoToWorkPermit = (dto: WorkPermitDTO): WorkPermit => ({
   ...dto,
   status: dto.status as WorkPermitStatus,
+  acknowledgedSafetyGuideline: dto.acknowledgedSafetyGuideline ?? false,
 });
 
 export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): UpdateWorkPermitDTO => ({
@@ -430,7 +463,9 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   jobSafetyAnalysis: workPermit.jobSafetyAnalysis,
   workRequirements: workPermit.workRequirements,
   safetyGuideline: workPermit.safetyGuideline,
+  workClassificationOtherDetail: workPermit.workClassificationOtherDetail,
   requireCourseVerification: workPermit.requireCourseVerification,
+  acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline,
   classifications: workPermit.classifications?.map((c) => ({
     workClassificationId: c.workClassificationId || c.id,
     order: c.order,

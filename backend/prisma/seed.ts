@@ -35,6 +35,8 @@ import { seedAuditSchedules } from './seeds/audit-schedules.seed';
 import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.seed';
 import { seedIncidents } from './seeds/incidents.seed';
 import { seedKpiHseTargets } from './seeds/kpi-hse-targets.seed';
+import { seedWorkClassificationSafetyGuidelines } from './seeds/work-classification-safety-guidelines.seed';
+import { seedWorkClassificationRiskMitigations } from './seeds/work-classification-risk-mitigations.seed';
 
 const dbUrl = process.env.DATABASE_URL ?? '';
 const dbUrlSep = dbUrl.includes('?') ? '&' : '?';
@@ -507,10 +509,14 @@ async function main() {
           await prisma.waterQualityParameter.deleteMany();
           await prisma.treatmentPlant.deleteMany();
           break;
+        case 'work-classification-safety-guidelines':
+        case 'work_classification_safety_guidelines':
+          // No rows to clear — seeder only updates existing classifications
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents, work-classification-safety-guidelines',
           );
           process.exit(1);
       }
@@ -558,6 +564,8 @@ async function main() {
       await seedCourses();
       await seedQuizzes();
       await seedWorkPermitsData(prisma);
+      await seedWorkClassificationSafetyGuidelines(prisma);
+      await seedWorkClassificationRiskMitigations(prisma);
       await seedAreas();
       await seedRooms();
       await seedEnvironmentalMeasurements();
@@ -602,17 +610,17 @@ async function main() {
           await seedRiskCategories(prisma);
           break;
         case 'risks':
-          // Find existing categories or create new ones if they don't exist
+          // Find existing types of hazard or create new ones if they don't exist
           let categories;
           try {
             categories = await (prisma as any).riskCategory.findMany();
             if (categories.length === 0) {
               categories = await seedRiskCategories(prisma);
             } else {
-              console.log('Using existing risk categories...');
+              console.log('Using existing types of hazard...');
             }
           } catch (error) {
-            console.log('Error finding categories, creating new ones...');
+            console.log('Error finding types of hazard, creating new ones...');
             categories = await seedRiskCategories(prisma);
           }
           await seedRisks(
@@ -628,7 +636,7 @@ async function main() {
             if (cats.length === 0) {
               cats = await seedRiskCategories(prisma);
             } else {
-              console.log('Using existing risk categories...');
+              console.log('Using existing types of hazard...');
             }
 
             // Try to find risks from m_risk table
@@ -652,7 +660,7 @@ async function main() {
             }
           } catch (error) {
             console.log(
-              'Error finding categories or risks, creating new ones...',
+              'Error finding types of hazard or risks, creating new ones...',
             );
             cats = await seedRiskCategories(prisma);
             risks = await seedRisks(
@@ -734,6 +742,14 @@ async function main() {
           await prisma.guest.deleteMany();
           // Note: Master data (work classifications, equipment, etc.) are not cleared
           await seedWorkPermitsData(prisma);
+          break;
+        case 'work-classification-safety-guidelines':
+        case 'work_classification_safety_guidelines':
+          await seedWorkClassificationSafetyGuidelines(prisma);
+          break;
+        case 'work-classification-risk-mitigations':
+        case 'work_classification_risk_mitigations':
+          await seedWorkClassificationRiskMitigations(prisma);
           break;
         case 'man_hours':
         case 'man-hours':

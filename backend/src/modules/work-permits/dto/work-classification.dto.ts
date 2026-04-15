@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
+import { WorkClassificationAttachmentItemDto } from './work-classification-attachment.dto';
+import { WorkClassificationRiskEquipmentItemDto } from './work-classification-risk-equipment.dto';
 
 export class WorkClassificationDto {
   @ApiProperty({ description: 'Unique identifier' })
@@ -33,6 +35,22 @@ export class WorkClassificationDto {
   @ApiProperty({ description: 'Last update timestamp' })
   @Expose()
   updatedAt: Date;
+
+  @ApiPropertyOptional({
+    description: 'Attached documents',
+    type: [WorkClassificationAttachmentItemDto],
+  })
+  @Expose()
+  @Type(() => WorkClassificationAttachmentItemDto)
+  attachments?: WorkClassificationAttachmentItemDto[];
+
+  @ApiPropertyOptional({
+    description: 'Risk + safety equipment bound rows',
+    type: [WorkClassificationRiskEquipmentItemDto],
+  })
+  @Expose()
+  @Type(() => WorkClassificationRiskEquipmentItemDto)
+  riskEquipmentRows?: WorkClassificationRiskEquipmentItemDto[];
 
   constructor(partial: Partial<WorkClassificationDto>) {
     Object.assign(this, partial);

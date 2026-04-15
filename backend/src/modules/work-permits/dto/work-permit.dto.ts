@@ -6,7 +6,9 @@ export enum WorkPermitStatusEnum {
   DRAFT = 'DRAFT',
   OPEN = 'OPEN',
   WAITING_APPROVAL = 'WAITING_APPROVAL',
+  IN_REVIEW_PROJECT_OWNER = 'IN_REVIEW_PROJECT_OWNER',
   IN_REVIEW_HSE = 'IN_REVIEW_HSE',
+  WAITING_APPLICANT_SIGN = 'WAITING_APPLICANT_SIGN',
   IN_REVIEW_SECURITY = 'IN_REVIEW_SECURITY',
   NEED_INFO = 'NEED_INFO',
   APPROVED = 'APPROVED',
@@ -73,10 +75,27 @@ export class WorkPermitDto {
   @IsString()
   safetyGuideline?: string;
 
+  @ApiProperty({
+    description: 'Free-text when "Others" work classification is used',
+    required: false,
+  })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  workClassificationOtherDetail?: string;
+
   @ApiProperty({ description: 'Require course verification', default: false })
   @Expose()
   @IsBoolean()
   requireCourseVerification: boolean;
+
+  @ApiProperty({
+    description: 'User confirmed they have read the safety guideline',
+    default: false,
+  })
+  @Expose()
+  @IsBoolean()
+  acknowledgedSafetyGuideline: boolean;
 
   @ApiProperty({ description: 'Work permit status', enum: WorkPermitStatusEnum })
   @Expose()
@@ -87,6 +106,18 @@ export class WorkPermitDto {
   @Expose()
   @IsBoolean()
   isActive: boolean;
+
+  @ApiProperty({ description: 'When applicant acknowledged HSE safety guideline', required: false })
+  @Expose()
+  @IsOptional()
+  @IsDateString()
+  applicantSignedAt?: string;
+
+  @ApiProperty({ description: 'Applicant signature metadata or token', required: false })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  applicantSignature?: string;
 
   @ApiProperty({ description: 'Created by user ID' })
   @Expose()
@@ -120,6 +151,7 @@ export class WorkPermitDto {
     id: string;
     name: string;
     code: string;
+    phone?: string | null;
   };
 
   @ApiProperty({ description: 'Creator user', required: false })

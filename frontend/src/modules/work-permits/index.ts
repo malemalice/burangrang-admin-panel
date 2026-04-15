@@ -42,12 +42,14 @@ export type {
   WorkPermitSearchParams,
   ApprovalTimelineItem,
   MasterDataOption,
+  WorkClassificationMasterOption,
   GuestOption,
   WorkPermitMasterData,
 } from './types/work-permit.types';
 export type {
   WorkClassification,
   WorkClassificationDTO,
+  WorkClassificationAttachment,
   CreateWorkClassificationDTO,
   UpdateWorkClassificationDTO,
   WorkClassificationSearchParams,

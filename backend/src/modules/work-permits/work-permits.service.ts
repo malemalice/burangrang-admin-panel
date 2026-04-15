@@ -5,6 +5,7 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { DataScopeService } from '../../shared/services/data-scope.service';
 import { UserContext } from '../../shared/types/user-context';
 import { CreateWorkPermitDto } from './dto/create-work-permit.dto';
+import { CreateProfessionDto } from './dto/create-profession.dto';
 import { UpdateWorkPermitDto } from './dto/update-work-permit.dto';
 import { WorkPermitDto } from './dto/work-permit.dto';
 import { FindWorkPermitsDto } from './dto/find-work-permits.dto';
@@ -14,6 +15,7 @@ import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
 import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
+import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
 import { WorkPermitStatusEnum } from './dto/work-permit.dto';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
@@ -23,6 +25,7 @@ import { MasterApprovalsService } from '../approvals/master-approvals.service';
 import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
+import { WORK_CLASSIFICATION_OTHER_CODE } from './constants/work-classification.constants';
 
 @Injectable()
 export class WorkPermitsService {
@@ -51,6 +54,7 @@ export class WorkPermitsService {
           id: company.id,
           name: company.name,
           code: company.code,
+          phone: company.phone ?? undefined,
         }),
         isArray: false,
       },
@@ -179,6 +183,7 @@ export class WorkPermitsService {
 
     // If not in review status, no one can approve
     const reviewStatuses = [
+      WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER,
       WorkPermitStatusEnum.IN_REVIEW_HSE,
       WorkPermitStatusEnum.IN_REVIEW_SECURITY,
       WorkPermitStatusEnum.WAITING_APPROVAL,
@@ -277,6 +282,13 @@ export class WorkPermitsService {
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
+      if (createDto.classifications?.length) {
+        await this.ensureOthersClassificationHasDetail(
+          createDto.classifications.map((c) => c.workClassificationId),
+          createDto.workClassificationOtherDetail,
+        );
+      }
+
       // Generate code
       const code = await this.generateCode();
 
@@ -293,7 +305,9 @@ export class WorkPermitsService {
           jobSafetyAnalysis: createDto.jobSafetyAnalysis,
           workRequirements: createDto.workRequirements,
           safetyGuideline: createDto.safetyGuideline,
+          workClassificationOtherDetail: createDto.workClassificationOtherDetail,
           requireCourseVerification: createDto.requireCourseVerification || false,
+          acknowledgedSafetyGuideline: createDto.acknowledgedSafetyGuideline,
           status: 'DRAFT',
           createdBy,
           classifications: createDto.classifications
@@ -419,7 +433,7 @@ export class WorkPermitsService {
               })),
             }
             : undefined,
-        },
+        } as any,
         include: {
           area: true,
           company: true,
@@ -491,6 +505,28 @@ export class WorkPermitsService {
 
       return this.mapWorkPermitWithRelations(workPermit);
     }, 'Creating work permit');
+  }
+
+  private async ensureOthersClassificationHasDetail(
+    workClassificationIds: string[],
+    detail: string | null | undefined,
+  ): Promise<void> {
+    if (!workClassificationIds.length) {
+      return;
+    }
+    const rows = await this.prisma.workClassification.findMany({
+      where: { id: { in: workClassificationIds } },
+      select: { code: true },
+    });
+    const hasOthers = rows.some((r) => r.code === WORK_CLASSIFICATION_OTHER_CODE);
+    if (!hasOthers) {
+      return;
+    }
+    if (!detail?.trim()) {
+      this.errorHandler.throwBadRequest(
+        'When work classification "Others" (Lainnya) is selected, the detail field is required.',
+      );
+    }
   }
 
   /**
@@ -1035,6 +1071,26 @@ export class WorkPermitsService {
         }
       }
 
+      if (updateDto.classifications !== undefined) {
+        const mergedDetail =
+          updateDto.workClassificationOtherDetail !== undefined
+            ? updateDto.workClassificationOtherDetail
+            : existing.workClassificationOtherDetail;
+        await this.ensureOthersClassificationHasDetail(
+          updateDto.classifications.map((c) => c.workClassificationId),
+          mergedDetail,
+        );
+      } else if (updateDto.workClassificationOtherDetail !== undefined) {
+        const withClass = await this.prisma.workPermit.findUnique({
+          where: { id },
+          include: { classifications: true },
+        });
+        await this.ensureOthersClassificationHasDetail(
+          withClass!.classifications.map((c) => c.workClassificationId),
+          updateDto.workClassificationOtherDetail,
+        );
+      }
+
       // Prepare update data
       const updateData: any = {};
 
@@ -1052,7 +1108,13 @@ export class WorkPermitsService {
       if (updateDto.jobSafetyAnalysis !== undefined) updateData.jobSafetyAnalysis = updateDto.jobSafetyAnalysis;
       if (updateDto.workRequirements !== undefined) updateData.workRequirements = updateDto.workRequirements;
       if (updateDto.safetyGuideline !== undefined) updateData.safetyGuideline = updateDto.safetyGuideline;
+      if (updateDto.workClassificationOtherDetail !== undefined) {
+        updateData.workClassificationOtherDetail = updateDto.workClassificationOtherDetail;
+      }
       if (updateDto.requireCourseVerification !== undefined) updateData.requireCourseVerification = updateDto.requireCourseVerification;
+      if (updateDto.acknowledgedSafetyGuideline !== undefined) {
+        updateData.acknowledgedSafetyGuideline = updateDto.acknowledgedSafetyGuideline;
+      }
 
       // Handle nested relations updates
       // Delete existing relations and create new ones
@@ -1419,6 +1481,13 @@ export class WorkPermitsService {
       await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
+        include: {
+          classifications: {
+            include: {
+              workClassification: true,
+            },
+          },
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
@@ -1428,11 +1497,16 @@ export class WorkPermitsService {
         this.errorHandler.throwBadRequest(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
       }
 
-      // Update status to IN_REVIEW_HSE
+      await this.ensureOthersClassificationHasDetail(
+        workPermit.classifications.map((c) => c.workClassificationId),
+        workPermit.workClassificationOtherDetail,
+      );
+
+      // Update status to IN_REVIEW_PROJECT_OWNER
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: WorkPermitStatusEnum.IN_REVIEW_HSE,
+          status: WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER,
         },
         include: {
           area: true,
@@ -1469,6 +1543,8 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       const user = await this.getFullUser(userId);
+      const currentDepartmentName = String(user?.department?.name ?? '').toUpperCase();
+      const isHseApprover = currentDepartmentName.includes('HSE') || currentDepartmentName.includes('HEALTH');
 
       // Check approval rights
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
@@ -1479,6 +1555,15 @@ export class WorkPermitsService {
 
       if (!approvalRights.canApprove) {
         this.errorHandler.throwForbidden('You do not have permission to approve this work permit');
+      }
+
+      if (isHseApprover && approveDto.safetyGuideline !== undefined) {
+        await this.prisma.workPermit.update({
+          where: { id },
+          data: {
+            safetyGuideline: approveDto.safetyGuideline,
+          },
+        });
       }
 
       // Submit approval record
@@ -1500,18 +1585,28 @@ export class WorkPermitsService {
 
       let nextStatus: WorkPermitStatusEnum;
       if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
-        nextStatus = WorkPermitStatusEnum.APPROVED;
+        nextStatus =
+          currentDepartmentName.includes('SECURITY')
+            ? WorkPermitStatusEnum.APPROVED
+            : WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
       } else if (approvalStatus.nextApprover) {
         const nextDept = approvalStatus.nextApprover.department.name.toUpperCase();
-        if (nextDept.includes('SECURITY')) {
+        if (isHseApprover && nextDept.includes('SECURITY')) {
+          nextStatus = WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
+        } else if (nextDept.includes('SECURITY')) {
           nextStatus = WorkPermitStatusEnum.IN_REVIEW_SECURITY;
         } else if (nextDept.includes('HSE')) {
           nextStatus = WorkPermitStatusEnum.IN_REVIEW_HSE;
+        } else if (nextDept.includes('PROJECT') || nextDept.includes('OWNER')) {
+          nextStatus = WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER;
         } else {
           nextStatus = WorkPermitStatusEnum.OPEN; // Generic fallback (OPEN used as in-review)
         }
       } else {
-        nextStatus = WorkPermitStatusEnum.APPROVED;
+        nextStatus =
+          currentDepartmentName.includes('SECURITY')
+            ? WorkPermitStatusEnum.APPROVED
+            : WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
       }
 
       // Update status
@@ -1647,6 +1742,57 @@ export class WorkPermitsService {
 
       return this.workPermitMapper(updated);
     }, 'Requesting additional information');
+  }
+
+  /**
+   * Applicant signs/acknowledges HSE safety guideline before security review
+   */
+  async signSk(
+    id: string,
+    signSkDto: SignSkWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
+    return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
+      const workPermit = await this.prisma.workPermit.findUnique({
+        where: { id },
+      });
+
+      this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
+
+      if (workPermit.status !== WorkPermitStatusEnum.WAITING_APPLICANT_SIGN) {
+        this.errorHandler.throwBadRequest(
+          `Cannot sign SK for work permit with status ${workPermit.status}. Only WAITING_APPLICANT_SIGN permits can be signed.`,
+        );
+      }
+
+      if (workPermit.createdBy !== userId) {
+        this.errorHandler.throwForbidden('Only the applicant can sign and acknowledge this safety guideline');
+      }
+
+      if (!workPermit.safetyGuideline?.trim()) {
+        this.errorHandler.throwBadRequest('Safety guideline is not available yet. Please wait for HSE to provide it.');
+      }
+
+      const updated = await this.prisma.workPermit.update({
+        where: { id },
+        data: {
+          applicantSignedAt: new Date(),
+          applicantSignature: signSkDto.signature,
+          status: WorkPermitStatusEnum.IN_REVIEW_SECURITY,
+        } as any,
+        include: {
+          area: true,
+          company: true,
+          creator: true,
+        },
+      });
+
+      await this.sendNotificationToSecurityReview(id, updated);
+
+      return this.workPermitMapper(updated);
+    }, 'Signing safety guideline acknowledgement');
   }
 
   /**
@@ -1869,6 +2015,52 @@ export class WorkPermitsService {
   }
 
   /**
+   * Send notification to Security when applicant has signed SK and permit is ready for final review
+   */
+  private async sendNotificationToSecurityReview(workPermitId: string, workPermit: any): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: 'WORK_PERMIT_READY_FOR_SECURITY_REVIEW' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: 'WORK_PERMIT_READY_FOR_SECURITY_REVIEW',
+            description: 'Work permit ready for security final review',
+          },
+        });
+      }
+
+      const securityRole = await this.prisma.role.findFirst({
+        where: {
+          name: {
+            contains: 'SECURITY',
+            mode: 'insensitive',
+          },
+          isActive: true,
+        },
+      });
+
+      if (securityRole) {
+        await this.notificationsService.createNotificationForRoles(
+          {
+            title: `Work Permit Ready for Security Review: ${workPermit.code}`,
+            message: `Applicant has acknowledged safety guideline for work permit "${workPermit.projectName}" (${workPermit.code}).`,
+            context: 'work-permit',
+            contextId: workPermitId,
+            typeId: notificationType.id,
+            roleIds: [securityRole.id],
+          },
+          workPermit.createdBy,
+        );
+      }
+    } catch (error) {
+      console.error('Failed to send Security review notification:', error);
+    }
+  }
+
+  /**
    * Send info request notification
    */
   private async sendInfoRequestNotification(
@@ -1999,6 +2191,44 @@ export class WorkPermitsService {
   }
 
   /**
+   * Create profession master data (used when user adds a missing profession from the work permit form)
+   */
+  async createProfession(dto: CreateProfessionDto) {
+    return this.errorHandler.safeExecute(
+      async () => {
+        const trimmed = dto.name.trim();
+        if (!trimmed) {
+          this.errorHandler.throwBadRequest('Profession name is required');
+        }
+        let code = dto.code?.trim();
+        if (!code) {
+          code = trimmed.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        }
+        if (!code) {
+          code = `PROF-${Date.now()}`;
+        }
+        try {
+          return await this.prisma.profession.create({
+            data: {
+              name: trimmed,
+              code,
+              description: dto.description?.trim() || undefined,
+              isActive: true,
+            },
+            select: { id: true, name: true, code: true },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            this.errorHandler.throwBadRequest('A profession with this code already exists');
+          }
+          throw e;
+        }
+      },
+      'Create profession',
+    );
+  }
+
+  /**
    * Get master data for work permit form
    */
   async getMasterData() {
@@ -2012,12 +2242,29 @@ export class WorkPermitsService {
           }),
           this.prisma.company.findMany({
             where: { isActive: true },
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, phone: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.workClassification.findMany({
             where: { isActive: true },
-            select: { id: true, name: true, code: true, safetyGuideline: true },
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              safetyGuideline: true,
+              attachments: {
+                select: {
+                  id: true,
+                  fileUrl: true,
+                  fileName: true,
+                  fileType: true,
+                  description: true,
+                  order: true,
+                  createdAt: true,
+                },
+                orderBy: { order: 'asc' },
+              },
+            },
             orderBy: { name: 'asc' },
           }),
           this.prisma.guest.findMany({

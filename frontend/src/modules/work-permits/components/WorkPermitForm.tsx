@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, X, Trash2 } from 'lucide-react';
@@ -26,7 +26,18 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
-import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit, MasterDataOption, GuestOption } from '../types/work-permit.types';
+import { ModalCombobox } from '@/core/components/ui/modal-combobox';
+import { Checkbox } from '@/core/components/ui/checkbox';
+import {
+  CreateWorkPermitDTO,
+  UpdateWorkPermitDTO,
+  WorkPermit,
+  MasterDataOption,
+  WorkClassificationMasterOption,
+  GuestOption,
+  CompanyOption,
+} from '../types/work-permit.types';
+import { createProfessionFromQuery } from '../utils/professionHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
@@ -46,6 +57,15 @@ import {
   WORK_PERMIT_SECTION_E_SUB,
   WORK_PERMIT_SECTION_F_SUB,
 } from '../constants/workPermitSections';
+import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification';
+
+function selectionIncludesOthers(
+  classifications: { workClassificationId: string }[] | undefined,
+  masters: MasterDataOption[],
+): boolean {
+  const ids = classifications?.map((c) => c.workClassificationId).filter(Boolean) ?? [];
+  return ids.some((id) => masters.find((w) => w.id === id)?.code === WORK_CLASSIFICATION_OTHER_CODE);
+}
 
 // Form schema for validation
 const formSchema = z.object({
@@ -57,8 +77,13 @@ const formSchema = z.object({
   workStagesDescription: z.string().min(1, 'Work stages description is required'),
   jobSafetyAnalysis: z.string().min(1, 'Job safety analysis is required'),
   workRequirements: z.string().optional(),
-  safetyGuideline: z.string().optional(),
+  workClassificationOtherDetail: z.string().max(2000).optional(),
   requireCourseVerification: z.boolean().default(false),
+  acknowledgedSafetyGuideline: z
+    .boolean()
+    .refine((v) => v === true, {
+      message: 'You must confirm that you have read the safety guideline',
+    }),
   classifications: z
     .array(
       z.object({
@@ -66,7 +91,7 @@ const formSchema = z.object({
         order: z.number().min(0),
       }),
     )
-    .optional(),
+    .min(1, 'At least one work classification is required'),
   employees: z
     .array(
       z.object({
@@ -169,6 +194,14 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type WizardStep = 1 | 2 | 3 | 4;
+
+const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
+  { id: 1, title: 'Classification & Scope', description: 'Section A and project scope details' },
+  { id: 2, title: 'Equipment', description: 'Section C tools, machines, materials, heavy equipment' },
+  { id: 3, title: 'Hazards & Safety', description: 'Section D and E controls/equipment' },
+  { id: 4, title: 'Courses & Attachments', description: 'Section F and final review before submit' },
+];
 
 interface WorkPermitFormProps {
   workPermit?: WorkPermit;
@@ -178,9 +211,10 @@ interface WorkPermitFormProps {
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
-  const [companies, setCompanies] = useState<MasterDataOption[]>([]);
-  const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
   const [workerUsers, setWorkerUsers] = useState<User[]>([]);
 
@@ -203,7 +237,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
   // Memoized options for SearchableSelect
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
-  const companyOptions = useMemo(() => companies.map((c) => ({ value: c.id, label: c.name })), [companies]);
+  const companyOptions = useMemo(
+    () =>
+      companies.map((c) => ({
+        value: c.id,
+        label: c.phone ? `${c.name} · ${c.phone}` : c.name,
+      })),
+    [companies],
+  );
   const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
   const workerOptions = useMemo(
     () =>
@@ -236,9 +277,19 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     [courses],
   );
   const supervisorOptions = useMemo(
-    () => guests.map((g) => ({ value: g.id, label: g.name ?? g.email ?? g.id })),
+    () =>
+      guests.map((g) => {
+        const base = g.name ?? g.email ?? g.id;
+        return { value: g.id, label: g.phone ? `${base} · ${g.phone}` : base };
+      }),
     [guests],
   );
+
+  const handleCreateProfession = useCallback(async (searchQuery: string) => {
+    return createProfessionFromQuery(searchQuery, (newProf) => {
+      setProfessions((prev) => [newProf, ...prev]);
+    });
+  }, []);
   const hseOfficerOptions = useMemo(
     () =>
       users.map((u) => ({
@@ -271,9 +322,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workStagesDescription: '',
       jobSafetyAnalysis: '',
       workRequirements: '',
-      safetyGuideline: '',
+      workClassificationOtherDetail: '',
       requireCourseVerification: false,
-      classifications: [],
+      acknowledgedSafetyGuideline: false,
+      classifications: [{ workClassificationId: '', order: 0 }],
       employees: [],
       workers: [
         {
@@ -397,6 +449,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     name: 'attachments',
   });
 
+  // useWatch (not form.watch + useMemo): nested field changes must re-render this block so
+  // "Others" detail shows as soon as OTHERS is selected — watch() can miss array item updates.
+  const watchedClassifications = useWatch({ control: form.control, name: 'classifications' });
+  const showOthersDetailField = selectionIncludesOthers(watchedClassifications, workClassifications);
+
+  useEffect(() => {
+    if (isLoadingData || !workClassifications.length) return;
+    if (!selectionIncludesOthers(watchedClassifications, workClassifications)) {
+      form.setValue('workClassificationOtherDetail', '');
+    }
+  }, [watchedClassifications, workClassifications, form, isLoadingData]);
+
   // Fetch reference data
   useEffect(() => {
     const fetchData = async () => {
@@ -482,12 +546,16 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   // Populate form when editing
   useEffect(() => {
     if (workPermit && mode === 'edit') {
+      const str = (v: string | null | undefined) => v ?? '';
+      const qty = (v: number | null | undefined) =>
+        v != null && !Number.isNaN(Number(v)) ? Number(v) : 1;
+
       const workersData =
         workPermit.workers?.map((w) => ({
-          userId: w.userId,
-          idNumber: w.idNumber || '',
-          certificateUrl: w.certificateUrl || '',
-          healthDeclarationUrl: w.healthDeclarationUrl,
+          userId: str(w.userId),
+          idNumber: str(w.idNumber),
+          certificateUrl: str(w.certificateUrl),
+          healthDeclarationUrl: str(w.healthDeclarationUrl),
           order: w.order,
         })) || [
           {
@@ -512,83 +580,92 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       setUploadedFileNames(fileNames);
 
       form.reset({
-        projectName: workPermit.projectName,
-        areaId: workPermit.areaId,
-        companyId: workPermit.companyId,
-        proposedStartDate: workPermit.proposedStartDate.split('T')[0],
-        proposedEndDate: workPermit.proposedEndDate.split('T')[0],
-        workStagesDescription: workPermit.workStagesDescription,
-        jobSafetyAnalysis: workPermit.jobSafetyAnalysis,
-        workRequirements: workPermit.workRequirements || '',
-        safetyGuideline: workPermit.safetyGuideline || '',
-        requireCourseVerification: workPermit.requireCourseVerification,
+        projectName: str(workPermit.projectName),
+        areaId: str(workPermit.areaId),
+        companyId: str(workPermit.companyId),
+        proposedStartDate: str(workPermit.proposedStartDate?.split('T')[0]),
+        proposedEndDate: str(workPermit.proposedEndDate?.split('T')[0]),
+        workStagesDescription: str(workPermit.workStagesDescription),
+        jobSafetyAnalysis: str(workPermit.jobSafetyAnalysis),
+        workRequirements: str(workPermit.workRequirements),
+        workClassificationOtherDetail: str(workPermit.workClassificationOtherDetail),
+        requireCourseVerification: workPermit.requireCourseVerification ?? false,
+        acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline ?? false,
         classifications:
-          workPermit.classifications?.map((c) => ({
-            workClassificationId: c.workClassificationId || c.id,
-            order: c.order,
-          })) || [],
+          workPermit.classifications?.length ?
+            workPermit.classifications.map((c) => ({
+              workClassificationId: str(c.workClassificationId || c.id),
+              order: c.order,
+            }))
+          : [{ workClassificationId: '', order: 0 }],
         employees:
           workPermit.employees?.map((e) => ({
-            userId: e.userId,
-            employeeName: e.employeeName,
+            userId: str(e.userId),
+            employeeName: str(e.employeeName),
             order: e.order,
           })) || [],
         workers: workersData,
         heavyEquipment:
           workPermit.heavyEquipment?.map((e) => ({
-            heavyEquipmentId: e.heavyEquipmentId,
-            quantity: e.quantity,
+            heavyEquipmentId: str(e.heavyEquipmentId),
+            quantity: qty(e.quantity),
             order: e.order,
           })) || [],
         tools:
           workPermit.tools?.map((t) => ({
-            toolId: t.toolId,
-            quantity: t.quantity,
+            toolId: str(t.toolId),
+            quantity: qty(t.quantity),
             order: t.order,
           })) || [],
         materials:
           workPermit.materials?.map((m) => ({
-            materialId: m.materialId,
-            quantity: m.quantity,
+            materialId: str(m.materialId),
+            quantity: qty(m.quantity),
             order: m.order,
           })) || [],
         machines:
           workPermit.machines?.map((m) => ({
-            machineId: m.machineId,
-            quantity: m.quantity,
+            machineId: str(m.machineId),
+            quantity: qty(m.quantity),
             order: m.order,
           })) || [],
         professions:
           workPermit.professions?.map((p) => ({
-            professionId: p.professionId,
-            quantity: p.quantity,
+            professionId: str(p.professionId),
+            quantity: qty(p.quantity),
             order: p.order,
           })) || [],
         requiredCourses:
           workPermit.requiredCourses?.map((c) => ({
-            courseId: c.courseId,
-            isRequired: c.isRequired,
+            courseId: str(c.courseId),
+            isRequired: c.isRequired ?? true,
             order: c.order,
           })) || [],
         hazards:
           workPermit.hazards?.map((h) => ({
-            hazardId: h.hazardId,
-            hazardName: h.hazardName,
-            description: h.description || '',
-            controlMeasure: h.controlMeasure || '',
+            hazardId: str(h.hazardId),
+            hazardName: str(h.hazardName),
+            description: str(h.description),
+            controlMeasure: str(h.controlMeasure),
             order: h.order,
           })) || [],
         attachments:
           workPermit.attachments?.map((a) => ({
-            fileUrl: a.fileUrl,
-            fileName: a.fileName,
-            fileType: a.fileType || '',
-            description: a.description || '',
+            fileUrl: str(a.fileUrl),
+            fileName: str(a.fileName),
+            fileType: str(a.fileType),
+            description: str(a.description),
             order: a.order,
           })) || [],
-        supervisorIds: workPermit.supervisors?.map((s) => s.guestId) || [],
-        hseOfficerIds: workPermit.hseOfficers?.map((h) => h.userId) || [],
-        safetyEquipmentIds: workPermit.safetyEquipment?.map((s) => s.safetyEquipmentId) || [],
+        supervisorIds: (workPermit.supervisors ?? [])
+          .map((s) => str(s.guestId))
+          .filter((id) => id.length > 0),
+        hseOfficerIds: (workPermit.hseOfficers ?? [])
+          .map((h) => str(h.userId))
+          .filter((id) => id.length > 0),
+        safetyEquipmentIds: (workPermit.safetyEquipment ?? [])
+          .map((s) => str(s.safetyEquipmentId))
+          .filter((id) => id.length > 0),
       });
     }
   }, [workPermit, mode, form]);
@@ -738,6 +815,19 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         hazards: sanitizeHazards(data.hazards),
       };
 
+      if (
+        selectionIncludesOthers(sanitizedData.classifications, workClassifications) &&
+        !String(sanitizedData.workClassificationOtherDetail ?? '').trim()
+      ) {
+        toast.error('Please describe the work type when "Lainnya / Others" is selected.');
+        form.setError('workClassificationOtherDetail', {
+          type: 'manual',
+          message: 'Required when Others is selected',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       await onSubmit(sanitizedData as CreateWorkPermitDTO);
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -754,20 +844,68 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     );
   }
 
+  const isFirstStep = currentStep === 1;
+  const isLastStep = currentStep === 4;
+
+  const goToNextStep = () => {
+    setCurrentStep((prev) => Math.min(4, prev + 1) as WizardStep);
+  };
+
+  const goToPreviousStep = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1) as WizardStep);
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <WorkPermitSubsectionTitle>Form Progress</WorkPermitSubsectionTitle>
+            <CardDescription>Complete all steps before submitting the work permit.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-4">
+            {WIZARD_STEPS.map((step) => {
+              const isActive = step.id === currentStep;
+              const isCompleted = step.id < currentStep;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    isActive
+                      ? 'border-primary bg-primary/5'
+                      : isCompleted
+                        ? 'border-emerald-500/50 bg-emerald-500/5'
+                        : 'border-border bg-background'
+                  }`}
+                  onClick={() => setCurrentStep(step.id)}
+                >
+                  <p className="text-xs font-medium text-muted-foreground">Step {step.id}</p>
+                  <p className="text-sm font-semibold">{step.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{step.description}</p>
+                </button>
+              );
+            })}
+          </CardContent>
+        </Card>
+
         {/* Section A — PRD */}
+        {currentStep === 1 && (
         <WorkPermitSection
           id="work-permit-section-a"
           title={WORK_PERMIT_SECTIONS.A}
-          description="Select work classifications for this permit"
+          description="Select at least one work classification for this permit (required)"
         >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_A_SUB.classifications}</WorkPermitSubsectionTitle>
-                <CardDescription>Add one or more classification rows as needed</CardDescription>
+                <WorkPermitSubsectionTitle>
+                  {WORK_PERMIT_SECTION_A_SUB.classifications}{' '}
+                  <span className="text-destructive" aria-hidden>
+                    *
+                  </span>
+                </WorkPermitSubsectionTitle>
+                <CardDescription>Add one or more classification rows; at least one must be selected</CardDescription>
               </div>
               <Button
                 type="button"
@@ -780,7 +918,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             </CardHeader>
             <CardContent className="space-y-4">
               {classificationFields.map((field, index) => {
-                const allClassificationValues = form.watch('classifications') || [];
+                const allClassificationValues = watchedClassifications ?? [];
                 const selectedIds = allClassificationValues
                   .filter((_, i) => i !== index)
                   .map((c) => c?.workClassificationId)
@@ -793,6 +931,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                       name={`classifications.${index}.workClassificationId`}
                       render={({ field }) => (
                         <FormItem className="flex-1">
+                          <FormLabel>
+                            Classification <span className="text-destructive">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <SelectTrigger>
@@ -813,22 +954,48 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeClassification(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    {classificationFields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeClassification(index)}
+                        aria-label="Remove classification row"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}
+              {showOthersDetailField && (
+                <FormField
+                  control={form.control}
+                  name="workClassificationOtherDetail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Others (write the work classification name) <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="write the other type of work name"
+                          className="min-h-[88px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section B — PRD */}
+        {currentStep === 1 && (
         <WorkPermitSection id="work-permit-section-b" title={WORK_PERMIT_SECTIONS.B}>
           <Card>
             <CardHeader>
@@ -967,14 +1134,22 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             />
             <FormField
               control={form.control}
-              name="safetyGuideline"
+              name="acknowledgedSafetyGuideline"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Safety Guideline</FormLabel>
+                <FormItem className="flex flex-row items-start gap-3 rounded-md border border-border p-4">
                   <FormControl>
-                    <Textarea placeholder="Safety guidelines..." rows={3} {...field} />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(c) => field.onChange(c === true)}
+                    />
                   </FormControl>
-                  <FormMessage />
+                  <div className="space-y-1 leading-snug">
+                    <FormLabel className="!mt-0 font-normal cursor-pointer">
+                      I confirm that I have read the safety guideline{' '}
+                      <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -1324,7 +1499,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
-              <CardDescription>Professions required for this project</CardDescription>
+              <CardDescription>
+                For each line, choose the profession and enter how many workers you need in that role for this
+                permit.
+              </CardDescription>
             </div>
             <Button
               type="button"
@@ -1349,13 +1527,16 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`professions.${index}.professionId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Profession</FormLabel>
                       <FormControl>
-                        <SearchableSelect
+                        <ModalCombobox
                           options={professionOptions}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select profession"
                           searchPlaceholder="Search..."
+                          onCreateNew={handleCreateProfession}
+                          createNewText="Create new profession"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1366,7 +1547,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`professions.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Workers in this role</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1396,13 +1578,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             <div className="flex gap-2 flex-wrap items-center">
               {(form.watch('supervisorIds') ?? []).map((id) => {
                 const guest = guests.find((g) => g.id === id);
+                const supLabel = guest?.name ?? guest?.email ?? id;
                 return (
                   <Badge
                     key={id}
                     variant="secondary"
                     className="flex items-center gap-1 pr-1"
                   >
-                    {guest?.name ?? guest?.email ?? id}
+                    {guest?.phone ? `${supLabel} · ${guest.phone}` : supLabel}
                     <Button
                       type="button"
                       variant="ghost"
@@ -1500,8 +1683,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section C — PRD (Tools → Machines → Materials → Heavy Equipment) */}
+        {currentStep === 2 && (
         <WorkPermitSection id="work-permit-section-c" title={WORK_PERMIT_SECTIONS.C}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -1771,8 +1956,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section D — PRD */}
+        {currentStep === 3 && (
         <WorkPermitSection
           id="work-permit-section-d"
           title={WORK_PERMIT_SECTIONS.D}
@@ -1854,8 +2041,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section E — PRD */}
+        {currentStep === 3 && (
         <WorkPermitSection
           id="work-permit-section-e"
           title={WORK_PERMIT_SECTIONS.E}
@@ -1915,8 +2104,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
 
         {/* Section F — PRD */}
+        {currentStep === 4 && (
         <WorkPermitSection id="work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
             <Card>
               <CardHeader>
@@ -2067,15 +2258,26 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               </CardContent>
             </Card>
         </WorkPermitSection>
+        )}
 
         {/* Submit Buttons */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-between gap-4">
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={goToPreviousStep} disabled={isFirstStep}>
+              Back
+            </Button>
+            <Button type="button" variant="outline" onClick={goToNextStep} disabled={isLastStep}>
+              Next
+            </Button>
+          </div>
+          <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || !isLastStep}>
             {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Work Permit' : 'Save Changes'}
           </Button>
+          </div>
         </div>
       </form>
 

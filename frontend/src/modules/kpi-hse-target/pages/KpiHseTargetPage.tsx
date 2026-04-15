@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Edit, Trash2, Plus, MoreHorizontal, FileDown } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button, ThemeButton } from '@/core/components/ui/button';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,9 +43,11 @@ export default function KpiHseTargetPage() {
   const [allTargetsForPDF, setAllTargetsForPDF] = useState<HseTarget[]>([]);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: `kpi-hse-target-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `kpi-hse-target-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const currentYear = new Date().getFullYear();
 

@@ -370,9 +370,12 @@ export class WeightReportsService {
     const item = await this.prisma.weightReport.findUnique({ where: { id } });
     this.errorHandler.throwIfNotFoundById('Weight Report', id, item);
 
-    if (item!.status !== WeightReportStatusEnum.OPEN) {
+    if (
+      item!.status !== WeightReportStatusEnum.OPEN &&
+      item!.status !== WeightReportStatusEnum.REJECTED
+    ) {
       this.errorHandler.throwBadRequest(
-        'Weight report must be in OPEN status to request approval',
+        'Weight report must be in OPEN or REJECTED status to request approval',
       );
     }
 

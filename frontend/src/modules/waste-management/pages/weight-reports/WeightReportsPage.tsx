@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
 import { format } from 'date-fns';
 import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Printer } from 'lucide-react';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -116,7 +117,11 @@ export default function WeightReportsPage() {
         isExportingAllPDF && exportQueue.length > 1 ? `-${exportIndex + 1}` : ''
       }.pdf`
     : 'weight-report.pdf';
-  const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfFilename,
+    }),
+  );
 
   const updateSearchParams = useCallback(
     (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {

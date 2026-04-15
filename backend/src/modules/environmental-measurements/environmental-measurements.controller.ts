@@ -132,7 +132,7 @@ export class EnvironmentalMeasurementsController {
 
   @Patch(':id/submit')
   @Permissions('environmental-measurement:update')
-  @ApiOperation({ summary: 'Submit a measurement (DRAFT → OPEN)' })
+  @ApiOperation({ summary: 'Submit a measurement (DRAFT → OPEN, or REJECTED → OPEN to resubmit after rejection)' })
   @ApiResponse({ status: 200, description: 'Measurement submitted.', type: EnvironmentalMeasurementDto })
   submit(@Param('id') id: string): Promise<EnvironmentalMeasurementDto> {
     return this.measurementsService.submit(id);

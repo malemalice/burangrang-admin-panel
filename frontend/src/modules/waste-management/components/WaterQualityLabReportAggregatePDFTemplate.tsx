@@ -73,7 +73,7 @@ export function WaterQualityLabReportAggregatePDFTemplate({
 
   return (
     <div
-      className="bg-white p-6"
+      className="bg-white p-8"
       style={{ width: '210mm', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}
       aria-hidden="true"
     >

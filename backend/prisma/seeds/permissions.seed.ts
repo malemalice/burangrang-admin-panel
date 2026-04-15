@@ -259,12 +259,12 @@ export const permissions = [
   { name: 'risk-matrix:delete', description: 'Delete risk matrix entries' },
   { name: 'risk-matrix:list', description: 'List all risk matrix entries' },
 
-  // Risk Category Management
-  { name: 'risk-category:create', description: 'Create new risk categories' },
-  { name: 'risk-category:read', description: 'View risk category information' },
-  { name: 'risk-category:update', description: 'Update risk category information' },
-  { name: 'risk-category:delete', description: 'Delete risk categories' },
-  { name: 'risk-category:list', description: 'List all risk categories' },
+  // Type of Hazard Management (permission keys unchanged for compatibility)
+  { name: 'risk-category:create', description: 'Create new types of hazard' },
+  { name: 'risk-category:read', description: 'View type of hazard information' },
+  { name: 'risk-category:update', description: 'Update type of hazard information' },
+  { name: 'risk-category:delete', description: 'Delete types of hazard' },
+  { name: 'risk-category:list', description: 'List all types of hazard' },
 
   // Reminder Management
   { name: 'reminder:create', description: 'Create new reminders' },

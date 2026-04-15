@@ -6,6 +6,7 @@ import { usePDF } from 'react-to-pdf';
 import { Plus, Pencil, Trash2, Eye, Printer, Loader2 } from 'lucide-react';
 import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -51,11 +52,13 @@ export default function DispatchOrdersPage() {
   const [exportingPdfId, setExportingPdfId] = useState<string | null>(null);
   const [pendingRowPdfExport, setPendingRowPdfExport] = useState(false);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: pdfExportOrder
-      ? `${pdfExportOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
-      : 'dispatch-order.pdf',
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfExportOrder
+        ? `${pdfExportOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+        : 'dispatch-order.pdf',
+    }),
+  );
 
   const filterFields: FilterField[] = [];
 

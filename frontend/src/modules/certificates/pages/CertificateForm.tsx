@@ -167,7 +167,13 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
     const [personnelSearchQuery, setPersonnelSearchQuery] = useState('');
 
     const equipmentSelectValue = equipmentId || (equipmentName ? `free:${equipmentName}` : '');
-    const personnelSelectValue = personnelId || (personnelName ? `free:${personnelName}` : '');
+
+    // Resolve the custom name from either form state or the loaded certificate data so the
+    // select value is correct even before form.watch catches up after form.reset().
+    const resolvedPersonnelName = personnelName
+        || (mode === 'edit' && certificateData?.personnelName)
+        || '';
+    const personnelSelectValue = personnelId || (resolvedPersonnelName ? `free:${resolvedPersonnelName}` : '');
 
     const handlePersonnelSearch = useCallback(
         (q: string) => {
@@ -196,23 +202,22 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         const sourceList = isEquipmentTypeCertificate ? safetyEquipment : heavyEquipment;
         const base: SearchableSelectOption[] = sourceList.map((e) => ({ value: e.id, label: e.name }));
         if (equipmentName && !equipmentId) {
-            if (!base.some((o) => o.value === `free:${equipmentName}`)) {
-                base.push({ value: `free:${equipmentName}`, label: equipmentName });
+            const freeVal = `free:${equipmentName}`;
+            if (!base.some((o) => o.value === freeVal)) {
+                base.unshift({ value: freeVal, label: `${equipmentName} (custom name)` });
             }
         }
         if (equipmentId && equipmentName && !sourceList.some((e) => e.id === equipmentId)) {
             if (!base.some((o) => o.value === equipmentId)) {
-                base.push({ value: equipmentId, label: equipmentName });
+                base.unshift({ value: equipmentId, label: equipmentName });
             }
         }
         const q = equipmentSearchQuery.trim().toLowerCase();
         const filtered = q ? base.filter((o) => o.label.toLowerCase().includes(q)) : base;
-        // Only re-inject current value when search is empty or it still matches—otherwise the list
-        // must be allowed to go empty so "Use this name (not in list)" can appear.
         if (equipmentSelectValue && !filtered.some((o) => o.value === equipmentSelectValue)) {
             const currentOption = base.find((o) => o.value === equipmentSelectValue);
             if (currentOption && (!q || currentOption.label.toLowerCase().includes(q))) {
-                filtered.push(currentOption);
+                filtered.unshift(currentOption);
             }
         }
         return filtered;
@@ -223,9 +228,19 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
             value: u.id,
             label: u.name,
         }));
-        // Inject current selection when not in the displayed (filtered) list so the trigger shows
-        // the right label—unless the user is searching for a different name (then list must stay
-        // empty so SearchableSelect can show "Use this name (not in list)").
+
+        // Use resolvedPersonnelName (which falls back to certificateData) so the custom option
+        // is always present even before form.watch syncs after form.reset().
+        const customName = resolvedPersonnelName;
+        if (customName && !personnelId) {
+            const freeVal = `free:${customName}`;
+            if (!base.some((o) => o.value === freeVal)) {
+                if (!personnelSearchQuery || customName.toLowerCase().includes(personnelSearchQuery)) {
+                    base.unshift({ value: freeVal, label: `${customName} (custom name)` });
+                }
+            }
+        }
+
         if (
             personnelId &&
             !displayedPersonnel.some((u) => u.id === personnelId) &&
@@ -236,7 +251,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 : '';
             const label = fromPersonnel || personnelName || 'Personnel';
             if (!personnelSearchQuery || label.toLowerCase().includes(personnelSearchQuery)) {
-                base.push({ value: personnelId, label });
+                base.unshift({ value: personnelId, label });
             }
         }
         return base;
@@ -244,6 +259,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         displayedPersonnel,
         personnelId,
         personnelName,
+        resolvedPersonnelName,
         personnelSearchQuery,
         certificateData?.personnel,
     ]);
@@ -307,9 +323,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
     // Set form data for edit mode
     useEffect(() => {
         if (certificateData && mode === 'edit' && dataReady) {
-            const pid = certificateData.personnelId || '';
-            // API/legacy rows may store both; form allows list XOR manual name only
-            const pname = pid ? '' : certificateData.personnelName || '';
+            // When a custom name was stored, prefer it over personnelId so the user sees the
+            // name they originally typed. If only personnelId exists, use that.
+            const hasCustomName = !!certificateData.personnelName;
+            const pid = hasCustomName ? '' : (certificateData.personnelId || '');
+            const pname = hasCustomName ? certificateData.personnelName! : '';
+
             form.reset({
                 certificateNumber: certificateData.certificateNumber,
                 certificateName: certificateData.certificateName,
@@ -328,12 +347,17 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 isActive: certificateData.isActive,
             });
 
+            // After reset: clear search filters so directory + free: options match prefilled values on first paint
+            setPersonnelSearchQuery('');
+            setDisplayedPersonnel(users);
+            setEquipmentSearchQuery('');
+
             // Set uploaded file name if documentUrl exists
             if (certificateData.documentUrl) {
                 setUploadedFileName('Certificate Document');
             }
         }
-    }, [certificateData, mode, dataReady, form]);
+    }, [certificateData, mode, dataReady, form, users]);
 
     const handleFileUpload = async (file: File) => {
         if (!file) return;
@@ -408,6 +432,9 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         try {
             setIsLoading(true);
 
+            const hasPersonnelId = !!values.personnelId;
+            const hasPersonnelName = !!values.personnelName;
+
             const certificateData: CreateCertificateDTO | UpdateCertificateDTO = {
                 certificateNumber: values.certificateNumber,
                 certificateName: values.certificateName,
@@ -416,8 +443,10 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 validityDate: values.validityDate,
                 issuerName: values.issuerName,
                 documentUrl: values.documentUrl || undefined,
-                personnelId: values.personnelId || undefined,
-                personnelName: values.personnelName || undefined,
+                // Important: when switching between "listed personnel" and "custom name",
+                // explicitly clear the other field so the backend doesn't keep the previous value.
+                personnelId: hasPersonnelId ? values.personnelId : (hasPersonnelName ? null : undefined),
+                personnelName: hasPersonnelName ? values.personnelName : (hasPersonnelId ? null : undefined),
                 equipmentId: values.equipmentId || undefined,
                 equipmentName: values.equipmentName || undefined,
                 departmentId: values.departmentId,

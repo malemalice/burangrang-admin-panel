@@ -13,6 +13,16 @@ import type { AccessLog, AccessLogStatistics } from '../types/access-log.types';
 import { format } from 'date-fns';
 import userService from '@/modules/users/services/userService';
 
+const coerceDate = (value: unknown): Date | undefined => {
+  if (!value) return undefined;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }
+  return undefined;
+};
+
 const AccessLogsPage = () => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState<AccessLog[]>([]);
@@ -41,8 +51,10 @@ const AccessLogsPage = () => {
     setIsLoading(true);
     try {
       const dateRange = activeFilters.dateRange?.value as
-        | { from?: Date; to?: Date }
+        | { from?: Date | string | number; to?: Date | string | number }
         | undefined;
+      const dateFrom = coerceDate(dateRange?.from);
+      const dateTo = coerceDate(dateRange?.to);
       const params = {
         page: pageIndex + 1,
         limit,
@@ -50,8 +62,8 @@ const AccessLogsPage = () => {
         sortOrder: (sorting?.desc ? 'desc' : 'asc') as 'asc' | 'desc',
         userId: activeFilters.userId?.value as string | undefined,
         endpoint: activeFilters.endpoint?.value as string | undefined,
-        dateFrom: dateRange?.from?.toISOString(),
-        dateTo: dateRange?.to?.toISOString(),
+        dateFrom: dateFrom?.toISOString(),
+        dateTo: dateTo?.toISOString(),
         payloadSearch: activeFilters.payloadSearch?.value as string | undefined,
       };
       const response = await accessLogService.getAccessLogs(params);
@@ -105,20 +117,33 @@ const AccessLogsPage = () => {
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<
       string,
-      { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }
+      {
+        value:
+          | string
+          | string[]
+          | { from?: Date | string | number; to?: Date | string | number }
+          | boolean;
+        label: string;
+      }
     > = {};
     filters.forEach((filter) => {
       if (filter.id === 'dateRange' && typeof filter.value === 'object' && filter.value !== null && 'from' in filter.value) {
-        const range = filter.value as { from?: Date; to?: Date };
+        const range = filter.value as {
+          from?: Date | string | number;
+          to?: Date | string | number;
+        };
+        const from = coerceDate(range.from);
+        const to = coerceDate(range.to);
+        const fmt = (d: Date) => format(d, 'PP p');
         const label =
-          range.from && range.to
-            ? `${format(range.from, 'PP')} – ${format(range.to, 'PP')}`
-            : range.from
-              ? `From ${format(range.from, 'PP')}`
-              : range.to
-                ? `Until ${format(range.to, 'PP')}`
+          from && to
+            ? `${fmt(from)} – ${fmt(to)}`
+            : from
+              ? `From ${fmt(from)}`
+              : to
+                ? `Until ${fmt(to)}`
                 : 'DateTime range';
-        newActiveFilters[filter.id] = { value: filter.value as { from?: Date; to?: Date }, label };
+        newActiveFilters[filter.id] = { value: { from, to }, label };
       } else if (filter.id === 'userId') {
         const opt = userOptions.find((o) => o.value === filter.value);
         newActiveFilters[filter.id] = {

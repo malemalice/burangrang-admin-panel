@@ -77,7 +77,7 @@ const RisksPage = () => {
     },
     {
       id: 'riskCategoryId',
-      label: 'Risk Category',
+      label: 'Type of Hazard',
       type: 'select',
       options: [
         { label: 'All Categories', value: 'all' },
@@ -251,7 +251,7 @@ const RisksPage = () => {
     },
     {
       id: 'riskCategory',
-      header: 'Risk Category',
+      header: 'Type of Hazard',
       cell: (risk: Risk) => (
         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
           <Tag className="h-3.5 w-3.5 mr-1" />

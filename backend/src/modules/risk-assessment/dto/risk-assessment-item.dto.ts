@@ -22,11 +22,11 @@ export class RiskAssessmentItemDto {
   @Expose()
   mRisk: RiskDto;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   @Expose()
   mRiskCategoryId: string;
 
-  @ApiProperty({ type: RiskCategoryDto })
+  @ApiProperty({ type: RiskCategoryDto, description: 'Type of hazard' })
   @Expose()
   mRiskCategory: RiskCategoryDto;
 

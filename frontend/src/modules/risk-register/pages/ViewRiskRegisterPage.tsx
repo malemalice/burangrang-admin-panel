@@ -169,7 +169,7 @@ const ViewRiskRegisterPage = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
+                <p className="text-sm font-medium text-muted-foreground">Type of Hazard</p>
                 <p className="text-sm">
                   {isRiskAssessment
                     ? source.riskAssessmentItem.mRiskCategory?.name || 'N/A'
@@ -273,7 +273,7 @@ const ViewRiskRegisterPage = () => {
                 <Field label="Status" value={<Badge variant="outline">{statusLabel}</Badge>} />
                 <Field label="Entity ID" value={source.riskAssessmentItem.id} />
                 <Field label="Risk" value={source.riskAssessmentItem.mRisk?.name} />
-                <Field label="Risk Category" value={source.riskAssessmentItem.mRiskCategory?.name} />
+                <Field label="Type of Hazard" value={source.riskAssessmentItem.mRiskCategory?.name} />
                 <Field label="Likelihood Level" value={source.riskAssessmentItem.likelihoodLevel} />
                 <Field label="Consequence Level" value={source.riskAssessmentItem.consequenceLevel} />
                 <Field label="Risk Matrix Rating" value={source.riskAssessmentItem.riskMatrixRating} />
@@ -289,7 +289,7 @@ const ViewRiskRegisterPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Field label="Entity ID" value={source.inspectionItem.id} />
                   <Field label="Risk" value={source.inspectionItem.risk?.name} />
-                  <Field label="Risk Category" value={source.inspectionItem.riskCategory?.name} />
+                  <Field label="Type of Hazard" value={source.inspectionItem.riskCategory?.name} />
                   <Field label="Status" value={<Badge variant="outline">{statusLabel}</Badge>} />
                   <div className="space-y-1.5 md:col-span-2">
                     <p className="text-sm font-medium text-muted-foreground">Findings</p>

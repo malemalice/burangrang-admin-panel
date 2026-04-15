@@ -76,7 +76,7 @@ export const seedIncidents = async () => {
       throw new Error('No areas found. Please seed areas first.');
     }
     if (riskCategories.length === 0) {
-      throw new Error('No risk categories found. Please seed risk categories first.');
+      throw new Error('No types of hazard found. Please run the risk-categories seed first.');
     }
     if (departments.length === 0) {
       throw new Error('No departments found. Please seed departments first.');
@@ -1140,7 +1140,7 @@ export const seedIncidents = async () => {
       console.log(`✅ Created incident: ${incident.code} - ${t.subject}`);
     }
 
-    // Create security incidents (type: SECURITY) — use only SEC- prefixed risk categories
+    // Create security incidents (type: SECURITY) — use only SEC- prefixed types of hazard
     const categoriesForSecurity = securityRiskCategories.length > 0 ? securityRiskCategories : riskCategories;
     for (const t of securityIncidentTemplates) {
       const incidentDate = generateDateInMonth(t.year, t.month);

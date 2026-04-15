@@ -21,7 +21,7 @@ const EditRiskCategoryPage = () => {
         const data = await riskCategoryService.getById(id);
         setRiskCategory(data);
       } catch (error) {
-        toast.error('Failed to fetch risk category');
+        toast.error('Failed to fetch type of hazard');
         navigate('/master/risk-categories');
       } finally {
         setIsLoading(false);
@@ -36,7 +36,7 @@ const EditRiskCategoryPage = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading risk category details...</span>
+          <span>Loading type of hazard details...</span>
         </div>
       </div>
     );
@@ -46,14 +46,14 @@ const EditRiskCategoryPage = () => {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Risk Category not found
+          Type of Hazard not found
         </h2>
         <p className="text-gray-600 mb-4">
-          The risk category you're looking for doesn't exist or has been deleted.
+          The type of hazard you're looking for doesn't exist or has been deleted.
         </p>
         <Button onClick={() => navigate('/master/risk-categories')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Risk Categories
+          Back to Types of Hazard
         </Button>
       </div>
     );
@@ -62,11 +62,11 @@ const EditRiskCategoryPage = () => {
   return (
     <>
       <PageHeader
-        title="Edit Risk Category"
+        title="Edit Type of Hazard"
         subtitle={`Modify the details of "${riskCategory.name}"`}
         actions={
           <Button variant="outline" onClick={() => navigate('/master/risk-categories')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Risk Categories
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Types of Hazard
           </Button>
         }
       />

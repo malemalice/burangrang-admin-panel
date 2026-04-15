@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ArrowLeft, Loader2, Pencil, Calendar, FileText, Info, Droplets, ExternalLink, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -25,7 +26,11 @@ export default function MonthlyFlowReportDetailPage() {
     const pdfFilename = data
       ? `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
       : 'monthly-flow-report.pdf';
-    const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+    const { toPDF, targetRef } = usePDF(
+      buildPdfOptions({
+        filename: pdfFilename,
+      }),
+    );
 
     useEffect(() => {
         const fetchData = async () => {

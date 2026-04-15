@@ -19,6 +19,7 @@ import { MonthlyFlowReport, PaginatedResponse, TreatmentPlant } from '../../type
 import { formatDate } from '@/core/utils/date';
 import { format } from 'date-fns';
 import { MonthlyFlowReportPDFTemplate } from '../../components/MonthlyFlowReportPDFTemplate';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 export default function MonthlyFlowReportsPage() {
   const navigate = useNavigate();
@@ -42,7 +43,11 @@ export default function MonthlyFlowReportsPage() {
     currentReportForPDF
       ? `${currentReportForPDF.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}-${exportIndex + 1}.pdf`
       : 'monthly-flow-report.pdf';
-  const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfFilename,
+    }),
+  );
 
   const page = useMemo(() => {
     const raw = searchParams.get('page');

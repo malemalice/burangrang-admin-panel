@@ -49,7 +49,7 @@ export const riskCategories = [
     description: 'Administrative and regulatory compliance requirements',
     isActive: true,
   },
-  // Security-related categories (code prefix SEC-) — names match incident category labels from security dashboard
+  // Security-related types of hazard (code prefix SEC-) — names match incident category labels from security dashboard
   { name: 'Inappropriate behavior (CP) (Major)', code: 'SEC-IBH', description: 'Inappropriate behavior (CP)', isActive: true },
   { name: 'Sabotage (Major)', code: 'SEC-SAB', description: 'Sabotage (Major)', isActive: true },
   { name: 'Confrontation / Assault (Major)', code: 'SEC-ASL', description: 'Confrontation / Assault (Major)', isActive: true },
@@ -66,7 +66,7 @@ export const riskCategories = [
 ];
 
 export async function seedRiskCategories(prisma: PrismaClient) {
-  console.log('Creating risk categories...');
+  console.log('Creating types of hazard...');
   const createdCategories = await Promise.all(
     riskCategories.map((category) =>
       (prisma as any).riskCategory.create({
@@ -74,6 +74,6 @@ export async function seedRiskCategories(prisma: PrismaClient) {
       })
     )
   );
-  console.log('Created risk categories:', createdCategories.map((c) => c.name));
+  console.log('Created types of hazard:', createdCategories.map((c) => c.name));
   return createdCategories;
 } 

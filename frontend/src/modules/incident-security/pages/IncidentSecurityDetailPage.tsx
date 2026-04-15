@@ -234,7 +234,7 @@ const IncidentSecurityDetailPage = () => {
                   <p className="mt-1 text-sm">{incident.area?.name || '-'}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Risk Category</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Type of Hazard</h3>
                   <p className="mt-1 text-sm">{incident.riskCategory?.name || '-'}</p>
                 </div>
                 <div>

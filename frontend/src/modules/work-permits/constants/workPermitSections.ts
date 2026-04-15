@@ -5,7 +5,7 @@ export const WORK_PERMIT_SECTIONS = {
   C: 'C. Material, Tools and Equipment',
   D: 'D. Occupational Health & Safety',
   E: 'E. Safety Equipment',
-  F: 'F. VALIDASI & EVALUASI IJIN KERJA / VALIDATION & EVALUATION OF PERMIT',
+  F: 'F. Validation & Evaluation of Permit',
 } as const;
 
 /** Subsection titles under Section A. */

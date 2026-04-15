@@ -196,7 +196,8 @@ export default function CompaniesPage() {
       cell: (company: CompanyDTO) => (
         <div>
           <div>{company.contactPerson || '-'}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{company.email || company.phone || '-'}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{company.phone || '-'}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{company.email || '-'}</div>
         </div>
       ),
     },

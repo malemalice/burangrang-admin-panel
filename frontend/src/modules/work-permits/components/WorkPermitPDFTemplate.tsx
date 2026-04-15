@@ -19,19 +19,25 @@ interface WorkPermitPDFTemplateProps {
 
 export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTemplateProps) {
   const rowsB: [string, string][] = [
-    ['ID', na(workPermit.id)],
     ['Code', na(workPermit.code)],
     ['Project Name', na(workPermit.projectName)],
     ['Status', na(workPermit.status)],
     ['Is Active', workPermit.isActive != null ? String(workPermit.isActive) : '—'],
-    ['Area', workPermit.area ? `${workPermit.area.name ?? ''} (${workPermit.area.code ?? ''})`.trim() || '—' : na(workPermit.areaId)],
-    ['Company', workPermit.company ? `${workPermit.company.name ?? ''} (${workPermit.company.code ?? ''})`.trim() || '—' : na(workPermit.companyId)],
+    ['Area', workPermit.area ? `${workPermit.area.name ?? ''} (${workPermit.area.code ?? ''})`.trim() || '—' : '—'],
+    [
+      'Company',
+      workPermit.company
+        ? `${workPermit.company.name ?? ''} (${workPermit.company.code ?? ''})${workPermit.company.phone ? ` · ${workPermit.company.phone}` : ''}`.trim() ||
+          '—'
+        : '—',
+    ],
     ['Proposed Start Date', workPermit.proposedStartDate ? format(new Date(workPermit.proposedStartDate), 'dd MMM yyyy') : '—'],
     ['Proposed End Date', workPermit.proposedEndDate ? format(new Date(workPermit.proposedEndDate), 'dd MMM yyyy') : '—'],
     ['Work Stages Description', na(workPermit.workStagesDescription)],
     ['Job Safety Analysis', na(workPermit.jobSafetyAnalysis)],
     ['Work Requirements', na(workPermit.workRequirements)],
     ['Safety Guideline', na(workPermit.safetyGuideline)],
+    ['Safety guideline acknowledged', workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'],
   ];
 
   const rowsInitialGrant: [string, string][] = [
@@ -61,7 +67,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
   ];
 
   const rowsFRecord: [string, string][] = [
-    ['Created By', workPermit.creator ? `${workPermit.creator.firstName ?? ''} ${workPermit.creator.lastName ?? ''}`.trim() || workPermit.creator.email || '—' : na(workPermit.createdBy)],
+    ['Created By', workPermit.creator ? `${workPermit.creator.firstName ?? ''} ${workPermit.creator.lastName ?? ''}`.trim() || workPermit.creator.email || '—' : '—'],
     ['Created At', workPermit.createdAt ? format(new Date(workPermit.createdAt), 'dd MMM yyyy HH:mm') : '—'],
     ['Updated At', workPermit.updatedAt ? format(new Date(workPermit.updatedAt), 'dd MMM yyyy HH:mm') : '—'],
   ];
@@ -118,12 +124,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Work Classification (Name / Code)</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {classifications.length === 0 ? (
-              <tr><td colSpan={3} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={2} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               classifications.map((c, i) => (
                 <tr key={c.id}>
@@ -131,12 +136,17 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
                     {c.workClassification ? `${na(c.workClassification.name)} / ${na(c.workClassification.code)}` : '—'}
                   </td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(c.order)}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+        {workPermit.workClassificationOtherDetail?.trim() ? (
+          <p className="mt-3 text-xs text-gray-900 whitespace-pre-wrap">
+            <span className="font-semibold">Others (detail): </span>
+            {workPermit.workClassificationOtherDetail}
+          </p>
+        ) : null}
       </div>
 
       {/* Section B — PRD */}
@@ -151,12 +161,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">User (Name / Email)</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Employee Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {employees.length === 0 ? (
-              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={3} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               employees.map((e, i) => (
                 <tr key={e.id}>
@@ -165,7 +174,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                     {e.user ? `${na(e.user.firstName)} ${na(e.user.lastName)} / ${na(e.user.email)}` : '—'}
                   </td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(e.employeeName)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(e.order)}</td>
                 </tr>
               ))
             )}
@@ -181,12 +189,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">ID Number</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Certificate URL</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Health Declaration URL</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {workers.length === 0 ? (
-              <tr><td colSpan={6} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               workers.map((w, i) => (
                 <tr key={w.id}>
@@ -197,7 +204,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.idNumber)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.certificateUrl)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.healthDeclarationUrl)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(w.order)}</td>
                 </tr>
               ))
             )}
@@ -212,12 +218,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {professions.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               professions.map((p, i) => (
                 <tr key={p.id}>
@@ -225,7 +230,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.name)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.code)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.order)}</td>
                 </tr>
               ))
             )}
@@ -295,12 +299,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {tools.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               tools.map((t, i) => (
                 <tr key={t.id}>
@@ -308,7 +311,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(t.tool?.name)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(t.tool?.code)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(t.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(t.order)}</td>
                 </tr>
               ))
             )}
@@ -323,12 +325,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {machines.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               machines.map((m, i) => (
                 <tr key={m.id}>
@@ -336,7 +337,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.machine?.name)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.machine?.code)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.order)}</td>
                 </tr>
               ))
             )}
@@ -351,12 +351,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {materials.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               materials.map((m, i) => (
                 <tr key={m.id}>
@@ -364,7 +363,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.material?.name)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(m.material?.code)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(m.order)}</td>
                 </tr>
               ))
             )}
@@ -379,12 +377,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {heavyEquipment.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               heavyEquipment.map((e, i) => (
                 <tr key={e.id}>
@@ -392,7 +389,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(e.heavyEquipment?.name)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(e.heavyEquipment?.code)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(e.quantity)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(e.order)}</td>
                 </tr>
               ))
             )}
@@ -410,12 +406,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Hazard Name</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Control Measure</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {hazards.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               hazards.map((h, i) => (
                 <tr key={h.id}>
@@ -423,7 +418,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(h.hazardName)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(h.description)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(h.controlMeasure)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(h.order)}</td>
                 </tr>
               ))
             )}
@@ -514,12 +508,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Title</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Slug</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Is Required</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {requiredCourses.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               requiredCourses.map((c, i) => (
                 <tr key={c.id}>
@@ -527,7 +520,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(c.course?.title)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(c.course?.slug)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{c.isRequired != null ? String(c.isRequired) : '—'}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(c.order)}</td>
                 </tr>
               ))
             )}
@@ -543,12 +535,11 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File URL</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Type</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Order</th>
             </tr>
           </thead>
           <tbody>
             {attachments.length === 0 ? (
-              <tr><td colSpan={6} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               attachments.map((a, i) => (
                 <tr key={a.id}>
@@ -557,7 +548,6 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileUrl)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileType)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(a.description)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(a.order)}</td>
                 </tr>
               ))
             )}
