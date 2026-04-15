@@ -33,6 +33,7 @@ import {
   UpdateWorkPermitDTO,
   WorkPermit,
   MasterDataOption,
+  WorkClassificationMasterOption,
   GuestOption,
   CompanyOption,
 } from '../types/work-permit.types';
@@ -205,7 +206,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
-  const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
+  const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
   const [workerUsers, setWorkerUsers] = useState<User[]>([]);
 

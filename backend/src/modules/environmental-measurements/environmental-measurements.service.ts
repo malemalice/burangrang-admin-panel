@@ -265,8 +265,13 @@ export class EnvironmentalMeasurementsService {
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, measurement);
 
-    if (measurement!.status !== GeneralStatusEnum.DRAFT) {
-      this.errorHandler.throwBadRequest('Only DRAFT measurements can be submitted');
+    if (
+      measurement!.status !== GeneralStatusEnum.DRAFT &&
+      measurement!.status !== GeneralStatusEnum.REJECTED
+    ) {
+      this.errorHandler.throwBadRequest(
+        'Only DRAFT or REJECTED measurements can be submitted (DRAFT → OPEN, REJECTED → OPEN for resubmission)',
+      );
     }
 
     const updated = await this.prisma.environmentalMeasurement.update({

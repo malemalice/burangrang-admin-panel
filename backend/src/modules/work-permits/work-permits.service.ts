@@ -2127,7 +2127,24 @@ export class WorkPermitsService {
           }),
           this.prisma.workClassification.findMany({
             where: { isActive: true },
-            select: { id: true, name: true, code: true, safetyGuideline: true },
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              safetyGuideline: true,
+              attachments: {
+                select: {
+                  id: true,
+                  fileUrl: true,
+                  fileName: true,
+                  fileType: true,
+                  description: true,
+                  order: true,
+                  createdAt: true,
+                },
+                orderBy: { order: 'asc' },
+              },
+            },
             orderBy: { name: 'asc' },
           }),
           this.prisma.guest.findMany({

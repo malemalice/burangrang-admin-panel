@@ -2,6 +2,16 @@ import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
 export type { PaginatedResponse, PaginationParams };
 
+export interface WorkClassificationAttachment {
+  id: string;
+  fileUrl: string;
+  fileName: string;
+  fileType?: string;
+  description?: string;
+  order: number;
+  createdAt: string;
+}
+
 /** DTO from backend */
 export interface WorkClassificationDTO {
   id: string;
@@ -12,6 +22,7 @@ export interface WorkClassificationDTO {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  attachments?: WorkClassificationAttachment[] | null;
 }
 
 /** UI model */
@@ -24,6 +35,15 @@ export interface WorkClassification {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  attachments?: WorkClassificationAttachment[];
+}
+
+export interface WorkClassificationAttachmentInput {
+  fileUrl: string;
+  fileName: string;
+  fileType?: string;
+  description?: string;
+  order: number;
 }
 
 export interface CreateWorkClassificationDTO {
@@ -32,6 +52,7 @@ export interface CreateWorkClassificationDTO {
   description?: string;
   safetyGuideline?: string;
   isActive?: boolean;
+  attachments?: WorkClassificationAttachmentInput[];
 }
 
 export interface UpdateWorkClassificationDTO {
@@ -40,6 +61,7 @@ export interface UpdateWorkClassificationDTO {
   description?: string;
   safetyGuideline?: string;
   isActive?: boolean;
+  attachments?: WorkClassificationAttachmentInput[];
 }
 
 export interface WorkClassificationSearchParams extends PaginationParams {
@@ -56,5 +78,16 @@ export function mapWorkClassificationDtoToModel(dto: WorkClassificationDTO): Wor
     isActive: dto.isActive,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
+    attachments: dto.attachments?.length
+      ? dto.attachments.map((a) => ({
+          id: a.id,
+          fileUrl: a.fileUrl,
+          fileName: a.fileName,
+          fileType: a.fileType,
+          description: a.description,
+          order: a.order,
+          createdAt: a.createdAt,
+        }))
+      : undefined,
   };
 }

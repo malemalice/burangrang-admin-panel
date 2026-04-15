@@ -5,6 +5,7 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { CreateWorkClassificationDto } from './dto/create-work-classification.dto';
 import { UpdateWorkClassificationDto } from './dto/update-work-classification.dto';
+import { WorkClassificationAttachmentItemDto } from './dto/work-classification-attachment.dto';
 import { WorkClassificationDto } from './dto/work-classification.dto';
 
 interface FindAllOptions {
@@ -16,6 +17,12 @@ interface FindAllOptions {
   search?: string;
 }
 
+const classificationInclude = {
+  attachments: {
+    orderBy: { order: 'asc' as const },
+  },
+};
+
 @Injectable()
 export class WorkClassificationsService {
   private classificationMapper: (row: any) => WorkClassificationDto;
@@ -23,19 +30,47 @@ export class WorkClassificationsService {
     data: any[];
     meta: any;
   }) => { data: WorkClassificationDto[]; meta: any };
+  private attachmentItemMapper: (row: any) => WorkClassificationAttachmentItemDto;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly dtoMapper: DtoMapperService,
     private readonly errorHandler: ErrorHandlingService,
   ) {
-    this.classificationMapper = this.dtoMapper.createSimpleMapper(WorkClassificationDto);
-    this.classificationPaginatedMapper = this.dtoMapper.createPaginatedMapper(WorkClassificationDto);
+    this.attachmentItemMapper = this.dtoMapper.createSimpleMapper(WorkClassificationAttachmentItemDto);
+    const relationOptions = {
+      relations: {
+        attachments: {
+          mapper: (a: any) => this.attachmentItemMapper(a),
+          isArray: true,
+        },
+      },
+    };
+    this.classificationMapper = this.dtoMapper.createMapper(WorkClassificationDto, relationOptions);
+    this.classificationPaginatedMapper = this.dtoMapper.createPaginatedMapper(
+      WorkClassificationDto,
+      relationOptions,
+    );
   }
 
   async create(createDto: CreateWorkClassificationDto): Promise<WorkClassificationDto> {
+    const { attachments, ...rest } = createDto;
     const row = await this.prisma.workClassification.create({
-      data: createDto,
+      data: {
+        ...rest,
+        attachments: attachments?.length
+          ? {
+              create: attachments.map((a) => ({
+                fileUrl: a.fileUrl,
+                fileName: a.fileName,
+                fileType: a.fileType,
+                description: a.description,
+                order: a.order,
+              })),
+            }
+          : undefined,
+      },
+      include: classificationInclude,
     });
     return this.classificationMapper(row);
   }
@@ -76,6 +111,7 @@ export class WorkClassificationsService {
         },
         skip: (page - 1) * limit,
         take: limit,
+        include: classificationInclude,
       }),
       this.prisma.workClassification.count({ where }),
     ]);
@@ -89,6 +125,7 @@ export class WorkClassificationsService {
   async findOne(id: string): Promise<WorkClassificationDto> {
     const row = await this.prisma.workClassification.findUnique({
       where: { id },
+      include: classificationInclude,
     });
 
     this.errorHandler.throwIfNotFoundById('WorkClassification', id, row);
@@ -103,9 +140,38 @@ export class WorkClassificationsService {
 
     this.errorHandler.throwIfNotFoundById('WorkClassification', id, existing);
 
+    const { attachments, ...scalarFields } = updateDto;
+    const data: Prisma.WorkClassificationUpdateInput = { ...scalarFields };
+
+    if (attachments !== undefined) {
+      await this.prisma.workClassificationAttachment.deleteMany({
+        where: { workClassificationId: id },
+      });
+      if (attachments.length > 0) {
+        data.attachments = {
+          create: attachments.map((a) => ({
+            fileUrl: a.fileUrl,
+            fileName: a.fileName,
+            fileType: a.fileType,
+            description: a.description,
+            order: a.order,
+          })),
+        };
+      }
+    }
+
+    if (
+      attachments !== undefined &&
+      attachments.length === 0 &&
+      Object.keys(scalarFields).length === 0
+    ) {
+      data.isActive = existing.isActive;
+    }
+
     const row = await this.prisma.workClassification.update({
       where: { id },
-      data: updateDto,
+      data,
+      include: classificationInclude,
     });
 
     return this.classificationMapper(row);

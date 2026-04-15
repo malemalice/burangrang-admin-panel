@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { Upload, X } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -17,12 +18,21 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { RichEditor } from '@/core/components/ui/rich-editor';
+import uploadService from '@/modules/uploads/services/uploadService';
 import workClassificationService from '../services/workClassificationService';
 import { WorkClassification } from '../types/work-classification.types';
 
 const EMPTY_HTML = '<p></p>';
+
+const attachmentSchema = z.object({
+  fileUrl: z.string().min(1, 'File URL is required'),
+  fileName: z.string().min(1, 'File name is required'),
+  fileType: z.string().optional(),
+  description: z.string().optional(),
+  order: z.number().min(0),
+});
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -30,6 +40,7 @@ const formSchema = z.object({
   description: z.string().optional(),
   safetyGuideline: z.string().optional(),
   isActive: z.boolean().default(true),
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -41,6 +52,7 @@ interface WorkClassificationFormProps {
 
 const WorkClassificationForm = ({ classification, mode }: WorkClassificationFormProps) => {
   const navigate = useNavigate();
+  const [documentsCategoryId, setDocumentsCategoryId] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -50,8 +62,35 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
       description: '',
       safetyGuideline: EMPTY_HTML,
       isActive: true,
+      attachments: [],
     },
   });
+
+  const {
+    fields: attachmentFields,
+    append: appendAttachment,
+    remove: removeAttachment,
+  } = useFieldArray({
+    control: form.control,
+    name: 'attachments',
+  });
+
+  useEffect(() => {
+    const loadCategory = async () => {
+      try {
+        const category = await uploadService.getCategoryByName('work-permit-documents');
+        if (category) {
+          setDocumentsCategoryId(category.id);
+        } else {
+          toast.error('File category for work permit documents not found');
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error('Failed to resolve upload category');
+      }
+    };
+    loadCategory();
+  }, []);
 
   useEffect(() => {
     if (classification) {
@@ -63,20 +102,90 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
           ? classification.safetyGuideline
           : EMPTY_HTML,
         isActive: classification.isActive,
+        attachments:
+          classification.attachments?.map((a, i) => ({
+            fileUrl: a.fileUrl,
+            fileName: a.fileName,
+            fileType: a.fileType,
+            description: a.description ?? '',
+            order: a.order ?? i,
+          })) ?? [],
       });
     }
   }, [classification, form]);
 
+  const handleAttachmentUpload = async (file: File) => {
+    if (!documentsCategoryId) {
+      toast.error('File category not found. Please refresh the page.');
+      return;
+    }
+    const validTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+    ];
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const allowedExt = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+    if (!validTypes.includes(file.type) && (!ext || !allowedExt.includes(ext))) {
+      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+      return;
+    }
+    try {
+      const response = await uploadService.uploadFile(file, documentsCategoryId, false);
+      const fileUrl =
+        response.downloadUrl ||
+        (response.isPublic
+          ? uploadService.getPublicFileUrl(response.id)
+          : uploadService.getPrivateFileUrl(response.accessToken || response.id));
+      appendAttachment({
+        fileUrl,
+        fileName: file.name,
+        fileType: file.type,
+        description: '',
+        order: attachmentFields.length,
+      });
+      toast.success('Attachment uploaded');
+    } catch (error: unknown) {
+      console.error('Error uploading attachment:', error);
+      const message =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast.error(message || 'Failed to upload file');
+    }
+  };
+
   const onSubmit = async (data: FormValues) => {
+    const safetyGuideline =
+      !data.safetyGuideline ||
+      data.safetyGuideline === EMPTY_HTML ||
+      data.safetyGuideline === '<p></p>'
+        ? undefined
+        : data.safetyGuideline;
+
+    const rawAttachments = data.attachments ?? [];
+    const attachmentPayload =
+      rawAttachments.length > 0
+        ? rawAttachments.map((a, i) => ({
+            fileUrl: a.fileUrl,
+            fileName: a.fileName,
+            fileType: a.fileType,
+            description: a.description?.trim() ? a.description : undefined,
+            order: i,
+          }))
+        : mode === 'edit'
+          ? []
+          : undefined;
+
     const payload = {
-      ...data,
-      safetyGuideline:
-        !data.safetyGuideline ||
-        data.safetyGuideline === EMPTY_HTML ||
-        data.safetyGuideline === '<p></p>'
-          ? undefined
-          : data.safetyGuideline,
+      name: data.name,
+      code: data.code,
       description: data.description || undefined,
+      safetyGuideline,
+      isActive: data.isActive,
+      ...(attachmentPayload !== undefined ? { attachments: attachmentPayload } : {}),
     };
 
     try {
@@ -175,6 +284,69 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
                 </FormItem>
               )}
             />
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-base">Attached documents</CardTitle>
+                  <CardDescription>Reference files for this classification (PDF, Word, or images)</CardDescription>
+                </div>
+                <div>
+                  <input
+                    type="file"
+                    id="wc-attachment-upload"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleAttachmentUpload(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('wc-attachment-upload')?.click()}
+                    disabled={!documentsCategoryId}
+                  >
+                    <Upload className="mr-2 h-4 w-4" /> Upload
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {attachmentFields.map((field, index) => (
+                  <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">
+                        {form.watch(`attachments.${index}.fileName`)}
+                      </p>
+                      <FormField
+                        control={form.control}
+                        name={`attachments.${index}.description`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="Description (optional)" className="mt-1" {...f} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => removeAttachment(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
 
             <FormField
               control={form.control}

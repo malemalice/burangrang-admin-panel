@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, ClipboardList, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, ClipboardList, Loader2, FileText, Paperclip } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -144,6 +144,41 @@ const WorkClassificationDetailPage = () => {
               />
             ) : (
               <p className="text-muted-foreground">No safety guidelines defined.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Paperclip className="h-5 w-5" />
+              Attached documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {row.attachments && row.attachments.length > 0 ? (
+              <ul className="space-y-3">
+                {row.attachments
+                  .slice()
+                  .sort((a, b) => a.order - b.order)
+                  .map((att) => (
+                    <li key={att.id} className="rounded-lg border p-3">
+                      <a
+                        href={att.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {att.fileName}
+                      </a>
+                      {att.description ? (
+                        <p className="mt-1 text-sm text-muted-foreground">{att.description}</p>
+                      ) : null}
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No documents attached.</p>
             )}
           </CardContent>
         </Card>

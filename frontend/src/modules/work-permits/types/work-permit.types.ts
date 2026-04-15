@@ -8,6 +8,20 @@ export interface MasterDataOption {
   code: string;
 }
 
+/** Work classification row from GET work-permits/master-data */
+export interface WorkClassificationMasterOption extends MasterDataOption {
+  safetyGuideline?: string | null;
+  attachments?: Array<{
+    id: string;
+    fileUrl: string;
+    fileName: string;
+    fileType?: string | null;
+    description?: string | null;
+    order: number;
+    createdAt: string;
+  }>;
+}
+
 /** Company row from work-permit master-data (includes phone for display) */
 export type CompanyOption = MasterDataOption & { phone?: string | null };
 
@@ -21,7 +35,7 @@ export interface GuestOption {
 export interface WorkPermitMasterData {
   areas: MasterDataOption[];
   companies: CompanyOption[];
-  workClassifications: MasterDataOption[];
+  workClassifications: WorkClassificationMasterOption[];
   guests: GuestOption[];
   heavyEquipment: MasterDataOption[];
   tools: MasterDataOption[];

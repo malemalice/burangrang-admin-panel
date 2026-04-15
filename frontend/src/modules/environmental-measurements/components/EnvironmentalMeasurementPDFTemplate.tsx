@@ -5,7 +5,7 @@ import { EnvironmentalMeasurement } from '../types/environmental-measurement.typ
 import type { EnvironmentalMeasurementRegulatoryLimits, MetricRegulatoryLimit } from '../services/environmentalMeasurementService';
 import type { RegulatoryMetricKey } from '../utils/regulatoryLimitComparison';
 import { formatRegulatoryComparisonText, getRegulatoryLimitMode } from '../utils/regulatoryLimitComparison';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 
 interface EnvironmentalMeasurementPDFTemplateProps {
   measurement: EnvironmentalMeasurement;
@@ -49,21 +49,66 @@ function getStatusTextClass(status?: string) {
   return 'text-yellow-700';
 }
 
+/** Matches detail page badge wording for PDF consistency */
+function getEntityStatusDisplayLabel(status?: string): string {
+  switch (status) {
+    case GeneralStatusEnum.DRAFT:
+      return 'Draft';
+    case GeneralStatusEnum.OPEN:
+      return 'Open';
+    case GeneralStatusEnum.WAITING_APPROVAL:
+      return 'Waiting Approval';
+    case GeneralStatusEnum.DONE:
+      return 'Done';
+    case GeneralStatusEnum.REJECTED:
+      return 'Rejected';
+    default: {
+      const opt = GENERAL_STATUS_OPTIONS.find((o) => o.value === status);
+      return opt?.label ?? status ?? '—';
+    }
+  }
+}
+
 /** Display step as 1-based for formal documents (backend lines are 0-based). */
 function workflowStepDisplay(line: number): number {
   return line + 1;
 }
 
 function formatWorkflowStatusLabel(
+  entityStatus: string | undefined,
   lineStatus: 'completed' | 'current' | 'pending',
   lastApprovalStatus: string | undefined,
 ): string {
+  const es = entityStatus as GeneralStatusEnum | undefined;
+
   if (lineStatus === 'completed') {
     return lastApprovalStatus || 'Completed';
   }
-  if (lineStatus === 'current') {
+
+  if (lineStatus === 'pending') {
+    return 'Pending';
+  }
+
+  // current — interpret using entity lifecycle (API may mark first step "current" before approval is requested)
+  if (es === GeneralStatusEnum.DRAFT || es === GeneralStatusEnum.OPEN) {
+    return 'Pending';
+  }
+
+  if (es === GeneralStatusEnum.REJECTED) {
+    if (lastApprovalStatus === 'REJECTED') {
+      return 'Rejected';
+    }
+    return 'Pending';
+  }
+
+  if (es === GeneralStatusEnum.WAITING_APPROVAL) {
     return 'Awaiting verification';
   }
+
+  if (es === GeneralStatusEnum.DONE) {
+    return lastApprovalStatus || 'Completed';
+  }
+
   return 'Pending';
 }
 
@@ -81,7 +126,9 @@ export function EnvironmentalMeasurementPDFTemplate({
       ?.slice()
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) ?? [];
   const approvalLines = approvalHistory?.allApprovalLines ?? [];
-  const isDone = measurement.status === GeneralStatusEnum.DONE;
+  const entityStatusLabel = getEntityStatusDisplayLabel(measurement.status);
+  const showNextApprover =
+    measurement.status === GeneralStatusEnum.WAITING_APPROVAL && approvalHistory?.nextApprover;
 
   const createdByDisplay = measurement.creator
     ? `${measurement.creator.firstName} ${measurement.creator.lastName}`.trim()
@@ -170,14 +217,14 @@ export function EnvironmentalMeasurementPDFTemplate({
         </h2>
         <div className="mb-4 text-sm text-gray-800 leading-relaxed">
           <span className="font-semibold">Current approval status: </span>
-          <span>{approvalHistory?.currentStatus ?? measurement.status ?? '—'}</span>
-          {!isDone && approvalHistory?.nextApprover && (
+          <span>{entityStatusLabel}</span>
+          {showNextApprover && (
             <>
               <span className="mx-2 text-gray-400">·</span>
               <span className="font-semibold">Next responsible party: </span>
               <span>
-                {approvalHistory.nextApprover.department.name} — {approvalHistory.nextApprover.jobPosition.name}
-                {' '}(Step {workflowStepDisplay(approvalHistory.nextApprover.line)})
+                {approvalHistory!.nextApprover!.department.name} — {approvalHistory!.nextApprover!.jobPosition.name}
+                {' '}(Step {workflowStepDisplay(approvalHistory!.nextApprover!.line)})
               </span>
             </>
           )}
@@ -201,7 +248,11 @@ export function EnvironmentalMeasurementPDFTemplate({
                 {approvalLines.map((line) => {
                   const approvalsForLine = allApprovals.filter((a) => a.line === line.line);
                   const lastApproval = approvalsForLine.length > 0 ? approvalsForLine[approvalsForLine.length - 1] : null;
-                  const statusLabel = formatWorkflowStatusLabel(line.status, lastApproval?.status);
+                  const statusLabel = formatWorkflowStatusLabel(
+                    measurement.status,
+                    line.status,
+                    lastApproval?.status,
+                  );
 
                   return (
                     <tr key={`wf-${line.line}`}>
