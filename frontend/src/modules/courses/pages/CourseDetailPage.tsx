@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   FileQuestion
 } from 'lucide-react';
-import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -150,18 +149,28 @@ const CourseDetailPage = () => {
     setChapterToDelete(null);
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    return courseService.getDifficultyColor(difficulty);
-  };
-
-  const getStatusColor = (status: string) => {
-    return courseService.getStatusColor(status);
-  };
-
-
   const formatDuration = (minutes: number) => {
     return courseService.formatDuration(minutes);
   };
+
+  const metadataItems = [
+    {
+      label: 'Created',
+      content: (
+        <p className="mt-1 text-sm text-gray-900">
+          {new Date(course.createdAt).toLocaleDateString()}
+        </p>
+      ),
+    },
+    {
+      label: 'Last Updated',
+      content: (
+        <p className="mt-1 text-sm text-gray-900">
+          {new Date(course.updatedAt).toLocaleDateString()}
+        </p>
+      ),
+    },
+  ].filter(Boolean) as { label: string; content: ReactNode }[];
 
   const getContentTypeIcon = (contentType: string) => {
     switch (contentType) {
@@ -219,12 +228,9 @@ const CourseDetailPage = () => {
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-start gap-2 mb-2">
-                <h1 className="text-2xl font-bold min-w-0 flex-1 line-clamp-2 break-words" title={course.title}>
+                <h1 className="text-2xl font-bold break-words min-w-0 flex-1" title={course.title}>
                   {course.title}
                 </h1>
-                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize shrink-0 mt-1`}>
-                  {course.status}
-                </Badge>
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
               <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
@@ -284,33 +290,13 @@ const CourseDetailPage = () => {
                   <CardTitle>Course Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Difficulty</label>
-                      <div className="mt-1">
-                        <Badge variant="outline" className={`${getDifficultyColor(course.difficulty)} border-0`}>
-                          {course.difficulty}
-                        </Badge>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {metadataItems.map((item) => (
+                      <div key={item.label}>
+                        <label className="text-sm font-medium text-gray-500">{item.label}</label>
+                        {item.content}
                       </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Language</label>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {course.language === 'en' ? 'English' : 'Indonesian'}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Created</label>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {new Date(course.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {new Date(course.updatedAt).toLocaleDateString()}
-                      </p>
-                    </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>

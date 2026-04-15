@@ -1038,13 +1038,10 @@ model Course {
   thumbnailUrl     String?
   totalChapters    Int       @default(0)
   totalDuration    Int       @default(0) // in minutes
-  difficulty       String    @default("beginner") // beginner, intermediate, advanced
-  language         String    @default("en")
   rating           Decimal   @default(0) @db.Decimal(3, 2)
   reviewCount      Int       @default(0)
   studentCount     Int       @default(0)
   instructorId     String?
-  status           String    @default("draft") // draft, review, published, archived
   publishedAt      DateTime?
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
