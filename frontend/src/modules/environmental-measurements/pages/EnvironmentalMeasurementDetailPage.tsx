@@ -15,6 +15,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -84,9 +85,11 @@ export default function EnvironmentalMeasurementDetailPage() {
   const baseFilename = measurement
     ? `environmental-measurement-${measurement.id}-${format(new Date(measurement.date), 'yyyyMMdd')}`
     : 'environmental-measurement';
-  const { toPDF, targetRef } = usePDF({
-    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const fetchApprovalData = useCallback(async (measurementId: string) => {
     setIsLoadingHistory(true);

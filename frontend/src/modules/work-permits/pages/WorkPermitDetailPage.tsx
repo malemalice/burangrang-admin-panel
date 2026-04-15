@@ -6,6 +6,7 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import { useWorkPermit, useWorkPermitActions } from '../hooks/useWorkPermits';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -57,6 +58,13 @@ const WorkPermitDetailPage = () => {
   const { submit, approve, reject, requestInfo, extend, close, signSk, isLoading: isActionLoading } = useWorkPermitActions();
   const { user: currentUser } = useAuth();
 
+  const createdByLabel = (() => {
+    const creator = workPermit?.creator;
+    if (!creator) return displayField(workPermit?.createdBy);
+    const fullName = `${creator.firstName ?? ''} ${creator.lastName ?? ''}`.trim();
+    return displayField(fullName || creator.email || workPermit?.createdBy);
+  })();
+
   const [approvalRights, setApprovalRights] = useState<{
     canApprove: boolean;
     canReject: boolean;
@@ -74,9 +82,11 @@ const WorkPermitDetailPage = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: `${workPermit?.code ?? 'work-permit'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${workPermit?.code ?? 'work-permit'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const [approveNotes, setApproveNotes] = useState('');
   const [approveSafetyGuideline, setApproveSafetyGuideline] = useState('');
@@ -477,6 +487,10 @@ const WorkPermitDetailPage = () => {
                     <div className="mt-1">
                       <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
                     </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Created by</Label>
+                    <p className="mt-1">{createdByLabel}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Project Name</Label>

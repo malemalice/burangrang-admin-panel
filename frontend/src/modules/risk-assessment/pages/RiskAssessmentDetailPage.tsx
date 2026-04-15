@@ -6,6 +6,7 @@ import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
 
 import api from '@/core/lib/api';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -69,9 +70,11 @@ const RiskAssessmentDetailPage = () => {
   }, [assessment]);
 
   // Initialize with a placeholder - we'll generate the actual filename at export time
-  const { toPDF, targetRef } = usePDF({ 
-    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` 
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   // Dialog states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);

@@ -5,9 +5,10 @@ import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import { Pagination } from 'tiptap-pagination-breaks';
-import generatePDF, { Margin, Resolution, usePDF } from 'react-to-pdf';
+import generatePDF, { Margin, usePDF } from 'react-to-pdf';
 import { cn } from '@/core/lib/utils';
 import { Button } from '@/core/components/ui/button';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import {
   Dialog,
   DialogContent,
@@ -60,21 +61,17 @@ const A4_PAGE_HEIGHT_PX = 1123;
 const A4_PAGE_MIN_HEIGHT_CLASS = 'min-h-[1123px]';
 const PAGE_GAP_PX = 32;
 
-const PDF_BUILD_OPTIONS = {
-  method: 'build' as const,
-  resolution: Resolution.MEDIUM,
+const PDF_BUILD_OPTIONS = buildPdfOptions({
+  method: 'build',
   page: {
+    // Rich editor has its own internal content inset; keep page margin minimal so we don't double-pad.
+    // (Other exports use 12mm via DEFAULT_PDF_MARGIN_MM.)
     margin: Margin.NONE,
-    format: 'a4' as const,
-    orientation: 'portrait' as const,
   },
   canvas: {
-    mimeType: 'image/png' as const,
-    qualityRatio: 1,
-    useCORS: true,
-    logging: false,
+    mimeType: 'image/png',
   },
-};
+});
 
 export function RichEditor({
   value,

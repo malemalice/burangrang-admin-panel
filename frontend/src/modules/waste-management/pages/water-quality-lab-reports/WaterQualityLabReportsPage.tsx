@@ -29,6 +29,7 @@ import {
 } from '../../utils/water-quality-lab-report-export';
 import { WaterQualityLabReportAggregatePDFTemplate } from '../../components/WaterQualityLabReportAggregatePDFTemplate';
 import { WaterQualityLabReportPDFTemplate } from '../../components/WaterQualityLabReportPDFTemplate';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 export default function WaterQualityLabReportsPage() {
   const navigate = useNavigate();
@@ -52,7 +53,11 @@ export default function WaterQualityLabReportsPage() {
           : 'water-quality-lab-reports.pdf',
     [aggregateForPDF, reportForSinglePdf],
   );
-  const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfFilename,
+    }),
+  );
 
   const page = useMemo(() => {
     const raw = searchParams.get('page');

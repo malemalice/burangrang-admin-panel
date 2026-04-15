@@ -5,6 +5,7 @@ import { usePDF } from 'react-to-pdf';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send, Ban, FileDown } from 'lucide-react';
 import { PPEWithdrawalPDFTemplate } from '../../components/PPEWithdrawalPDFTemplate';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -55,9 +56,11 @@ const PPEWithdrawalDetailPage = () => {
     const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-    const { toPDF, targetRef } = usePDF({
-        filename: `ppe-withdrawal-${withdrawal?.withdrawalCode ?? id ?? 'export'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
-    });
+    const { toPDF, targetRef } = usePDF(
+        buildPdfOptions({
+            filename: `ppe-withdrawal-${withdrawal?.withdrawalCode ?? id ?? 'export'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+    );
 
     const handleExportPDF = async () => {
         if (!withdrawal) return;

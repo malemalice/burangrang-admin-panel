@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import api from '@/core/lib/api';
 import { usePDF } from 'react-to-pdf';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -81,11 +82,13 @@ export default function DispatchOrderDetailPage() {
   const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalHistoryForPDF, setApprovalHistoryForPDF] = useState<ApprovalStatusHistory | null>(null);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: dispatchOrder
-      ? `${dispatchOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
-      : 'dispatch-order.pdf',
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: dispatchOrder
+        ? `${dispatchOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+        : 'dispatch-order.pdf',
+    }),
+  );
 
   const fetchApprovalData = useCallback(async (orderId: string) => {
     setIsLoadingHistory(true);

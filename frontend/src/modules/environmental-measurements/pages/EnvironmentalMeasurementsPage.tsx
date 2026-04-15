@@ -6,6 +6,7 @@ import { Edit, Trash2, Plus, MoreHorizontal, Eye, FileDown } from 'lucide-react'
 import { format } from 'date-fns';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,9 +80,11 @@ export default function EnvironmentalMeasurementsPage() {
     return `environmental-measurements-${format(new Date(batchPdfNonce), 'yyyyMMdd-HHmmss')}.pdf`;
   }, [singlePdfContext, batchPdfNonce]);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: pdfFilename,
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfFilename,
+    }),
+  );
 
   const pageIndex = useMemo(() => {
     const raw = searchParams.get('page');

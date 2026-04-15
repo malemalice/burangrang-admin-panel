@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
 import { Loader2, ArrowLeft, Pencil, FileText, FileDown, Image } from 'lucide-react';
 import { format } from 'date-fns';
+import { buildPdfOptions } from '@/core/lib/pdfExport';
 
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
@@ -56,9 +57,13 @@ export default function DetailWaterQualityLabReportPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<WaterQualityLabReport | null>(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const { toPDF, targetRef } = usePDF({
-    filename: data ? `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` : 'water-quality-lab-report.pdf',
-  });
+  const { toPDF, targetRef } = usePDF(
+    buildPdfOptions({
+      filename: data
+        ? `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+        : 'water-quality-lab-report.pdf',
+    }),
+  );
 
   useEffect(() => {
     const fetchData = async () => {
