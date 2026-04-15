@@ -6,7 +6,7 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { useWorkPermit, useWorkPermitActions } from '../hooks/useWorkPermits';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -31,8 +31,10 @@ import {
   WORK_PERMIT_SECTION_C_SUB,
   WORK_PERMIT_SECTION_D_SUB,
   WORK_PERMIT_SECTION_E_SUB,
+  WORK_PERMIT_SECTION_G_SUB,
   WORK_PERMIT_SECTION_F_SUB,
 } from '../constants/workPermitSections';
+import { WorkPermitSafetyGuidelineDisplay } from '../components/WorkPermitSafetyGuidelineDisplay';
 import {
   Table,
   TableBody,
@@ -82,7 +84,7 @@ const WorkPermitDetailPage = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: `${workPermit?.code ?? 'work-permit'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
     }),
@@ -235,7 +237,12 @@ const WorkPermitDetailPage = () => {
     try {
       setIsExportingPDF(true);
       await new Promise((resolve) => setTimeout(resolve, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${workPermit.code}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);
@@ -386,10 +393,10 @@ const WorkPermitDetailPage = () => {
           >
             <Card>
               <CardHeader>
-                <WorkPermitSubsectionTitle>Safety Guideline (SK)</WorkPermitSubsectionTitle>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-sm whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
+                <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
                 <p className="text-xs text-muted-foreground">
                   Status: waiting applicant signature before final security approval.
                 </p>
@@ -491,10 +498,6 @@ const WorkPermitDetailPage = () => {
                 <div>
                   <Label className="text-muted-foreground">Work Requirements</Label>
                   <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workRequirements)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Safety Guideline</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Safety guideline acknowledged</Label>
@@ -805,6 +808,21 @@ const WorkPermitDetailPage = () => {
           </Card>
         </WorkPermitSection>
 
+        <WorkPermitSection
+          id="work-permit-detail-section-g"
+          title={WORK_PERMIT_SECTIONS.G}
+          description="Per work classification — copied from master and editable on the permit"
+        >
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
+            </CardHeader>
+            <CardContent>
+              <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+
         <WorkPermitSection id="work-permit-detail-section-f" title={WORK_PERMIT_SECTIONS.F}>
           <div className="grid gap-6">
             <Card>
@@ -982,8 +1000,8 @@ const WorkPermitDetailPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Safety Guideline</Label>
-              <div className="rounded-md border p-3 text-sm whitespace-pre-wrap bg-muted/30">
-                {displayField(workPermit?.safetyGuideline)}
+              <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto">
+                <WorkPermitSafetyGuidelineDisplay classifications={workPermit?.classifications} />
               </div>
             </div>
             <div>

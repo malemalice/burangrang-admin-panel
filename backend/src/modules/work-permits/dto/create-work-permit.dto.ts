@@ -14,6 +14,7 @@ import {
   Equals,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WorkPermitClassificationSafetyGuidanceOnCreateDto } from './work-permit-classification-safety-guidance.dto';
 
 export class WorkPermitClassificationDto {
   @ApiProperty({ description: 'Work classification ID' })
@@ -268,11 +269,6 @@ export class CreateWorkPermitDto {
   @IsString()
   workRequirements?: string;
 
-  @ApiProperty({ description: 'Safety guideline', required: false })
-  @IsOptional()
-  @IsString()
-  safetyGuideline?: string;
-
   @ApiProperty({
     description:
       'Required when work classification "Others" (code OTHERS) is selected — free-text description of the other work type',
@@ -301,6 +297,18 @@ export class CreateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitClassificationDto)
   classifications?: WorkPermitClassificationDto[];
+
+  @ApiProperty({
+    description:
+      'Optional overrides per classification line (matched by workClassificationId + order) after template copy',
+    type: [WorkPermitClassificationSafetyGuidanceOnCreateDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkPermitClassificationSafetyGuidanceOnCreateDto)
+  classificationSafetyGuidance?: WorkPermitClassificationSafetyGuidanceOnCreateDto[];
 
   @ApiProperty({ description: 'Employees/PICs', type: [WorkPermitEmployeeDto], required: false })
   @IsOptional()

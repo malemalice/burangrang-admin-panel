@@ -3,6 +3,47 @@ import { PrismaClient } from '@prisma/client';
 /** Must match `WORK_CLASSIFICATION_OTHER_CODE` in work-classification.constants.ts */
 const SEED_WORK_CLASSIFICATION_OTHER_CODE = 'OTHERS';
 
+/** Mirrors WorkPermitsService.copySafetyGuidanceFromTemplates for seed data */
+async function copySafetyGuidanceFromTemplatesForSeed(prisma: PrismaClient, workPermitId: string) {
+  const links = await prisma.workPermitClassification.findMany({
+    where: { workPermitId },
+    include: {
+      workClassification: {
+        include: {
+          riskEquipmentRows: {
+            orderBy: { order: 'asc' },
+            include: { risk: true, safetyEquipment: true },
+          },
+        },
+      },
+    },
+    orderBy: { order: 'asc' },
+  });
+  for (const link of links) {
+    const snapshot = link.workClassification.safetyGuideline ?? null;
+    await prisma.workPermitClassification.update({
+      where: { id: link.id },
+      data: { safetyGuidelineSnapshot: snapshot },
+    });
+    await prisma.workPermitClassificationSafetyGuidanceRow.deleteMany({
+      where: { workPermitClassificationId: link.id },
+    });
+    for (const r of link.workClassification.riskEquipmentRows) {
+      await prisma.workPermitClassificationSafetyGuidanceRow.create({
+        data: {
+          workPermitClassificationId: link.id,
+          riskId: r.riskId,
+          safetyEquipmentId: r.safetyEquipmentId,
+          notes: r.notes ?? null,
+          order: r.order,
+          riskNameSnapshot: r.risk.name,
+          safetyEquipmentNameSnapshot: r.safetyEquipment.name,
+        },
+      });
+    }
+  }
+}
+
 export async function seedWorkPermitMasters(prisma: PrismaClient) {
   console.log('🌱 Seeding Work Permit master data...');
 
@@ -377,7 +418,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: '1. Site preparation\n2. Electrical installation\n3. Testing and commissioning\n4. Cleanup',
       jobSafetyAnalysis: 'Risk: Electrical shock\nControl: Use proper PPE, lockout/tagout procedures, qualified electrician only',
       workRequirements: 'All workers must have electrical safety training certificate',
-      safetyGuideline: 'Follow electrical safety standards and procedures',
       requireCourseVerification: true,
       status: 'DRAFT',
       createdBy: creator.id,
@@ -490,6 +530,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp1.id);
   console.log(`✅ Created work permit: ${wp1.code} (DRAFT)`);
 
   // Sample Work Permit 2: WAITING_APPROVAL
@@ -504,7 +545,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: '1. Remove old pipes\n2. Install new plumbing\n3. Pressure testing\n4. Final inspection',
       jobSafetyAnalysis: 'Risk: Water damage, confined space\nControl: Proper drainage, ventilation, confined space permit',
       workRequirements: 'Plumber certification required',
-      safetyGuideline: 'Follow plumbing safety standards',
       requireCourseVerification: false,
       status: 'IN_REVIEW_HSE',
       createdBy: creator.id,
@@ -539,6 +579,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp2.id);
   console.log(`✅ Created work permit: ${wp2.code} (IN_REVIEW_HSE)`);
 
   // Sample Work Permit 3: APPROVED
@@ -553,7 +594,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: '1. Surface preparation\n2. Primer application\n3. Paint application\n4. Cleanup',
       jobSafetyAnalysis: 'Risk: Fall from height, chemical exposure\nControl: Safety harness, proper PPE, ventilation',
       workRequirements: 'Painter certification, height work permit',
-      safetyGuideline: 'Follow painting safety standards',
       requireCourseVerification: true,
       status: 'APPROVED',
       createdBy: creator.id,
@@ -596,6 +636,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp3.id);
   console.log(`✅ Created work permit: ${wp3.code} (APPROVED)`);
 
   // Sample Work Permit 4: REJECTED
@@ -610,7 +651,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: 'Welding work for structural repairs',
       jobSafetyAnalysis: 'Risk: Fire, explosion\nControl: Fire watch, fire extinguisher, clear area',
       workRequirements: 'Welder certification required',
-      safetyGuideline: 'Follow hot work safety standards',
       requireCourseVerification: true,
       status: 'REJECTED',
       createdBy: creator.id,
@@ -634,6 +674,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp4.id);
   console.log(`✅ Created work permit: ${wp4.code} (REJECTED)`);
 
   // Sample Work Permit 5: CLOSED
@@ -648,7 +689,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: 'General maintenance work - completed',
       jobSafetyAnalysis: 'Standard maintenance procedures',
       workRequirements: 'General maintenance training',
-      safetyGuideline: 'Follow standard safety procedures',
       requireCourseVerification: false,
       status: 'CLOSED',
       createdBy: creator.id,
@@ -678,7 +718,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: 'Confined space inspection and maintenance',
       jobSafetyAnalysis: 'Risk: Confined space\nControl: Entry permit, gas monitoring',
       workRequirements: 'Confined space training',
-      safetyGuideline: 'Follow confined space procedures',
       requireCourseVerification: true,
       status: 'WAITING_APPROVAL',
       createdBy: creator.id,
@@ -713,6 +752,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp6.id);
   console.log(`✅ Created work permit: ${wp6.code} (WAITING_APPROVAL)`);
 
   const wp7 = await prisma.workPermit.create({
@@ -726,7 +766,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: 'Work at height - facade inspection',
       jobSafetyAnalysis: 'Risk: Fall from height\nControl: Harness, guardrails',
       workRequirements: 'Height work certification',
-      safetyGuideline: 'Follow work at height procedures',
       requireCourseVerification: true,
       status: 'WAITING_APPROVAL',
       createdBy: creator.id,
@@ -761,6 +800,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp7.id);
   console.log(`✅ Created work permit: ${wp7.code} (WAITING_APPROVAL)`);
 
   const wp8 = await prisma.workPermit.create({
@@ -774,7 +814,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workStagesDescription: 'General repair work - approved',
       jobSafetyAnalysis: 'Standard risks and controls',
       workRequirements: 'General safety training',
-      safetyGuideline: 'Follow standard procedures',
       requireCourseVerification: false,
       status: 'APPROVED',
       createdBy: creator.id,
@@ -798,6 +837,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp8.id);
   console.log(`✅ Created work permit: ${wp8.code} (APPROVED)`);
 
   console.log('✅ Work permit seeding completed');

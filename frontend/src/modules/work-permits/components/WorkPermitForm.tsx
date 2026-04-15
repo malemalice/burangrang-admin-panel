@@ -37,6 +37,8 @@ import {
   GuestOption,
   CompanyOption,
 } from '../types/work-permit.types';
+import { riskService } from '@/modules/master-data';
+import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
 import { createProfessionFromQuery } from '../utils/professionHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
@@ -199,7 +201,7 @@ type WizardStep = 1 | 2 | 3 | 4;
 const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
   { id: 1, title: 'Classification & Scope', description: 'Section A and project scope details' },
   { id: 2, title: 'Equipment', description: 'Section C tools, machines, materials, heavy equipment' },
-  { id: 3, title: 'Hazards & Safety', description: 'Section D and E controls/equipment' },
+  { id: 3, title: 'Hazards & Safety', description: 'Sections D, E, and G safety guideline' },
   { id: 4, title: 'Courses & Attachments', description: 'Section F and final review before submit' },
 ];
 
@@ -226,6 +228,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [professions, setProfessions] = useState<MasterDataOption[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
+  const [risks, setRisks] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [guidanceBlocks, setGuidanceBlocks] = useState<SafetyGuidanceBlock[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
@@ -461,6 +465,63 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     }
   }, [watchedClassifications, workClassifications, form, isLoadingData]);
 
+  // Safety guidance per classification (G): sync from master or permit when rows change
+  useEffect(() => {
+    if (isLoadingData || !workClassifications.length) return;
+    const rows = watchedClassifications ?? [];
+    if (!rows.some((r) => r.workClassificationId)) {
+      setGuidanceBlocks([]);
+      return;
+    }
+    setGuidanceBlocks((prev) => {
+      const result: SafetyGuidanceBlock[] = [];
+      for (const row of rows) {
+        const wcId = row.workClassificationId;
+        const { order } = row;
+        if (!wcId) continue;
+        const master = workClassifications.find((w) => w.id === wcId);
+        if (!master) continue;
+        const existing = prev.find((p) => p.workClassificationId === wcId && p.order === order);
+        if (existing) {
+          result.push(existing);
+          continue;
+        }
+        const link =
+          mode === 'edit'
+            ? workPermit?.classifications?.find((c) => c.workClassificationId === wcId && c.order === order)
+            : undefined;
+        if (link?.safetyGuidanceRows && link.safetyGuidanceRows.length > 0) {
+          result.push({
+            workPermitClassificationId: link.id,
+            workClassificationId: wcId,
+            order,
+            safetyGuidelineSnapshot: link.safetyGuidelineSnapshot ?? null,
+            rows: link.safetyGuidanceRows.map((r) => ({
+              riskId: r.riskId,
+              safetyEquipmentId: r.safetyEquipmentId,
+              notes: r.notes ?? undefined,
+              order: r.order,
+            })),
+          });
+        } else {
+          result.push({
+            workPermitClassificationId: link?.id,
+            workClassificationId: wcId,
+            order,
+            safetyGuidelineSnapshot: master.safetyGuideline ?? null,
+            rows: (master.riskEquipmentRows ?? []).map((r, idx) => ({
+              riskId: r.riskId,
+              safetyEquipmentId: r.safetyEquipmentId,
+              notes: r.notes ?? undefined,
+              order: r.order ?? idx,
+            })),
+          });
+        }
+      }
+      return result;
+    });
+  }, [watchedClassifications, workClassifications, mode, workPermit, isLoadingData]);
+
   // Fetch reference data
   useEffect(() => {
     const fetchData = async () => {
@@ -475,8 +536,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         }
 
         // Fetch master data from work permit service and other modules
-        const [masterDataResponse, usersResponse, workerUsersResponse, coursesResponse, safetyEquipmentResponse] =
-          await Promise.all([
+        const [
+          masterDataResponse,
+          usersResponse,
+          workerUsersResponse,
+          coursesResponse,
+          safetyEquipmentResponse,
+          risksResponse,
+        ] = await Promise.all([
             workPermitService.getMasterData().catch((error) => {
               console.error('Failed to fetch work permit master data:', error);
               return {
@@ -514,6 +581,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               console.error('Failed to fetch safety equipment:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
             }),
+            riskService.getAll({ page: 1, limit: 500, isActive: true, options: true }).catch((error) => {
+              console.error('Failed to fetch risks:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 500 } };
+            }),
           ]);
 
         // Set master data from work permit service
@@ -532,6 +603,13 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         setWorkerUsers(workerUsersResponse.data ?? []);
         setCourses(coursesResponse.data);
         setSafetyEquipment(safetyEquipmentResponse.data);
+        setRisks(
+          (risksResponse.data ?? []).map((r) => ({
+            id: r.id,
+            name: r.name,
+            code: r.code,
+          })),
+        );
       } catch (error) {
         console.error('Failed to load form data:', error);
         toast.error('Failed to load form data');
@@ -828,7 +906,47 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         return;
       }
 
-      await onSubmit(sanitizedData as CreateWorkPermitDTO);
+      const normClass = (r: { workClassificationId: string; order: number }[]) =>
+        [...r]
+          .filter((x) => x.workClassificationId)
+          .sort((a, b) => a.order - b.order)
+          .map((x) => `${x.workClassificationId}:${x.order}`)
+          .join('|');
+      const classificationsChanged =
+        mode === 'edit' &&
+        workPermit &&
+        normClass(sanitizedData.classifications) !==
+          normClass(
+            (workPermit.classifications ?? []).map((c) => ({
+              workClassificationId: c.workClassificationId,
+              order: c.order,
+            })),
+          );
+
+      if (mode === 'create') {
+        await onSubmit({
+          ...sanitizedData,
+          classificationSafetyGuidance: guidanceBlocks.map((b) => ({
+            workClassificationId: b.workClassificationId,
+            order: b.order,
+            safetyGuidelineSnapshot: b.safetyGuidelineSnapshot,
+            rows: b.rows.map((r, i) => ({ ...r, order: r.order ?? i })),
+          })),
+        } as CreateWorkPermitDTO);
+      } else {
+        await onSubmit({
+          ...sanitizedData,
+          ...(!classificationsChanged && {
+            classificationSafetyGuidance: guidanceBlocks
+              .filter((b) => b.workPermitClassificationId)
+              .map((b) => ({
+                workPermitClassificationId: b.workPermitClassificationId!,
+                safetyGuidelineSnapshot: b.safetyGuidelineSnapshot,
+                rows: b.rows.map((r, i) => ({ ...r, order: r.order ?? i })),
+              })),
+          }),
+        } as UpdateWorkPermitDTO);
+      }
     } catch (error) {
       console.error('Error submitting form:', error);
     } finally {
@@ -2104,6 +2222,16 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
         </WorkPermitSection>
+        )}
+
+        {currentStep === 3 && (
+          <WorkPermitSafetyGuidelineSection
+            blocks={guidanceBlocks}
+            onChange={setGuidanceBlocks}
+            workClassifications={workClassifications}
+            risks={risks}
+            safetyEquipment={safetyEquipment}
+          />
         )}
 
         {/* Section F — PRD */}

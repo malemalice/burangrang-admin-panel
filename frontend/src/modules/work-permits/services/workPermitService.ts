@@ -8,6 +8,7 @@ import {
   WorkPermitSearchParams,
   ApprovalTimelineItem,
   WorkPermitMasterData,
+  ClassificationSafetyGuidanceUpdate,
   mapWorkPermitDtoToWorkPermit,
   mapWorkPermitToUpdateDto,
 } from '../types/work-permit.types';
@@ -83,10 +84,13 @@ const workPermitService = {
   /**
    * Approve work permit
    */
-  approveWorkPermit: async (id: string, payload?: { notes?: string; safetyGuideline?: string }): Promise<WorkPermit> => {
+  approveWorkPermit: async (
+    id: string,
+    payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] },
+  ): Promise<WorkPermit> => {
     const response = await api.post(`/work-permits/${id}/approve`, {
       notes: payload?.notes,
-      safetyGuideline: payload?.safetyGuideline,
+      classificationSafetyGuidance: payload?.classificationSafetyGuidance,
     });
     return mapWorkPermitDtoToWorkPermit(response.data);
   },

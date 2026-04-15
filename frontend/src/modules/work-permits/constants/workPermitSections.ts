@@ -1,10 +1,11 @@
-/** PRD Section A–F labels (BSJ/F.5/H&S Policy 05 — digital work permit). */
+/** PRD Section A–G labels (BSJ/F.5/H&S Policy 05 — digital work permit). */
 export const WORK_PERMIT_SECTIONS = {
   A: 'A. Work Classification',
   B: 'B. Work and Personnel Data',
   C: 'C. Material, Tools and Equipment',
   D: 'D. Occupational Health & Safety',
   E: 'E. Safety Equipment',
+  G: 'G. Safety Guideline',
   F: 'F. Validation & Evaluation of Permit',
 } as const;
 
@@ -39,6 +40,13 @@ export const WORK_PERMIT_SECTION_D_SUB = {
 
 export const WORK_PERMIT_SECTION_E_SUB = {
   selectedEquipment: 'Selected equipment',
+} as const;
+
+/** Subsection titles under Section G */
+export const WORK_PERMIT_SECTION_G_SUB = {
+  byClassification: 'By work classification',
+  riskEquipmentRows: 'Risk and required safety equipment',
+  guidelineText: 'Guideline narrative',
 } as const;
 
 /** Subsection titles under Section F (PRD blocks + app-specific). */

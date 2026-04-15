@@ -69,12 +69,6 @@ export class WorkPermitDto {
   @IsString()
   workRequirements?: string;
 
-  @ApiProperty({ description: 'Safety guideline', required: false })
-  @Expose()
-  @IsOptional()
-  @IsString()
-  safetyGuideline?: string;
-
   @ApiProperty({
     description: 'Free-text when "Others" work classification is used',
     required: false,
@@ -177,6 +171,18 @@ export class WorkPermitDto {
       code: string;
     };
     order: number;
+    safetyGuidelineSnapshot?: string | null;
+    safetyGuidanceRows?: Array<{
+      id: string;
+      riskId: string;
+      safetyEquipmentId: string;
+      notes?: string | null;
+      order: number;
+      riskNameSnapshot?: string | null;
+      safetyEquipmentNameSnapshot?: string | null;
+      risk?: { id: string; name: string; code: string };
+      safetyEquipment?: { id: string; name: string; code: string };
+    }>;
   }>;
 
   @ApiProperty({ description: 'Employees/PICs', required: false, type: [Object] })

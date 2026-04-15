@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Dialog,
@@ -15,6 +15,10 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { ApprovalStatus } from '@/core/lib/types';
 import { toast } from 'sonner';
 import workPermitService from '../services/workPermitService';
+import { riskService } from '@/modules/master-data';
+import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
+import type { WorkClassificationMasterOption } from '../types/work-permit.types';
+import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
 
 function getErrorMessage(error: unknown): string | undefined {
   if (!error || typeof error !== 'object' || !('response' in error)) return undefined;
@@ -29,7 +33,7 @@ interface WorkPermitApprovalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workPermitId: string;
-  /** Current permit status — used to show HSE Safety Guideline (SK) field when approving at HSE step */
+  /** Current permit status — used to show HSE Safety Guideline editor when approving at HSE step */
   workPermitStatus: string | undefined;
   onSubmitted: () => void | Promise<void>;
   initialStatus?: ApprovalStatus;
@@ -45,8 +49,12 @@ export const WorkPermitApprovalDialog = ({
 }: WorkPermitApprovalDialogProps) => {
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(initialStatus);
   const [approvalNotes, setApprovalNotes] = useState('');
-  const [safetyGuideline, setSafetyGuideline] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingHse, setLoadingHse] = useState(false);
+  const [guidanceBlocks, setGuidanceBlocks] = useState<SafetyGuidanceBlock[]>([]);
+  const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
+  const [risks, setRisks] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
 
   const isHseApprove = workPermitStatus === 'IN_REVIEW_HSE' && approvalStatus === ApprovalStatus.APPROVED;
 
@@ -54,9 +62,51 @@ export const WorkPermitApprovalDialog = ({
     if (open) {
       setApprovalStatus(initialStatus);
       setApprovalNotes('');
-      setSafetyGuideline('');
+      setGuidanceBlocks([]);
     }
   }, [open, initialStatus]);
+
+  useEffect(() => {
+    if (!open || !isHseApprove || !workPermitId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingHse(true);
+      try {
+        const [wp, md, risksRes, seRes] = await Promise.all([
+          workPermitService.getWorkPermitById(workPermitId),
+          workPermitService.getMasterData(),
+          riskService.getAll({ page: 1, limit: 500, isActive: true, options: true }),
+          safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }),
+        ]);
+        if (cancelled) return;
+        setWorkClassifications(md.workClassifications);
+        setRisks((risksRes.data ?? []).map((r) => ({ id: r.id, name: r.name, code: r.code })));
+        setSafetyEquipment(seRes.data ?? []);
+        setGuidanceBlocks(
+          (wp.classifications ?? []).map((c) => ({
+            workPermitClassificationId: c.id,
+            workClassificationId: c.workClassificationId,
+            order: c.order,
+            safetyGuidelineSnapshot: c.safetyGuidelineSnapshot ?? null,
+            rows: (c.safetyGuidanceRows ?? []).map((r) => ({
+              riskId: r.riskId,
+              safetyEquipmentId: r.safetyEquipmentId,
+              notes: r.notes ?? undefined,
+              order: r.order,
+            })),
+          })),
+        );
+      } catch (e) {
+        console.error(e);
+        toast.error('Failed to load safety guidance for editing');
+      } finally {
+        if (!cancelled) setLoadingHse(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isHseApprove, workPermitId]);
 
   const handleSubmit = async () => {
     if (!workPermitId) return;
@@ -72,7 +122,15 @@ export const WorkPermitApprovalDialog = ({
       if (approvalStatus === ApprovalStatus.APPROVED) {
         await workPermitService.approveWorkPermit(workPermitId, {
           ...(trimmedNotes ? { notes: trimmedNotes } : {}),
-          ...(isHseApprove && safetyGuideline.trim() ? { safetyGuideline: safetyGuideline.trim() } : {}),
+          ...(isHseApprove
+            ? {
+                classificationSafetyGuidance: guidanceBlocks.map((b) => ({
+                  workPermitClassificationId: b.workPermitClassificationId!,
+                  safetyGuidelineSnapshot: b.safetyGuidelineSnapshot,
+                  rows: b.rows.map((r, i) => ({ ...r, order: r.order ?? i })),
+                })),
+              }
+            : {}),
         });
         toast.success('Work permit approved successfully');
       } else {
@@ -81,7 +139,6 @@ export const WorkPermitApprovalDialog = ({
       }
       onOpenChange(false);
       setApprovalNotes('');
-      setSafetyGuideline('');
       await onSubmitted();
     } catch (error) {
       toast.error(getErrorMessage(error) ?? 'Failed to submit approval');
@@ -92,7 +149,7 @@ export const WorkPermitApprovalDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Submit Approval</DialogTitle>
           <DialogDescription>Review and submit your approval for this work permit.</DialogDescription>
@@ -125,14 +182,20 @@ export const WorkPermitApprovalDialog = ({
 
           {isHseApprove && (
             <div className="space-y-2">
-              <Label htmlFor="wp-sk">Safety Guideline (SK)</Label>
-              <Textarea
-                id="wp-sk"
-                placeholder="Write safety terms and conditions for applicant acknowledgment..."
-                value={safetyGuideline}
-                onChange={(e) => setSafetyGuideline(e.target.value)}
-                className="min-h-[100px]"
-              />
+              {loadingHse ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading safety guidance…
+                </div>
+              ) : (
+                <WorkPermitSafetyGuidelineSection
+                  blocks={guidanceBlocks}
+                  onChange={setGuidanceBlocks}
+                  workClassifications={workClassifications}
+                  risks={risks}
+                  safetyEquipment={safetyEquipment}
+                />
+              )}
             </div>
           )}
 

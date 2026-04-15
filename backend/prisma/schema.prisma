@@ -285,6 +285,7 @@ model Risk {
   riskCategory        RiskCategory         @relation(fields: [riskCategoryId], references: [id])
   mitigations         RiskMitigation[]
   workClassifications WorkClassificationRiskEquipment[]
+  workPermitClassificationSafetyGuidanceRows WorkPermitClassificationSafetyGuidanceRow[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
   inspectionItems     InspectionItem[]
@@ -984,6 +985,7 @@ model SafetyEquipment {
   ppeStockItems         PPEStockItem[]
   workPermits           WorkPermitToSafetyEquipment[]
   workClassifications   WorkClassificationRiskEquipment[]
+  workPermitClassificationSafetyGuidanceRows WorkPermitClassificationSafetyGuidanceRow[]
   // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_safety_equipment")
@@ -1758,7 +1760,6 @@ model WorkPermit {
   workStagesDescription     String   @db.Text
   jobSafetyAnalysis         String   @db.Text
   workRequirements          String?  @db.Text
-  safetyGuideline           String?  @db.Text
   applicantSignedAt         DateTime?
   applicantSignature        String?
   workClassificationOtherDetail String? @db.Text @map("work_classification_other_detail")
@@ -1797,13 +1798,34 @@ model WorkPermitClassification {
   workPermitId         String
   workClassificationId String
   order                Int
+  safetyGuidelineSnapshot String? @db.Text @map("safety_guideline_snapshot")
   createdAt            DateTime @default(now())
 
   // Relations
   workPermit         WorkPermit         @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
   workClassification WorkClassification @relation(fields: [workClassificationId], references: [id])
+  safetyGuidanceRows WorkPermitClassificationSafetyGuidanceRow[]
 
   @@map("t_work_permit_classifications")
+}
+
+model WorkPermitClassificationSafetyGuidanceRow {
+  id                         String   @id @default(uuid())
+  workPermitClassificationId String
+  riskId                     String
+  safetyEquipmentId          String
+  notes                      String?  @db.Text
+  order                      Int      @default(0)
+  riskNameSnapshot           String?  @map("risk_name_snapshot")
+  safetyEquipmentNameSnapshot String? @map("safety_equipment_name_snapshot")
+  createdAt                  DateTime @default(now())
+
+  workPermitClassification WorkPermitClassification @relation(fields: [workPermitClassificationId], references: [id], onDelete: Cascade)
+  risk                     Risk                     @relation(fields: [riskId], references: [id])
+  safetyEquipment          SafetyEquipment          @relation(fields: [safetyEquipmentId], references: [id])
+
+  @@index([workPermitClassificationId])
+  @@map("t_work_permit_classification_safety_guidance_rows")
 }
 
 model WorkPermitEmployee {

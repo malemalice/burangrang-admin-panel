@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { WorkPermitClassificationSafetyGuidanceInputDto } from './work-permit-classification-safety-guidance.dto';
 
 export class ApproveWorkPermitDto {
   @ApiProperty({ description: 'Approval notes', required: false })
@@ -8,10 +10,13 @@ export class ApproveWorkPermitDto {
   notes?: string;
 
   @ApiProperty({
-    description: 'Safety guideline (SK) authored by HSE before applicant acknowledgment',
+    description: 'HSE-authored safety guidance per permit classification before applicant acknowledgment',
+    type: [WorkPermitClassificationSafetyGuidanceInputDto],
     required: false,
   })
   @IsOptional()
-  @IsString()
-  safetyGuideline?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkPermitClassificationSafetyGuidanceInputDto)
+  classificationSafetyGuidance?: WorkPermitClassificationSafetyGuidanceInputDto[];
 }

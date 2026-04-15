@@ -7,6 +7,7 @@ import {
   WorkPermitSearchParams,
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
+  ClassificationSafetyGuidanceUpdate,
 } from '../types/work-permit.types';
 
 export const useWorkPermits = () => {
@@ -86,7 +87,8 @@ export const useWorkPermits = () => {
     }
   }, []);
 
-  const approveWorkPermit = useCallback(async (id: string, payload?: { notes?: string; safetyGuideline?: string }) => {
+  const approveWorkPermit = useCallback(
+    async (id: string, payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] }) => {
     try {
       const updated = await workPermitService.approveWorkPermit(id, payload);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -217,7 +219,7 @@ export const useWorkPermitActions = () => {
     }
   };
 
-  const approve = async (id: string, payload?: { notes?: string; safetyGuideline?: string }) => {
+  const approve = async (id: string, payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] }) => {
     setIsLoading(true);
     try {
       return await workPermitService.approveWorkPermit(id, payload);

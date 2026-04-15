@@ -36,7 +36,19 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
     ['Work Stages Description', na(workPermit.workStagesDescription)],
     ['Job Safety Analysis', na(workPermit.jobSafetyAnalysis)],
     ['Work Requirements', na(workPermit.workRequirements)],
-    ['Safety Guideline', na(workPermit.safetyGuideline)],
+    [
+      'Safety Guideline (summary)',
+      (workPermit.classifications ?? [])
+        .map((c) => {
+          const label = c.workClassification
+            ? `${c.workClassification.name} (${c.workClassification.code})`
+            : c.workClassificationId;
+          const rows = (c.safetyGuidanceRows ?? []).length;
+          const hasText = Boolean(c.safetyGuidelineSnapshot?.trim());
+          return `${label}: ${hasText ? 'narrative' : '—'} · ${rows} risk/equipment row(s)`;
+        })
+        .join(' | ') || '—',
+    ],
     ['Safety guideline acknowledged', workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'],
   ];
 
