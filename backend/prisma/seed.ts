@@ -36,6 +36,7 @@ import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.se
 import { seedIncidents } from './seeds/incidents.seed';
 import { seedKpiHseTargets } from './seeds/kpi-hse-targets.seed';
 import { seedWorkClassificationSafetyGuidelines } from './seeds/work-classification-safety-guidelines.seed';
+import { seedWorkClassificationRiskMitigations } from './seeds/work-classification-risk-mitigations.seed';
 
 const dbUrl = process.env.DATABASE_URL ?? '';
 const dbUrlSep = dbUrl.includes('?') ? '&' : '?';
@@ -564,6 +565,7 @@ async function main() {
       await seedQuizzes();
       await seedWorkPermitsData(prisma);
       await seedWorkClassificationSafetyGuidelines(prisma);
+      await seedWorkClassificationRiskMitigations(prisma);
       await seedAreas();
       await seedRooms();
       await seedEnvironmentalMeasurements();
@@ -744,6 +746,10 @@ async function main() {
         case 'work-classification-safety-guidelines':
         case 'work_classification_safety_guidelines':
           await seedWorkClassificationSafetyGuidelines(prisma);
+          break;
+        case 'work-classification-risk-mitigations':
+        case 'work_classification_risk_mitigations':
+          await seedWorkClassificationRiskMitigations(prisma);
           break;
         case 'man_hours':
         case 'man-hours':
