@@ -5,10 +5,10 @@ import { Risk } from '@/core/lib/types';
 /**
  * Creates a new risk from a search query.
  * Generates a code automatically from the name.
- * Requires a risk category ID to be provided.
+ * Requires a type of hazard ID to be provided.
  * 
  * @param searchQuery - The name for the new risk
- * @param riskCategoryId - The ID of the risk category this risk belongs to
+ * @param riskCategoryId - The ID of the type of hazard this risk belongs to
  * @param onSuccess - Optional callback when creation succeeds, receives the new risk
  * @returns Promise resolving to the new risk ID
  */
@@ -24,8 +24,8 @@ export const createRiskFromQuery = async (
     }
 
     if (!riskCategoryId) {
-      toast.error('Please select a risk category first');
-      throw new Error('Risk category is required');
+      toast.error('Please select a type of hazard first');
+      throw new Error('Type of hazard is required');
     }
 
     // Generate code from name (uppercase, replace spaces with underscores)

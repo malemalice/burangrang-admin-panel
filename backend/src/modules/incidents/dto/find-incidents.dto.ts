@@ -50,7 +50,7 @@ export class FindIncidentsDto {
 
   @IsOptional()
   @IsUUID(undefined, { each: true })
-  @ApiProperty({ required: false, description: 'Filter by risk category ID (supports multiple values)', isArray: true })
+  @ApiProperty({ required: false, description: 'Filter by type of hazard ID (supports multiple values)', isArray: true })
   riskCategoryId?: string | string[];
 
   @IsOptional()

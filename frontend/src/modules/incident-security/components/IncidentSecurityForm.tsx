@@ -131,7 +131,7 @@ const formSchema = z.object({
   reportedBy: z.string().min(1, 'Reporter is required'),
   technicianId: z.string().optional(),
   priority: z.nativeEnum(PriorityEnum).default(PriorityEnum.NORMAL),
-  riskCategoryId: z.string().min(1, 'Risk category is required'),
+  riskCategoryId: z.string().min(1, 'Type of hazard is required'),
   description: z.string().optional(),
   controlMeasure: z.string().optional(),
   dueDate: z.string().optional(),
@@ -1092,13 +1092,13 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
                   name="riskCategoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Risk Category <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>Type of Hazard <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={riskCategoryOptions}
                           value={field.value}
                           onValueChange={field.onChange}
-                          placeholder="Select risk category"
+                          placeholder="Select type of hazard"
                         />
                       </FormControl>
                       <FormMessage />

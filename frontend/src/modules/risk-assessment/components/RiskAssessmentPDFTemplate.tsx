@@ -127,7 +127,7 @@ export const RiskAssessmentPDFTemplate = ({
                   No
                 </th>
                 <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '18%' }}>
-                  Risk Category
+                  Type of Hazard
                 </th>
                 <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '18%' }}>
                   Risk

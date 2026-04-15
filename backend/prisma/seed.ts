@@ -608,17 +608,17 @@ async function main() {
           await seedRiskCategories(prisma);
           break;
         case 'risks':
-          // Find existing categories or create new ones if they don't exist
+          // Find existing types of hazard or create new ones if they don't exist
           let categories;
           try {
             categories = await (prisma as any).riskCategory.findMany();
             if (categories.length === 0) {
               categories = await seedRiskCategories(prisma);
             } else {
-              console.log('Using existing risk categories...');
+              console.log('Using existing types of hazard...');
             }
           } catch (error) {
-            console.log('Error finding categories, creating new ones...');
+            console.log('Error finding types of hazard, creating new ones...');
             categories = await seedRiskCategories(prisma);
           }
           await seedRisks(
@@ -634,7 +634,7 @@ async function main() {
             if (cats.length === 0) {
               cats = await seedRiskCategories(prisma);
             } else {
-              console.log('Using existing risk categories...');
+              console.log('Using existing types of hazard...');
             }
 
             // Try to find risks from m_risk table
@@ -658,7 +658,7 @@ async function main() {
             }
           } catch (error) {
             console.log(
-              'Error finding categories or risks, creating new ones...',
+              'Error finding types of hazard or risks, creating new ones...',
             );
             cats = await seedRiskCategories(prisma);
             risks = await seedRisks(

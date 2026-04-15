@@ -95,7 +95,7 @@ export class RiskCategoriesService {
     });
 
     if (!category) {
-      throw new NotFoundException(`Risk category with ID ${id} not found`);
+      throw new NotFoundException(`Type of hazard with ID ${id} not found`);
     }
 
     return this.mapToDto(category);
@@ -107,7 +107,7 @@ export class RiskCategoriesService {
     });
 
     if (!existingCategory) {
-      throw new NotFoundException(`Risk category with ID ${id} not found`);
+      throw new NotFoundException(`Type of hazard with ID ${id} not found`);
     }
 
     if (updateRiskCategoryDto.code !== undefined && updateRiskCategoryDto.code !== existingCategory.code) {
@@ -139,11 +139,11 @@ export class RiskCategoriesService {
     });
 
     if (!category) {
-      throw new NotFoundException(`Risk category with ID ${id} not found`);
+      throw new NotFoundException(`Type of hazard with ID ${id} not found`);
     }
 
     if (category.risks.length > 0) {
-      throw new NotFoundException(`Cannot delete risk category with ID ${id} because it has associated risks`);
+      throw new NotFoundException(`Cannot delete type of hazard with ID ${id} because it has associated risks`);
     }
 
     await (this.prisma as any).riskCategory.delete({

@@ -159,8 +159,8 @@ export async function seedRisks(
 ) {
   console.log('Creating risks...');
 
-  // Map risks to categories based on risk category order
-  // Categories: [0] Natural Disaster, [1] Physical Hazard, [2] Mechanical Hazard,
+  // Map risks to types of hazard based on seed order
+  // Index map: [0] Natural Disaster, [1] Physical Hazard, [2] Mechanical Hazard,
   //             [3] Ergonomic Hazard, [4] Environmental Hazard, [5] Chemical Hazard,
   //             [6] Biological Hazard, [7] Government Permit
   const risksWithCategories = [

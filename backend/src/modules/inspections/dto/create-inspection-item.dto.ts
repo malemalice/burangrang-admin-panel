@@ -24,7 +24,7 @@ export class CreateInspectionItemDto {
 
   @IsNotEmpty()
   @IsUUID()
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   riskCategoryId: string;
 
   @IsNotEmpty()

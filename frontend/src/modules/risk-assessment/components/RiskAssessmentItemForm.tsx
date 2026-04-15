@@ -50,7 +50,7 @@ const mitigationSchema = z.object({
 // Form schema for validation - single item
 const formSchema = z.object({
   mRiskId: z.string().min(1, 'Risk is required'),
-  mRiskCategoryId: z.string().min(1, 'Risk Category is required'),
+  mRiskCategoryId: z.string().min(1, 'Type of Hazard is required'),
   likelihoodLevel: z.string().min(1, 'Likelihood level is required'),
   consequenceLevel: z.coerce.number({ required_error: 'Consequence level is required', invalid_type_error: 'Consequence level is required' }),
   riskMatrixRating: z.string().min(1, 'Risk rating is required'),
@@ -367,7 +367,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
       
       setRiskCategories(categoriesWithSelected);
     } catch (error) {
-      toast.error('Failed to search risk categories');
+      toast.error('Failed to search types of hazard');
     } finally {
       setIsLoadingRiskCategories(false);
     }
@@ -478,8 +478,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
     // Get the selected risk category ID
     const riskCategoryId = form.getValues('mRiskCategoryId');
     if (!riskCategoryId) {
-      toast.error('Please select a risk category first');
-      throw new Error('Risk category is required');
+      toast.error('Please select a type of hazard first');
+      throw new Error('Type of hazard is required');
     }
 
     return createRiskFromQuery(searchQuery, riskCategoryId, (newRisk) => {
@@ -673,7 +673,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  Risk Category <span className="text-destructive">*</span>
+                  Type of Hazard <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
                   {showCard ? (
@@ -681,12 +681,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                       options={riskCategoryOptions}
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder="Select Risk Category"
-                      searchPlaceholder="Search Risk Category..."
+                      placeholder="Select type of hazard"
+                      searchPlaceholder="Search type of hazard..."
                       onSearch={handleSearchRiskCategories}
                       isLoading={isLoadingRiskCategories}
                       onCreateNew={handleCreateNewRiskCategory}
-                      createNewText="Create new risk category"
+                      createNewText="Create new type of hazard"
                       disabled={!canEditBasicAndPreControl}
                     />
                   ) : (
@@ -694,12 +694,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                       options={riskCategoryOptions}
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder="Select Risk Category"
-                      searchPlaceholder="Search Risk Category..."
+                      placeholder="Select type of hazard"
+                      searchPlaceholder="Search type of hazard..."
                       onSearch={handleSearchRiskCategories}
                       isLoading={isLoadingRiskCategories}
                       onCreateNew={handleCreateNewRiskCategory}
-                      createNewText="Create new risk category"
+                      createNewText="Create new type of hazard"
                       disabled={!canEditBasicAndPreControl}
                     />
                   )}

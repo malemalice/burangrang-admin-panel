@@ -20,7 +20,7 @@ export class CreateRiskDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ description: 'The ID of the risk category this risk belongs to' })
+  @ApiProperty({ description: 'The ID of the type of hazard this risk belongs to' })
   @IsUUID()
   riskCategoryId: string;
 }

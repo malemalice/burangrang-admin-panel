@@ -29,7 +29,7 @@ export { default as CreateMasterApprovalPage } from './pages/approvals/CreateMas
 export { default as EditMasterApprovalPage } from './pages/approvals/EditMasterApprovalPage';
 export { default as MasterApprovalForm } from './pages/approvals/MasterApprovalForm';
 
-// Pages - Risk Categories
+// Pages - Types of Hazard
 export { default as RiskCategoriesPage } from './pages/risk-categories/RiskCategoriesPage';
 export { default as CreateRiskCategoryPage } from './pages/risk-categories/CreateRiskCategoryPage';
 export { default as EditRiskCategoryPage } from './pages/risk-categories/EditRiskCategoryPage';

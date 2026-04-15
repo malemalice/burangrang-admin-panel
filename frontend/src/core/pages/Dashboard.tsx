@@ -162,10 +162,10 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Risk Categories */}
+        {/* Types of Hazard */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Risk Categories</CardTitle>
+            <CardTitle className="text-lg">Types of Hazard</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

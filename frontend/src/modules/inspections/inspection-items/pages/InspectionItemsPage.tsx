@@ -199,7 +199,7 @@ const InspectionItemsPage = () => {
     },
     {
       id: 'riskCategoryId',
-      label: 'Risk Category',
+      label: 'Type of Hazard',
       type: 'searchableSelect',
       options: riskCategories.map(category => ({
         label: category.name,
@@ -816,7 +816,7 @@ const InspectionItemsPage = () => {
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
-                  Records the finding and initial details (area, risk category, risk, assigned department, assignee, due date). Editable until submitted for verification.
+                  Records the finding and initial details (area, type of hazard, risk, assigned department, assignee, due date). Editable until submitted for verification.
                 </p>
               </div>
 

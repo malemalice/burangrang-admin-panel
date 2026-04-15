@@ -45,7 +45,7 @@ export class RiskRegisterController {
   @ApiQuery({ name: 'entityType', required: false, enum: ['RISK_ASSESSMENT_ITEM', 'INSPECTION_ITEM'], description: 'Filter by entity type' })
   @ApiQuery({ name: 'departmentId', required: false, type: String, description: 'Filter by department ID' })
   @ApiQuery({ name: 'riskId', required: false, type: String, description: 'Filter by risk ID' })
-  @ApiQuery({ name: 'riskCategoryId', required: false, type: String, description: 'Filter by risk category ID' })
+  @ApiQuery({ name: 'riskCategoryId', required: false, type: String, description: 'Filter by type of hazard ID' })
   @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })

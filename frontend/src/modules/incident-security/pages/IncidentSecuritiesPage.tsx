@@ -177,7 +177,7 @@ const IncidentSecuritiesPage = () => {
     },
     {
       id: 'riskCategoryId',
-      label: 'Risk Category',
+      label: 'Type of Hazard',
       type: 'multiSelectSearchable',
       options: riskCategories.map(category => ({
         label: category.name,

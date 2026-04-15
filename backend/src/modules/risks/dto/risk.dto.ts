@@ -17,10 +17,10 @@ export class RiskDto {
   @ApiProperty()
   isActive: boolean;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   riskCategoryId: string;
 
-  @ApiProperty({ type: () => RiskCategoryDto, required: false })
+  @ApiProperty({ type: () => RiskCategoryDto, required: false, description: 'Type of hazard' })
   riskCategory?: RiskCategoryDto;
 
   @ApiProperty()

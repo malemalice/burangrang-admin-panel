@@ -89,10 +89,10 @@ export class DashboardController {
 
   @Get('risk-category-analysis')
   @Permissions('risk-assessment:read')
-  @ApiOperation({ summary: 'Get risk category analysis' })
+  @ApiOperation({ summary: 'Get type of hazard analysis' })
   @ApiResponse({
     status: 200,
-    description: 'Returns analysis of risk categories and their risk distributions',
+    description: 'Returns analysis of types of hazard and their risk distributions',
     type: [RiskCategoryAnalysisDto],
   })
   async getRiskCategoryAnalysis(): Promise<RiskCategoryAnalysis[]> {
@@ -181,7 +181,7 @@ export class DashboardController {
   @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
   @ApiResponse({
     status: 200,
-    description: 'Returns incident and inspection item counts by risk category',
+    description: 'Returns incident and inspection item counts by type of hazard',
     type: [HazardTypeDto],
   })
   async getHazardTypes(
@@ -331,7 +331,7 @@ export class DashboardController {
   @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
   @ApiResponse({
     status: 200,
-    description: 'Returns incident counts by risk category (type)',
+    description: 'Returns incident counts by type of hazard',
     type: [SecurityTypeNonConformanceDto],
   })
   async getSecurityTypeNonConformance(

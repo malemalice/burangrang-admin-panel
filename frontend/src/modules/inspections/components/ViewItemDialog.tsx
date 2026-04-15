@@ -47,7 +47,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 </p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
+                <p className="text-sm font-medium text-muted-foreground">Type of Hazard</p>
                 <p className="text-sm">
                   {item.riskCategory
                     ? item.riskCategory.name

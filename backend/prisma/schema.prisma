@@ -1417,10 +1417,28 @@ model WorkClassification {
   safetyGuideline  String?                    @db.Text @map("safety_guideline")
   isActive         Boolean                    @default(true)
   createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
+  updatedAt        DateTime                           @updatedAt
   workPermits      WorkPermitClassification[]
+  attachments      WorkClassificationAttachment[]
 
   @@map("m_work_classification")
+}
+
+// Documents linked to master work classification (e.g. safety references)
+model WorkClassificationAttachment {
+  id                   String             @id @default(uuid())
+  workClassificationId String
+  fileUrl              String
+  fileName             String
+  fileType             String?
+  description          String?            @db.Text
+  order                Int
+  createdAt            DateTime           @default(now())
+
+  workClassification WorkClassification @relation(fields: [workClassificationId], references: [id], onDelete: Cascade)
+
+  @@index([workClassificationId])
+  @@map("t_work_classification_attachments")
 }
 
 model HeavyEquipment {

@@ -85,7 +85,7 @@ const RiskCategoriesPage = () => {
         setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
       }
     } catch (error) {
-      toast.error('Failed to fetch risk categories');
+      toast.error('Failed to fetch types of hazard');
     } finally {
       setIsLoading(false);
     }
@@ -162,11 +162,11 @@ const RiskCategoriesPage = () => {
 
     try {
       await riskCategoryService.delete(riskCategoryToDelete.id);
-      toast.success('Risk category deleted successfully');
+      toast.success('Type of hazard deleted successfully');
       setOpenDropdownId(null); // Ensure dropdown is closed
       fetchRiskCategories();
     } catch (error) {
-      toast.error('Failed to delete risk category');
+      toast.error('Failed to delete type of hazard');
     } finally {
       setDeleteDialogOpen(false);
       setRiskCategoryToDelete(null);
@@ -259,8 +259,8 @@ const RiskCategoriesPage = () => {
   return (
     <>
       <PageHeader
-        title="Risk Categories"
-        subtitle="Manage your organization's risk categories"
+        title="Types of Hazard"
+        subtitle="Manage types of hazard in your organization"
         actions={
           <Button onClick={() => navigate('/master/risk-categories/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Category
@@ -303,7 +303,7 @@ const RiskCategoriesPage = () => {
             handleDialogCancel();
           }
         }}
-        title="Delete Risk Category"
+        title="Delete Type of Hazard"
         description={`Are you sure you want to delete "${riskCategoryToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"

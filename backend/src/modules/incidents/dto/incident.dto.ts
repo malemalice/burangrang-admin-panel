@@ -100,11 +100,11 @@ export class IncidentDto {
   @Expose()
   priority: PriorityEnum;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   @Expose()
   riskCategoryId: string;
 
-  @ApiProperty({ type: () => RiskCategoryDto })
+  @ApiProperty({ type: () => RiskCategoryDto, description: 'Type of hazard' })
   @Expose()
   riskCategory: RiskCategoryDto;
 
