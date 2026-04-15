@@ -194,6 +194,20 @@ export default function DispatchOrderDetailPage() {
     }
   };
 
+  const handleMarkDone = async () => {
+    if (!id || !dispatchOrder) return;
+    try {
+      setIsUpdatingStatus(true);
+      await dispatchOrderService.update(id, { status: GeneralStatusEnum.DONE });
+      toast.success('Dispatch order marked as done');
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to mark as done');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const handleApprovalSubmitted = async () => {
     if (!id) return;
     await fetchData();
@@ -261,6 +275,13 @@ export default function DispatchOrderDetailPage() {
                   Reject
                 </Button>
               </>
+            )}
+
+            {status === GeneralStatusEnum.SCHEDULED && (
+              <Button variant="default" onClick={handleMarkDone} disabled={isUpdatingStatus}>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                {isUpdatingStatus ? 'Updating...' : 'Mark as Done'}
+              </Button>
             )}
 
             {/* Standard actions */}

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GeneralStatusEnum } from '@prisma/client';
+import { GeneralStatusEnum, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
@@ -90,36 +90,48 @@ export class DispatchOrdersService {
     createDto: CreateDispatchOrderDto,
     userId: string,
   ): Promise<DispatchOrderDto> {
-    const dispatchCode = await this.generateDispatchCode();
+    return this.errorHandler.safeExecute(async () => {
+      const dispatchCode = await this.generateDispatchCode();
 
-    const { attachments, ...rest } = createDto;
-    const data: any = {
-      ...rest,
-      dispatchCode,
-      orderedBy: userId,
-      createdBy: userId,
-      dispatchDate: new Date(createDto.dispatchDate),
-      status: GeneralStatusEnum.WAITING_APPROVAL,
-    };
-    if (attachments?.length) {
-      data.attachments = {
-        create: attachments.map((a) => ({
-          fileUrl: a.fileUrl,
-          fileName: a.fileName,
-          order: a.order,
-        })),
+      const dispatchDate = new Date(createDto.dispatchDate);
+      if (Number.isNaN(dispatchDate.getTime())) {
+        this.errorHandler.throwBadRequest('Invalid dispatchDate');
+      }
+      if (!Number.isFinite(createDto.quantity) || createDto.quantity <= 0) {
+        this.errorHandler.throwBadRequest('Quantity must be a positive number');
+      }
+
+      const { attachments, ...rest } = createDto;
+      const data: any = {
+        ...rest,
+        dispatchCode,
+        orderedBy: userId,
+        createdBy: userId,
+        dispatchDate,
+        quantity: new Prisma.Decimal(createDto.quantity),
+        status: GeneralStatusEnum.WAITING_APPROVAL,
       };
-    }
 
-    const item = await this.prisma.dispatchOrder.create({
-      data,
-      include: {
-        orderer: true,
-        creator: true,
-        attachments: attachmentInclude,
-      },
-    });
-    return this.dispatchOrderMapper(item);
+      if (attachments?.length) {
+        data.attachments = {
+          create: attachments.map((a) => ({
+            fileUrl: a.fileUrl,
+            fileName: a.fileName,
+            order: a.order,
+          })),
+        };
+      }
+
+      const item = await this.prisma.dispatchOrder.create({
+        data,
+        include: {
+          orderer: true,
+          creator: true,
+          attachments: attachmentInclude,
+        },
+      });
+      return this.dispatchOrderMapper(item);
+    }, 'creating dispatch order');
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -189,49 +201,78 @@ export class DispatchOrdersService {
     });
     this.errorHandler.throwIfNotFoundById('Dispatch Order', id, existing);
 
-    const { attachments, ...rest } = updateDto;
-    const data: any = { ...rest };
+    return this.errorHandler.safeExecute(async () => {
+      const { attachments, ...rest } = updateDto;
+      const data: any = { ...rest };
     if (data.status === GeneralStatusEnum.DRAFT) {
       this.errorHandler.throwBadRequest(
         'DRAFT is not a valid status for dispatch orders',
       );
     }
-    if (existing.status === GeneralStatusEnum.REJECTED) {
-      data.status = GeneralStatusEnum.WAITING_APPROVAL;
-    }
-    if (updateDto.dispatchDate)
-      data.dispatchDate = new Date(updateDto.dispatchDate);
 
-    await this.prisma.dispatchOrder.update({
-      where: { id },
-      data,
-    });
-
-    if (attachments !== undefined) {
-      await this.prisma.dispatchOrderAttachment.deleteMany({
-        where: { dispatchOrderId: id },
-      });
-      if (attachments.length > 0) {
-        await this.prisma.dispatchOrderAttachment.createMany({
-          data: attachments.map((a) => ({
-            dispatchOrderId: id,
-            fileUrl: a.fileUrl,
-            fileName: a.fileName,
-            order: a.order,
-          })),
-        });
+      if (
+        updateDto.status === GeneralStatusEnum.DONE &&
+        existing.status !== GeneralStatusEnum.SCHEDULED
+      ) {
+        this.errorHandler.throwBadRequest(
+          'Dispatch order can only be marked DONE after it is SCHEDULED',
+        );
       }
-    }
+      // If editing a rejected order (without explicitly changing status), move it
+      // back to WAITING_APPROVAL so it can re-enter the approval workflow.
+      if (
+        existing.status === GeneralStatusEnum.REJECTED &&
+        updateDto.status === undefined
+      ) {
+        data.status = GeneralStatusEnum.WAITING_APPROVAL;
+      }
 
-    const updated = await this.prisma.dispatchOrder.findUnique({
-      where: { id },
-      include: {
-        orderer: true,
-        creator: true,
-        attachments: attachmentInclude,
-      },
-    });
-    return this.dispatchOrderMapper(updated!);
+      if (updateDto.dispatchDate) {
+        const dispatchDate = new Date(updateDto.dispatchDate);
+        if (Number.isNaN(dispatchDate.getTime())) {
+          this.errorHandler.throwBadRequest('Invalid dispatchDate');
+        }
+        data.dispatchDate = dispatchDate;
+      }
+
+      if (updateDto.quantity !== undefined) {
+        if (!Number.isFinite(updateDto.quantity) || updateDto.quantity <= 0) {
+          this.errorHandler.throwBadRequest('Quantity must be a positive number');
+        }
+        data.quantity = new Prisma.Decimal(updateDto.quantity);
+      }
+
+      await this.prisma.dispatchOrder.update({
+        where: { id },
+        data,
+      });
+
+      if (attachments !== undefined) {
+        await this.prisma.dispatchOrderAttachment.deleteMany({
+          where: { dispatchOrderId: id },
+        });
+        if (attachments.length > 0) {
+          await this.prisma.dispatchOrderAttachment.createMany({
+            data: attachments.map((a) => ({
+              dispatchOrderId: id,
+              fileUrl: a.fileUrl,
+              fileName: a.fileName,
+              order: a.order,
+            })),
+          });
+        }
+      }
+
+      const updated = await this.prisma.dispatchOrder.findUnique({
+        where: { id },
+        include: {
+          orderer: true,
+          creator: true,
+          attachments: attachmentInclude,
+        },
+      });
+      return this.dispatchOrderMapper(updated!);
+    }, 'updating dispatch order');
   }
 
   async remove(id: string): Promise<void> {
