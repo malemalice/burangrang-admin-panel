@@ -1,0 +1,3 @@
+ALTER TABLE "t_courses"
+ALTER COLUMN "difficulty" DROP NOT NULL,
+ALTER COLUMN "language" DROP NOT NULL;

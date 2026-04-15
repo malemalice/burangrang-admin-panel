@@ -5,13 +5,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
@@ -47,7 +47,7 @@ const formSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['youtubeVideoId'],
-      message: 'Enter a valid YouTube URL or video ID.',
+      message: 'Enter a valid YouTube URL.',
     });
   }
 });
@@ -235,8 +235,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => navigate(`/courses/${courseId}`)}
           >
@@ -247,8 +247,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
               {mode === 'create' ? 'Create New Chapter' : 'Edit Chapter'}
             </h1>
             <p className="text-gray-600">
-              {mode === 'create' 
-                ? 'Add a new chapter to your course' 
+              {mode === 'create'
+                ? 'Add a new chapter to your course'
                 : 'Update the chapter information'
               }
             </p>
@@ -293,10 +293,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Brief description of this chapter" 
+                          <Textarea
+                            placeholder="Brief description of this chapter"
                             rows={3}
-                            {...field} 
+                            {...field}
                           />
                         </FormControl>
                         <FormMessage />
@@ -312,7 +312,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Order *</FormLabel>
                           <FormControl>
-                            <Input 
+                            <Input
                               type="number"
                               min="1"
                               placeholder="1"
@@ -332,7 +332,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Duration (minutes) *</FormLabel>
                           <FormControl>
-                            <Input 
+                            <Input
                               type="number"
                               min="0"
                               placeholder="0"
@@ -426,15 +426,15 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                               onFileSelect={setUploadFile}
                               mediaType={
                                 form.watch('contentType') === 'video' ? 'video/' :
-                                form.watch('contentType') === 'audio' ? 'audio/' :
-                                form.watch('contentType') === 'image' ? 'image/' :
-                                'application/pdf'
+                                  form.watch('contentType') === 'audio' ? 'audio/' :
+                                    form.watch('contentType') === 'image' ? 'image/' :
+                                      'application/pdf'
                               }
                               allowedTypes={
                                 form.watch('contentType') === 'video' ? ['video/mp4', 'video/webm'] :
-                                form.watch('contentType') === 'audio' ? ['audio/mpeg', 'audio/mp3', 'audio/wav'] :
-                                form.watch('contentType') === 'image' ? ['image/jpeg', 'image/png', 'image/webp'] :
-                                ['application/pdf']
+                                  form.watch('contentType') === 'audio' ? ['audio/mpeg', 'audio/mp3', 'audio/wav'] :
+                                    form.watch('contentType') === 'image' ? ['image/jpeg', 'image/png', 'image/webp'] :
+                                      ['application/pdf']
                               }
                               placeholder={`Upload ${form.watch('contentType')} file`}
                             />
@@ -451,11 +451,11 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                       name="youtubeVideoId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>YouTube Video URL or ID</FormLabel>
+                          <FormLabel>YouTube URL</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="https://youtu.be/dQw4w9WgXcQ or dQw4w9WgXcQ"
-                              {...field} 
+                            <Input
+                              placeholder="https://youtu.be/dQw4w9WgXcQ"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -472,10 +472,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Text Content</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              placeholder="Enter the text content for this chapter" 
+                            <Textarea
+                              placeholder="Enter the text content for this chapter"
                               rows={8}
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -489,7 +489,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              
+
               {/* Course Information */}
               {course && (
                 <Card>
@@ -567,29 +567,29 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                           Add Quiz
                         </Button>
                       </div>
-                      ) : (
-                        // Show all linked quizzes
-                        <div className="space-y-2">
-                          {chapterQuizzes.map((quiz) => (
-                            <div key={quiz.id} className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{quiz.title}</p>
-                                <p className="text-xs text-gray-500">
-                                  {quiz.questions?.length || 0} questions
-                                </p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => navigate(`/quizzes/${quiz.id}`)}
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
+                    ) : (
+                      // Show all linked quizzes
+                      <div className="space-y-2">
+                        {chapterQuizzes.map((quiz) => (
+                          <div key={quiz.id} className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{quiz.title}</p>
+                              <p className="text-xs text-gray-500">
+                                {quiz.questions?.length || 0} questions
+                              </p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

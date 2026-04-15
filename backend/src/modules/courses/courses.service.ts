@@ -8,7 +8,6 @@ import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
-import { COURSE_STATUS } from './constants/course-status';
 
 @Injectable()
 export class CoursesService {
@@ -81,23 +80,28 @@ export class CoursesService {
       createCourseDto.slug = await this.generateUniqueSlug(createCourseDto.slug);
     }
 
-    const status = createCourseDto.status || 'draft';
+    const createData: Prisma.CourseCreateInput = {
+      title: createCourseDto.title,
+      slug: createCourseDto.slug,
+      description: createCourseDto.description,
+      shortDescription: createCourseDto.shortDescription,
+      thumbnailUrl: createCourseDto.thumbnailUrl,
+    };
+
+    if (createCourseDto.instructorId) {
+      createData.instructor = {
+        connect: { id: createCourseDto.instructorId },
+      };
+    }
+
+    if (createCourseDto.categoryIds) {
+      createData.categories = {
+        connect: createCourseDto.categoryIds.map((id) => ({ id })),
+      };
+    }
+
     const course = await this.prisma.course.create({
-      data: {
-        title: createCourseDto.title,
-        slug: createCourseDto.slug,
-        description: createCourseDto.description,
-        shortDescription: createCourseDto.shortDescription,
-        thumbnailUrl: createCourseDto.thumbnailUrl,
-        difficulty: createCourseDto.difficulty || 'beginner',
-        language: createCourseDto.language || 'en',
-        instructorId: createCourseDto.instructorId,
-        status,
-        publishedAt: status === COURSE_STATUS.PUBLISHED ? new Date() : undefined,
-        categories: createCourseDto.categoryIds ? {
-          connect: createCourseDto.categoryIds.map(id => ({ id }))
-        } : undefined,
-      },
+      data: createData,
       include: {
         instructor: true,
         categories: true,
@@ -129,11 +133,8 @@ export class CoursesService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       isActive,
-      status,
-      difficulty,
       instructorId,
       categoryId,
-      language,
       search,
       title,
     } = options || {};
@@ -162,14 +163,6 @@ export class CoursesService {
       where.isActive = isActive;
     }
 
-    if (status) {
-      where.status = status;
-    }
-
-    if (difficulty) {
-      where.difficulty = difficulty;
-    }
-
     if (instructorId) {
       where.instructorId = instructorId;
     }
@@ -178,10 +171,6 @@ export class CoursesService {
       where.categories = {
         some: { id: categoryId }
       };
-    }
-
-    if (language) {
-      where.language = language;
     }
 
     const [courses, total] = await Promise.all([
@@ -269,34 +258,47 @@ export class CoursesService {
       }
     }
 
-    // Handle publishedAt based on status
-    let publishedAt: Date | null | undefined = updateCourseDto.publishedAt;
-    if (updateCourseDto.status !== undefined) {
-      if (updateCourseDto.status === COURSE_STATUS.PUBLISHED && existingCourse.status !== COURSE_STATUS.PUBLISHED) {
-        publishedAt = new Date();
-      } else if (updateCourseDto.status !== COURSE_STATUS.PUBLISHED && existingCourse.status === COURSE_STATUS.PUBLISHED) {
-        publishedAt = null;
-      }
+    const updateData: Prisma.CourseUpdateInput = {};
+
+    if (updateCourseDto.title !== undefined) {
+      updateData.title = updateCourseDto.title;
+    }
+
+    if (updateCourseDto.slug !== undefined) {
+      updateData.slug = updateCourseDto.slug;
+    }
+
+    if (updateCourseDto.description !== undefined) {
+      updateData.description = updateCourseDto.description;
+    }
+
+    if (updateCourseDto.shortDescription !== undefined) {
+      updateData.shortDescription = updateCourseDto.shortDescription;
+    }
+
+    if (updateCourseDto.thumbnailUrl !== undefined) {
+      updateData.thumbnailUrl = updateCourseDto.thumbnailUrl;
+    }
+
+    if (updateCourseDto.instructorId !== undefined) {
+      updateData.instructor = updateCourseDto.instructorId
+        ? { connect: { id: updateCourseDto.instructorId } }
+        : { disconnect: true };
+    }
+
+    if (updateCourseDto.isActive !== undefined) {
+      updateData.isActive = updateCourseDto.isActive;
+    }
+
+    if (updateCourseDto.categoryIds) {
+      updateData.categories = {
+        set: updateCourseDto.categoryIds.map((id) => ({ id })),
+      };
     }
 
     const course = await this.prisma.course.update({
       where: { id },
-      data: {
-        title: updateCourseDto.title,
-        slug: updateCourseDto.slug,
-        description: updateCourseDto.description,
-        shortDescription: updateCourseDto.shortDescription,
-        thumbnailUrl: updateCourseDto.thumbnailUrl,
-        difficulty: updateCourseDto.difficulty,
-        language: updateCourseDto.language,
-        instructorId: updateCourseDto.instructorId,
-        status: updateCourseDto.status,
-        ...(publishedAt !== undefined && { publishedAt }),
-        isActive: updateCourseDto.isActive,
-        categories: updateCourseDto.categoryIds ? {
-          set: updateCourseDto.categoryIds.map(id => ({ id }))
-        } : undefined,
-      },
+      data: updateData,
       include: {
         instructor: true,
         categories: true,
@@ -340,48 +342,11 @@ export class CoursesService {
     );
   }
 
-  async getStats(): Promise<{
-    total: number;
-    published: number;
-    draft: number;
-    byDifficulty: { beginner: number; intermediate: number; advanced: number };
-    byStatus: { draft: number; review: number; published: number; archived: number };
-  }> {
-    const [
-      total,
-      published,
-      draft,
-      beginner,
-      intermediate,
-      advanced,
-      statusDraft,
-      statusReview,
-      statusPublished,
-      statusArchived,
-    ] = await Promise.all([
-      this.prisma.course.count({ where: { isActive: true } }),
-      this.prisma.course.count({ where: { isActive: true, status: 'published' } }),
-      this.prisma.course.count({ where: { isActive: true, status: 'draft' } }),
-      this.prisma.course.count({ where: { isActive: true, difficulty: 'beginner' } }),
-      this.prisma.course.count({ where: { isActive: true, difficulty: 'intermediate' } }),
-      this.prisma.course.count({ where: { isActive: true, difficulty: 'advanced' } }),
-      this.prisma.course.count({ where: { isActive: true, status: 'draft' } }),
-      this.prisma.course.count({ where: { isActive: true, status: 'review' } }),
-      this.prisma.course.count({ where: { isActive: true, status: 'published' } }),
-      this.prisma.course.count({ where: { isActive: true, status: 'archived' } }),
-    ]);
+  async getStats(): Promise<{ total: number }> {
+    const total = await this.prisma.course.count({ where: { isActive: true } });
 
     return {
       total,
-      published,
-      draft,
-      byDifficulty: { beginner, intermediate, advanced },
-      byStatus: {
-        draft: statusDraft,
-        review: statusReview,
-        published: statusPublished,
-        archived: statusArchived
-      },
     };
   }
 

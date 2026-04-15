@@ -1,15 +1,14 @@
 import api from '@/core/lib/api';
-import { 
-  Course, 
-  CourseDTO, 
-  CreateCourseDTO, 
-  UpdateCourseDTO, 
+import {
+  Course,
+  CourseDTO,
+  CreateCourseDTO,
+  UpdateCourseDTO,
   CourseSearchParams,
   PaginatedResponse,
   CourseStats
 } from '../types/course.types';
 
-// Data transformation functions
 const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
   id: courseDto.id,
   title: courseDto.title,
@@ -19,13 +18,10 @@ const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
   thumbnailUrl: courseDto.thumbnailUrl,
   totalChapters: courseDto.totalChapters,
   totalDuration: courseDto.totalDuration,
-  difficulty: courseDto.difficulty as 'beginner' | 'intermediate' | 'advanced',
-  language: courseDto.language,
   rating: courseDto.rating,
   reviewCount: courseDto.reviewCount,
   studentCount: courseDto.studentCount,
   instructorId: courseDto.instructorId,
-  status: courseDto.status as 'draft' | 'review' | 'published' | 'archived',
   publishedAt: courseDto.publishedAt,
   isActive: courseDto.isActive,
   createdAt: courseDto.createdAt,
@@ -41,10 +37,7 @@ const mapCourseToUpdateDto = (course: Partial<Course>): UpdateCourseDTO => ({
   description: course.description,
   shortDescription: course.shortDescription,
   thumbnailUrl: course.thumbnailUrl,
-  difficulty: course.difficulty,
-  language: course.language,
   instructorId: course.instructorId,
-  status: course.status,
   publishedAt: course.publishedAt,
   isActive: course.isActive,
 });
@@ -65,11 +58,8 @@ const courseService = {
     if (params.isActive !== undefined) {
       queryParams.append('isActive', params.isActive.toString());
     }
-    if (params.status) queryParams.append('status', params.status);
-    if (params.difficulty) queryParams.append('difficulty', params.difficulty);
     if (params.instructorId) queryParams.append('instructorId', params.instructorId);
     if (params.categoryId) queryParams.append('categoryId', params.categoryId);
-    if (params.language) queryParams.append('language', params.language);
     if (params.title) queryParams.append('title', params.title);
 
     const response = await api.get(`/courses?${queryParams.toString()}`);
@@ -135,36 +125,6 @@ const courseService = {
       return `${hours}h`;
     }
     return `${hours}h ${remainingMinutes}m`;
-  },
-
-  // Helper function to get difficulty color
-  getDifficultyColor: (difficulty: string): string => {
-    switch (difficulty) {
-      case 'beginner':
-        return 'bg-green-100 text-green-800';
-      case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'advanced':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  },
-
-  // Helper function to get status color
-  getStatusColor: (status: string): string => {
-    switch (status) {
-      case 'published':
-        return 'bg-green-100 text-green-800';
-      case 'review':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'archived':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
   },
 
 };

@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNotEmpty, IsDecimal, IsArray, IsEnum, IsNumber, Min, Max } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { IsString, IsOptional, IsNotEmpty, IsArray } from 'class-validator';
 
 export class CreateCourseDto {
   @ApiProperty({ description: 'Course title' })
@@ -28,33 +27,10 @@ export class CreateCourseDto {
   @IsString()
   thumbnailUrl?: string;
 
-  @ApiProperty({ 
-    description: 'Course difficulty level', 
-    enum: ['beginner', 'intermediate', 'advanced'],
-    default: 'beginner'
-  })
-  @IsEnum(['beginner', 'intermediate', 'advanced'])
-  @IsOptional()
-  difficulty?: string = 'beginner';
-
-  @ApiProperty({ description: 'Course language', default: 'en' })
-  @IsString()
-  @IsOptional()
-  language?: string = 'en';
-
   @ApiProperty({ description: 'Instructor ID', required: false })
   @IsOptional()
   @IsString()
   instructorId?: string;
-
-  @ApiProperty({ 
-    description: 'Course status', 
-    enum: ['draft', 'review', 'published', 'archived'],
-    default: 'draft'
-  })
-  @IsEnum(['draft', 'review', 'published', 'archived'])
-  @IsOptional()
-  status?: string = 'draft';
 
   @ApiProperty({ description: 'Category IDs to assign to the course', type: [String], required: false })
   @IsOptional()
