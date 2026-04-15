@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDecimal, IsInt, IsBoolean, IsUUID, IsArray, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, IsArray, IsDateString } from 'class-validator';
 import { Expose, Transform } from 'class-transformer';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -47,16 +47,6 @@ export class CourseDto {
   @IsInt()
   totalDuration: number;
 
-  @ApiProperty({ description: 'Course difficulty level', enum: ['beginner', 'intermediate', 'advanced'] })
-  @Expose()
-  @IsString()
-  difficulty: string;
-
-  @ApiProperty({ description: 'Course language' })
-  @Expose()
-  @IsString()
-  language: string;
-
   @ApiProperty({ description: 'Course rating', type: 'number', format: 'decimal' })
   @Expose()
   @Transform(({ value }) => {
@@ -81,11 +71,6 @@ export class CourseDto {
   @Expose()
   @IsString()
   instructorId: string;
-
-  @ApiProperty({ description: 'Course status', enum: ['draft', 'review', 'published', 'archived'] })
-  @Expose()
-  @IsString()
-  status: string;
 
   @ApiProperty({ description: 'Course published date', required: false })
   @Expose()

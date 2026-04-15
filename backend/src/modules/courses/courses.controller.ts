@@ -27,10 +27,8 @@ import { CourseDto } from './dto/course.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
-import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 
 // Define interface for request with user property
@@ -110,18 +108,6 @@ export class CoursesController {
     description: 'Filter by active status',
   })
   @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: ['draft', 'review', 'published', 'archived'],
-    description: 'Filter by course status',
-  })
-  @ApiQuery({
-    name: 'difficulty',
-    required: false,
-    enum: ['beginner', 'intermediate', 'advanced'],
-    description: 'Filter by difficulty',
-  })
-  @ApiQuery({
     name: 'instructorId',
     required: false,
     type: String,
@@ -132,12 +118,6 @@ export class CoursesController {
     required: false,
     type: String,
     description: 'Filter by category ID',
-  })
-  @ApiQuery({
-    name: 'language',
-    required: false,
-    type: String,
-    description: 'Filter by language',
   })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
@@ -177,25 +157,6 @@ export class CoursesController {
       type: 'object',
       properties: {
         total: { type: 'number' },
-        published: { type: 'number' },
-        draft: { type: 'number' },
-        byDifficulty: {
-          type: 'object',
-          properties: {
-            beginner: { type: 'number' },
-            intermediate: { type: 'number' },
-            advanced: { type: 'number' },
-          },
-        },
-        byStatus: {
-          type: 'object',
-          properties: {
-            draft: { type: 'number' },
-            review: { type: 'number' },
-            published: { type: 'number' },
-            archived: { type: 'number' },
-          },
-        },
       },
     },
   })

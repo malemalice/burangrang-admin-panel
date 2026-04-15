@@ -8,14 +8,8 @@ import {
   Eye,
   BookOpen,
   Clock,
-  Star,
   MoreHorizontal,
-  Play,
-  FileText,
-  Youtube,
-  DollarSign
 } from 'lucide-react';
-import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -28,12 +22,11 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { useCourses } from '../hooks/useCourses';
 import { useCourseStats } from '../hooks/useCourses';
 import courseService from '../services/courseService';
-import { Course, CourseSearchParams, CourseFilters } from '../types/course.types';
+import { Course, CourseSearchParams } from '../types/course.types';
 import { userService } from '@/modules/users';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -56,7 +49,6 @@ const CoursesPage = () => {
   const [limit, setLimit] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [instructors, setInstructors] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
@@ -77,34 +69,6 @@ const CoursesPage = () => {
         label: instructor.name,
         value: instructor.id
       }))
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Draft', value: 'draft' },
-        { label: 'Published', value: 'published' },
-      ]
-    },
-    {
-      id: 'difficulty',
-      label: 'Difficulty',
-      type: 'select',
-      options: [
-        { label: 'Beginner', value: 'beginner' },
-        { label: 'Intermediate', value: 'intermediate' },
-        { label: 'Advanced', value: 'advanced' }
-      ]
-    },
-    {
-      id: 'language',
-      label: 'Language',
-      type: 'select',
-      options: [
-        { label: 'English', value: 'en' },
-        { label: 'Indonesian', value: 'id' }
-      ]
     }
   ];
 
@@ -142,16 +106,6 @@ const CoursesPage = () => {
       sortOrder: 'desc',
     };
 
-    // Apply tab filters
-    switch (activeTab) {
-      case 'published':
-        params.status = 'published';
-        break;
-      case 'draft':
-        params.status = 'draft';
-        break;
-    }
-
     // Apply active filters
     Object.entries(activeFilters).forEach(([key, filter]) => {
       if (filter.value !== undefined && filter.value !== '') {
@@ -160,7 +114,7 @@ const CoursesPage = () => {
     });
 
     await fetchCourses(params);
-  }, [pageIndex, limit, searchTerm, activeTab, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     loadCourses();
@@ -220,14 +174,6 @@ const CoursesPage = () => {
     setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    return courseService.getDifficultyColor(difficulty);
-  };
-
-  const getStatusColor = (status: string) => {
-    return courseService.getStatusColor(status);
-  };
-
   const formatDuration = (minutes: number) => {
     return courseService.formatDuration(minutes);
   };
@@ -254,26 +200,6 @@ const CoursesPage = () => {
             </div>
           </div>
         </div>
-      ),
-      isSortable: true
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      cell: (course: Course) => (
-        <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 text-xs capitalize`}>
-          {course.status}
-        </Badge>
-      ),
-      isSortable: true
-    },
-    {
-      id: 'difficulty',
-      header: 'Difficulty',
-      cell: (course: Course) => (
-        <Badge variant="outline" className={`${getDifficultyColor(course.difficulty)} border-0`}>
-          {course.difficulty}
-        </Badge>
       ),
       isSortable: true
     },
@@ -363,7 +289,7 @@ const CoursesPage = () => {
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="bg-white p-4 rounded-lg border">
             <div className="flex items-center">
               <BookOpen className="h-8 w-8 text-blue-600" />
@@ -373,35 +299,8 @@ const CoursesPage = () => {
               </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center">
-              <Eye className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Published</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.published}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center">
-              <FileText className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Draft</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.draft}</p>
-              </div>
-            </div>
-          </div>
         </div>
       )}
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Courses</TabsTrigger>
-          <TabsTrigger value="published">Published</TabsTrigger>
-          <TabsTrigger value="draft">Draft</TabsTrigger>
-        </TabsList>
-      </Tabs>
 
       {/* Data Table */}
       <DataTable

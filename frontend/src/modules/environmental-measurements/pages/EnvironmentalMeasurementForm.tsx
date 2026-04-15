@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import axios from 'axios';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Button } from '@/core/components/ui/button';
@@ -50,6 +51,26 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const responseMessage = error.response?.data?.message;
+
+    if (typeof responseMessage === 'string' && responseMessage.trim() !== '') {
+      return responseMessage;
+    }
+
+    if (Array.isArray(responseMessage) && responseMessage.length > 0) {
+      return responseMessage.join(', ');
+    }
+  }
+
+  if (error instanceof Error && error.message.trim() !== '') {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 function formatRegulatoryLimitReadOnly(limit: number | null | undefined): string {
   return limit != null && Number.isFinite(limit) ? String(limit) : '—';
@@ -134,15 +155,15 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
 
       if (mode === 'create') {
         await environmentalMeasurementService.createMeasurement(measurementData as CreateEnvironmentalMeasurementDTO);
-        toast.success('Environmental measurement created successfully');
+        toast.success('Environmental Measurements created successfully');
       } else if (measurement) {
         await environmentalMeasurementService.updateMeasurement(measurement.id, measurementData as UpdateEnvironmentalMeasurementDTO);
-        toast.success('Environmental measurement updated successfully');
+        toast.success('Environmental Measurements updated successfully');
       }
       navigate('/environmental-measurements');
     } catch (error: unknown) {
       console.error('Error saving measurement:', error);
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} environmental measurement`;
+      const errorMessage = getApiErrorMessage(error, `Failed to ${mode} environmental measurement`);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
