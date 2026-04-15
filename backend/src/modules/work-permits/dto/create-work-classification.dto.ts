@@ -11,6 +11,7 @@ import {
 import {
   WorkClassificationAttachmentInputDto,
 } from './work-classification-attachment.dto';
+import { WorkClassificationRiskEquipmentInputDto } from './work-classification-risk-equipment.dto';
 
 export class CreateWorkClassificationDto {
   @ApiProperty({ description: 'Classification name' })
@@ -47,4 +48,14 @@ export class CreateWorkClassificationDto {
   @ValidateNested({ each: true })
   @Type(() => WorkClassificationAttachmentInputDto)
   attachments?: WorkClassificationAttachmentInputDto[];
+
+  @ApiPropertyOptional({
+    description: 'Risk + safety equipment bound rows',
+    type: [WorkClassificationRiskEquipmentInputDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkClassificationRiskEquipmentInputDto)
+  riskEquipmentRows?: WorkClassificationRiskEquipmentInputDto[];
 }

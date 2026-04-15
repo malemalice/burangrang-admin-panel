@@ -59,4 +59,8 @@ export class WorkClassificationAttachmentItemDto {
   @ApiProperty()
   @Expose()
   createdAt: Date;
+
+  constructor(partial: Partial<WorkClassificationAttachmentItemDto>) {
+    Object.assign(this, partial);
+  }
 }

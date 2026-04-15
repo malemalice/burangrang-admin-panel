@@ -1,4 +1,6 @@
 import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
+import type { SafetyEquipment, SafetyEquipmentCategory } from '@/modules/ppe/types/ppe-master-data.types';
+import type { Risk } from '@/core/lib/types';
 
 export type { PaginatedResponse, PaginationParams };
 
@@ -12,6 +14,24 @@ export interface WorkClassificationAttachment {
   createdAt: string;
 }
 
+export interface WorkClassificationRiskEquipmentRow {
+  id: string;
+  notes?: string;
+  order: number;
+  createdAt: string;
+  risk: Pick<Risk, 'id' | 'name' | 'code'>;
+  safetyEquipment: Pick<
+    SafetyEquipment,
+    'id' | 'name' | 'code' | 'category' | 'size' | 'safetyEquipmentTypeId' | 'safetyEquipmentType'
+  > & { category: SafetyEquipmentCategory };
+}
+
+export interface WorkClassificationRiskEquipmentRowInput {
+  riskId: string;
+  safetyEquipmentId: string;
+  order: number;
+}
+
 /** DTO from backend */
 export interface WorkClassificationDTO {
   id: string;
@@ -23,6 +43,7 @@ export interface WorkClassificationDTO {
   createdAt: string;
   updatedAt: string;
   attachments?: WorkClassificationAttachment[] | null;
+  riskEquipmentRows?: WorkClassificationRiskEquipmentRow[] | null;
 }
 
 /** UI model */
@@ -36,6 +57,7 @@ export interface WorkClassification {
   createdAt: string;
   updatedAt: string;
   attachments?: WorkClassificationAttachment[];
+  riskEquipmentRows?: WorkClassificationRiskEquipmentRow[];
 }
 
 export interface WorkClassificationAttachmentInput {
@@ -53,6 +75,7 @@ export interface CreateWorkClassificationDTO {
   safetyGuideline?: string;
   isActive?: boolean;
   attachments?: WorkClassificationAttachmentInput[];
+  riskEquipmentRows?: WorkClassificationRiskEquipmentRowInput[];
 }
 
 export interface UpdateWorkClassificationDTO {
@@ -62,6 +85,7 @@ export interface UpdateWorkClassificationDTO {
   safetyGuideline?: string;
   isActive?: boolean;
   attachments?: WorkClassificationAttachmentInput[];
+  riskEquipmentRows?: WorkClassificationRiskEquipmentRowInput[];
 }
 
 export interface WorkClassificationSearchParams extends PaginationParams {
@@ -88,6 +112,18 @@ export function mapWorkClassificationDtoToModel(dto: WorkClassificationDTO): Wor
           order: a.order,
           createdAt: a.createdAt,
         }))
+      : undefined,
+    riskEquipmentRows: dto.riskEquipmentRows?.length
+      ? dto.riskEquipmentRows
+          .filter((row) => !!row?.id && !!row?.risk && !!row?.safetyEquipment)
+          .map((row) => ({
+            id: row.id,
+            notes: row.notes ?? undefined,
+            order: row.order,
+            createdAt: row.createdAt,
+            risk: row.risk,
+            safetyEquipment: row.safetyEquipment,
+          }))
       : undefined,
   };
 }

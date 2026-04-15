@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, ClipboardList, Loader2, FileText, Paperclip } from 'lucide-react';
+import { ArrowLeft, Edit, ClipboardList, Loader2, FileText, Paperclip, Link2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -144,6 +144,72 @@ const WorkClassificationDetailPage = () => {
               />
             ) : (
               <p className="text-muted-foreground">No safety guidelines defined.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Link2 className="h-5 w-5" />
+              Risk mitigation rows
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {row.riskEquipmentRows && row.riskEquipmentRows.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="py-2 pr-4 font-medium text-muted-foreground">Risk</th>
+                      <th className="py-2 pr-4 font-medium text-muted-foreground">Safety equipment</th>
+                      <th className="py-2 font-medium text-muted-foreground">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {row.riskEquipmentRows
+                      .slice()
+                      .sort((a, b) => a.order - b.order)
+                      .filter((r) => !!r?.risk && !!r?.safetyEquipment)
+                      .map((r) => (
+                        <tr key={r.id} className="border-b last:border-b-0">
+                          <td className="py-3 pr-4 align-top whitespace-pre-wrap">
+                            {r.risk?.name ? (
+                              <>
+                                {r.risk.name}{' '}
+                                <span className="text-muted-foreground">({r.risk.code})</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4 align-top whitespace-pre-wrap">
+                            {r.safetyEquipment?.name ? (
+                              <>
+                                {r.safetyEquipment.name}{' '}
+                                <span className="text-muted-foreground">({r.safetyEquipment.code})</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Category: {r.safetyEquipment?.category ?? '—'}
+                              {r.safetyEquipment?.safetyEquipmentType?.name
+                                ? ` • Type: ${r.safetyEquipment.safetyEquipmentType.name}`
+                                : ''}
+                              {r.safetyEquipment?.size ? ` • Size: ${r.safetyEquipment.size}` : ''}
+                            </div>
+                          </td>
+                          <td className="py-3 align-top whitespace-pre-wrap">
+                            {r.notes ? r.notes : <span className="text-muted-foreground">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No rows defined.</p>
             )}
           </CardContent>
         </Card>
