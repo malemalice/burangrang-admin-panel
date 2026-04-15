@@ -174,14 +174,20 @@ export class WeightReportsController {
 
   @Patch(':id/request-approval')
   @Permissions('waste-management:update')
-  @ApiOperation({ summary: 'Request approval for weight report (OPEN → WAITING_APPROVAL)' })
+  @ApiOperation({
+    summary:
+      'Request approval for weight report (OPEN/REJECTED → WAITING_APPROVAL)',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
     status: 200,
     description: 'The report has been successfully submitted for approval.',
     type: WeightReportDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request - not in OPEN status' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - not in OPEN or REJECTED status',
+  })
   @ApiResponse({ status: 404, description: 'Report not found' })
   requestApproval(@Param('id') id: string): Promise<WeightReportDto> {
     return this.service.requestApproval(id);

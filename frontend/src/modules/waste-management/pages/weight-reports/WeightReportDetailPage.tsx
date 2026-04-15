@@ -11,6 +11,7 @@ import {
     CheckCircle2,
     XCircle,
     Loader2,
+    RotateCcw,
 } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
@@ -217,7 +218,10 @@ export default function WeightReportDetailPage() {
 
     if (!data) return null;
 
-    const isEditable = data.status === WeightReportStatusEnum.DRAFT || data.status === WeightReportStatusEnum.OPEN;
+    const isEditable =
+        data.status === WeightReportStatusEnum.DRAFT ||
+        data.status === WeightReportStatusEnum.OPEN ||
+        data.status === WeightReportStatusEnum.REJECTED;
 
     return (
         <div className="space-y-6">
@@ -247,6 +251,12 @@ export default function WeightReportDetailPage() {
                             <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
                                 <ClipboardCheck className="mr-2 h-4 w-4" />
                                 {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
+                            </Button>
+                        )}
+                        {data.status === WeightReportStatusEnum.REJECTED && (
+                            <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                {isUpdatingStatus ? 'Resubmitting...' : 'Resubmit for Approval'}
                             </Button>
                         )}
                         {data.status === WeightReportStatusEnum.WAITING_APPROVAL && canApprove && (
