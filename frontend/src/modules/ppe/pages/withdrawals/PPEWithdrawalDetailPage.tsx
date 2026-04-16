@@ -5,7 +5,7 @@ import { usePDF } from 'react-to-pdf';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send, Ban, FileDown } from 'lucide-react';
 import { PPEWithdrawalPDFTemplate } from '../../components/PPEWithdrawalPDFTemplate';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -56,7 +56,7 @@ const PPEWithdrawalDetailPage = () => {
     const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-    const { toPDF, targetRef } = usePDF(
+    const { targetRef } = usePDF(
         buildPdfOptions({
             filename: `ppe-withdrawal-${withdrawal?.withdrawalCode ?? id ?? 'export'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
         }),
@@ -67,7 +67,12 @@ const PPEWithdrawalDetailPage = () => {
         try {
             setIsExportingPDF(true);
             await new Promise((resolve) => setTimeout(resolve, 200));
-            await toPDF();
+            await generateTableAwarePdf(
+                targetRef,
+                buildPdfOptions({
+                    filename: `ppe-withdrawal-${withdrawal.withdrawalCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                }),
+            );
             toast.success('PDF exported successfully');
         } catch (error) {
             console.error('Failed to export PDF:', error);

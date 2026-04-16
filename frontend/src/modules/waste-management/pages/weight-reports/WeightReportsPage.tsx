@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
 import { format } from 'date-fns';
 import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Printer } from 'lucide-react';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -117,7 +117,7 @@ export default function WeightReportsPage() {
         isExportingAllPDF && exportQueue.length > 1 ? `-${exportIndex + 1}` : ''
       }.pdf`
     : 'weight-report.pdf';
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: pdfFilename,
     }),
@@ -279,7 +279,7 @@ export default function WeightReportsPage() {
       if (exportCancelledRef.current) return;
 
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
       } catch {
         toast.error('Failed to export PDF');
         setIsExportingAllPDF(false);
@@ -306,7 +306,7 @@ export default function WeightReportsPage() {
     return () => {
       exportCancelledRef.current = true;
     };
-  }, [isExportingAllPDF, exportIndex, exportQueue, toPDF]);
+  }, [isExportingAllPDF, exportIndex, exportQueue, targetRef, pdfFilename]);
 
   useEffect(() => {
     if (!singlePdfContext || !isExportingRowPdf) return;
@@ -316,7 +316,7 @@ export default function WeightReportsPage() {
       await new Promise((r) => setTimeout(r, 400));
       if (cancelled) return;
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         toast.success('PDF exported successfully');
       } catch {
         toast.error('Failed to export PDF');
@@ -332,7 +332,7 @@ export default function WeightReportsPage() {
     return () => {
       cancelled = true;
     };
-  }, [singlePdfContext, isExportingRowPdf, toPDF]);
+  }, [singlePdfContext, isExportingRowPdf, targetRef, pdfFilename]);
 
   const handleExportRowPDF = async (item: WeightReport) => {
     if (isExportingAllPDF) return;

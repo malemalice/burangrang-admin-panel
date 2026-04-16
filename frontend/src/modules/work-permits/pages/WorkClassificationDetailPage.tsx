@@ -12,11 +12,14 @@ import { usePermissions } from '@/core/hooks/usePermissions';
 import riskMitigationService, {
   type RiskMitigation,
 } from '@/modules/risk-assessment/services/riskMitigationService';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import { getCombinedMitigationText } from '../utils/riskMitigationDisplay';
 
 const WorkClassificationDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [row, setRow] = useState<WorkClassification | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mitigationsByRiskId, setMitigationsByRiskId] = useState<Record<string, RiskMitigation[]>>(
@@ -116,19 +119,6 @@ const WorkClassificationDetailPage = () => {
     });
   }, [distinctRiskIds, mitigationsByRiskId]);
 
-  const getCombinedMitigationText = (mitigations: RiskMitigation[]) => {
-    const parts = mitigations.flatMap((m) => {
-      const items: Array<{ label: string; value: string }> = [];
-      if (m.eliminate?.trim()) items.push({ label: 'Eliminate', value: m.eliminate });
-      if (m.transfer?.trim()) items.push({ label: 'Transfer', value: m.transfer });
-      if (m.reduce?.trim()) items.push({ label: 'Reduce', value: m.reduce });
-      if (m.accept?.trim()) items.push({ label: 'Accept', value: m.accept });
-      return items;
-    });
-
-    return parts.map((p) => `${p.label}\n${p.value}`).join('\n\n');
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -210,25 +200,27 @@ const WorkClassificationDetailPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FileText className="h-5 w-5" />
-              Safety guidelines
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {row.safetyGuideline ? (
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none [&_table]:w-full [&_td]:border [&_th]:border"
-                // eslint-disable-next-line react/no-danger -- trusted admin-authored HTML from TipTap
-                dangerouslySetInnerHTML={{ __html: row.safetyGuideline }}
-              />
-            ) : (
-              <p className="text-muted-foreground">No safety guidelines defined.</p>
-            )}
-          </CardContent>
-        </Card>
+        {classificationContentEnabled && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5" />
+                Safety guidelines
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {row.safetyGuideline ? (
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none [&_table]:w-full [&_td]:border [&_th]:border"
+                  // eslint-disable-next-line react/no-danger -- trusted admin-authored HTML from TipTap
+                  dangerouslySetInnerHTML={{ __html: row.safetyGuideline }}
+                />
+              ) : (
+                <p className="text-muted-foreground">No safety guidelines defined.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -310,40 +302,42 @@ const WorkClassificationDetailPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Paperclip className="h-5 w-5" />
-              Attached documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {row.attachments && row.attachments.length > 0 ? (
-              <ul className="space-y-3">
-                {row.attachments
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((att) => (
-                    <li key={att.id} className="rounded-lg border p-3">
-                      <a
-                        href={att.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        {att.fileName}
-                      </a>
-                      {att.description ? (
-                        <p className="mt-1 text-sm text-muted-foreground">{att.description}</p>
-                      ) : null}
-                    </li>
-                  ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground">No documents attached.</p>
-            )}
-          </CardContent>
-        </Card>
+        {classificationContentEnabled && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Paperclip className="h-5 w-5" />
+                Attached documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {row.attachments && row.attachments.length > 0 ? (
+                <ul className="space-y-3">
+                  {row.attachments
+                    .slice()
+                    .sort((a, b) => a.order - b.order)
+                    .map((att) => (
+                      <li key={att.id} className="rounded-lg border p-3">
+                        <a
+                          href={att.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          {att.fileName}
+                        </a>
+                        {att.description ? (
+                          <p className="mt-1 text-sm text-muted-foreground">{att.description}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground">No documents attached.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </>
   );

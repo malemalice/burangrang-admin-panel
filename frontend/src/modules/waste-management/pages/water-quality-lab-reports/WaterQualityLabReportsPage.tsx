@@ -29,7 +29,7 @@ import {
 } from '../../utils/water-quality-lab-report-export';
 import { WaterQualityLabReportAggregatePDFTemplate } from '../../components/WaterQualityLabReportAggregatePDFTemplate';
 import { WaterQualityLabReportPDFTemplate } from '../../components/WaterQualityLabReportPDFTemplate';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 export default function WaterQualityLabReportsPage() {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ export default function WaterQualityLabReportsPage() {
           : 'water-quality-lab-reports.pdf',
     [aggregateForPDF, reportForSinglePdf],
   );
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: pdfFilename,
     }),
@@ -215,7 +215,7 @@ export default function WaterQualityLabReportsPage() {
     if (!aggregateForPDF || !isExportingAllPDF) return;
     const timer = setTimeout(async () => {
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         toast.success('Exported as PDF');
       } catch (err) {
         toast.error('Failed to export PDF');
@@ -225,7 +225,7 @@ export default function WaterQualityLabReportsPage() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [aggregateForPDF, isExportingAllPDF, toPDF]);
+  }, [aggregateForPDF, isExportingAllPDF, targetRef, pdfFilename]);
 
   const handleExportSinglePDF = useCallback(async (id: string) => {
     try {
@@ -244,7 +244,7 @@ export default function WaterQualityLabReportsPage() {
       return;
     const timer = setTimeout(async () => {
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         toast.success('PDF exported successfully');
       } catch (err) {
         toast.error('Failed to export PDF');
@@ -254,7 +254,7 @@ export default function WaterQualityLabReportsPage() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [reportForSinglePdf, exportingSinglePdfId, toPDF]);
+  }, [reportForSinglePdf, exportingSinglePdfId, targetRef, pdfFilename]);
 
   const handleSearch = (term: string) => {
     updateSearchParams((next) => {

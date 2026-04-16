@@ -15,7 +15,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -85,7 +85,7 @@ export default function EnvironmentalMeasurementDetailPage() {
   const baseFilename = measurement
     ? `environmental-measurement-${measurement.id}-${format(new Date(measurement.date), 'yyyyMMdd')}`
     : 'environmental-measurement';
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
     }),
@@ -150,7 +150,12 @@ export default function EnvironmentalMeasurementDetailPage() {
         }
         await new Promise((r) => setTimeout(r, 200));
         if (cancelled) return;
-        await toPDF();
+        await generateTableAwarePdf(
+          targetRef,
+          buildPdfOptions({
+            filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+          }),
+        );
         toast.success('PDF exported successfully');
       } catch {
         if (!cancelled) toast.error('Failed to export PDF');
@@ -175,7 +180,7 @@ export default function EnvironmentalMeasurementDetailPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [measurement, id, searchParams, setSearchParams, toPDF]);
+  }, [measurement, id, searchParams, setSearchParams, baseFilename, targetRef]);
 
   const handleExportPDF = async () => {
     if (!id) return;
@@ -187,7 +192,12 @@ export default function EnvironmentalMeasurementDetailPage() {
         setApprovalHistoryForPDF(fresh);
       }
       await new Promise((r) => setTimeout(r, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch {
       toast.error('Failed to export PDF');

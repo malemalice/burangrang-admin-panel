@@ -149,7 +149,7 @@ export function EnvironmentalMeasurementPDFTemplate({
         <h2 className="text-sm font-bold uppercase tracking-wide text-gray-800 border-b border-gray-300 pb-2">
           Record information
         </h2>
-        <Table>
+        <Table data-pdf-table-splittable>
           <TableBody>
             <TableRow>
               <TableHead className="w-[38%] bg-muted/50 font-semibold">Date of measurement</TableHead>
@@ -175,7 +175,7 @@ export function EnvironmentalMeasurementPDFTemplate({
         <h2 className="text-sm font-bold uppercase tracking-wide text-gray-800 border-b border-gray-300 pb-2">
           Measurement results
         </h2>
-        <Table>
+        <Table data-pdf-table-splittable>
           <TableBody>
             <TableRow>
               <TableHead className="w-[38%] bg-muted/50 font-semibold">Lighting (lux)</TableHead>
@@ -233,7 +233,7 @@ export function EnvironmentalMeasurementPDFTemplate({
         {approvalLines.length > 0 && (
           <div className="mb-6">
             <p className="text-sm font-semibold text-gray-900 mb-2">Approval workflow (by step)</p>
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+            <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Step no.</th>
@@ -277,7 +277,7 @@ export function EnvironmentalMeasurementPDFTemplate({
         {allApprovals.length > 0 ? (
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-2">Chronological approval log</p>
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+            <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No.</th>

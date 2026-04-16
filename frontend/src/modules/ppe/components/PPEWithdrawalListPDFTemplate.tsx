@@ -50,6 +50,7 @@ export function PPEWithdrawalListPDFTemplate({
       {/* Table */}
       {withdrawals.length > 0 ? (
         <table
+          data-pdf-table-splittable
           className="min-w-full"
           style={{ borderCollapse: 'collapse', border: '1px solid #ccc', width: '100%' }}
         >

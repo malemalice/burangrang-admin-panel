@@ -21,6 +21,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'chapter',
     'enrollment',
     'work-permit',
+    'upload', // attachments; backend POST /uploads/upload requires upload:create
     'risk',
     'risk-mitigation',
     'risk-category',
@@ -102,7 +103,7 @@ export const roles = [
     name: 'Manager',
     code: 'MANAGER',
     description:
-      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit, file uploads',
     dataLevel: DataLevelEnum.DEPARTMENT,
     permissions: (permissions: Permission[]) =>
       permissions
@@ -113,7 +114,7 @@ export const roles = [
     name: 'User',
     code: 'USER',
     description:
-      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit, file uploads',
     dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions

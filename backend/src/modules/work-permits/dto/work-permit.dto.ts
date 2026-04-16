@@ -58,22 +58,17 @@ export class WorkPermitDto {
   @IsString()
   workStagesDescription: string;
 
-  @ApiProperty({ description: 'Job safety analysis' })
+  @ApiProperty({ description: 'Job safety analysis', required: false })
   @Expose()
+  @IsOptional()
   @IsString()
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
 
   @ApiProperty({ description: 'Work requirements', required: false })
   @Expose()
   @IsOptional()
   @IsString()
   workRequirements?: string;
-
-  @ApiProperty({ description: 'Safety guideline', required: false })
-  @Expose()
-  @IsOptional()
-  @IsString()
-  safetyGuideline?: string;
 
   @ApiProperty({
     description: 'Free-text when "Others" work classification is used',
@@ -90,7 +85,8 @@ export class WorkPermitDto {
   requireCourseVerification: boolean;
 
   @ApiProperty({
-    description: 'User confirmed they have read the safety guideline',
+    description:
+      'True when the applicant has signed the HSE safety guideline (derived from applicantSignedAt; not stored as a separate column)',
     default: false,
   })
   @Expose()
@@ -175,8 +171,23 @@ export class WorkPermitDto {
       id: string;
       name: string;
       code: string;
+      description?: string | null;
+      /** Master safety guideline HTML — fallback when permit snapshot/rows are empty */
+      safetyGuideline?: string | null;
     };
     order: number;
+    safetyGuidelineSnapshot?: string | null;
+    safetyGuidanceRows?: Array<{
+      id: string;
+      riskId: string;
+      safetyEquipmentId: string;
+      notes?: string | null;
+      order: number;
+      riskNameSnapshot?: string | null;
+      safetyEquipmentNameSnapshot?: string | null;
+      risk?: { id: string; name: string; code: string };
+      safetyEquipment?: { id: string; name: string; code: string };
+    }>;
   }>;
 
   @ApiProperty({ description: 'Employees/PICs', required: false, type: [Object] })

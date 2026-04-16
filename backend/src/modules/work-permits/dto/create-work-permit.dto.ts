@@ -11,9 +11,9 @@ import {
   Min,
   ArrayMinSize,
   MaxLength,
-  Equals,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WorkPermitClassificationSafetyGuidanceOnCreateDto } from './work-permit-classification-safety-guidance.dto';
 
 export class WorkPermitClassificationDto {
   @ApiProperty({ description: 'Work classification ID' })
@@ -258,20 +258,15 @@ export class CreateWorkPermitDto {
   @IsNotEmpty()
   workStagesDescription: string;
 
-  @ApiProperty({ description: 'Job safety analysis' })
+  @ApiProperty({ description: 'Job safety analysis', required: false, default: '' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string;
 
   @ApiProperty({ description: 'Work requirements', required: false })
   @IsOptional()
   @IsString()
   workRequirements?: string;
-
-  @ApiProperty({ description: 'Safety guideline', required: false })
-  @IsOptional()
-  @IsString()
-  safetyGuideline?: string;
 
   @ApiProperty({
     description:
@@ -288,19 +283,24 @@ export class CreateWorkPermitDto {
   @IsBoolean()
   requireCourseVerification?: boolean;
 
-  @ApiProperty({
-    description: 'Must be true — user confirms they have read the safety guideline',
-  })
-  @IsBoolean()
-  @Equals(true, { message: 'You must confirm that you have read the safety guideline' })
-  acknowledgedSafetyGuideline: boolean;
-
   @ApiProperty({ description: 'Work classifications', type: [WorkPermitClassificationDto], required: false })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkPermitClassificationDto)
   classifications?: WorkPermitClassificationDto[];
+
+  @ApiProperty({
+    description:
+      'Optional overrides per classification line (matched by workClassificationId + order) after template copy',
+    type: [WorkPermitClassificationSafetyGuidanceOnCreateDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkPermitClassificationSafetyGuidanceOnCreateDto)
+  classificationSafetyGuidance?: WorkPermitClassificationSafetyGuidanceOnCreateDto[];
 
   @ApiProperty({ description: 'Employees/PICs', type: [WorkPermitEmployeeDto], required: false })
   @IsOptional()

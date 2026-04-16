@@ -165,6 +165,7 @@ export const InspectionPDFTemplate = ({
           <p className="text-sm text-gray-600">No inspection items found.</p>
         ) : (
           <table
+            data-pdf-table-splittable
             className="min-w-full border border-gray-300"
             style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
           >

@@ -6,7 +6,7 @@ import { usePDF } from 'react-to-pdf';
 import { Plus, Pencil, Trash2, Eye, Printer, Loader2 } from 'lucide-react';
 import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -52,7 +52,7 @@ export default function DispatchOrdersPage() {
   const [exportingPdfId, setExportingPdfId] = useState<string | null>(null);
   const [pendingRowPdfExport, setPendingRowPdfExport] = useState(false);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: pdfExportOrder
         ? `${pdfExportOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
@@ -94,7 +94,14 @@ export default function DispatchOrdersPage() {
       await new Promise((r) => setTimeout(r, 200));
       if (cancelled) return;
       try {
-        await toPDF();
+        await generateTableAwarePdf(
+          targetRef,
+          buildPdfOptions({
+            filename: pdfExportOrder
+              ? `${pdfExportOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+              : 'dispatch-order.pdf',
+          }),
+        );
         toast.success('PDF exported successfully');
       } catch {
         toast.error('Failed to export PDF');
@@ -112,7 +119,7 @@ export default function DispatchOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [pendingRowPdfExport, pdfExportOrder, toPDF]);
+  }, [pendingRowPdfExport, pdfExportOrder, targetRef]);
 
   const handleDeleteClick = (item: DispatchOrder, event?: React.MouseEvent) => {
     event?.stopPropagation();

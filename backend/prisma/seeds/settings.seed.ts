@@ -20,6 +20,9 @@ export const defaultSettings = [
   { key: 'environmental_measurements.regulatory_limit.humidity', value: '60' }, // %
   { key: 'environmental_measurements.regulatory_limit.temperature', value: '27' }, // °C
 
+  // Feature flags (default off)
+  { key: 'feature.work_permit_classification_content.enabled', value: 'false' },
+
   // Pagination defaults
   { key: 'pagination.default_limit', value: '10' },
   { key: 'pagination.max_limit', value: '100' },

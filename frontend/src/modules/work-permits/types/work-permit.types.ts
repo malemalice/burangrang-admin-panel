@@ -11,6 +11,15 @@ export interface MasterDataOption {
 /** Work classification row from GET work-permits/master-data */
 export interface WorkClassificationMasterOption extends MasterDataOption {
   safetyGuideline?: string | null;
+  riskEquipmentRows?: Array<{
+    id: string;
+    riskId: string;
+    safetyEquipmentId: string;
+    notes?: string | null;
+    order: number;
+    risk?: { id: string; name: string; code: string };
+    safetyEquipment?: { id: string; name: string; code: string };
+  }>;
   attachments?: Array<{
     id: string;
     fileUrl: string;
@@ -53,12 +62,12 @@ export interface WorkPermit {
   proposedStartDate: string;
   proposedEndDate: string;
   workStagesDescription: string;
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
   workRequirements?: string;
-  safetyGuideline?: string;
   /** Free text when "Others" (OTHERS) classification is selected */
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
+  /** From API: true when applicant has signed (aligned with applicantSignedAt). */
   acknowledgedSafetyGuideline: boolean;
   applicantSignedAt?: string;
   applicantSignature?: string;
@@ -115,6 +124,18 @@ export type WorkPermitStatus =
   | 'CLOSED'
   | 'EXTENDED';
 
+export interface WorkPermitSafetyGuidanceRow {
+  id: string;
+  riskId: string;
+  safetyEquipmentId: string;
+  notes?: string | null;
+  order: number;
+  riskNameSnapshot?: string | null;
+  safetyEquipmentNameSnapshot?: string | null;
+  risk?: { id: string; name: string; code: string };
+  safetyEquipment?: { id: string; name: string; code: string };
+}
+
 export interface WorkPermitClassification {
   id: string;
   workClassificationId: string;
@@ -122,8 +143,38 @@ export interface WorkPermitClassification {
     id: string;
     name: string;
     code: string;
+    description?: string | null;
+    /** Master template — used when permit snapshot/rows are empty */
+    safetyGuideline?: string | null;
   };
   order: number;
+  safetyGuidelineSnapshot?: string | null;
+  safetyGuidanceRows?: WorkPermitSafetyGuidanceRow[];
+}
+
+/** Payload for PATCH — per permit classification link */
+export interface ClassificationSafetyGuidanceUpdate {
+  workPermitClassificationId: string;
+  safetyGuidelineSnapshot?: string | null;
+  rows: Array<{
+    riskId: string;
+    safetyEquipmentId: string;
+    notes?: string;
+    order: number;
+  }>;
+}
+
+/** Payload for POST create — match classification line before join IDs exist */
+export interface ClassificationSafetyGuidanceOnCreate {
+  workClassificationId: string;
+  order: number;
+  safetyGuidelineSnapshot?: string | null;
+  rows: Array<{
+    riskId: string;
+    safetyEquipmentId: string;
+    notes?: string;
+    order: number;
+  }>;
 }
 
 export interface WorkPermitEmployee {
@@ -285,9 +336,8 @@ export interface WorkPermitDTO {
   proposedStartDate: string;
   proposedEndDate: string;
   workStagesDescription: string;
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
   workRequirements?: string;
-  safetyGuideline?: string;
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
   acknowledgedSafetyGuideline?: boolean;
@@ -338,12 +388,11 @@ export interface CreateWorkPermitDTO {
   proposedStartDate: string;
   proposedEndDate: string;
   workStagesDescription: string;
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
   workRequirements?: string;
-  safetyGuideline?: string;
+  classificationSafetyGuidance?: ClassificationSafetyGuidanceOnCreate[];
   workClassificationOtherDetail?: string;
   requireCourseVerification?: boolean;
-  acknowledgedSafetyGuideline: boolean;
   classifications?: Array<{
     workClassificationId: string;
     order: number;
@@ -409,7 +458,9 @@ export interface CreateWorkPermitDTO {
   safetyEquipmentIds?: string[];
 }
 
-export type UpdateWorkPermitDTO = Partial<CreateWorkPermitDTO>;
+export type UpdateWorkPermitDTO = Partial<Omit<CreateWorkPermitDTO, 'classificationSafetyGuidance'>> & {
+  classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[];
+};
 
 export interface WorkPermitSearchParams extends PaginationParams {
   status?: string;
@@ -462,10 +513,8 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   workStagesDescription: workPermit.workStagesDescription,
   jobSafetyAnalysis: workPermit.jobSafetyAnalysis,
   workRequirements: workPermit.workRequirements,
-  safetyGuideline: workPermit.safetyGuideline,
   workClassificationOtherDetail: workPermit.workClassificationOtherDetail,
   requireCourseVerification: workPermit.requireCourseVerification,
-  acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline,
   classifications: workPermit.classifications?.map((c) => ({
     workClassificationId: c.workClassificationId || c.id,
     order: c.order,

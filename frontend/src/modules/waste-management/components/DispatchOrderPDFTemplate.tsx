@@ -187,7 +187,7 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
         {approvalLines.length > 0 && (
           <div className="mb-6">
             <p className="text-sm font-semibold text-gray-900 mb-2">Approval workflow (by step)</p>
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+            <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
@@ -250,7 +250,7 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
         {allApprovals.length > 0 ? (
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-2">Chronological approval log</p>
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+            <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">

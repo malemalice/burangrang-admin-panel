@@ -120,7 +120,11 @@ export const RiskAssessmentPDFTemplate = ({
         {items.length === 0 ? (
           <p className="text-sm text-gray-600">No risk assessment items found.</p>
         ) : (
-          <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <table
+            data-pdf-table-splittable
+            className="min-w-full border border-gray-300"
+            style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
+          >
             <thead>
               <tr className="bg-gray-100">
                 <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '5%' }}>
@@ -228,7 +232,11 @@ export const RiskAssessmentPDFTemplate = ({
         {approvalLines.length > 0 && (
           <div className="mb-6">
             <p className="text-sm font-semibold text-gray-900 mb-2">Workflow</p>
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+            <table
+              data-pdf-table-splittable
+              className="min-w-full border border-gray-300"
+              style={{ borderCollapse: 'collapse' }}
+            >
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Step</th>
@@ -275,7 +283,11 @@ export const RiskAssessmentPDFTemplate = ({
         {allApprovals.length > 0 ? (
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-2">Approval History</p>
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+            <table
+              data-pdf-table-splittable
+              className="min-w-full border border-gray-300"
+              style={{ borderCollapse: 'collapse' }}
+            >
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>

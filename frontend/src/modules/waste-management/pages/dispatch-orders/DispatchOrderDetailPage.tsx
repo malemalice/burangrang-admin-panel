@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import api from '@/core/lib/api';
 import { usePDF } from 'react-to-pdf';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -82,7 +82,7 @@ export default function DispatchOrderDetailPage() {
   const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalHistoryForPDF, setApprovalHistoryForPDF] = useState<ApprovalStatusHistory | null>(null);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: dispatchOrder
         ? `${dispatchOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
@@ -143,7 +143,14 @@ export default function DispatchOrderDetailPage() {
         }
         await new Promise((r) => setTimeout(r, 200));
         if (cancelled) return;
-        await toPDF();
+        await generateTableAwarePdf(
+          targetRef,
+          buildPdfOptions({
+            filename: dispatchOrder
+              ? `${dispatchOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+              : 'dispatch-order.pdf',
+          }),
+        );
         toast.success('PDF exported successfully');
       } catch {
         if (!cancelled) toast.error('Failed to export PDF');
@@ -166,7 +173,7 @@ export default function DispatchOrderDetailPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [dispatchOrder, id, searchParams, setSearchParams, toPDF]);
+  }, [dispatchOrder, id, searchParams, setSearchParams, targetRef]);
 
   const handleExportPDF = async () => {
     if (!id) return;
@@ -176,7 +183,14 @@ export default function DispatchOrderDetailPage() {
         .catch(() => null);
       if (fresh) setApprovalHistoryForPDF(fresh);
       await new Promise((r) => setTimeout(r, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: dispatchOrder
+            ? `${dispatchOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+            : 'dispatch-order.pdf',
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch {
       toast.error('Failed to export PDF');

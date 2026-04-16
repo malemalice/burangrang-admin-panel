@@ -27,7 +27,6 @@ import {
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { ModalCombobox } from '@/core/components/ui/modal-combobox';
-import { Checkbox } from '@/core/components/ui/checkbox';
 import {
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
@@ -37,6 +36,8 @@ import {
   GuestOption,
   CompanyOption,
 } from '../types/work-permit.types';
+import { riskService } from '@/modules/master-data';
+import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
 import { createProfessionFromQuery } from '../utils/professionHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
@@ -58,6 +59,7 @@ import {
   WORK_PERMIT_SECTION_F_SUB,
 } from '../constants/workPermitSections';
 import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 
 function selectionIncludesOthers(
   classifications: { workClassificationId: string }[] | undefined,
@@ -75,15 +77,8 @@ const formSchema = z.object({
   proposedStartDate: z.string().min(1, 'Start date is required'),
   proposedEndDate: z.string().min(1, 'End date is required'),
   workStagesDescription: z.string().min(1, 'Work stages description is required'),
-  jobSafetyAnalysis: z.string().min(1, 'Job safety analysis is required'),
-  workRequirements: z.string().optional(),
   workClassificationOtherDetail: z.string().max(2000).optional(),
   requireCourseVerification: z.boolean().default(false),
-  acknowledgedSafetyGuideline: z
-    .boolean()
-    .refine((v) => v === true, {
-      message: 'You must confirm that you have read the safety guideline',
-    }),
   classifications: z
     .array(
       z.object({
@@ -199,7 +194,7 @@ type WizardStep = 1 | 2 | 3 | 4;
 const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
   { id: 1, title: 'Classification & Scope', description: 'Section A and project scope details' },
   { id: 2, title: 'Equipment', description: 'Section C tools, machines, materials, heavy equipment' },
-  { id: 3, title: 'Hazards & Safety', description: 'Section D and E controls/equipment' },
+  { id: 3, title: 'Hazards & Safety', description: 'Sections D, E, and G safety guideline' },
   { id: 4, title: 'Courses & Attachments', description: 'Section F and final review before submit' },
 ];
 
@@ -211,6 +206,7 @@ interface WorkPermitFormProps {
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
@@ -226,6 +222,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [professions, setProfessions] = useState<MasterDataOption[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
+  const [risks, setRisks] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [guidanceBlocks, setGuidanceBlocks] = useState<SafetyGuidanceBlock[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
@@ -320,11 +318,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       proposedStartDate: '',
       proposedEndDate: '',
       workStagesDescription: '',
-      jobSafetyAnalysis: '',
-      workRequirements: '',
       workClassificationOtherDetail: '',
       requireCourseVerification: false,
-      acknowledgedSafetyGuideline: false,
       classifications: [{ workClassificationId: '', order: 0 }],
       employees: [],
       workers: [
@@ -454,6 +449,28 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const watchedClassifications = useWatch({ control: form.control, name: 'classifications' });
   const showOthersDetailField = selectionIncludesOthers(watchedClassifications, workClassifications);
 
+  const wizardSteps = useMemo(() => {
+    if (classificationContentEnabled) {
+      return WIZARD_STEPS;
+    }
+    return WIZARD_STEPS.map((step) => {
+      if (step.id === 3) {
+        return {
+          ...step,
+          description: 'Sections D and E — hazards and safety equipment',
+        };
+      }
+      if (step.id === 4) {
+        return {
+          ...step,
+          title: 'Courses & final review',
+          description: 'Section F courses and final review before submit',
+        };
+      }
+      return step;
+    });
+  }, [classificationContentEnabled]);
+
   useEffect(() => {
     if (isLoadingData || !workClassifications.length) return;
     if (!selectionIncludesOthers(watchedClassifications, workClassifications)) {
@@ -461,22 +478,95 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     }
   }, [watchedClassifications, workClassifications, form, isLoadingData]);
 
-  // Fetch reference data
+  // Safety guidance per classification (G): sync from master or permit when rows change
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoadingData(true);
+    if (isLoadingData || !workClassifications.length) return;
+    const rows = watchedClassifications ?? [];
+    if (!rows.some((r) => r.workClassificationId)) {
+      setGuidanceBlocks([]);
+      return;
+    }
+    setGuidanceBlocks((prev) => {
+      const result: SafetyGuidanceBlock[] = [];
+      for (const row of rows) {
+        const wcId = row.workClassificationId;
+        const { order } = row;
+        if (!wcId) continue;
+        const master = workClassifications.find((w) => w.id === wcId);
+        if (!master) continue;
+        const existing = prev.find((p) => p.workClassificationId === wcId && p.order === order);
+        if (existing) {
+          result.push(existing);
+          continue;
+        }
+        const link =
+          mode === 'edit'
+            ? workPermit?.classifications?.find((c) => c.workClassificationId === wcId && c.order === order)
+            : undefined;
+        if (link?.safetyGuidanceRows && link.safetyGuidanceRows.length > 0) {
+          result.push({
+            workPermitClassificationId: link.id,
+            workClassificationId: wcId,
+            order,
+            safetyGuidelineSnapshot: link.safetyGuidelineSnapshot ?? null,
+            rows: link.safetyGuidanceRows.map((r) => ({
+              riskId: r.riskId,
+              safetyEquipmentId: r.safetyEquipmentId,
+              notes: r.notes ?? undefined,
+              order: r.order,
+            })),
+          });
+        } else {
+          result.push({
+            workPermitClassificationId: link?.id,
+            workClassificationId: wcId,
+            order,
+            safetyGuidelineSnapshot: master.safetyGuideline ?? null,
+            rows: (master.riskEquipmentRows ?? []).map((r, idx) => ({
+              riskId: r.riskId,
+              safetyEquipmentId: r.safetyEquipmentId,
+              notes: r.notes ?? undefined,
+              order: r.order ?? idx,
+            })),
+          });
+        }
+      }
+      return result;
+    });
+  }, [watchedClassifications, workClassifications, mode, workPermit, isLoadingData]);
+
+  useEffect(() => {
+    if (!classificationContentEnabled) return;
+    const loadCategory = async () => {
       try {
-        // Fetch file category for work permit documents
         const category = await uploadService.getCategoryByName('work-permit-documents');
         if (category) {
           setWorkPermitDocumentsCategoryId(category.id);
         } else {
           toast.error('File category for work permit documents not found');
         }
+      } catch (e) {
+        console.error(e);
+        toast.error('Failed to resolve upload category');
+      }
+    };
+    void loadCategory();
+  }, [classificationContentEnabled]);
 
+  // Fetch reference data
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingData(true);
+      try {
         // Fetch master data from work permit service and other modules
-        const [masterDataResponse, usersResponse, workerUsersResponse, coursesResponse, safetyEquipmentResponse] =
-          await Promise.all([
+        const [
+          masterDataResponse,
+          usersResponse,
+          workerUsersResponse,
+          coursesResponse,
+          safetyEquipmentResponse,
+          risksResponse,
+        ] = await Promise.all([
             workPermitService.getMasterData().catch((error) => {
               console.error('Failed to fetch work permit master data:', error);
               return {
@@ -514,6 +604,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               console.error('Failed to fetch safety equipment:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
             }),
+            riskService.getAll({ page: 1, limit: 500, isActive: true, options: true }).catch((error) => {
+              console.error('Failed to fetch risks:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 500 } };
+            }),
           ]);
 
         // Set master data from work permit service
@@ -532,6 +626,13 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         setWorkerUsers(workerUsersResponse.data ?? []);
         setCourses(coursesResponse.data);
         setSafetyEquipment(safetyEquipmentResponse.data);
+        setRisks(
+          (risksResponse.data ?? []).map((r) => ({
+            id: r.id,
+            name: r.name,
+            code: r.code,
+          })),
+        );
       } catch (error) {
         console.error('Failed to load form data:', error);
         toast.error('Failed to load form data');
@@ -586,11 +687,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         proposedStartDate: str(workPermit.proposedStartDate?.split('T')[0]),
         proposedEndDate: str(workPermit.proposedEndDate?.split('T')[0]),
         workStagesDescription: str(workPermit.workStagesDescription),
-        jobSafetyAnalysis: str(workPermit.jobSafetyAnalysis),
-        workRequirements: str(workPermit.workRequirements),
         workClassificationOtherDetail: str(workPermit.workClassificationOtherDetail),
         requireCourseVerification: workPermit.requireCourseVerification ?? false,
-        acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline ?? false,
         classifications:
           workPermit.classifications?.length ?
             workPermit.classifications.map((c) => ({
@@ -815,9 +913,16 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         hazards: sanitizeHazards(data.hazards),
       };
 
+      const dataForApi: FormValues = classificationContentEnabled
+        ? sanitizedData
+        : (() => {
+            const { attachments: _attachments, ...rest } = sanitizedData;
+            return rest as FormValues;
+          })();
+
       if (
-        selectionIncludesOthers(sanitizedData.classifications, workClassifications) &&
-        !String(sanitizedData.workClassificationOtherDetail ?? '').trim()
+        selectionIncludesOthers(dataForApi.classifications, workClassifications) &&
+        !String(dataForApi.workClassificationOtherDetail ?? '').trim()
       ) {
         toast.error('Please describe the work type when "Lainnya / Others" is selected.');
         form.setError('workClassificationOtherDetail', {
@@ -828,7 +933,53 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         return;
       }
 
-      await onSubmit(sanitizedData as CreateWorkPermitDTO);
+      const normClass = (r: { workClassificationId: string; order: number }[]) =>
+        [...r]
+          .filter((x) => x.workClassificationId)
+          .sort((a, b) => a.order - b.order)
+          .map((x) => `${x.workClassificationId}:${x.order}`)
+          .join('|');
+      const classificationsChanged =
+        mode === 'edit' &&
+        workPermit &&
+        normClass(dataForApi.classifications) !==
+          normClass(
+            (workPermit.classifications ?? []).map((c) => ({
+              workClassificationId: c.workClassificationId,
+              order: c.order,
+            })),
+          );
+
+      if (mode === 'create') {
+        await onSubmit({
+          ...dataForApi,
+          ...(classificationContentEnabled
+            ? {
+                classificationSafetyGuidance: guidanceBlocks.map((b) => ({
+                  workClassificationId: b.workClassificationId,
+                  order: b.order,
+                  safetyGuidelineSnapshot: b.safetyGuidelineSnapshot,
+                  rows: b.rows.map((r, i) => ({ ...r, order: r.order ?? i })),
+                })),
+              }
+            : {}),
+        } as CreateWorkPermitDTO);
+      } else {
+        await onSubmit({
+          ...dataForApi,
+          ...(classificationContentEnabled && !classificationsChanged
+            ? {
+                classificationSafetyGuidance: guidanceBlocks
+                  .filter((b) => b.workPermitClassificationId)
+                  .map((b) => ({
+                    workPermitClassificationId: b.workPermitClassificationId!,
+                    safetyGuidelineSnapshot: b.safetyGuidelineSnapshot,
+                    rows: b.rows.map((r, i) => ({ ...r, order: r.order ?? i })),
+                  })),
+              }
+            : {}),
+        } as UpdateWorkPermitDTO);
+      }
     } catch (error) {
       console.error('Error submitting form:', error);
     } finally {
@@ -864,7 +1015,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             <CardDescription>Complete all steps before submitting the work permit.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-4">
-            {WIZARD_STEPS.map((step) => {
+            {wizardSteps.map((step) => {
               const isActive = step.id === currentStep;
               const isCompleted = step.id < currentStep;
               return (
@@ -1090,7 +1241,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         <Card>
           <CardHeader>
             <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workDescription}</WorkPermitSubsectionTitle>
-            <CardDescription>Work stages, analysis, and guidelines</CardDescription>
+            <CardDescription>Describe the work stages for this permit</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -1103,53 +1254,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <Textarea placeholder="Describe work stages..." rows={4} {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="jobSafetyAnalysis"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Job Safety Analysis <span className="text-destructive">*</span></FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Job safety analysis..." rows={4} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="workRequirements"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Work Requirements</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Work requirements..." rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="acknowledgedSafetyGuideline"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start gap-3 rounded-md border border-border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={(c) => field.onChange(c === true)}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-snug">
-                    <FormLabel className="!mt-0 font-normal cursor-pointer">
-                      I confirm that I have read the safety guideline{' '}
-                      <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
                 </FormItem>
               )}
             />
@@ -1717,6 +1821,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`tools.${index}.toolId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Tool</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={toolOptions}
@@ -1734,7 +1839,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`tools.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1784,6 +1890,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`machines.${index}.machineId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Machine</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={machineOptions}
@@ -1801,7 +1908,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`machines.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1851,6 +1959,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`materials.${index}.materialId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Material</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={materialOptions}
@@ -1868,7 +1977,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`materials.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1918,6 +2028,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`heavyEquipment.${index}.heavyEquipmentId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Heavy equipment</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={heavyEquipmentOptions}
@@ -1935,7 +2046,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`heavyEquipment.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -2106,6 +2218,16 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         </WorkPermitSection>
         )}
 
+        {currentStep === 3 && classificationContentEnabled && (
+          <WorkPermitSafetyGuidelineSection
+            blocks={guidanceBlocks}
+            onChange={setGuidanceBlocks}
+            workClassifications={workClassifications}
+            risks={risks}
+            safetyEquipment={safetyEquipment}
+          />
+        )}
+
         {/* Section F — PRD */}
         {currentStep === 4 && (
         <WorkPermitSection id="work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
@@ -2197,66 +2319,68 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
-                  <CardDescription>Attach documents for this work permit</CardDescription>
-                </div>
-                <div>
-                  <input
-                    type="file"
-                    id="attachment-upload"
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleAttachmentUpload(file);
-                      e.target.value = '';
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('attachment-upload')?.click()}
-                    disabled={!workPermitDocumentsCategoryId}
-                  >
-                    <Upload className="mr-2 h-4 w-4" /> Upload
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {attachmentFields.map((field, index) => (
-                  <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="font-medium">{form.watch(`attachments.${index}.fileName`)}</p>
-                      <FormField
-                        control={form.control}
-                        name={`attachments.${index}.description`}
-                        render={({ field: f }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Description (optional)" className="mt-1" {...f} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+            {classificationContentEnabled && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
+                    <CardDescription>Attach documents for this work permit</CardDescription>
+                  </div>
+                  <div>
+                    <input
+                      type="file"
+                      id="attachment-upload"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAttachmentUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => removeAttachment(index)}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('attachment-upload')?.click()}
+                      disabled={!workPermitDocumentsCategoryId}
                     >
-                      <XIcon className="h-4 w-4" />
+                      <Upload className="mr-2 h-4 w-4" /> Upload
                     </Button>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {attachmentFields.map((field, index) => (
+                    <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="font-medium">{form.watch(`attachments.${index}.fileName`)}</p>
+                        <FormField
+                          control={form.control}
+                          name={`attachments.${index}.description`}
+                          render={({ field: f }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input placeholder="Description (optional)" className="mt-1" {...f} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
         </WorkPermitSection>
         )}
 

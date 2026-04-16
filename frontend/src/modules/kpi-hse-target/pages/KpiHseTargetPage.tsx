@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Edit, Trash2, Plus, MoreHorizontal, FileDown } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button, ThemeButton } from '@/core/components/ui/button';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +43,7 @@ export default function KpiHseTargetPage() {
   const [allTargetsForPDF, setAllTargetsForPDF] = useState<HseTarget[]>([]);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: `kpi-hse-target-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
     }),
@@ -224,14 +224,19 @@ export default function KpiHseTargetPage() {
       });
       setAllTargetsForPDF(response.data);
       await new Promise((r) => setTimeout(r, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `kpi-hse-target-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch {
       toast.error('Failed to export PDF');
     } finally {
       setIsExportingPDF(false);
     }
-  }, [searchTerm, activeFilters, toPDF]);
+  }, [searchTerm, activeFilters, targetRef]);
 
   // --- Columns ---
   const columns = [

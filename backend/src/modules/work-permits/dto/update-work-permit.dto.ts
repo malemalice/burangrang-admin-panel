@@ -7,7 +7,6 @@ import {
   IsArray,
   ValidateNested,
   MaxLength,
-  Equals,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
@@ -23,6 +22,7 @@ import {
   WorkPermitHazardDto,
   WorkPermitAttachmentDto,
 } from './create-work-permit.dto';
+import { WorkPermitClassificationSafetyGuidanceInputDto } from './work-permit-classification-safety-guidance.dto';
 
 export class UpdateWorkPermitDto {
   @ApiProperty({ description: 'Project name', required: false })
@@ -65,11 +65,6 @@ export class UpdateWorkPermitDto {
   @IsString()
   workRequirements?: string;
 
-  @ApiProperty({ description: 'Safety guideline', required: false })
-  @IsOptional()
-  @IsString()
-  safetyGuideline?: string;
-
   @ApiProperty({
     description:
       'Required when work classification "Others" (code OTHERS) is selected — free-text description of the other work type',
@@ -85,22 +80,23 @@ export class UpdateWorkPermitDto {
   @IsBoolean()
   requireCourseVerification?: boolean;
 
-  @ApiProperty({
-    description:
-      'When provided, must be true — user confirms they have read the safety guideline',
-    required: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Equals(true, { message: 'You must confirm that you have read the safety guideline' })
-  acknowledgedSafetyGuideline?: boolean;
-
   @ApiProperty({ description: 'Work classifications', type: [WorkPermitClassificationDto], required: false })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkPermitClassificationDto)
   classifications?: WorkPermitClassificationDto[];
+
+  @ApiProperty({
+    description: 'Replace safety guidance for permit classification rows (omit if updating classifications in same request)',
+    type: [WorkPermitClassificationSafetyGuidanceInputDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkPermitClassificationSafetyGuidanceInputDto)
+  classificationSafetyGuidance?: WorkPermitClassificationSafetyGuidanceInputDto[];
 
   @ApiProperty({ description: 'Employees/PICs', type: [WorkPermitEmployeeDto], required: false })
   @IsOptional()

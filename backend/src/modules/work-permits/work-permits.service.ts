@@ -26,10 +26,11 @@ import { ApprovalAccessService } from '../approvals/services/approval-access.ser
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 import { WORK_CLASSIFICATION_OTHER_CODE } from './constants/work-classification.constants';
+import { WorkPermitClassificationSafetyGuidanceInputDto } from './dto/work-permit-classification-safety-guidance.dto';
 
 @Injectable()
 export class WorkPermitsService {
-  private workPermitMapper: (entity: any) => WorkPermitDto;
+  private rawWorkPermitMapper: (entity: any) => WorkPermitDto;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -40,7 +41,7 @@ export class WorkPermitsService {
     private readonly approvalAccessService: ApprovalAccessService,
     private readonly notificationsService: NotificationsService,
   ) {
-    this.workPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
+    this.rawWorkPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
       area: {
         mapper: (area: any) => ({
           id: area.id,
@@ -68,6 +69,71 @@ export class WorkPermitsService {
         isArray: false,
       },
     });
+  }
+
+  /** Maps DB row to API DTO; `acknowledgedSafetyGuideline` is derived from `applicantSignedAt`. */
+  private mapWorkPermitToDto(entity: any): WorkPermitDto {
+    const dto = this.rawWorkPermitMapper(entity);
+    dto.acknowledgedSafetyGuideline = entity.applicantSignedAt != null;
+    return dto;
+  }
+
+  private getWorkPermitFullInclude(): Prisma.WorkPermitInclude {
+    return {
+      area: true,
+      company: true,
+      creator: true,
+      classifications: {
+        include: {
+          workClassification: true,
+          safetyGuidanceRows: {
+            include: {
+              risk: true,
+              safetyEquipment: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: { order: 'asc' },
+      },
+      employees: {
+        include: { user: true },
+        orderBy: { order: 'asc' },
+      },
+      workers: {
+        include: { user: true },
+        orderBy: { order: 'asc' },
+      },
+      heavyEquipment: {
+        include: { heavyEquipment: true },
+        orderBy: { order: 'asc' },
+      },
+      tools: {
+        include: { tool: true },
+        orderBy: { order: 'asc' },
+      },
+      materials: {
+        include: { material: true },
+        orderBy: { order: 'asc' },
+      },
+      machines: {
+        include: { machine: true },
+        orderBy: { order: 'asc' },
+      },
+      professions: {
+        include: { profession: true },
+        orderBy: { order: 'asc' },
+      },
+      requiredCourses: {
+        include: { course: true },
+        orderBy: { order: 'asc' },
+      },
+      hazards: { orderBy: { order: 'asc' } },
+      attachments: { orderBy: { order: 'asc' } },
+      supervisors: { include: { guest: true } },
+      hseOfficers: { include: { user: true } },
+      safetyEquipment: { include: { safetyEquipment: true } },
+    };
   }
 
   /**
@@ -302,12 +368,10 @@ export class WorkPermitsService {
           proposedStartDate,
           proposedEndDate,
           workStagesDescription: createDto.workStagesDescription,
-          jobSafetyAnalysis: createDto.jobSafetyAnalysis,
+          jobSafetyAnalysis: createDto.jobSafetyAnalysis ?? null,
           workRequirements: createDto.workRequirements,
-          safetyGuideline: createDto.safetyGuideline,
           workClassificationOtherDetail: createDto.workClassificationOtherDetail,
           requireCourseVerification: createDto.requireCourseVerification || false,
-          acknowledgedSafetyGuideline: createDto.acknowledgedSafetyGuideline,
           status: 'DRAFT',
           createdBy,
           classifications: createDto.classifications
@@ -434,76 +498,39 @@ export class WorkPermitsService {
             }
             : undefined,
         } as any,
-        include: {
-          area: true,
-          company: true,
-          creator: true,
-          classifications: {
-            include: {
-              workClassification: true,
-            },
-          },
-          employees: {
-            include: {
-              user: true,
-            },
-          },
-          workers: {
-            include: {
-              user: true,
-            },
-          },
-          heavyEquipment: {
-            include: {
-              heavyEquipment: true,
-            },
-          },
-          tools: {
-            include: {
-              tool: true,
-            },
-          },
-          materials: {
-            include: {
-              material: true,
-            },
-          },
-          machines: {
-            include: {
-              machine: true,
-            },
-          },
-          professions: {
-            include: {
-              profession: true,
-            },
-          },
-          requiredCourses: {
-            include: {
-              course: true,
-            },
-          },
-          hazards: true,
-          attachments: true,
-          supervisors: {
-            include: {
-              guest: true,
-            },
-          },
-          hseOfficers: {
-            include: {
-              user: true,
-            },
-          },
-          safetyEquipment: {
-            include: {
-              safetyEquipment: true,
-            },
-          },
-        },
       });
 
-      return this.mapWorkPermitWithRelations(workPermit);
+      if (createDto.classifications?.length) {
+        await this.copySafetyGuidanceFromTemplates(workPermit.id);
+      }
+
+      if (createDto.classificationSafetyGuidance?.length) {
+        for (const block of createDto.classificationSafetyGuidance) {
+          const link = await this.prisma.workPermitClassification.findFirst({
+            where: {
+              workPermitId: workPermit.id,
+              workClassificationId: block.workClassificationId,
+              order: block.order,
+            },
+          });
+          if (!link) {
+            continue;
+          }
+          await this.replaceClassificationSafetyGuidance(link.id, {
+            workPermitClassificationId: link.id,
+            safetyGuidelineSnapshot: block.safetyGuidelineSnapshot,
+            rows: block.rows,
+          });
+        }
+      }
+
+      const full = await this.prisma.workPermit.findUnique({
+        where: { id: workPermit.id },
+        include: this.getWorkPermitFullInclude(),
+      });
+      this.errorHandler.throwIfNotFoundById('WorkPermit', workPermit.id, full);
+
+      return this.mapWorkPermitWithRelations(full);
     }, 'Creating work permit');
   }
 
@@ -529,11 +556,190 @@ export class WorkPermitsService {
     }
   }
 
+  private async validateClassificationBelongsToPermit(
+    workPermitClassificationId: string,
+    workPermitId: string,
+  ): Promise<void> {
+    const row = await this.prisma.workPermitClassification.findFirst({
+      where: { id: workPermitClassificationId, workPermitId },
+    });
+    if (!row) {
+      this.errorHandler.throwBadRequest('Invalid work permit classification reference');
+    }
+  }
+
+  /**
+   * Copy master WorkClassification safety guideline snapshot + risk/equipment template rows
+   * into a single permit classification link (replaces existing permit guidance rows).
+   */
+  private async copySafetyGuidanceFromTemplateForLinkId(workPermitClassificationId: string): Promise<void> {
+    const link = await this.prisma.workPermitClassification.findUnique({
+      where: { id: workPermitClassificationId },
+      include: {
+        workClassification: {
+          include: {
+            riskEquipmentRows: {
+              orderBy: { order: 'asc' },
+              include: { risk: true, safetyEquipment: true },
+            },
+          },
+        },
+      },
+    });
+    if (!link) {
+      return;
+    }
+    const snapshot = link.workClassification.safetyGuideline ?? null;
+    await this.prisma.workPermitClassification.update({
+      where: { id: link.id },
+      data: { safetyGuidelineSnapshot: snapshot },
+    });
+    await this.prisma.workPermitClassificationSafetyGuidanceRow.deleteMany({
+      where: { workPermitClassificationId: link.id },
+    });
+    for (const r of link.workClassification.riskEquipmentRows) {
+      await this.prisma.workPermitClassificationSafetyGuidanceRow.create({
+        data: {
+          workPermitClassificationId: link.id,
+          riskId: r.riskId,
+          safetyEquipmentId: r.safetyEquipmentId,
+          notes: r.notes ?? null,
+          order: r.order,
+          riskNameSnapshot: r.risk.name,
+          safetyEquipmentNameSnapshot: r.safetyEquipment.name,
+        },
+      });
+    }
+  }
+
+  private async copySafetyGuidanceFromTemplates(workPermitId: string): Promise<void> {
+    const links = await this.prisma.workPermitClassification.findMany({
+      where: { workPermitId },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+    for (const { id } of links) {
+      await this.copySafetyGuidanceFromTemplateForLinkId(id);
+    }
+  }
+
+  /**
+   * Update permit classification links without deleting unchanged rows (preserves Section G edits).
+   * Stable identity: one row per workClassificationId per permit.
+   */
+  private async reconcileWorkPermitClassifications(
+    workPermitId: string,
+    incoming: Array<{ workClassificationId: string; order: number }>,
+  ): Promise<void> {
+    const seen = new Set<string>();
+    for (const row of incoming) {
+      if (seen.has(row.workClassificationId)) {
+        this.errorHandler.throwBadRequest('Duplicate work classification in list');
+      }
+      seen.add(row.workClassificationId);
+    }
+
+    const existing = await this.prisma.workPermitClassification.findMany({
+      where: { workPermitId },
+      orderBy: { order: 'asc' },
+    });
+    const existingByWcId = new Map(existing.map((c) => [c.workClassificationId, c]));
+    const incomingWcIds = new Set(incoming.map((c) => c.workClassificationId));
+
+    for (const row of existing) {
+      if (!incomingWcIds.has(row.workClassificationId)) {
+        await this.prisma.workPermitClassification.delete({
+          where: { id: row.id },
+        });
+      }
+    }
+
+    for (const inc of incoming) {
+      const prev = existingByWcId.get(inc.workClassificationId);
+      if (prev) {
+        if (prev.order !== inc.order) {
+          await this.prisma.workPermitClassification.update({
+            where: { id: prev.id },
+            data: { order: inc.order },
+          });
+        }
+      } else {
+        const created = await this.prisma.workPermitClassification.create({
+          data: {
+            workPermitId,
+            workClassificationId: inc.workClassificationId,
+            order: inc.order,
+          },
+        });
+        await this.copySafetyGuidanceFromTemplateForLinkId(created.id);
+      }
+    }
+  }
+
+  private async replaceClassificationSafetyGuidance(
+    workPermitClassificationId: string,
+    input: WorkPermitClassificationSafetyGuidanceInputDto,
+  ): Promise<void> {
+    await this.prisma.workPermitClassification.update({
+      where: { id: workPermitClassificationId },
+      data: {
+        safetyGuidelineSnapshot: input.safetyGuidelineSnapshot ?? null,
+      },
+    });
+    await this.prisma.workPermitClassificationSafetyGuidanceRow.deleteMany({
+      where: { workPermitClassificationId },
+    });
+    const riskIds = [...new Set(input.rows.map((r) => r.riskId))];
+    const equipmentIds = [...new Set(input.rows.map((r) => r.safetyEquipmentId))];
+    const [risks, equipments] = await Promise.all([
+      this.prisma.risk.findMany({ where: { id: { in: riskIds } } }),
+      this.prisma.safetyEquipment.findMany({ where: { id: { in: equipmentIds } } }),
+    ]);
+    const riskMap = new Map(risks.map((r) => [r.id, r]));
+    const eqMap = new Map(equipments.map((e) => [e.id, e]));
+    for (const row of input.rows) {
+      const risk = riskMap.get(row.riskId);
+      const eq = eqMap.get(row.safetyEquipmentId);
+      if (!risk || !eq) {
+        this.errorHandler.throwBadRequest('Invalid risk or safety equipment in safety guidance');
+      }
+      await this.prisma.workPermitClassificationSafetyGuidanceRow.create({
+        data: {
+          workPermitClassificationId,
+          riskId: row.riskId,
+          safetyEquipmentId: row.safetyEquipmentId,
+          notes: row.notes ?? null,
+          order: row.order,
+          riskNameSnapshot: risk!.name,
+          safetyEquipmentNameSnapshot: eq!.name,
+        },
+      });
+    }
+  }
+
+  private async permitHasSafetyGuidelineContent(workPermitId: string): Promise<boolean> {
+    const links = await this.prisma.workPermitClassification.findMany({
+      where: { workPermitId },
+      include: {
+        _count: { select: { safetyGuidanceRows: true } },
+      },
+    });
+    for (const link of links) {
+      if (link.safetyGuidelineSnapshot?.trim()) {
+        return true;
+      }
+      if (link._count.safetyGuidanceRows > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Map work permit with all relations to DTO
    */
   private mapWorkPermitWithRelations(workPermit: any): WorkPermitDto {
-    const base = this.workPermitMapper(workPermit);
+    const base = this.mapWorkPermitToDto(workPermit);
 
     // Map nested relations
     if (workPermit.classifications) {
@@ -545,9 +751,34 @@ export class WorkPermitsService {
             id: c.workClassification.id,
             name: c.workClassification.name,
             code: c.workClassification.code,
+            description: c.workClassification.description ?? undefined,
+            /** Master template HTML — used by clients when snapshot/rows are empty (legacy / not yet copied) */
+            safetyGuideline: c.workClassification.safetyGuideline ?? undefined,
           }
           : undefined,
         order: c.order,
+        safetyGuidelineSnapshot: c.safetyGuidelineSnapshot ?? undefined,
+        safetyGuidanceRows: c.safetyGuidanceRows
+          ? c.safetyGuidanceRows.map((r: any) => ({
+            id: r.id,
+            riskId: r.riskId,
+            safetyEquipmentId: r.safetyEquipmentId,
+            notes: r.notes ?? undefined,
+            order: r.order,
+            riskNameSnapshot: r.riskNameSnapshot ?? undefined,
+            safetyEquipmentNameSnapshot: r.safetyEquipmentNameSnapshot ?? undefined,
+            risk: r.risk
+              ? { id: r.risk.id, name: r.risk.name, code: r.risk.code }
+              : undefined,
+            safetyEquipment: r.safetyEquipment
+              ? {
+                id: r.safetyEquipment.id,
+                name: r.safetyEquipment.name,
+                code: r.safetyEquipment.code,
+              }
+              : undefined,
+          }))
+          : undefined,
       }));
     }
 
@@ -884,7 +1115,7 @@ export class WorkPermitsService {
       });
 
       return {
-        data: workPermits.map(this.workPermitMapper),
+        data: workPermits.map((wp) => this.mapWorkPermitToDto(wp)),
         meta: {
           total,
           page: pageNum,
@@ -903,108 +1134,7 @@ export class WorkPermitsService {
       await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
-        include: {
-          area: true,
-          company: true,
-          creator: true,
-          classifications: {
-            include: {
-              workClassification: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          employees: {
-            include: {
-              user: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          workers: {
-            include: {
-              user: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          heavyEquipment: {
-            include: {
-              heavyEquipment: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          tools: {
-            include: {
-              tool: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          materials: {
-            include: {
-              material: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          machines: {
-            include: {
-              machine: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          professions: {
-            include: {
-              profession: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          requiredCourses: {
-            include: {
-              course: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          hazards: {
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          attachments: {
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          supervisors: {
-            include: {
-              guest: true,
-            },
-          },
-          hseOfficers: {
-            include: {
-              user: true,
-            },
-          },
-          safetyEquipment: {
-            include: {
-              safetyEquipment: true,
-            },
-          },
-        },
+        include: this.getWorkPermitFullInclude(),
       });
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
@@ -1107,29 +1237,17 @@ export class WorkPermitsService {
       if (updateDto.workStagesDescription !== undefined) updateData.workStagesDescription = updateDto.workStagesDescription;
       if (updateDto.jobSafetyAnalysis !== undefined) updateData.jobSafetyAnalysis = updateDto.jobSafetyAnalysis;
       if (updateDto.workRequirements !== undefined) updateData.workRequirements = updateDto.workRequirements;
-      if (updateDto.safetyGuideline !== undefined) updateData.safetyGuideline = updateDto.safetyGuideline;
       if (updateDto.workClassificationOtherDetail !== undefined) {
         updateData.workClassificationOtherDetail = updateDto.workClassificationOtherDetail;
       }
       if (updateDto.requireCourseVerification !== undefined) updateData.requireCourseVerification = updateDto.requireCourseVerification;
-      if (updateDto.acknowledgedSafetyGuideline !== undefined) {
-        updateData.acknowledgedSafetyGuideline = updateDto.acknowledgedSafetyGuideline;
-      }
 
-      // Handle nested relations updates
-      // Delete existing relations and create new ones
+      // Preserve permit-owned Section G: reconcile classification links (diff) instead of delete-all + recreate
       if (updateDto.classifications !== undefined) {
-        await this.prisma.workPermitClassification.deleteMany({
-          where: { workPermitId: id },
-        });
-        updateData.classifications = {
-          create: updateDto.classifications.map((c) => ({
-            workClassificationId: c.workClassificationId,
-            order: c.order,
-          })),
-        };
+        await this.reconcileWorkPermitClassifications(id, updateDto.classifications);
       }
 
+      // Handle nested relations updates (classifications handled above)
       if (updateDto.employees !== undefined) {
         await this.prisma.workPermitEmployee.deleteMany({
           where: { workPermitId: id },
@@ -1340,111 +1458,26 @@ export class WorkPermitsService {
       const workPermit = await this.prisma.workPermit.update({
         where: { id },
         data: updateData,
-        include: {
-          area: true,
-          company: true,
-          creator: true,
-          classifications: {
-            include: {
-              workClassification: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          employees: {
-            include: {
-              user: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          workers: {
-            include: {
-              user: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          heavyEquipment: {
-            include: {
-              heavyEquipment: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          tools: {
-            include: {
-              tool: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          materials: {
-            include: {
-              material: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          machines: {
-            include: {
-              machine: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          professions: {
-            include: {
-              profession: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          requiredCourses: {
-            include: {
-              course: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          hazards: {
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          attachments: {
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          supervisors: {
-            include: {
-              guest: true,
-            },
-          },
-          hseOfficers: {
-            include: {
-              user: true,
-            },
-          },
-          safetyEquipment: {
-            include: {
-              safetyEquipment: true,
-            },
-          },
-        },
+        include: this.getWorkPermitFullInclude(),
       });
 
-      return this.mapWorkPermitWithRelations(workPermit);
+      if (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0) {
+        for (const block of updateDto.classificationSafetyGuidance) {
+          await this.validateClassificationBelongsToPermit(block.workPermitClassificationId, id);
+          await this.replaceClassificationSafetyGuidance(block.workPermitClassificationId, block);
+        }
+      }
+
+      const refreshed =
+        updateDto.classifications !== undefined ||
+        (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0)
+          ? await this.prisma.workPermit.findUnique({
+              where: { id },
+              include: this.getWorkPermitFullInclude(),
+            })
+          : workPermit;
+
+      return this.mapWorkPermitWithRelations(refreshed ?? workPermit);
     }, 'Updating work permit');
   }
 
@@ -1518,7 +1551,7 @@ export class WorkPermitsService {
       // Send notification to HSE
       await this.sendNotificationToHse(id, updated);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Submitting work permit');
   }
 
@@ -1557,13 +1590,11 @@ export class WorkPermitsService {
         this.errorHandler.throwForbidden('You do not have permission to approve this work permit');
       }
 
-      if (isHseApprover && approveDto.safetyGuideline !== undefined) {
-        await this.prisma.workPermit.update({
-          where: { id },
-          data: {
-            safetyGuideline: approveDto.safetyGuideline,
-          },
-        });
+      if (isHseApprover && approveDto.classificationSafetyGuidance?.length) {
+        for (const block of approveDto.classificationSafetyGuidance) {
+          await this.validateClassificationBelongsToPermit(block.workPermitClassificationId, id);
+          await this.replaceClassificationSafetyGuidance(block.workPermitClassificationId, block);
+        }
       }
 
       // Submit approval record
@@ -1624,7 +1655,7 @@ export class WorkPermitsService {
 
       // Notifications are sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Approving work permit');
   }
 
@@ -1687,7 +1718,7 @@ export class WorkPermitsService {
 
       // Rejection notification is sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Rejecting work permit');
   }
 
@@ -1740,7 +1771,7 @@ export class WorkPermitsService {
       // Send notification to requester and CC users
       await this.sendInfoRequestNotification(id, updated, requestInfoDto.message, requestInfoDto.ccUserIds || []);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Requesting additional information');
   }
 
@@ -1771,7 +1802,7 @@ export class WorkPermitsService {
         this.errorHandler.throwForbidden('Only the applicant can sign and acknowledge this safety guideline');
       }
 
-      if (!workPermit.safetyGuideline?.trim()) {
+      if (!(await this.permitHasSafetyGuidelineContent(id))) {
         this.errorHandler.throwBadRequest('Safety guideline is not available yet. Please wait for HSE to provide it.');
       }
 
@@ -1791,7 +1822,7 @@ export class WorkPermitsService {
 
       await this.sendNotificationToSecurityReview(id, updated);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Signing safety guideline acknowledgement');
   }
 
@@ -1842,7 +1873,7 @@ export class WorkPermitsService {
       // Send extension notification
       await this.sendExtensionNotification(id, updated, extendDto.reason);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Extending work permit');
   }
 
@@ -1885,7 +1916,7 @@ export class WorkPermitsService {
       // Send closure notification
       await this.sendClosureNotification(id, updated);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Closing work permit');
   }
 
@@ -2252,6 +2283,18 @@ export class WorkPermitsService {
               name: true,
               code: true,
               safetyGuideline: true,
+              riskEquipmentRows: {
+                orderBy: { order: 'asc' },
+                select: {
+                  id: true,
+                  riskId: true,
+                  safetyEquipmentId: true,
+                  notes: true,
+                  order: true,
+                  risk: { select: { id: true, name: true, code: true } },
+                  safetyEquipment: { select: { id: true, name: true, code: true } },
+                },
+              },
               attachments: {
                 select: {
                   id: true,

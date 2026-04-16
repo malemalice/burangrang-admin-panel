@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText, FileDown, PenLine } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Clock, FileText, FileDown, PenLine } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { useWorkPermit, useWorkPermitActions } from '../hooks/useWorkPermits';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -31,8 +31,10 @@ import {
   WORK_PERMIT_SECTION_C_SUB,
   WORK_PERMIT_SECTION_D_SUB,
   WORK_PERMIT_SECTION_E_SUB,
+  WORK_PERMIT_SECTION_G_SUB,
   WORK_PERMIT_SECTION_F_SUB,
 } from '../constants/workPermitSections';
+import { WorkPermitSafetyGuidelineDisplay } from '../components/WorkPermitSafetyGuidelineDisplay';
 import {
   Table,
   TableBody,
@@ -44,6 +46,10 @@ import {
 import { approvalService, APPROVAL_ENTITIES, type ApprovalStatusHistory } from '@/modules/master-data';
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 import { useAuth } from '@/core/lib/auth';
+import { ApprovalStatus } from '@/core/lib/types';
+import { WorkPermitApprovalDialog } from '../components/WorkPermitApprovalDialog';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
   if (v == null) return '—';
@@ -55,8 +61,37 @@ const WorkPermitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { workPermit, isLoading, fetchWorkPermit } = useWorkPermit(id || null);
-  const { submit, approve, reject, requestInfo, extend, close, signSk, isLoading: isActionLoading } = useWorkPermitActions();
+  const { submit, extend, close, signSk, isLoading: isActionLoading } = useWorkPermitActions();
   const { user: currentUser } = useAuth();
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
+  const {
+    mitigationsByRiskId,
+    mitigationsLoadingByRiskId,
+    mitigationsErrorByRiskId,
+    mitigationsPending,
+  } = useWorkPermitClassificationRiskMitigations(workPermit?.classifications);
+
+  const classifications = workPermit?.classifications;
+  const hasSafetyGuidanceRows = useMemo(
+    () => (classifications ?? []).some((c) => (c.safetyGuidanceRows?.length ?? 0) > 0),
+    [classifications],
+  );
+  const hasGuidelineNarrativeHtml = useMemo(
+    () =>
+      classificationContentEnabled &&
+      (classifications ?? []).some((c) => {
+        const h = c.safetyGuidelineSnapshot?.trim() || c.workClassification?.safetyGuideline?.trim();
+        return Boolean(h);
+      }),
+    [classifications, classificationContentEnabled],
+  );
+  const hasWorkClassificationDescription = useMemo(
+    () =>
+      (classifications ?? []).some((c) => Boolean(c.workClassification?.description?.trim())),
+    [classifications],
+  );
+  const showSectionG =
+    hasSafetyGuidanceRows || hasGuidelineNarrativeHtml || hasWorkClassificationDescription;
 
   const createdByLabel = (() => {
     const creator = workPermit?.creator;
@@ -68,13 +103,11 @@ const WorkPermitDetailPage = () => {
   const [approvalRights, setApprovalRights] = useState<{
     canApprove: boolean;
     canReject: boolean;
-    canRequestInfo: boolean;
     nextApprover: any;
   } | null>(null);
 
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [timeline, setTimeline] = useState<ApprovalTimelineItem[]>([]);
@@ -82,17 +115,12 @@ const WorkPermitDetailPage = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: `${workPermit?.code ?? 'work-permit'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
     }),
   );
 
-  const [approveNotes, setApproveNotes] = useState('');
-  const [approveSafetyGuideline, setApproveSafetyGuideline] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
-  const [rejectNotes, setRejectNotes] = useState('');
-  const [infoMessage, setInfoMessage] = useState('');
   const [extendDate, setExtendDate] = useState('');
   const [extendReason, setExtendReason] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
@@ -114,39 +142,39 @@ const WorkPermitDetailPage = () => {
     }
   }, [id]);
 
-  // Fetch approval status/history for ApprovalTimelineCard
-  useEffect(() => {
-    const fetchApprovalStatus = async () => {
-      if (!id) return;
+  const fetchApprovalHistory = useCallback(async () => {
+    if (!id) return;
 
-      setIsLoadingHistory(true);
-      try {
-        const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.WORK_PERMIT);
-        if (approvalStatus && !(approvalStatus as { error?: boolean }).error) {
-          setApprovalHistory(approvalStatus);
-        } else {
-          setApprovalHistory({
-            history: [],
-            nextApprover: null,
-            allApprovalLines: [],
-            currentStatus: 'UNKNOWN',
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch approval status:', error);
+    setIsLoadingHistory(true);
+    try {
+      const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.WORK_PERMIT);
+      if (approvalStatus && !(approvalStatus as { error?: boolean }).error) {
+        setApprovalHistory(approvalStatus);
+      } else {
         setApprovalHistory({
           history: [],
           nextApprover: null,
           allApprovalLines: [],
           currentStatus: 'UNKNOWN',
         });
-      } finally {
-        setIsLoadingHistory(false);
       }
-    };
-
-    fetchApprovalStatus();
+    } catch (error) {
+      console.error('Failed to fetch approval status:', error);
+      setApprovalHistory({
+        history: [],
+        nextApprover: null,
+        allApprovalLines: [],
+        currentStatus: 'UNKNOWN',
+      });
+    } finally {
+      setIsLoadingHistory(false);
+    }
   }, [id]);
+
+  // Fetch approval status/history for ApprovalTimelineCard
+  useEffect(() => {
+    void fetchApprovalHistory();
+  }, [fetchApprovalHistory]);
 
   // Fetch approval rights when work permit is loaded
   useEffect(() => {
@@ -184,22 +212,6 @@ const WorkPermitDetailPage = () => {
     }
   };
 
-  const handleApprove = async () => {
-    if (!id) return;
-    try {
-      await approve(id, {
-        notes: approveNotes,
-        safetyGuideline: approveSafetyGuideline || undefined,
-      });
-      setApproveDialogOpen(false);
-      setApproveNotes('');
-      setApproveSafetyGuideline('');
-      await fetchWorkPermit(id);
-    } catch (error) {
-      // Error handled in hook
-    }
-  };
-
   const handleSignSk = async () => {
     if (!id) return;
     try {
@@ -207,37 +219,6 @@ const WorkPermitDetailPage = () => {
       setSignSkDialogOpen(false);
       setApplicantSignature('');
       await fetchWorkPermit(id);
-    } catch (error) {
-      // Error handled in hook
-    }
-  };
-
-  const handleReject = async () => {
-    if (!id || !rejectReason) {
-      toast.error('Rejection reason is required');
-      return;
-    }
-    try {
-      await reject(id, rejectReason, rejectNotes);
-      setRejectDialogOpen(false);
-      setRejectReason('');
-      setRejectNotes('');
-      fetchWorkPermit(id);
-    } catch (error) {
-      // Error handled in hook
-    }
-  };
-
-  const handleRequestInfo = async () => {
-    if (!id || !infoMessage) {
-      toast.error('Information request message is required');
-      return;
-    }
-    try {
-      await requestInfo(id, infoMessage);
-      setRequestInfoDialogOpen(false);
-      setInfoMessage('');
-      fetchWorkPermit(id);
     } catch (error) {
       // Error handled in hook
     }
@@ -287,7 +268,12 @@ const WorkPermitDetailPage = () => {
     try {
       setIsExportingPDF(true);
       await new Promise((resolve) => setTimeout(resolve, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${workPermit.code}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);
@@ -303,7 +289,6 @@ const WorkPermitDetailPage = () => {
   // Permission-based actions using checkApprovalRights result
   const canApprove = approvalRights?.canApprove ?? false;
   const canReject = approvalRights?.canReject ?? false;
-  const canRequestInfo = approvalRights?.canRequestInfo ?? false;
   const canSignSk =
     workPermit?.status === 'WAITING_APPLICANT_SIGN' && Boolean(currentUser?.id) && workPermit.createdBy === currentUser.id;
   
@@ -339,7 +324,12 @@ const WorkPermitDetailPage = () => {
           style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
           aria-hidden="true"
         >
-          <WorkPermitPDFTemplate workPermit={workPermit} timeline={timeline} />
+          <WorkPermitPDFTemplate
+            workPermit={workPermit}
+            timeline={timeline}
+            classificationContentEnabled={classificationContentEnabled}
+            mitigationsByRiskId={mitigationsByRiskId}
+          />
         </div>
       )}
       <PageHeader
@@ -353,7 +343,7 @@ const WorkPermitDetailPage = () => {
             <Button
               variant="outline"
               onClick={handleExportPDF}
-              disabled={isExportingPDF}
+              disabled={isExportingPDF || (mitigationsPending && hasSafetyGuidanceRows)}
             >
               <FileDown className="mr-2 h-4 w-4" />
               {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
@@ -369,18 +359,27 @@ const WorkPermitDetailPage = () => {
               </Button>
             )}
             {canApprove && (
-              <Button onClick={() => setApproveDialogOpen(true)} disabled={isActionLoading}>
+              <Button
+                onClick={() => {
+                  setApprovalInitialStatus(ApprovalStatus.APPROVED);
+                  setApprovalDialogOpen(true);
+                }}
+                disabled={isActionLoading}
+                className="bg-green-600 hover:bg-green-700"
+              >
                 <CheckCircle className="mr-2 h-4 w-4" /> Approve
               </Button>
             )}
             {canReject && (
-              <Button variant="destructive" onClick={() => setRejectDialogOpen(true)} disabled={isActionLoading}>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setApprovalInitialStatus(ApprovalStatus.REJECTED);
+                  setApprovalDialogOpen(true);
+                }}
+                disabled={isActionLoading}
+              >
                 <XCircle className="mr-2 h-4 w-4" /> Reject
-              </Button>
-            )}
-            {canRequestInfo && (
-              <Button variant="outline" onClick={() => setRequestInfoDialogOpen(true)} disabled={isActionLoading}>
-                <MessageSquare className="mr-2 h-4 w-4" /> Request Info
               </Button>
             )}
             {canSignSk && (
@@ -426,14 +425,33 @@ const WorkPermitDetailPage = () => {
           <WorkPermitSection
             id="work-permit-detail-section-sk-ack"
             title="Safety Guideline Acknowledgment"
-            description="Review the safety guideline authored by HSE before signing."
+            description={
+              classificationContentEnabled
+                ? 'Review the safety guideline authored by HSE before signing.'
+                : hasSafetyGuidanceRows || hasWorkClassificationDescription
+                  ? 'Review risk, required equipment, and mitigation from your work classifications before signing.'
+                  : 'Complete your sign-off (SK) before final security approval.'
+            }
           >
             <Card>
               <CardHeader>
-                <WorkPermitSubsectionTitle>Safety Guideline (SK)</WorkPermitSubsectionTitle>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-sm whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
+                {hasSafetyGuidanceRows || classificationContentEnabled || hasWorkClassificationDescription ? (
+                  <WorkPermitSafetyGuidelineDisplay
+                    classifications={workPermit.classifications}
+                    showGuidelineNarrative={classificationContentEnabled}
+                    mitigationsByRiskId={mitigationsByRiskId}
+                    mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                    mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Safety guideline details are not shown in this environment. Use <strong>Sign SK</strong> to
+                    complete your acknowledgment.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Status: waiting applicant signature before final security approval.
                 </p>
@@ -528,21 +546,25 @@ const WorkPermitDetailPage = () => {
                   <Label className="text-muted-foreground">Work Stages Description</Label>
                   <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workStagesDescription)}</p>
                 </div>
+                {workPermit.jobSafetyAnalysis?.trim() ? (
+                  <div>
+                    <Label className="text-muted-foreground">Job Safety Analysis</Label>
+                    <p className="mt-1 whitespace-pre-wrap">{workPermit.jobSafetyAnalysis}</p>
+                  </div>
+                ) : null}
+                {workPermit.workRequirements?.trim() ? (
+                  <div>
+                    <Label className="text-muted-foreground">Work Requirements</Label>
+                    <p className="mt-1 whitespace-pre-wrap">{workPermit.workRequirements}</p>
+                  </div>
+                ) : null}
                 <div>
-                  <Label className="text-muted-foreground">Job Safety Analysis</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.jobSafetyAnalysis)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Work Requirements</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workRequirements)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Safety Guideline</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.safetyGuideline)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Safety guideline acknowledged</Label>
-                  <p className="mt-1">{workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'}</p>
+                  <Label className="text-muted-foreground">Applicant sign-off (HSE safety guideline)</Label>
+                  <p className="mt-1">
+                    {workPermit.applicantSignedAt
+                      ? format(new Date(workPermit.applicantSignedAt), 'MMM dd, yyyy HH:mm')
+                      : 'Not signed yet'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -849,6 +871,33 @@ const WorkPermitDetailPage = () => {
           </Card>
         </WorkPermitSection>
 
+        {showSectionG && (
+          <WorkPermitSection
+            id="work-permit-detail-section-g"
+            title={WORK_PERMIT_SECTIONS.G}
+            description={
+              classificationContentEnabled
+                ? 'Per work classification — risk/equipment/mitigation and HSE guideline narrative where applicable'
+                : 'Per work classification — risk, required safety equipment, and master risk mitigation'
+            }
+          >
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                <WorkPermitSafetyGuidelineDisplay
+                  classifications={workPermit.classifications}
+                  showGuidelineNarrative={classificationContentEnabled}
+                  mitigationsByRiskId={mitigationsByRiskId}
+                  mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                  mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                />
+              </CardContent>
+            </Card>
+          </WorkPermitSection>
+        )}
+
         <WorkPermitSection id="work-permit-detail-section-f" title={WORK_PERMIT_SECTIONS.F}>
           <div className="grid gap-6">
             <Card>
@@ -955,83 +1004,66 @@ const WorkPermitDetailPage = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.attachments?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No attachments.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>File</TableHead>
-                        <TableHead>Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workPermit.attachments!.map((a) => (
-                        <TableRow key={a.id}>
-                          <TableCell>
-                            <a
-                              href={a.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary underline underline-offset-2"
-                            >
-                              {displayField(a.fileName)}
-                            </a>
-                          </TableCell>
-                          <TableCell className="whitespace-pre-wrap">{displayField(a.description)}</TableCell>
+            {classificationContentEnabled && (
+              <Card>
+                <CardHeader>
+                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
+                </CardHeader>
+                <CardContent>
+                  {(workPermit.attachments?.length ?? 0) === 0 ? (
+                    <p className="text-sm text-muted-foreground">No attachments.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>File</TableHead>
+                          <TableHead>Description</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {workPermit.attachments!.map((a) => (
+                          <TableRow key={a.id}>
+                            <TableCell>
+                              <a
+                                href={a.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline underline-offset-2"
+                              >
+                                {displayField(a.fileName)}
+                              </a>
+                            </TableCell>
+                            <TableCell className="whitespace-pre-wrap">{displayField(a.description)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </WorkPermitSection>
       </div>
 
-      {/* Approve Dialog */}
-      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Approve Work Permit</DialogTitle>
-            <DialogDescription>Add approval notes (optional)</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Notes</Label>
-              <Textarea
-                value={approveNotes}
-                onChange={(e) => setApproveNotes(e.target.value)}
-                placeholder="Optional approval notes..."
-              />
-            </div>
-            {workPermit?.status === 'IN_REVIEW_HSE' && (
-              <div>
-                <Label>Safety Guideline (SK)</Label>
-                <Textarea
-                  value={approveSafetyGuideline}
-                  onChange={(e) => setApproveSafetyGuideline(e.target.value)}
-                  placeholder="Write safety terms and conditions for applicant acknowledgment..."
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleApprove} disabled={isActionLoading}>
-              Approve
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {id && (
+        <WorkPermitApprovalDialog
+          open={approvalDialogOpen}
+          onOpenChange={setApprovalDialogOpen}
+          workPermitId={id}
+          workPermitStatus={workPermit.status}
+          onSubmitted={async () => {
+            await fetchWorkPermit(id);
+            await fetchApprovalHistory();
+            import('../services/workPermitService').then((module) => {
+              module.default.getTimeline(id).then(setTimeline).catch((error) => {
+                console.error('Failed to fetch timeline:', error);
+              });
+            });
+          }}
+          initialStatus={approvalInitialStatus}
+        />
+      )}
 
       {/* Sign SK Dialog */}
       <Dialog open={signSkDialogOpen} onOpenChange={setSignSkDialogOpen}>
@@ -1045,9 +1077,21 @@ const WorkPermitDetailPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Safety Guideline</Label>
-              <div className="rounded-md border p-3 text-sm whitespace-pre-wrap bg-muted/30">
-                {displayField(workPermit?.safetyGuideline)}
-              </div>
+              {hasSafetyGuidanceRows || classificationContentEnabled || hasWorkClassificationDescription ? (
+                <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto">
+                  <WorkPermitSafetyGuidelineDisplay
+                    classifications={workPermit?.classifications}
+                    showGuidelineNarrative={classificationContentEnabled}
+                    mitigationsByRiskId={mitigationsByRiskId}
+                    mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                    mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Guideline text is not shown in this environment. You can still confirm and submit your sign-off below.
+                </p>
+              )}
             </div>
             <div>
               <Label>Signature / Acknowledgment (optional)</Label>
@@ -1064,72 +1108,6 @@ const WorkPermitDetailPage = () => {
             </Button>
             <Button onClick={handleSignSk} disabled={isActionLoading}>
               Sign & Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Work Permit</DialogTitle>
-            <DialogDescription>Please provide a reason for rejection</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Reason *</Label>
-              <Textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Rejection reason..."
-                required
-              />
-            </div>
-            <div>
-              <Label>Additional Notes</Label>
-              <Textarea
-                value={rejectNotes}
-                onChange={(e) => setRejectNotes(e.target.value)}
-                placeholder="Optional notes..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={isActionLoading || !rejectReason}>
-              Reject
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Request Info Dialog */}
-      <Dialog open={requestInfoDialogOpen} onOpenChange={setRequestInfoDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Request Additional Information</DialogTitle>
-            <DialogDescription>Request additional information from the requester</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Message *</Label>
-              <Textarea
-                value={infoMessage}
-                onChange={(e) => setInfoMessage(e.target.value)}
-                placeholder="What information is needed?"
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestInfoDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRequestInfo} disabled={isActionLoading || !infoMessage}>
-              Send Request
             </Button>
           </DialogFooter>
         </DialogContent>

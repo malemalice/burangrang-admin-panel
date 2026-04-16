@@ -7,6 +7,7 @@ import {
   WorkPermitSearchParams,
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
+  ClassificationSafetyGuidanceUpdate,
 } from '../types/work-permit.types';
 
 export const useWorkPermits = () => {
@@ -86,7 +87,8 @@ export const useWorkPermits = () => {
     }
   }, []);
 
-  const approveWorkPermit = useCallback(async (id: string, payload?: { notes?: string; safetyGuideline?: string }) => {
+  const approveWorkPermit = useCallback(
+    async (id: string, payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] }) => {
     try {
       const updated = await workPermitService.approveWorkPermit(id, payload);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -107,19 +109,6 @@ export const useWorkPermits = () => {
       return updated;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to reject work permit';
-      toast.error(errorMessage);
-      throw err;
-    }
-  }, []);
-
-  const requestInfo = useCallback(async (id: string, message: string, ccUserIds?: string[], notes?: string) => {
-    try {
-      const updated = await workPermitService.requestInfo(id, message, ccUserIds, notes);
-      setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
-      toast.success('Information request sent successfully');
-      return updated;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to request information';
       toast.error(errorMessage);
       throw err;
     }
@@ -177,7 +166,6 @@ export const useWorkPermits = () => {
     submitWorkPermit,
     approveWorkPermit,
     rejectWorkPermit,
-    requestInfo,
     extendWorkPermit,
     closeWorkPermit,
     signSk,
@@ -231,7 +219,7 @@ export const useWorkPermitActions = () => {
     }
   };
 
-  const approve = async (id: string, payload?: { notes?: string; safetyGuideline?: string }) => {
+  const approve = async (id: string, payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] }) => {
     setIsLoading(true);
     try {
       return await workPermitService.approveWorkPermit(id, payload);
@@ -253,15 +241,6 @@ export const useWorkPermitActions = () => {
     setIsLoading(true);
     try {
       return await workPermitService.rejectWorkPermit(id, reason, notes);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const requestInfo = async (id: string, message: string, ccUserIds?: string[], notes?: string) => {
-    setIsLoading(true);
-    try {
-      return await workPermitService.requestInfo(id, message, ccUserIds, notes);
     } finally {
       setIsLoading(false);
     }
@@ -290,7 +269,6 @@ export const useWorkPermitActions = () => {
     submit,
     approve,
     reject,
-    requestInfo,
     extend,
     close,
     signSk,

@@ -16,7 +16,7 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
   }
 
   // Find specific departments and job positions for approval workflows
-  const hseDepartment = departments.find((d) => d.code === 'HEALTH' || d.name.toLowerCase().includes('health'));
+  const hseDepartment = departments.find((d) => d.code === 'HSE' || d.name.toLowerCase().includes('hse'));
   const securityDepartment = departments.find((d) => d.code === 'SEC' || d.name.toLowerCase().includes('security'));
   const adminDepartment = departments.find((d) => d.code === 'ADMIN' || d.name.toLowerCase().includes('admin'));
   const projectDepartment = departments.find((d) => d.code === 'PROJECT' || d.name.toLowerCase().includes('project'));
@@ -35,7 +35,7 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     departments.find((d) => d.code === 'ACAD') ||
     departments[0]!;
 
-  const pos1 = managerPosition || jobPositions.find((j) => j.level <= 5) || jobPositions[0]!;
+  const pos1 = headPosition || jobPositions.find((j) => j.level <= 5) || jobPositions[0]!;
   const pos2 =
     directorPosition ||
     jobPositions.find((j) => j.level <= 3) ||
@@ -106,7 +106,7 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
         mApprovalId: workPermitApproval.id,
         order: 1,
         jobPositionId: pos1.id,
-        departmentId: dept1.id, // HSE/Health Department
+        departmentId: dept1.id, // HSE Department
         createdBy: creator.id,
       },
       {
