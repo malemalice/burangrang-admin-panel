@@ -21,10 +21,12 @@ import workClassificationService from '../services/workClassificationService';
 import { WorkClassification } from '../types/work-classification.types';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 
 const WorkClassificationsPage = () => {
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const { classifications, isLoading, fetchClassifications, pagination } = useWorkClassifications();
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -287,7 +289,11 @@ const WorkClassificationsPage = () => {
     <>
       <PageHeader
         title="Work classifications"
-        subtitle="Manage work permit classification types and safety guidelines"
+        subtitle={
+          classificationContentEnabled
+            ? 'Manage work permit classification types and safety guidelines'
+            : 'Manage work permit classification types'
+        }
         actions={
           <PermissionGuard permission="work-permit:create">
             <Button onClick={() => navigate('/master/work-classifications/new')}>
@@ -321,7 +327,11 @@ const WorkClassificationsPage = () => {
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
-        searchPlaceholder="Search name, code, or safety guideline…"
+        searchPlaceholder={
+          classificationContentEnabled
+            ? 'Search name, code, or safety guideline…'
+            : 'Search name or code…'
+        }
       />
 
       <ConfirmDialog

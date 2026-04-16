@@ -48,6 +48,7 @@ import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/Appro
 import { useAuth } from '@/core/lib/auth';
 import { ApprovalStatus } from '@/core/lib/types';
 import { WorkPermitApprovalDialog } from '../components/WorkPermitApprovalDialog';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
   if (v == null) return '—';
@@ -61,6 +62,7 @@ const WorkPermitDetailPage = () => {
   const { workPermit, isLoading, fetchWorkPermit } = useWorkPermit(id || null);
   const { submit, extend, close, signSk, isLoading: isActionLoading } = useWorkPermitActions();
   const { user: currentUser } = useAuth();
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
 
   const createdByLabel = (() => {
     const creator = workPermit?.creator;
@@ -293,7 +295,11 @@ const WorkPermitDetailPage = () => {
           style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
           aria-hidden="true"
         >
-          <WorkPermitPDFTemplate workPermit={workPermit} timeline={timeline} />
+          <WorkPermitPDFTemplate
+            workPermit={workPermit}
+            timeline={timeline}
+            classificationContentEnabled={classificationContentEnabled}
+          />
         </div>
       )}
       <PageHeader
@@ -389,14 +395,25 @@ const WorkPermitDetailPage = () => {
           <WorkPermitSection
             id="work-permit-detail-section-sk-ack"
             title="Safety Guideline Acknowledgment"
-            description="Review the safety guideline authored by HSE before signing."
+            description={
+              classificationContentEnabled
+                ? 'Review the safety guideline authored by HSE before signing.'
+                : 'Complete your sign-off (SK) before final security approval.'
+            }
           >
             <Card>
               <CardHeader>
                 <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
+                {classificationContentEnabled ? (
+                  <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Safety guideline details are not shown in this environment. Use <strong>Sign SK</strong> to
+                    complete your acknowledgment.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Status: waiting applicant signature before final security approval.
                 </p>
@@ -816,20 +833,22 @@ const WorkPermitDetailPage = () => {
           </Card>
         </WorkPermitSection>
 
-        <WorkPermitSection
-          id="work-permit-detail-section-g"
-          title={WORK_PERMIT_SECTIONS.G}
-          description="Per work classification — copied from master and editable on the permit"
-        >
-          <Card>
-            <CardHeader>
-              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
-            </CardHeader>
-            <CardContent>
-              <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
-            </CardContent>
-          </Card>
-        </WorkPermitSection>
+        {classificationContentEnabled && (
+          <WorkPermitSection
+            id="work-permit-detail-section-g"
+            title={WORK_PERMIT_SECTIONS.G}
+            description="Per work classification — copied from master and editable on the permit"
+          >
+            <Card>
+              <CardHeader>
+                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
+              </CardHeader>
+              <CardContent>
+                <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
+              </CardContent>
+            </Card>
+          </WorkPermitSection>
+        )}
 
         <WorkPermitSection id="work-permit-detail-section-f" title={WORK_PERMIT_SECTIONS.F}>
           <div className="grid gap-6">
@@ -937,42 +956,44 @@ const WorkPermitDetailPage = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.attachments?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No attachments.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>File</TableHead>
-                        <TableHead>Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workPermit.attachments!.map((a) => (
-                        <TableRow key={a.id}>
-                          <TableCell>
-                            <a
-                              href={a.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary underline underline-offset-2"
-                            >
-                              {displayField(a.fileName)}
-                            </a>
-                          </TableCell>
-                          <TableCell className="whitespace-pre-wrap">{displayField(a.description)}</TableCell>
+            {classificationContentEnabled && (
+              <Card>
+                <CardHeader>
+                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
+                </CardHeader>
+                <CardContent>
+                  {(workPermit.attachments?.length ?? 0) === 0 ? (
+                    <p className="text-sm text-muted-foreground">No attachments.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>File</TableHead>
+                          <TableHead>Description</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {workPermit.attachments!.map((a) => (
+                          <TableRow key={a.id}>
+                            <TableCell>
+                              <a
+                                href={a.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline underline-offset-2"
+                              >
+                                {displayField(a.fileName)}
+                              </a>
+                            </TableCell>
+                            <TableCell className="whitespace-pre-wrap">{displayField(a.description)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </WorkPermitSection>
       </div>
@@ -1008,9 +1029,15 @@ const WorkPermitDetailPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Safety Guideline</Label>
-              <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto">
-                <WorkPermitSafetyGuidelineDisplay classifications={workPermit?.classifications} />
-              </div>
+              {classificationContentEnabled ? (
+                <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto">
+                  <WorkPermitSafetyGuidelineDisplay classifications={workPermit?.classifications} />
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Guideline text is not shown in this environment. You can still confirm and submit your sign-off below.
+                </p>
+              )}
             </div>
             <div>
               <Label>Signature / Acknowledgment (optional)</Label>

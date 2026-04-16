@@ -29,6 +29,7 @@ import riskMitigationService, {
 } from '@/modules/risk-assessment/services/riskMitigationService';
 import workClassificationService from '../services/workClassificationService';
 import { WorkClassification } from '../types/work-classification.types';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 
 const EMPTY_HTML = '<p></p>';
 
@@ -65,6 +66,7 @@ interface WorkClassificationFormProps {
 
 const WorkClassificationForm = ({ classification, mode }: WorkClassificationFormProps) => {
   const navigate = useNavigate();
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [documentsCategoryId, setDocumentsCategoryId] = useState<string | null>(null);
   const [safetyEquipmentOptions, setSafetyEquipmentOptions] = useState<SearchableSelectOption[]>([]);
   const [riskOptions, setRiskOptions] = useState<SearchableSelectOption[]>([]);
@@ -123,6 +125,7 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
   }, []);
 
   useEffect(() => {
+    if (!classificationContentEnabled) return;
     const loadCategory = async () => {
       try {
         const category = await uploadService.getCategoryByName('work-permit-documents');
@@ -137,7 +140,7 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
       }
     };
     loadCategory();
-  }, []);
+  }, [classificationContentEnabled]);
 
   useEffect(() => {
     const loadRiskOptions = async () => {
@@ -316,9 +319,13 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
       name: data.name,
       code: data.code,
       description: data.description || undefined,
-      safetyGuideline,
+      ...(classificationContentEnabled
+        ? {
+            safetyGuideline,
+            ...(attachmentPayload !== undefined ? { attachments: attachmentPayload } : {}),
+          }
+        : {}),
       isActive: data.isActive,
-      ...(attachmentPayload !== undefined ? { attachments: attachmentPayload } : {}),
       riskEquipmentRows: data.riskEquipmentRows?.length
         ? data.riskEquipmentRows.map((row, i) => ({
             riskId: row.riskId,
@@ -403,29 +410,31 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="safetyGuideline"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Safety guidelines</FormLabel>
-                  <FormControl>
-                    <RichEditor
-                      value={field.value || EMPTY_HTML}
-                      onChange={field.onChange}
-                      pageLayout
-                      enablePdfExport
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Rich text with tables; merge or split cells from the table toolbar when a table
-                    is selected. Page breaks in the editor are visual guides only (the document still
-                    grows with content); use Preview PDF to see the exact paginated output.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {classificationContentEnabled && (
+              <FormField
+                control={form.control}
+                name="safetyGuideline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Safety guidelines</FormLabel>
+                    <FormControl>
+                      <RichEditor
+                        value={field.value || EMPTY_HTML}
+                        onChange={field.onChange}
+                        pageLayout
+                        enablePdfExport
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Rich text with tables; merge or split cells from the table toolbar when a table
+                      is selected. Page breaks in the editor are visual guides only (the document still
+                      grows with content); use Preview PDF to see the exact paginated output.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -592,68 +601,70 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle className="text-base">Attached documents</CardTitle>
-                  <CardDescription>Reference files for this classification (PDF, Word, or images)</CardDescription>
-                </div>
-                <div>
-                  <input
-                    type="file"
-                    id="wc-attachment-upload"
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handleAttachmentUpload(file);
-                      e.target.value = '';
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('wc-attachment-upload')?.click()}
-                    disabled={!documentsCategoryId}
-                  >
-                    <Upload className="mr-2 h-4 w-4" /> Upload
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {attachmentFields.map((field, index) => (
-                  <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">
-                        {form.watch(`attachments.${index}.fileName`)}
-                      </p>
-                      <FormField
-                        control={form.control}
-                        name={`attachments.${index}.description`}
-                        render={({ field: f }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Description (optional)" className="mt-1" {...f} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+            {classificationContentEnabled && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle className="text-base">Attached documents</CardTitle>
+                    <CardDescription>Reference files for this classification (PDF, Word, or images)</CardDescription>
+                  </div>
+                  <div>
+                    <input
+                      type="file"
+                      id="wc-attachment-upload"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleAttachmentUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-destructive hover:text-destructive"
-                      onClick={() => removeAttachment(index)}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('wc-attachment-upload')?.click()}
+                      disabled={!documentsCategoryId}
                     >
-                      <X className="h-4 w-4" />
+                      <Upload className="mr-2 h-4 w-4" /> Upload
                     </Button>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {attachmentFields.map((field, index) => (
+                    <div key={field.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {form.watch(`attachments.${index}.fileName`)}
+                        </p>
+                        <FormField
+                          control={form.control}
+                          name={`attachments.${index}.description`}
+                          render={({ field: f }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input placeholder="Description (optional)" className="mt-1" {...f} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             <FormField
               control={form.control}

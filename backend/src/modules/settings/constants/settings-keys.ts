@@ -29,4 +29,7 @@ export const SETTINGS_KEYS = {
   ENV_MEAS_LIMIT_NOISE: 'environmental_measurements.regulatory_limit.noise',
   ENV_MEAS_LIMIT_HUMIDITY: 'environmental_measurements.regulatory_limit.humidity',
   ENV_MEAS_LIMIT_TEMPERATURE: 'environmental_measurements.regulatory_limit.temperature',
+
+  /** When true, show work classification safety guideline editor + attachments and related work permit UI. */
+  FEATURE_WORK_PERMIT_CLASSIFICATION_CONTENT: 'feature.work_permit_classification_content.enabled',
 } as const;

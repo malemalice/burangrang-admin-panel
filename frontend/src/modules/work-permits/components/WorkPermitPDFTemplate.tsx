@@ -15,9 +15,15 @@ const na = (v: unknown) => (v != null && v !== '' ? String(v) : '—');
 interface WorkPermitPDFTemplateProps {
   workPermit: WorkPermit;
   timeline: ApprovalTimelineItem[];
+  /** When true, include safety guideline summary and attachments in the PDF. Default false. */
+  classificationContentEnabled?: boolean;
 }
 
-export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTemplateProps) {
+export function WorkPermitPDFTemplate({
+  workPermit,
+  timeline,
+  classificationContentEnabled = false,
+}: WorkPermitPDFTemplateProps) {
   const applicantSignedLabel = workPermit.applicantSignedAt
     ? format(new Date(workPermit.applicantSignedAt), 'dd MMM yyyy HH:mm')
     : 'Not signed yet';
@@ -44,21 +50,25 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
     ...(workPermit.workRequirements?.trim()
       ? ([['Work Requirements', na(workPermit.workRequirements)]] as [string, string][])
       : []),
-    [
-      'Safety Guideline (summary)',
-      (workPermit.classifications ?? [])
-        .map((c) => {
-          const label = c.workClassification
-            ? `${c.workClassification.name} (${c.workClassification.code})`
-            : c.workClassificationId;
-          const rows = (c.safetyGuidanceRows ?? []).length;
-          const hasText = Boolean(
-            c.safetyGuidelineSnapshot?.trim() || c.workClassification?.safetyGuideline?.trim(),
-          );
-          return `${label}: ${hasText ? 'narrative' : '—'} · ${rows} risk/equipment row(s)`;
-        })
-        .join(' | ') || '—',
-    ],
+    ...(classificationContentEnabled
+      ? ([
+          [
+            'Safety Guideline (summary)',
+            (workPermit.classifications ?? [])
+              .map((c) => {
+                const label = c.workClassification
+                  ? `${c.workClassification.name} (${c.workClassification.code})`
+                  : c.workClassificationId;
+                const rows = (c.safetyGuidanceRows ?? []).length;
+                const hasText = Boolean(
+                  c.safetyGuidelineSnapshot?.trim() || c.workClassification?.safetyGuideline?.trim(),
+                );
+                return `${label}: ${hasText ? 'narrative' : '—'} · ${rows} risk/equipment row(s)`;
+              })
+              .join(' | ') || '—',
+          ],
+        ] as [string, string][])
+      : []),
     ['Applicant sign-off (HSE safety guideline)', applicantSignedLabel],
   ];
 
@@ -548,33 +558,37 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
           </tbody>
         </table>
 
-        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.attachments}</h3>
-        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File URL</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Type</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {attachments.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              attachments.map((a, i) => (
-                <tr key={a.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileName)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileUrl)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileType)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(a.description)}</td>
+        {classificationContentEnabled && (
+          <>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.attachments}</h3>
+            <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Name</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File URL</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">File Type</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {attachments.length === 0 ? (
+                  <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+                ) : (
+                  attachments.map((a, i) => (
+                    <tr key={a.id}>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileName)}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileUrl)}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(a.fileType)}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(a.description)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">Record</h3>
         <div className="mb-0">{attrTable(rowsFRecord)}</div>

@@ -19,6 +19,7 @@ import { riskService } from '@/modules/master-data';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
 import type { WorkClassificationMasterOption } from '../types/work-permit.types';
 import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 
 function getErrorMessage(error: unknown): string | undefined {
   if (!error || typeof error !== 'object' || !('response' in error)) return undefined;
@@ -47,6 +48,7 @@ export const WorkPermitApprovalDialog = ({
   onSubmitted,
   initialStatus = ApprovalStatus.APPROVED,
 }: WorkPermitApprovalDialogProps) => {
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(initialStatus);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +69,7 @@ export const WorkPermitApprovalDialog = ({
   }, [open, initialStatus]);
 
   useEffect(() => {
-    if (!open || !isHseApprove || !workPermitId) return;
+    if (!open || !isHseApprove || !workPermitId || !classificationContentEnabled) return;
     let cancelled = false;
     (async () => {
       setLoadingHse(true);
@@ -106,7 +108,7 @@ export const WorkPermitApprovalDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [open, isHseApprove, workPermitId]);
+  }, [open, isHseApprove, workPermitId, classificationContentEnabled]);
 
   const handleSubmit = async () => {
     if (!workPermitId) return;
@@ -122,7 +124,7 @@ export const WorkPermitApprovalDialog = ({
       if (approvalStatus === ApprovalStatus.APPROVED) {
         await workPermitService.approveWorkPermit(workPermitId, {
           ...(trimmedNotes ? { notes: trimmedNotes } : {}),
-          ...(isHseApprove
+          ...(isHseApprove && classificationContentEnabled
             ? {
                 classificationSafetyGuidance: guidanceBlocks.map((b) => ({
                   workPermitClassificationId: b.workPermitClassificationId!,
@@ -180,7 +182,7 @@ export const WorkPermitApprovalDialog = ({
             </RadioGroup>
           </div>
 
-          {isHseApprove && (
+          {isHseApprove && classificationContentEnabled && (
             <div className="space-y-2">
               {loadingHse ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
