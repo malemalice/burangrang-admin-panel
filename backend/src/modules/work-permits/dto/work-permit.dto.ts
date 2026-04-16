@@ -58,10 +58,11 @@ export class WorkPermitDto {
   @IsString()
   workStagesDescription: string;
 
-  @ApiProperty({ description: 'Job safety analysis' })
+  @ApiProperty({ description: 'Job safety analysis', required: false })
   @Expose()
+  @IsOptional()
   @IsString()
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
 
   @ApiProperty({ description: 'Work requirements', required: false })
   @Expose()
@@ -84,7 +85,8 @@ export class WorkPermitDto {
   requireCourseVerification: boolean;
 
   @ApiProperty({
-    description: 'User confirmed they have read the safety guideline',
+    description:
+      'True when the applicant has signed the HSE safety guideline (derived from applicantSignedAt; not stored as a separate column)',
     default: false,
   })
   @Expose()

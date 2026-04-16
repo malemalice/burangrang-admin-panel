@@ -27,7 +27,6 @@ import {
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { ModalCombobox } from '@/core/components/ui/modal-combobox';
-import { Checkbox } from '@/core/components/ui/checkbox';
 import {
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
@@ -77,15 +76,8 @@ const formSchema = z.object({
   proposedStartDate: z.string().min(1, 'Start date is required'),
   proposedEndDate: z.string().min(1, 'End date is required'),
   workStagesDescription: z.string().min(1, 'Work stages description is required'),
-  jobSafetyAnalysis: z.string().min(1, 'Job safety analysis is required'),
-  workRequirements: z.string().optional(),
   workClassificationOtherDetail: z.string().max(2000).optional(),
   requireCourseVerification: z.boolean().default(false),
-  acknowledgedSafetyGuideline: z
-    .boolean()
-    .refine((v) => v === true, {
-      message: 'You must confirm that you have read the safety guideline',
-    }),
   classifications: z
     .array(
       z.object({
@@ -324,11 +316,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       proposedStartDate: '',
       proposedEndDate: '',
       workStagesDescription: '',
-      jobSafetyAnalysis: '',
-      workRequirements: '',
       workClassificationOtherDetail: '',
       requireCourseVerification: false,
-      acknowledgedSafetyGuideline: false,
       classifications: [{ workClassificationId: '', order: 0 }],
       employees: [],
       workers: [
@@ -664,11 +653,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         proposedStartDate: str(workPermit.proposedStartDate?.split('T')[0]),
         proposedEndDate: str(workPermit.proposedEndDate?.split('T')[0]),
         workStagesDescription: str(workPermit.workStagesDescription),
-        jobSafetyAnalysis: str(workPermit.jobSafetyAnalysis),
-        workRequirements: str(workPermit.workRequirements),
         workClassificationOtherDetail: str(workPermit.workClassificationOtherDetail),
         requireCourseVerification: workPermit.requireCourseVerification ?? false,
-        acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline ?? false,
         classifications:
           workPermit.classifications?.length ?
             workPermit.classifications.map((c) => ({
@@ -1208,7 +1194,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         <Card>
           <CardHeader>
             <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workDescription}</WorkPermitSubsectionTitle>
-            <CardDescription>Work stages, analysis, and guidelines</CardDescription>
+            <CardDescription>Describe the work stages for this permit</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -1221,53 +1207,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <Textarea placeholder="Describe work stages..." rows={4} {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="jobSafetyAnalysis"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Job Safety Analysis <span className="text-destructive">*</span></FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Job safety analysis..." rows={4} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="workRequirements"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Work Requirements</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Work requirements..." rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="acknowledgedSafetyGuideline"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start gap-3 rounded-md border border-border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={(c) => field.onChange(c === true)}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-snug">
-                    <FormLabel className="!mt-0 font-normal cursor-pointer">
-                      I confirm that I have read the safety guideline{' '}
-                      <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
                 </FormItem>
               )}
             />
@@ -1835,6 +1774,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`tools.${index}.toolId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Tool</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={toolOptions}
@@ -1852,7 +1792,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`tools.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1902,6 +1843,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`machines.${index}.machineId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Machine</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={machineOptions}
@@ -1919,7 +1861,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`machines.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1969,6 +1912,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`materials.${index}.materialId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Material</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={materialOptions}
@@ -1986,7 +1930,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`materials.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -2036,6 +1981,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   name={`heavyEquipment.${index}.heavyEquipmentId`}
                   render={({ field: f }) => (
                     <FormItem className="flex-1">
+                      <FormLabel>Heavy equipment</FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={heavyEquipmentOptions}
@@ -2053,7 +1999,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   control={form.control}
                   name={`heavyEquipment.${index}.quantity`}
                   render={({ field: f }) => (
-                    <FormItem className="w-24">
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"

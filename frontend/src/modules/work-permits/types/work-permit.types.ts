@@ -62,11 +62,12 @@ export interface WorkPermit {
   proposedStartDate: string;
   proposedEndDate: string;
   workStagesDescription: string;
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
   workRequirements?: string;
   /** Free text when "Others" (OTHERS) classification is selected */
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
+  /** From API: true when applicant has signed (aligned with applicantSignedAt). */
   acknowledgedSafetyGuideline: boolean;
   applicantSignedAt?: string;
   applicantSignature?: string;
@@ -334,7 +335,7 @@ export interface WorkPermitDTO {
   proposedStartDate: string;
   proposedEndDate: string;
   workStagesDescription: string;
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
   workRequirements?: string;
   workClassificationOtherDetail?: string;
   requireCourseVerification: boolean;
@@ -386,12 +387,11 @@ export interface CreateWorkPermitDTO {
   proposedStartDate: string;
   proposedEndDate: string;
   workStagesDescription: string;
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string | null;
   workRequirements?: string;
   classificationSafetyGuidance?: ClassificationSafetyGuidanceOnCreate[];
   workClassificationOtherDetail?: string;
   requireCourseVerification?: boolean;
-  acknowledgedSafetyGuideline: boolean;
   classifications?: Array<{
     workClassificationId: string;
     order: number;
@@ -514,7 +514,6 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   workRequirements: workPermit.workRequirements,
   workClassificationOtherDetail: workPermit.workClassificationOtherDetail,
   requireCourseVerification: workPermit.requireCourseVerification,
-  acknowledgedSafetyGuideline: workPermit.acknowledgedSafetyGuideline,
   classifications: workPermit.classifications?.map((c) => ({
     workClassificationId: c.workClassificationId || c.id,
     order: c.order,

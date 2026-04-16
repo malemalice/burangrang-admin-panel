@@ -30,7 +30,7 @@ import { WorkPermitClassificationSafetyGuidanceInputDto } from './dto/work-permi
 
 @Injectable()
 export class WorkPermitsService {
-  private workPermitMapper: (entity: any) => WorkPermitDto;
+  private rawWorkPermitMapper: (entity: any) => WorkPermitDto;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -41,7 +41,7 @@ export class WorkPermitsService {
     private readonly approvalAccessService: ApprovalAccessService,
     private readonly notificationsService: NotificationsService,
   ) {
-    this.workPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
+    this.rawWorkPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
       area: {
         mapper: (area: any) => ({
           id: area.id,
@@ -69,6 +69,13 @@ export class WorkPermitsService {
         isArray: false,
       },
     });
+  }
+
+  /** Maps DB row to API DTO; `acknowledgedSafetyGuideline` is derived from `applicantSignedAt`. */
+  private mapWorkPermitToDto(entity: any): WorkPermitDto {
+    const dto = this.rawWorkPermitMapper(entity);
+    dto.acknowledgedSafetyGuideline = entity.applicantSignedAt != null;
+    return dto;
   }
 
   private getWorkPermitFullInclude(): Prisma.WorkPermitInclude {
@@ -361,11 +368,10 @@ export class WorkPermitsService {
           proposedStartDate,
           proposedEndDate,
           workStagesDescription: createDto.workStagesDescription,
-          jobSafetyAnalysis: createDto.jobSafetyAnalysis,
+          jobSafetyAnalysis: createDto.jobSafetyAnalysis ?? null,
           workRequirements: createDto.workRequirements,
           workClassificationOtherDetail: createDto.workClassificationOtherDetail,
           requireCourseVerification: createDto.requireCourseVerification || false,
-          acknowledgedSafetyGuideline: createDto.acknowledgedSafetyGuideline,
           status: 'DRAFT',
           createdBy,
           classifications: createDto.classifications
@@ -733,7 +739,7 @@ export class WorkPermitsService {
    * Map work permit with all relations to DTO
    */
   private mapWorkPermitWithRelations(workPermit: any): WorkPermitDto {
-    const base = this.workPermitMapper(workPermit);
+    const base = this.mapWorkPermitToDto(workPermit);
 
     // Map nested relations
     if (workPermit.classifications) {
@@ -1108,7 +1114,7 @@ export class WorkPermitsService {
       });
 
       return {
-        data: workPermits.map(this.workPermitMapper),
+        data: workPermits.map((wp) => this.mapWorkPermitToDto(wp)),
         meta: {
           total,
           page: pageNum,
@@ -1234,9 +1240,6 @@ export class WorkPermitsService {
         updateData.workClassificationOtherDetail = updateDto.workClassificationOtherDetail;
       }
       if (updateDto.requireCourseVerification !== undefined) updateData.requireCourseVerification = updateDto.requireCourseVerification;
-      if (updateDto.acknowledgedSafetyGuideline !== undefined) {
-        updateData.acknowledgedSafetyGuideline = updateDto.acknowledgedSafetyGuideline;
-      }
 
       // Preserve permit-owned Section G: reconcile classification links (diff) instead of delete-all + recreate
       if (updateDto.classifications !== undefined) {
@@ -1547,7 +1550,7 @@ export class WorkPermitsService {
       // Send notification to HSE
       await this.sendNotificationToHse(id, updated);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Submitting work permit');
   }
 
@@ -1651,7 +1654,7 @@ export class WorkPermitsService {
 
       // Notifications are sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Approving work permit');
   }
 
@@ -1714,7 +1717,7 @@ export class WorkPermitsService {
 
       // Rejection notification is sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Rejecting work permit');
   }
 
@@ -1767,7 +1770,7 @@ export class WorkPermitsService {
       // Send notification to requester and CC users
       await this.sendInfoRequestNotification(id, updated, requestInfoDto.message, requestInfoDto.ccUserIds || []);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Requesting additional information');
   }
 
@@ -1818,7 +1821,7 @@ export class WorkPermitsService {
 
       await this.sendNotificationToSecurityReview(id, updated);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Signing safety guideline acknowledgement');
   }
 
@@ -1869,7 +1872,7 @@ export class WorkPermitsService {
       // Send extension notification
       await this.sendExtensionNotification(id, updated, extendDto.reason);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Extending work permit');
   }
 
@@ -1912,7 +1915,7 @@ export class WorkPermitsService {
       // Send closure notification
       await this.sendClosureNotification(id, updated);
 
-      return this.workPermitMapper(updated);
+      return this.mapWorkPermitToDto(updated);
     }, 'Closing work permit');
   }
 
