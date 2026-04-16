@@ -44,7 +44,9 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
             ? `${c.workClassification.name} (${c.workClassification.code})`
             : c.workClassificationId;
           const rows = (c.safetyGuidanceRows ?? []).length;
-          const hasText = Boolean(c.safetyGuidelineSnapshot?.trim());
+          const hasText = Boolean(
+            c.safetyGuidelineSnapshot?.trim() || c.workClassification?.safetyGuideline?.trim(),
+          );
           return `${label}: ${hasText ? 'narrative' : '—'} · ${rows} risk/equipment row(s)`;
         })
         .join(' | ') || '—',
@@ -100,7 +102,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
   const safetyEquipment = workPermit.safetyEquipment ?? [];
 
   const attrTable = (rows: [string, string][]) => (
-    <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+    <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
       <thead>
         <tr className="bg-gray-100">
           <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 w-1/3">Attribute</th>
@@ -131,7 +133,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
       {/* Section A — PRD */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.A}</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -167,7 +169,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         <div className="mb-6">{attrTable(rowsB)}</div>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.employees}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -193,7 +195,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.workers}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -223,7 +225,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.professions}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -249,7 +251,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.supervisors}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -275,7 +277,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.hseOfficers}</h3>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -304,7 +306,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.C}</h2>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.tools}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -330,7 +332,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.machines}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -356,7 +358,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.materials}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -382,7 +384,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2 capitalize">{WORK_PERMIT_SECTION_C_SUB.heavyEquipment}</h3>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -411,7 +413,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
       {/* Section D — PRD */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.D}</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -440,7 +442,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
       {/* Section E — PRD */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.E}</h2>
-        <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -475,7 +477,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         <div className="mb-6">{attrTable(rowsExtension)}</div>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.approvalTimeline}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -513,7 +515,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         <div className="mb-6">{attrTable(rowsCourseVerification)}</div>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.requiredCourses}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
@@ -539,7 +541,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         </table>
 
         <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_F_SUB.attachments}</h3>
-        <table className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
+        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>

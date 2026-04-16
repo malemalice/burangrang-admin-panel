@@ -1,0 +1,8 @@
+-- RenameForeignKey
+ALTER TABLE "t_work_permit_classification_safety_guidance_rows" RENAME CONSTRAINT "t_work_permit_classification_safety_guidance_rows_safetyEquipme" TO "t_work_permit_classification_safety_guidance_rows_safetyEq_fkey";
+
+-- RenameForeignKey
+ALTER TABLE "t_work_permit_classification_safety_guidance_rows" RENAME CONSTRAINT "t_work_permit_classification_safety_guidance_rows_workPermitCla" TO "t_work_permit_classification_safety_guidance_rows_workPerm_fkey";
+
+-- RenameIndex
+ALTER INDEX "t_work_permit_classification_safety_guidance_rows_workPermitCla" RENAME TO "t_work_permit_classification_safety_guidance_rows_workPermi_idx";

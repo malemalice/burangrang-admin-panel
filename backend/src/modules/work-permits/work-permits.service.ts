@@ -562,9 +562,13 @@ export class WorkPermitsService {
     }
   }
 
-  private async copySafetyGuidanceFromTemplates(workPermitId: string): Promise<void> {
-    const links = await this.prisma.workPermitClassification.findMany({
-      where: { workPermitId },
+  /**
+   * Copy master WorkClassification safety guideline snapshot + risk/equipment template rows
+   * into a single permit classification link (replaces existing permit guidance rows).
+   */
+  private async copySafetyGuidanceFromTemplateForLinkId(workPermitClassificationId: string): Promise<void> {
+    const link = await this.prisma.workPermitClassification.findUnique({
+      where: { id: workPermitClassificationId },
       include: {
         workClassification: {
           include: {
@@ -575,30 +579,93 @@ export class WorkPermitsService {
           },
         },
       },
+    });
+    if (!link) {
+      return;
+    }
+    const snapshot = link.workClassification.safetyGuideline ?? null;
+    await this.prisma.workPermitClassification.update({
+      where: { id: link.id },
+      data: { safetyGuidelineSnapshot: snapshot },
+    });
+    await this.prisma.workPermitClassificationSafetyGuidanceRow.deleteMany({
+      where: { workPermitClassificationId: link.id },
+    });
+    for (const r of link.workClassification.riskEquipmentRows) {
+      await this.prisma.workPermitClassificationSafetyGuidanceRow.create({
+        data: {
+          workPermitClassificationId: link.id,
+          riskId: r.riskId,
+          safetyEquipmentId: r.safetyEquipmentId,
+          notes: r.notes ?? null,
+          order: r.order,
+          riskNameSnapshot: r.risk.name,
+          safetyEquipmentNameSnapshot: r.safetyEquipment.name,
+        },
+      });
+    }
+  }
+
+  private async copySafetyGuidanceFromTemplates(workPermitId: string): Promise<void> {
+    const links = await this.prisma.workPermitClassification.findMany({
+      where: { workPermitId },
+      select: { id: true },
       orderBy: { order: 'asc' },
     });
+    for (const { id } of links) {
+      await this.copySafetyGuidanceFromTemplateForLinkId(id);
+    }
+  }
 
-    for (const link of links) {
-      const snapshot = link.workClassification.safetyGuideline ?? null;
-      await this.prisma.workPermitClassification.update({
-        where: { id: link.id },
-        data: { safetyGuidelineSnapshot: snapshot },
-      });
-      await this.prisma.workPermitClassificationSafetyGuidanceRow.deleteMany({
-        where: { workPermitClassificationId: link.id },
-      });
-      for (const r of link.workClassification.riskEquipmentRows) {
-        await this.prisma.workPermitClassificationSafetyGuidanceRow.create({
+  /**
+   * Update permit classification links without deleting unchanged rows (preserves Section G edits).
+   * Stable identity: one row per workClassificationId per permit.
+   */
+  private async reconcileWorkPermitClassifications(
+    workPermitId: string,
+    incoming: Array<{ workClassificationId: string; order: number }>,
+  ): Promise<void> {
+    const seen = new Set<string>();
+    for (const row of incoming) {
+      if (seen.has(row.workClassificationId)) {
+        this.errorHandler.throwBadRequest('Duplicate work classification in list');
+      }
+      seen.add(row.workClassificationId);
+    }
+
+    const existing = await this.prisma.workPermitClassification.findMany({
+      where: { workPermitId },
+      orderBy: { order: 'asc' },
+    });
+    const existingByWcId = new Map(existing.map((c) => [c.workClassificationId, c]));
+    const incomingWcIds = new Set(incoming.map((c) => c.workClassificationId));
+
+    for (const row of existing) {
+      if (!incomingWcIds.has(row.workClassificationId)) {
+        await this.prisma.workPermitClassification.delete({
+          where: { id: row.id },
+        });
+      }
+    }
+
+    for (const inc of incoming) {
+      const prev = existingByWcId.get(inc.workClassificationId);
+      if (prev) {
+        if (prev.order !== inc.order) {
+          await this.prisma.workPermitClassification.update({
+            where: { id: prev.id },
+            data: { order: inc.order },
+          });
+        }
+      } else {
+        const created = await this.prisma.workPermitClassification.create({
           data: {
-            workPermitClassificationId: link.id,
-            riskId: r.riskId,
-            safetyEquipmentId: r.safetyEquipmentId,
-            notes: r.notes ?? null,
-            order: r.order,
-            riskNameSnapshot: r.risk.name,
-            safetyEquipmentNameSnapshot: r.safetyEquipment.name,
+            workPermitId,
+            workClassificationId: inc.workClassificationId,
+            order: inc.order,
           },
         });
+        await this.copySafetyGuidanceFromTemplateForLinkId(created.id);
       }
     }
   }
@@ -678,6 +745,8 @@ export class WorkPermitsService {
             id: c.workClassification.id,
             name: c.workClassification.name,
             code: c.workClassification.code,
+            /** Master template HTML — used by clients when snapshot/rows are empty (legacy / not yet copied) */
+            safetyGuideline: c.workClassification.safetyGuideline ?? undefined,
           }
           : undefined,
         order: c.order,
@@ -1169,20 +1238,12 @@ export class WorkPermitsService {
         updateData.acknowledgedSafetyGuideline = updateDto.acknowledgedSafetyGuideline;
       }
 
-      // Handle nested relations updates
-      // Delete existing relations and create new ones
+      // Preserve permit-owned Section G: reconcile classification links (diff) instead of delete-all + recreate
       if (updateDto.classifications !== undefined) {
-        await this.prisma.workPermitClassification.deleteMany({
-          where: { workPermitId: id },
-        });
-        updateData.classifications = {
-          create: updateDto.classifications.map((c) => ({
-            workClassificationId: c.workClassificationId,
-            order: c.order,
-          })),
-        };
+        await this.reconcileWorkPermitClassifications(id, updateDto.classifications);
       }
 
+      // Handle nested relations updates (classifications handled above)
       if (updateDto.employees !== undefined) {
         await this.prisma.workPermitEmployee.deleteMany({
           where: { workPermitId: id },
@@ -1396,14 +1457,7 @@ export class WorkPermitsService {
         include: this.getWorkPermitFullInclude(),
       });
 
-      if (updateDto.classifications !== undefined) {
-        await this.copySafetyGuidanceFromTemplates(id);
-      }
-
-      if (
-        updateDto.classificationSafetyGuidance !== undefined &&
-        updateDto.classifications === undefined
-      ) {
+      if (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0) {
         for (const block of updateDto.classificationSafetyGuidance) {
           await this.validateClassificationBelongsToPermit(block.workPermitClassificationId, id);
           await this.replaceClassificationSafetyGuidance(block.workPermitClassificationId, block);
@@ -1412,7 +1466,7 @@ export class WorkPermitsService {
 
       const refreshed =
         updateDto.classifications !== undefined ||
-        (updateDto.classificationSafetyGuidance !== undefined && updateDto.classifications === undefined)
+        (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0)
           ? await this.prisma.workPermit.findUnique({
               where: { id },
               include: this.getWorkPermitFullInclude(),

@@ -19,16 +19,26 @@ export function WorkPermitSafetyGuidelineDisplay({
 
   return (
     <div className="space-y-6">
-      {classifications.map((c) => (
+      {classifications.map((c) => {
+        const guidelineHtml =
+          c.safetyGuidelineSnapshot?.trim() ||
+          c.workClassification?.safetyGuideline?.trim() ||
+          '';
+        const hasRows = (c.safetyGuidanceRows?.length ?? 0) > 0;
+        const hasAnyContent = Boolean(guidelineHtml) || hasRows;
+        return (
         <div key={c.id} className="space-y-3 border rounded-lg p-4">
           <p className="font-medium text-sm">
             {c.workClassification?.name ?? '—'}{' '}
             {c.workClassification?.code ? `(${c.workClassification.code})` : ''}
           </p>
-          {c.safetyGuidelineSnapshot?.trim() ? (
+          {!hasAnyContent ? (
+            <p className="text-sm text-muted-foreground">No safety guideline content for this classification.</p>
+          ) : null}
+          {guidelineHtml ? (
             <div
               className="prose prose-sm max-w-none text-sm border rounded p-2 bg-muted/20"
-              dangerouslySetInnerHTML={{ __html: c.safetyGuidelineSnapshot }}
+              dangerouslySetInnerHTML={{ __html: guidelineHtml }}
             />
           ) : null}
           {(c.safetyGuidanceRows?.length ?? 0) > 0 ? (
@@ -58,7 +68,8 @@ export function WorkPermitSafetyGuidelineDisplay({
             </Table>
           ) : null}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

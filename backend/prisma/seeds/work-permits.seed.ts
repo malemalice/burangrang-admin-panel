@@ -1,10 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-
-/** Must match `WORK_CLASSIFICATION_OTHER_CODE` in work-classification.constants.ts */
-const SEED_WORK_CLASSIFICATION_OTHER_CODE = 'OTHERS';
+import { seedWorkClassifications } from './work-classifications.seed';
 
 /** Mirrors WorkPermitsService.copySafetyGuidanceFromTemplates for seed data */
-async function copySafetyGuidanceFromTemplatesForSeed(prisma: PrismaClient, workPermitId: string) {
+export async function copySafetyGuidanceFromTemplatesForSeed(prisma: PrismaClient, workPermitId: string) {
   const links = await prisma.workPermitClassification.findMany({
     where: { workPermitId },
     include: {
@@ -47,31 +45,7 @@ async function copySafetyGuidanceFromTemplatesForSeed(prisma: PrismaClient, work
 export async function seedWorkPermitMasters(prisma: PrismaClient) {
   console.log('🌱 Seeding Work Permit master data...');
 
-  // Seed Work Classifications
-  const workClassifications = [
-    { name: 'Hot Work', code: 'HW', description: 'Welding, cutting, grinding operations' },
-    { name: 'Electrical Work', code: 'ELEC', description: 'Electrical installation and maintenance' },
-    { name: 'Confined Space', code: 'CS', description: 'Work in confined spaces' },
-    { name: 'Height Work', code: 'HEIGHT', description: 'Work at height above 1.5 meters' },
-    { name: 'Excavation', code: 'EXC', description: 'Digging and excavation work' },
-    { name: 'Plumbing', code: 'PLUMB', description: 'Plumbing installation and repair' },
-    { name: 'Painting', code: 'PAINT', description: 'Painting and coating work' },
-    { name: 'General Maintenance', code: 'MAINT', description: 'General maintenance work' },
-    {
-      name: 'Lainnya / Others',
-      code: SEED_WORK_CLASSIFICATION_OTHER_CODE,
-      description: 'Other work types — specify in work permit (workClassificationOtherDetail)',
-    },
-  ];
-
-  for (const classification of workClassifications) {
-    await prisma.workClassification.upsert({
-      where: { code: classification.code },
-      update: classification,
-      create: classification,
-    });
-  }
-  console.log(`✅ Created ${workClassifications.length} work classifications`);
+  await seedWorkClassifications(prisma);
 
   // Seed Heavy Equipment
   const heavyEquipment = [

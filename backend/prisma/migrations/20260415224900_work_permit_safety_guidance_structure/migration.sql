@@ -1,3 +1,6 @@
+-- Runs before 20260415232748+ so `t_work_permit_classification_safety_guidance_rows` exists before any rename-only migrations.
+-- (Formerly `20260416120000_work_permit_safety_guidance_structure`; renamed for ordering.)
+
 -- Drop legacy permit-level safety guideline (replaced by per-classification snapshots + rows)
 ALTER TABLE "t_work_permits" DROP COLUMN IF EXISTS "safetyGuideline";
 

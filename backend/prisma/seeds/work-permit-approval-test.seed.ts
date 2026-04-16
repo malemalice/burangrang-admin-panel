@@ -1,5 +1,30 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { copySafetyGuidanceFromTemplatesForSeed } from './work-permits.seed';
+
+/** Ensure each approval-test permit has at least one classification and Section G snapshot/rows (Hot Work template). */
+async function ensureWorkPermitApprovalTestSafetyGuidance(prisma: PrismaClient, code: string) {
+  const wc = await prisma.workClassification.findFirst({ where: { code: 'HW' } });
+  if (!wc) {
+    console.log(`   ⚠️  Work classification HW not found; skip Section G seed for ${code}`);
+    return;
+  }
+  const wp = await prisma.workPermit.findUnique({
+    where: { code },
+    include: { classifications: true },
+  });
+  if (!wp) return;
+  if (wp.classifications.length === 0) {
+    await prisma.workPermitClassification.create({
+      data: {
+        workPermitId: wp.id,
+        workClassificationId: wc.id,
+        order: 0,
+      },
+    });
+  }
+  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp.id);
+}
 
 /**
  * Seeds test users and work permits for testing the complete approval flow
@@ -371,6 +396,11 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
     },
   });
   console.log(`   ✅ Created ${wpClosed.code} (CLOSED) - Completed`);
+
+  for (const code of ['WP-TEST-001', 'WP-TEST-002', 'WP-TEST-003', 'WP-TEST-004', 'WP-TEST-005']) {
+    await ensureWorkPermitApprovalTestSafetyGuidance(prisma, code);
+  }
+  console.log('   ✅ Section G (safety guideline) snapshots/rows applied for WP-TEST-* permits');
 
   // Summary
   console.log('\n' + '='.repeat(60));

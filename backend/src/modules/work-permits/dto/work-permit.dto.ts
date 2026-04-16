@@ -169,6 +169,8 @@ export class WorkPermitDto {
       id: string;
       name: string;
       code: string;
+      /** Master safety guideline HTML — fallback when permit snapshot/rows are empty */
+      safetyGuideline?: string | null;
     };
     order: number;
     safetyGuidelineSnapshot?: string | null;
