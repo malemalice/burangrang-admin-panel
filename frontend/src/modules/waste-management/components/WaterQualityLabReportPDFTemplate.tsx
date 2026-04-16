@@ -58,7 +58,11 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
         <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">
           General Information
         </h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
+        <table
+          data-pdf-table-splittable
+          style={{ width: '100%', borderCollapse: 'collapse' }}
+          className="text-sm"
+        >
           <tbody>
             <tr>
               <td className="py-1 font-semibold text-gray-700 w-1/3">Treatment Plant</td>
@@ -146,6 +150,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                   {CATEGORY_LABELS[category] ?? category}
                 </h3>
                 <table
+                  data-pdf-table-splittable
                   style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb' }}
                   className="text-sm"
                 >

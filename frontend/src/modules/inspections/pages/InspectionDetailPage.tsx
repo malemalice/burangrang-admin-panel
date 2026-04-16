@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/core/lib/auth';
 import api from '@/core/lib/api';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import roleService from '@/modules/roles/services/roleService';
 import { Button } from '@/core/components/ui/button';
@@ -63,7 +63,7 @@ const InspectionDetailPage = () => {
     return inspection?.code ?? 'inspection';
   }, [inspection]);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
     }),
@@ -136,7 +136,12 @@ const InspectionDetailPage = () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);

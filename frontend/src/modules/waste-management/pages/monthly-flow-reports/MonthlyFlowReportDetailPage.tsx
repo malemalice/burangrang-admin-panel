@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ArrowLeft, Loader2, Pencil, Calendar, FileText, Info, Droplets, ExternalLink, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -26,7 +26,7 @@ export default function MonthlyFlowReportDetailPage() {
     const pdfFilename = data
       ? `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
       : 'monthly-flow-report.pdf';
-    const { toPDF, targetRef } = usePDF(
+    const { targetRef } = usePDF(
       buildPdfOptions({
         filename: pdfFilename,
       }),
@@ -54,11 +54,16 @@ export default function MonthlyFlowReportDetailPage() {
     useEffect(() => {
         if (!loading && data && searchParams.get('print') === 'true') {
             const timer = setTimeout(() => {
-                toPDF();
+                void generateTableAwarePdf(
+                  targetRef,
+                  buildPdfOptions({
+                    filename: `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                  }),
+                );
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [loading, data, searchParams, toPDF]);
+    }, [loading, data, searchParams, targetRef]);
 
     if (loading) {
         return (
@@ -72,7 +77,12 @@ export default function MonthlyFlowReportDetailPage() {
 
     const handleExportPDF = async () => {
         try {
-            await toPDF();
+            await generateTableAwarePdf(
+              targetRef,
+              buildPdfOptions({
+                filename: `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+              }),
+            );
             toast.success('PDF exported successfully');
         } catch (err) {
             toast.error('Failed to export PDF');

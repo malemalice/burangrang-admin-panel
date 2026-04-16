@@ -90,6 +90,7 @@ export function WaterQualityLabReportAggregatePDFTemplate({
       </div>
 
       <table
+        data-pdf-table-splittable
         style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}
         className="text-sm"
       >

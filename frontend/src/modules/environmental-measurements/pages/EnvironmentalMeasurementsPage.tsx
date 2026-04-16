@@ -6,7 +6,7 @@ import { Edit, Trash2, Plus, MoreHorizontal, Eye, FileDown } from 'lucide-react'
 import { format } from 'date-fns';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,7 +80,7 @@ export default function EnvironmentalMeasurementsPage() {
     return `environmental-measurements-${format(new Date(batchPdfNonce), 'yyyyMMdd-HHmmss')}.pdf`;
   }, [singlePdfContext, batchPdfNonce]);
 
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: pdfFilename,
     }),
@@ -217,7 +217,7 @@ export default function EnvironmentalMeasurementsPage() {
       await new Promise((r) => setTimeout(r, 300));
       if (cancelled) return;
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         toast.success('PDF exported successfully');
       } catch {
         toast.error('Failed to export PDF');
@@ -233,7 +233,7 @@ export default function EnvironmentalMeasurementsPage() {
     return () => {
       cancelled = true;
     };
-  }, [singlePdfContext, toPDF]);
+  }, [singlePdfContext, targetRef, pdfFilename]);
 
   const handleDeleteClick = (measurement: EnvironmentalMeasurement, event?: React.MouseEvent) => {
     event?.stopPropagation();
@@ -320,7 +320,12 @@ export default function EnvironmentalMeasurementsPage() {
       setListPdfRegulatoryLimits(limits);
       setAllMeasurementsForPDF(response.data);
       await new Promise((r) => setTimeout(r, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `environmental-measurements-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);
@@ -328,7 +333,7 @@ export default function EnvironmentalMeasurementsPage() {
     } finally {
       setIsExportingAllPDF(false);
     }
-  }, [searchTerm, activeFilters, getDateRangeParams, regulatoryLimits, toPDF]);
+  }, [searchTerm, activeFilters, getDateRangeParams, regulatoryLimits, targetRef]);
 
   const handleExportRowPDF = useCallback(
     async (measurement: EnvironmentalMeasurement) => {

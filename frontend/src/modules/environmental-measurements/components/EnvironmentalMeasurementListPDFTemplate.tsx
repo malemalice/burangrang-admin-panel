@@ -58,7 +58,7 @@ export function EnvironmentalMeasurementListPDFTemplate({
         </p>
       </div>
 
-      <Table>
+      <Table data-pdf-table-splittable="">
         <TableHeader>
           <TableRow>
             <TableHead className="bg-muted/50 font-semibold">Date</TableHead>

@@ -19,7 +19,7 @@ import { MonthlyFlowReport, PaginatedResponse, TreatmentPlant } from '../../type
 import { formatDate } from '@/core/utils/date';
 import { format } from 'date-fns';
 import { MonthlyFlowReportPDFTemplate } from '../../components/MonthlyFlowReportPDFTemplate';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 export default function MonthlyFlowReportsPage() {
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ export default function MonthlyFlowReportsPage() {
     currentReportForPDF
       ? `${currentReportForPDF.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}-${exportIndex + 1}.pdf`
       : 'monthly-flow-report.pdf';
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: pdfFilename,
     }),
@@ -191,7 +191,7 @@ export default function MonthlyFlowReportsPage() {
     const count = exportQueue.length;
     const timer = setTimeout(async () => {
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         if (exportIndex + 1 < count) {
           setExportIndex((i) => i + 1);
         } else {
@@ -208,7 +208,7 @@ export default function MonthlyFlowReportsPage() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [isExportingAllPDF, exportQueue.length, exportIndex, toPDF]);
+  }, [isExportingAllPDF, exportQueue.length, exportIndex, targetRef, pdfFilename]);
 
   const handleDelete = async () => {
     if (!deleteId) return;

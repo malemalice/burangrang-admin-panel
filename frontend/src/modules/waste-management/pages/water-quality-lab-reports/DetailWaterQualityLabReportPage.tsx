@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
 import { Loader2, ArrowLeft, Pencil, FileText, FileDown, Image } from 'lucide-react';
 import { format } from 'date-fns';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
@@ -57,7 +57,7 @@ export default function DetailWaterQualityLabReportPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<WaterQualityLabReport | null>(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const { toPDF, targetRef } = usePDF(
+  const { targetRef } = usePDF(
     buildPdfOptions({
       filename: data
         ? `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
@@ -95,7 +95,12 @@ export default function DetailWaterQualityLabReportPage() {
     try {
       setIsExportingPDF(true);
       await new Promise((resolve) => setTimeout(resolve, 200));
-      await toPDF();
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);

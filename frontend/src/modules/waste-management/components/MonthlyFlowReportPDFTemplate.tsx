@@ -30,7 +30,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
 
       {/* Document Information */}
       <div className="mt-6 space-y-4">
-        <Table>
+        <Table data-pdf-table-splittable="">
           <TableBody>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Report Number</TableHead>
@@ -59,7 +59,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
       {/* Flow Details */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold uppercase border-b border-border pb-2">Flow Data</h2>
-        <Table>
+        <Table data-pdf-table-splittable="">
           <TableBody>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Total Volume</TableHead>
@@ -94,7 +94,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
         <h2 className="text-xl font-semibold uppercase border-b border-border pb-2">
           Prepared By
         </h2>
-        <Table>
+        <Table data-pdf-table-splittable="">
           <TableBody>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Submitted By</TableHead>

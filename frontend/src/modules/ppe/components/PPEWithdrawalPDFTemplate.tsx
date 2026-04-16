@@ -107,6 +107,7 @@ export function PPEWithdrawalPDFTemplate({
           Withdrawal Information
         </h2>
         <table
+          data-pdf-table-splittable
           className="min-w-full"
           style={{ borderCollapse: 'collapse', border: '1px solid #ccc' }}
         >
@@ -210,6 +211,7 @@ export function PPEWithdrawalPDFTemplate({
         </h2>
         {withdrawal.items && withdrawal.items.length > 0 ? (
           <table
+            data-pdf-table-splittable
             className="min-w-full"
             style={{ borderCollapse: 'collapse', border: '1px solid #ccc' }}
           >
@@ -309,6 +311,7 @@ export function PPEWithdrawalPDFTemplate({
               Approval workflow (by step)
             </p>
             <table
+              data-pdf-table-splittable
               className="min-w-full"
               style={{ borderCollapse: 'collapse', border: '1px solid #ccc' }}
             >
@@ -392,6 +395,7 @@ export function PPEWithdrawalPDFTemplate({
               Chronological approval log
             </p>
             <table
+              data-pdf-table-splittable
               className="min-w-full"
               style={{ borderCollapse: 'collapse', border: '1px solid #ccc' }}
             >

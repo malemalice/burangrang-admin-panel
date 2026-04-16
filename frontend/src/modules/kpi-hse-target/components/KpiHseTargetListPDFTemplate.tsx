@@ -18,7 +18,7 @@ export function KpiHseTargetListPDFTemplate({ targets }: KpiHseTargetListPDFTemp
         </p>
       </div>
 
-      <Table>
+      <Table data-pdf-table-splittable="">
         <TableHeader>
           <TableRow>
             <TableHead className="bg-muted/50 font-semibold">Type</TableHead>

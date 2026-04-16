@@ -15,7 +15,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import {
     Dialog,
     DialogContent,
@@ -55,7 +55,7 @@ const PPEWithdrawPage = () => {
         approval: ApprovalStatusHistory | null;
     } | null>(null);
 
-    const { toPDF, targetRef } = usePDF(
+    const { targetRef } = usePDF(
         buildPdfOptions({
             filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
         }),
@@ -66,7 +66,8 @@ const PPEWithdrawPage = () => {
             setIsExportingPDF(true);
             setRowPdfPayload(null);
             await new Promise((resolve) => setTimeout(resolve, 200));
-            await toPDF(
+            await generateTableAwarePdf(
+                targetRef,
                 buildPdfOptions({
                     filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
                 }),
@@ -93,7 +94,8 @@ const PPEWithdrawPage = () => {
                     : emptyApprovalHistory;
             setRowPdfPayload({ withdrawal: full, approval });
             await new Promise((resolve) => setTimeout(resolve, 200));
-            await toPDF(
+            await generateTableAwarePdf(
+                targetRef,
                 buildPdfOptions({
                     filename: `ppe-withdrawal-${full.withdrawalCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
                 }),
@@ -106,7 +108,7 @@ const PPEWithdrawPage = () => {
             setRowPdfPayload(null);
             setPrintingRowId(null);
         }
-    }, [toPDF]);
+    }, [targetRef]);
 
     // Fetch Master Approval lines for PPE_WITHDRAWAL when workflow dialog opens (for dynamic workflow guideline)
     useEffect(() => {

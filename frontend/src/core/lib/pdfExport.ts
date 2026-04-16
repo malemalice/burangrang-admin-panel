@@ -1,4 +1,9 @@
-import { Resolution, type Options } from 'react-to-pdf';
+import type { MutableRefObject } from 'react';
+import generatePDF, { Resolution, type Options } from 'react-to-pdf';
+
+import { prepareTableAwarePdfDom } from './pdfTablePaginator';
+
+export { getPdfPageContentHeightPx, prepareTableAwarePdfDom } from './pdfTablePaginator';
 
 export const DEFAULT_PDF_MARGIN_MM = 12;
 
@@ -49,5 +54,39 @@ export function buildPdfOptions(overrides: Options = {}): Options {
       },
     },
   };
+}
+
+/**
+ * Runs react-to-pdf on a detached clone with table-aware spacer rows so page slices align with table rows.
+ * Does not mutate the React-managed export node (targetRef).
+ */
+export async function generateTableAwarePdf(
+  targetRef: MutableRefObject<HTMLElement | null>,
+  options?: Options,
+): Promise<Awaited<ReturnType<typeof generatePDF>> | undefined> {
+  const merged = buildPdfOptions(options);
+  const root = targetRef.current;
+  if (!root) {
+    console.error('Unable to get the target element.');
+    return undefined;
+  }
+
+  const clone = root.cloneNode(true) as HTMLElement;
+  clone.style.cssText = root.style.cssText;
+  clone.style.position = 'absolute';
+  clone.style.left = '-9999px';
+  clone.style.top = '0px';
+  if (!clone.style.width) {
+    clone.style.width = '210mm';
+  }
+  clone.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(clone);
+  prepareTableAwarePdfDom(clone, merged);
+
+  try {
+    return await generatePDF(() => clone, merged);
+  } finally {
+    clone.remove();
+  }
 }
 

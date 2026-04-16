@@ -19,7 +19,8 @@ import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { ApprovalStatus } from '@/core/lib/types';
-import { buildPdfOptions } from '@/core/lib/pdfExport';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
+import { format } from 'date-fns';
 import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { weightReportService } from '../../services/wasteManagementService';
@@ -62,7 +63,7 @@ export default function WeightReportDetailPage() {
     const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
     const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
 
-    const { toPDF, targetRef } = usePDF(
+    const { targetRef } = usePDF(
         buildPdfOptions({
             filename: `weight-report-${data?.reportCode || 'document'}.pdf`,
         }),
@@ -125,7 +126,12 @@ export default function WeightReportDetailPage() {
                 }
                 await new Promise((r) => setTimeout(r, 200));
                 if (cancelled) return;
-                await toPDF();
+                await generateTableAwarePdf(
+                    targetRef,
+                    buildPdfOptions({
+                        filename: `weight-report-${data?.reportCode || 'document'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                    }),
+                );
                 toast.success('PDF exported successfully');
             } catch {
                 if (!cancelled) toast.error('Failed to export PDF');
@@ -150,7 +156,7 @@ export default function WeightReportDetailPage() {
             cancelled = true;
             clearTimeout(timer);
         };
-    }, [data, id, searchParams, setSearchParams, toPDF]);
+    }, [data, id, searchParams, setSearchParams, targetRef]);
 
     const handleExportPDF = async () => {
         if (!id) return;
@@ -162,7 +168,12 @@ export default function WeightReportDetailPage() {
                 setApprovalHistoryForPDF(fresh);
             }
             await new Promise((r) => setTimeout(r, 200));
-            await toPDF();
+            await generateTableAwarePdf(
+                targetRef,
+                buildPdfOptions({
+                    filename: `weight-report-${data?.reportCode || 'document'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                }),
+            );
             toast.success('PDF exported successfully');
         } catch {
             toast.error('Failed to export PDF');
