@@ -13,6 +13,7 @@ import riskMitigationService, {
   type RiskMitigation,
 } from '@/modules/risk-assessment/services/riskMitigationService';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import { getCombinedMitigationText } from '../utils/riskMitigationDisplay';
 
 const WorkClassificationDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -117,19 +118,6 @@ const WorkClassificationDetailPage = () => {
       void loadMitigations(riskId);
     });
   }, [distinctRiskIds, mitigationsByRiskId]);
-
-  const getCombinedMitigationText = (mitigations: RiskMitigation[]) => {
-    const parts = mitigations.flatMap((m) => {
-      const items: Array<{ label: string; value: string }> = [];
-      if (m.eliminate?.trim()) items.push({ label: 'Eliminate', value: m.eliminate });
-      if (m.transfer?.trim()) items.push({ label: 'Transfer', value: m.transfer });
-      if (m.reduce?.trim()) items.push({ label: 'Reduce', value: m.reduce });
-      if (m.accept?.trim()) items.push({ label: 'Accept', value: m.accept });
-      return items;
-    });
-
-    return parts.map((p) => `${p.label}\n${p.value}`).join('\n\n');
-  };
 
   if (isLoading) {
     return (

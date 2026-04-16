@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Clock, FileText, FileDown, PenLine } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
@@ -49,6 +49,7 @@ import { useAuth } from '@/core/lib/auth';
 import { ApprovalStatus } from '@/core/lib/types';
 import { WorkPermitApprovalDialog } from '../components/WorkPermitApprovalDialog';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
   if (v == null) return '—';
@@ -63,6 +64,34 @@ const WorkPermitDetailPage = () => {
   const { submit, extend, close, signSk, isLoading: isActionLoading } = useWorkPermitActions();
   const { user: currentUser } = useAuth();
   const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
+  const {
+    mitigationsByRiskId,
+    mitigationsLoadingByRiskId,
+    mitigationsErrorByRiskId,
+    mitigationsPending,
+  } = useWorkPermitClassificationRiskMitigations(workPermit?.classifications);
+
+  const classifications = workPermit?.classifications;
+  const hasSafetyGuidanceRows = useMemo(
+    () => (classifications ?? []).some((c) => (c.safetyGuidanceRows?.length ?? 0) > 0),
+    [classifications],
+  );
+  const hasGuidelineNarrativeHtml = useMemo(
+    () =>
+      classificationContentEnabled &&
+      (classifications ?? []).some((c) => {
+        const h = c.safetyGuidelineSnapshot?.trim() || c.workClassification?.safetyGuideline?.trim();
+        return Boolean(h);
+      }),
+    [classifications, classificationContentEnabled],
+  );
+  const hasWorkClassificationDescription = useMemo(
+    () =>
+      (classifications ?? []).some((c) => Boolean(c.workClassification?.description?.trim())),
+    [classifications],
+  );
+  const showSectionG =
+    hasSafetyGuidanceRows || hasGuidelineNarrativeHtml || hasWorkClassificationDescription;
 
   const createdByLabel = (() => {
     const creator = workPermit?.creator;
@@ -299,6 +328,7 @@ const WorkPermitDetailPage = () => {
             workPermit={workPermit}
             timeline={timeline}
             classificationContentEnabled={classificationContentEnabled}
+            mitigationsByRiskId={mitigationsByRiskId}
           />
         </div>
       )}
@@ -313,7 +343,7 @@ const WorkPermitDetailPage = () => {
             <Button
               variant="outline"
               onClick={handleExportPDF}
-              disabled={isExportingPDF}
+              disabled={isExportingPDF || (mitigationsPending && hasSafetyGuidanceRows)}
             >
               <FileDown className="mr-2 h-4 w-4" />
               {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
@@ -398,7 +428,9 @@ const WorkPermitDetailPage = () => {
             description={
               classificationContentEnabled
                 ? 'Review the safety guideline authored by HSE before signing.'
-                : 'Complete your sign-off (SK) before final security approval.'
+                : hasSafetyGuidanceRows || hasWorkClassificationDescription
+                  ? 'Review risk, required equipment, and mitigation from your work classifications before signing.'
+                  : 'Complete your sign-off (SK) before final security approval.'
             }
           >
             <Card>
@@ -406,8 +438,14 @@ const WorkPermitDetailPage = () => {
                 <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {classificationContentEnabled ? (
-                  <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
+                {hasSafetyGuidanceRows || classificationContentEnabled || hasWorkClassificationDescription ? (
+                  <WorkPermitSafetyGuidelineDisplay
+                    classifications={workPermit.classifications}
+                    showGuidelineNarrative={classificationContentEnabled}
+                    mitigationsByRiskId={mitigationsByRiskId}
+                    mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                    mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                  />
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     Safety guideline details are not shown in this environment. Use <strong>Sign SK</strong> to
@@ -833,18 +871,28 @@ const WorkPermitDetailPage = () => {
           </Card>
         </WorkPermitSection>
 
-        {classificationContentEnabled && (
+        {showSectionG && (
           <WorkPermitSection
             id="work-permit-detail-section-g"
             title={WORK_PERMIT_SECTIONS.G}
-            description="Per work classification — copied from master and editable on the permit"
+            description={
+              classificationContentEnabled
+                ? 'Per work classification — risk/equipment/mitigation and HSE guideline narrative where applicable'
+                : 'Per work classification — risk, required safety equipment, and master risk mitigation'
+            }
           >
             <Card>
               <CardHeader>
                 <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
               </CardHeader>
               <CardContent>
-                <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
+                <WorkPermitSafetyGuidelineDisplay
+                  classifications={workPermit.classifications}
+                  showGuidelineNarrative={classificationContentEnabled}
+                  mitigationsByRiskId={mitigationsByRiskId}
+                  mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                  mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                />
               </CardContent>
             </Card>
           </WorkPermitSection>
@@ -1029,9 +1077,15 @@ const WorkPermitDetailPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Safety Guideline</Label>
-              {classificationContentEnabled ? (
+              {hasSafetyGuidanceRows || classificationContentEnabled || hasWorkClassificationDescription ? (
                 <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto">
-                  <WorkPermitSafetyGuidelineDisplay classifications={workPermit?.classifications} />
+                  <WorkPermitSafetyGuidelineDisplay
+                    classifications={workPermit?.classifications}
+                    showGuidelineNarrative={classificationContentEnabled}
+                    mitigationsByRiskId={mitigationsByRiskId}
+                    mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                    mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                  />
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">

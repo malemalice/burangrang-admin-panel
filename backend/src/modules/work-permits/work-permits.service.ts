@@ -751,6 +751,7 @@ export class WorkPermitsService {
             id: c.workClassification.id,
             name: c.workClassification.name,
             code: c.workClassification.code,
+            description: c.workClassification.description ?? undefined,
             /** Master template HTML — used by clients when snapshot/rows are empty (legacy / not yet copied) */
             safetyGuideline: c.workClassification.safetyGuideline ?? undefined,
           }

@@ -143,6 +143,7 @@ export interface WorkPermitClassification {
     id: string;
     name: string;
     code: string;
+    description?: string | null;
     /** Master template — used when permit snapshot/rows are empty */
     safetyGuideline?: string | null;
   };
