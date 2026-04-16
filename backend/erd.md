@@ -336,6 +336,39 @@ Enum EquipmentEntityEnum {
   SAFETY_EQUIPMENT [note: 'Safety equipment entity']
 }
 
+Enum ZohoOutboundJobStatusEnum {
+  PENDING [note: 'Outbound job pending']
+  PROCESSING [note: 'Outbound job processing']
+  SUCCESS [note: 'Outbound job succeeded']
+  FAILED_RETRY [note: 'Outbound job failed (will retry)']
+  FAILED_DEAD_LETTER [note: 'Outbound job failed (dead letter)']
+}
+
+Enum WeightReportStatusEnum {
+  SCHEDULED [note: 'Weight report scheduled']
+  DRAFT [note: 'Weight report draft']
+  OPEN [note: 'Weight report open']
+  WAITING_APPROVAL [note: 'Weight report waiting approval']
+  DONE [note: 'Weight report completed']
+  REJECTED [note: 'Weight report rejected']
+}
+
+Enum WaterQualityLabReportStatusEnum {
+  SCHEDULED [note: 'Lab report scheduled']
+  DRAFT [note: 'Lab report draft']
+  OPEN [note: 'Lab report open']
+  WAITING_APPROVAL [note: 'Lab report waiting approval']
+  DONE [note: 'Lab report completed']
+  REJECTED [note: 'Lab report rejected']
+}
+
+Enum WaterQualityLabReportCategoryEnum {
+  WASTEWATER [note: 'Wastewater']
+  CLEAN_WATER [note: 'Clean water']
+  SWIMMING_POOL_WATER [note: 'Swimming pool water']
+  DRINKING_WATER [note: 'Drinking water']
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -735,7 +768,7 @@ Table t_risk_assessment_item {
   postRiskMatrixRating varchar [not null, note: 'String type to match Schema']
   postInterpretation RiskRatingEnum [not null]
   
-  Note: 'Individual risk assessment entries - has 1-to-1 polymorphic relation with t_risk_mitigation (entity='RISK_ASSESSMENT_ITEM', entityId=id). Note: riskDescription field removed to match Schema.'
+  Note: 'Individual risk assessment entries - has 1-to-1 polymorphic relation with t_risk_mitigation (entity=RISK_ASSESSMENT_ITEM, entityId=id). riskDescription field removed to match Schema.'
   indexes {
     riskAssessmentId
     mRiskId
@@ -743,7 +776,8 @@ Table t_risk_assessment_item {
   }
 }
 
-Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade, note: 'Polymorphic relation: when entity='RISK_ASSESSMENT_ITEM'']
+// Polymorphic relation when entity=RISK_ASSESSMENT_ITEM
+Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade]
 
 Table t_risk_assessment_item_images {
   id varchar [pk, default: `uuid()`]
@@ -798,7 +832,7 @@ Table t_inspection_items {
   updatedAt timestamp [not null, default: `now()`]
   dueDateAt timestamp [null]
   
-  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
+  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity=INSPECTION_ITEM, entityId=id)'
   indexes {
     inspectionId
     areaId
@@ -810,7 +844,8 @@ Table t_inspection_items {
   }
 }
 
-Ref: t_risk_mitigation.entityId > t_inspection_items.id [delete: cascade, note: 'Polymorphic relation: when entity='INSPECTION_ITEM'']
+// Polymorphic relation when entity=INSPECTION_ITEM
+Ref: t_risk_mitigation.entityId > t_inspection_items.id [delete: cascade]
 
 Table t_inspection_images {
   id varchar [pk, default: `uuid()`]
@@ -1414,6 +1449,47 @@ Table t_zoho_webhook_logs {
     eventType
     status
     processedAt
+  }
+}
+
+Table t_zoho_ticket_risk_assessment_map {
+  id varchar [pk, default: `uuid()`]
+  zohoTicketId varchar [unique, not null]
+  zohoTicketNumber varchar [null]
+  hseTaskId varchar [unique, not null, ref: > t_risk_assessment.id]
+  lastZohoStatus varchar [null, note: 'Raw Zoho status string']
+  lastHseStatus GeneralStatusEnum [null]
+  rawPayload json [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Mapping table between Zoho tickets and HSE risk assessments'
+  indexes {
+    hseTaskId
+  }
+}
+
+Table t_zoho_outbound_jobs {
+  id varchar [pk, default: `uuid()`]
+  mappingId varchar [not null, ref: > t_zoho_ticket_risk_assessment_map.id, note: 'onDelete: Cascade']
+  ticketId varchar [not null]
+  targetStatus varchar [not null]
+  requestPayload json [not null]
+  responsePayload json [null]
+  status ZohoOutboundJobStatusEnum [not null, default: 'PENDING']
+  attemptCount int [not null, default: 0]
+  maxAttempts int [not null, default: 6]
+  nextRetryAt timestamp [not null, default: `now()`]
+  lastError text [null]
+  correlationId varchar [null]
+  processedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Outbound job processing queue for updating Zoho tickets'
+  indexes {
+    (status, nextRetryAt)
+    ticketId
   }
 }
 
@@ -2458,6 +2534,7 @@ Table t_water_quality_lab_reports {
   id varchar [pk, default: `uuid()`]
   reportCode varchar [unique, not null]
   treatmentPlantId varchar [not null, ref: > m_treatment_plants.id]
+  category WaterQualityLabReportCategoryEnum [not null, default: 'WASTEWATER']
   reportDate timestamp [not null]
   preparedBy varchar [not null, ref: > t_users.id]
   reportDocumentUrl varchar [null]
@@ -2468,7 +2545,7 @@ Table t_water_quality_lab_reports {
   submittedAt timestamp [not null]
   receivedBy varchar [null, ref: > t_users.id]
   receivedAt timestamp [null]
-  status ReportStatusEnum [not null, default: 'SUBMITTED']
+  status WaterQualityLabReportStatusEnum [not null, default: 'DRAFT']
   reviewedBy varchar [null, ref: > t_users.id]
   reviewedAt timestamp [null]
   reviewNotes text [null]
@@ -2483,6 +2560,7 @@ Table t_water_quality_lab_reports {
     (treatmentPlantId, reportDate)
     reportDate
     status
+    category
     receivedAt
   }
 }
@@ -2503,6 +2581,21 @@ Table t_water_quality_lab_report_results {
     (labReportId, parameterId) [unique]
     labReportId
     parameterId
+  }
+}
+
+Table t_water_quality_lab_report_attachments {
+  id varchar [pk, default: `uuid()`]
+  labReportId varchar [not null, ref: > t_water_quality_lab_reports.id, note: 'onDelete: Cascade']
+  fileUrl varchar [not null]
+  fileName varchar [null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'File attachments for water quality lab reports'
+  indexes {
+    labReportId
+    order
   }
 }
 
@@ -2568,14 +2661,14 @@ Table t_weight_reports {
   sourceId varchar [not null, ref: > m_waste_sources.id]
   storageLocationId varchar [not null, ref: > m_storage_locations.id]
   reportDate timestamp [not null]
-  reportMonth MonthEnum [not null]
-  reportYear int [not null]
+  reportMonth MonthEnum [null]
+  reportYear int [null]
   reportDocumentUrl varchar [null]
   submittedBy varchar [not null, ref: > t_users.id]
   submittedAt timestamp [not null]
   receivedBy varchar [null, ref: > t_users.id]
   receivedAt timestamp [null]
-  status ReportStatusEnum [not null, default: 'SUBMITTED']
+  status WeightReportStatusEnum [not null, default: 'DRAFT']
   reviewedBy varchar [null, ref: > t_users.id]
   reviewedAt timestamp [null]
   reviewNotes text [null]
@@ -2587,8 +2680,9 @@ Table t_weight_reports {
   Note: 'Weight reports submitted by waste sources'
   indexes {
     reportCode [unique]
-    (sourceId, reportMonth, reportYear) [unique]
+    (sourceId, reportDate) [unique]
     (reportMonth, reportYear)
+    reportDate
     status
     receivedAt
   }
@@ -2687,16 +2781,6 @@ Table _CourseToCategory {
   B varchar [ref: > m_course_categories.id]
   
   Note: 'Many-to-many: Courses and Course Categories'
-  indexes {
-    (A, B) [pk]
-  }
-}
-
-Table _AuditToUser {
-  A varchar [ref: > t_audits.id]
-  B varchar [ref: > t_users.id]
-  
-  Note: 'Many-to-many: Audits and Auditors (Users)'
   indexes {
     (A, B) [pk]
   }
@@ -2820,9 +2904,10 @@ TableGroup file_upload_system {
 }
 
 TableGroup system_configuration {
-  m_email_templates
   m_settings
   t_zoho_webhook_logs
+  t_zoho_ticket_risk_assessment_map
+  t_zoho_outbound_jobs
   t_access_logs
 }
 
@@ -2868,9 +2953,6 @@ TableGroup work_permit_system {
   m_machines
   m_companies
   m_professions
-  m_areas
-  m_rooms
-  t_environmental_measurements
   t_guests
   t_work_permits
   t_work_permit_classifications
@@ -2895,6 +2977,7 @@ TableGroup waste_management {
   t_monthly_flow_reports
   t_water_quality_lab_reports
   t_water_quality_lab_report_results
+  t_water_quality_lab_report_attachments
   m_waste_types
   m_waste_sources
   m_storage_locations

@@ -536,7 +536,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   }, [watchedClassifications, workClassifications, mode, workPermit, isLoadingData]);
 
   useEffect(() => {
-    if (!classificationContentEnabled) return;
+    // Workers uploads depend on this category; do not gate it behind the
+    // classification-content feature flag.
     const loadCategory = async () => {
       try {
         const category = await uploadService.getCategoryByName('work-permit-documents');
@@ -551,7 +552,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       }
     };
     void loadCategory();
-  }, [classificationContentEnabled]);
+  }, []);
 
   // Fetch reference data
   useEffect(() => {
