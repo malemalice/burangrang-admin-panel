@@ -491,17 +491,25 @@ const WorkPermitDetailPage = () => {
                   <Label className="text-muted-foreground">Work Stages Description</Label>
                   <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workStagesDescription)}</p>
                 </div>
+                {workPermit.jobSafetyAnalysis?.trim() ? (
+                  <div>
+                    <Label className="text-muted-foreground">Job Safety Analysis</Label>
+                    <p className="mt-1 whitespace-pre-wrap">{workPermit.jobSafetyAnalysis}</p>
+                  </div>
+                ) : null}
+                {workPermit.workRequirements?.trim() ? (
+                  <div>
+                    <Label className="text-muted-foreground">Work Requirements</Label>
+                    <p className="mt-1 whitespace-pre-wrap">{workPermit.workRequirements}</p>
+                  </div>
+                ) : null}
                 <div>
-                  <Label className="text-muted-foreground">Job Safety Analysis</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.jobSafetyAnalysis)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Work Requirements</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{displayField(workPermit.workRequirements)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Safety guideline acknowledged</Label>
-                  <p className="mt-1">{workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'}</p>
+                  <Label className="text-muted-foreground">Applicant sign-off (HSE safety guideline)</Label>
+                  <p className="mt-1">
+                    {workPermit.applicantSignedAt
+                      ? format(new Date(workPermit.applicantSignedAt), 'MMM dd, yyyy HH:mm')
+                      : 'Not signed yet'}
+                  </p>
                 </div>
               </CardContent>
             </Card>

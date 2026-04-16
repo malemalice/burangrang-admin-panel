@@ -18,6 +18,10 @@ interface WorkPermitPDFTemplateProps {
 }
 
 export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTemplateProps) {
+  const applicantSignedLabel = workPermit.applicantSignedAt
+    ? format(new Date(workPermit.applicantSignedAt), 'dd MMM yyyy HH:mm')
+    : 'Not signed yet';
+
   const rowsB: [string, string][] = [
     ['Code', na(workPermit.code)],
     ['Project Name', na(workPermit.projectName)],
@@ -34,8 +38,12 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
     ['Proposed Start Date', workPermit.proposedStartDate ? format(new Date(workPermit.proposedStartDate), 'dd MMM yyyy') : '—'],
     ['Proposed End Date', workPermit.proposedEndDate ? format(new Date(workPermit.proposedEndDate), 'dd MMM yyyy') : '—'],
     ['Work Stages Description', na(workPermit.workStagesDescription)],
-    ['Job Safety Analysis', na(workPermit.jobSafetyAnalysis)],
-    ['Work Requirements', na(workPermit.workRequirements)],
+    ...(workPermit.jobSafetyAnalysis?.trim()
+      ? ([['Job Safety Analysis', na(workPermit.jobSafetyAnalysis)]] as [string, string][])
+      : []),
+    ...(workPermit.workRequirements?.trim()
+      ? ([['Work Requirements', na(workPermit.workRequirements)]] as [string, string][])
+      : []),
     [
       'Safety Guideline (summary)',
       (workPermit.classifications ?? [])
@@ -51,7 +59,7 @@ export function WorkPermitPDFTemplate({ workPermit, timeline }: WorkPermitPDFTem
         })
         .join(' | ') || '—',
     ],
-    ['Safety guideline acknowledged', workPermit.acknowledgedSafetyGuideline ? 'Yes' : 'No'],
+    ['Applicant sign-off (HSE safety guideline)', applicantSignedLabel],
   ];
 
   const rowsInitialGrant: [string, string][] = [
