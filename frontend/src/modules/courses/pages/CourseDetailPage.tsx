@@ -19,6 +19,7 @@ import {
   FileQuestion
 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
@@ -31,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { formatDate } from '@/core/utils/date';
 import { useCourse } from '../hooks/useCourses';
 import { useChapters } from '../hooks/useChapters';
 import courseService from '../services/courseService';
@@ -153,25 +155,6 @@ const CourseDetailPage = () => {
     return courseService.formatDuration(minutes);
   };
 
-  const metadataItems = [
-    {
-      label: 'Created',
-      content: (
-        <p className="mt-1 text-sm text-gray-900">
-          {new Date(course.createdAt).toLocaleDateString()}
-        </p>
-      ),
-    },
-    {
-      label: 'Last Updated',
-      content: (
-        <p className="mt-1 text-sm text-gray-900">
-          {new Date(course.updatedAt).toLocaleDateString()}
-        </p>
-      ),
-    },
-  ].filter(Boolean) as { label: string; content: ReactNode }[];
-
   const getContentTypeIcon = (contentType: string) => {
     switch (contentType) {
       case 'video':
@@ -206,6 +189,25 @@ const CourseDetailPage = () => {
       </div>
     );
   }
+
+  const metadataItems = [
+    {
+      label: 'Created',
+      content: (
+        <p className="mt-1 text-sm text-gray-900">
+          {formatDate(course.createdAt)}
+        </p>
+      ),
+    },
+    {
+      label: 'Last Updated',
+      content: (
+        <p className="mt-1 text-sm text-gray-900">
+          {formatDate(course.updatedAt)}
+        </p>
+      ),
+    },
+  ] satisfies { label: string; content: ReactNode }[];
 
   return (
     <div className="space-y-6">
