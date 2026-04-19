@@ -6,6 +6,10 @@ import { DataScopeService } from '../../shared/services/data-scope.service';
 import { UserContext } from '../../shared/types/user-context';
 import { CreateWorkPermitDto } from './dto/create-work-permit.dto';
 import { CreateProfessionDto } from './dto/create-profession.dto';
+import { CreateToolDto } from './dto/create-tool.dto';
+import { CreateMaterialDto } from './dto/create-material.dto';
+import { CreateMachineDto } from './dto/create-machine.dto';
+import { CreateHeavyEquipmentDto } from './dto/create-heavy-equipment.dto';
 import { UpdateWorkPermitDto } from './dto/update-work-permit.dto';
 import { WorkPermitDto } from './dto/work-permit.dto';
 import { FindWorkPermitsDto } from './dto/find-work-permits.dto';
@@ -2256,6 +2260,175 @@ export class WorkPermitsService {
         }
       },
       'Create profession',
+    );
+  }
+
+  /**
+   * Create tool master data (used when user adds a missing tool from the work permit form)
+   */
+  async createTool(dto: CreateToolDto) {
+    return this.errorHandler.safeExecute(
+      async () => {
+        const trimmed = dto.name.trim();
+        if (!trimmed) {
+          this.errorHandler.throwBadRequest('Tool name is required');
+        }
+
+        let code = dto.code?.trim();
+        if (!code) {
+          code = trimmed.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        }
+        if (!code) {
+          code = `TOOL-${Date.now()}`;
+        }
+
+        try {
+          return await this.prisma.tool.create({
+            data: {
+              name: trimmed,
+              code,
+              description: dto.description?.trim() || undefined,
+              isActive: true,
+            },
+            select: { id: true, name: true, code: true },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            this.errorHandler.throwBadRequest('A tool with this code already exists');
+          }
+          throw e;
+        }
+      },
+      'Create tool',
+    );
+  }
+
+  /**
+   * Create material master data (used when user adds a missing material from the work permit form)
+   */
+  async createMaterial(dto: CreateMaterialDto) {
+    return this.errorHandler.safeExecute(
+      async () => {
+        const trimmed = dto.name.trim();
+        if (!trimmed) {
+          this.errorHandler.throwBadRequest('Material name is required');
+        }
+
+        let code = dto.code?.trim();
+        if (!code) {
+          code = trimmed.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        }
+        if (!code) {
+          code = `MAT-${Date.now()}`;
+        }
+
+        try {
+          return await this.prisma.material.create({
+            data: {
+              name: trimmed,
+              code,
+              description: dto.description?.trim() || undefined,
+              isActive: true,
+            },
+            select: { id: true, name: true, code: true },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            this.errorHandler.throwBadRequest('A material with this code already exists');
+          }
+          throw e;
+        }
+      },
+      'Create material',
+    );
+  }
+
+  /**
+   * Create machine master data (used when user adds a missing machine from the work permit form)
+   */
+  async createMachine(dto: CreateMachineDto) {
+    return this.errorHandler.safeExecute(
+      async () => {
+        const trimmed = dto.name.trim();
+        if (!trimmed) {
+          this.errorHandler.throwBadRequest('Machine name is required');
+        }
+
+        let code = dto.code?.trim();
+        if (!code) {
+          code = trimmed.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        }
+        if (!code) {
+          code = `MAC-${Date.now()}`;
+        }
+
+        try {
+          return await this.prisma.machine.create({
+            data: {
+              name: trimmed,
+              code,
+              description: dto.description?.trim() || undefined,
+              isActive: true,
+            },
+            select: { id: true, name: true, code: true },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            this.errorHandler.throwBadRequest('A machine with this code already exists');
+          }
+          throw e;
+        }
+      },
+      'Create machine',
+    );
+  }
+
+  /**
+   * Create heavy equipment master data.
+   * Heavy equipment is flagged as fallback-created because it is created ad-hoc from the work permit form.
+   */
+  async createHeavyEquipment(dto: CreateHeavyEquipmentDto, createdBy: string) {
+    return this.errorHandler.safeExecute(
+      async () => {
+        if (!createdBy) {
+          this.errorHandler.throwBadRequest('createdBy is required');
+        }
+
+        const trimmed = dto.name.trim();
+        if (!trimmed) {
+          this.errorHandler.throwBadRequest('Heavy equipment name is required');
+        }
+
+        let code = dto.code?.trim();
+        if (!code) {
+          code = trimmed.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        }
+        if (!code) {
+          code = `HE-${Date.now()}`;
+        }
+
+        try {
+          return await this.prisma.heavyEquipment.create({
+            // Prisma client types appear to lag behind `schema.prisma` here.
+            // We still persist the required DB fields (createdBy + isFallbackCreated).
+            data: {
+              name: trimmed,
+              code,
+              description: dto.description?.trim() || undefined,
+              isActive: true,
+              createdBy,
+              isFallbackCreated: true,
+            } as any,
+            select: { id: true, name: true, code: true },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            this.errorHandler.throwBadRequest('A heavy equipment with this code already exists');
+          }
+          throw e;
+        }
+      },
+      'Create heavy equipment',
     );
   }
 

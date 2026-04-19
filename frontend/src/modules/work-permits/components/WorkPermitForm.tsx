@@ -39,6 +39,12 @@ import {
 import { riskService } from '@/modules/master-data';
 import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
 import { createProfessionFromQuery } from '../utils/professionHelpers';
+import {
+  createHeavyEquipmentFromQuery,
+  createMachineFromQuery,
+  createMaterialFromQuery,
+  createToolFromQuery,
+} from '../utils/equipmentHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
@@ -232,6 +238,11 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
   const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
   const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
+
+  const [toolSearchQueries, setToolSearchQueries] = useState<Record<number, string>>({});
+  const [materialSearchQueries, setMaterialSearchQueries] = useState<Record<number, string>>({});
+  const [machineSearchQueries, setMachineSearchQueries] = useState<Record<number, string>>({});
+  const [heavyEquipmentSearchQueries, setHeavyEquipmentSearchQueries] = useState<Record<number, string>>({});
 
   // Memoized options for SearchableSelect
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
@@ -818,9 +829,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       form.trigger(`workers.${workerIndex}.${fieldName}`);
       setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
       toast.success('File uploaded successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading file:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to upload file';
+      const maybeAxiosError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = maybeAxiosError.response?.data?.message || 'Failed to upload file';
       toast.error(errorMessage);
     } finally {
       setUploadingFiles((prev) => ({ ...prev, [uploadKey]: false }));
@@ -868,9 +880,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         order: attachmentFields.length,
       });
       toast.success('Attachment uploaded');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading attachment:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload file');
+      const maybeAxiosError = error as { response?: { data?: { message?: string } } };
+      toast.error(maybeAxiosError.response?.data?.message || 'Failed to upload file');
     }
   };
 
@@ -1411,7 +1424,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                                       input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
                                       input.onchange = (e) => {
                                         handleFileInputChange(
-                                          e as any,
+                                          e as React.ChangeEvent<HTMLInputElement>,
                                           'certificateUrl',
                                           index,
                                         );
@@ -1490,7 +1503,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                                       input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
                                       input.onchange = (e) => {
                                         handleFileInputChange(
-                                          e as any,
+                                          e as React.ChangeEvent<HTMLInputElement>,
                                           'healthDeclarationUrl',
                                           index,
                                         );
@@ -1824,13 +1837,27 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Tool</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (toolSearchQueries[index] ?? '').toString();
+                          const options = q.trim() === '' ? toolOptions : toolOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={toolOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select tool"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setToolSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createToolFromQuery(query, (newTool) => {
+                              setTools((prev) => [newTool, ...prev]);
+                            })
+                          }
+                          createNewText="Create new tool"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1893,13 +1920,28 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Machine</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (machineSearchQueries[index] ?? '').toString();
+                          const options =
+                            q.trim() === '' ? machineOptions : machineOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={machineOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select machine"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setMachineSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createMachineFromQuery(query, (newMachine) => {
+                              setMachines((prev) => [newMachine, ...prev]);
+                            })
+                          }
+                          createNewText="Create new machine"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1962,13 +2004,28 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Material</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (materialSearchQueries[index] ?? '').toString();
+                          const options =
+                            q.trim() === '' ? materialOptions : materialOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={materialOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select material"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setMaterialSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createMaterialFromQuery(query, (newMaterial) => {
+                              setMaterials((prev) => [newMaterial, ...prev]);
+                            })
+                          }
+                          createNewText="Create new material"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -2031,13 +2088,30 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Heavy equipment</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (heavyEquipmentSearchQueries[index] ?? '').toString();
+                          const options =
+                            q.trim() === ''
+                              ? heavyEquipmentOptions
+                              : heavyEquipmentOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={heavyEquipmentOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select heavy equipment"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setHeavyEquipmentSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createHeavyEquipmentFromQuery(query, (newHeavyEquipment) => {
+                              setHeavyEquipment((prev) => [newHeavyEquipment, ...prev]);
+                            })
+                          }
+                          createNewText="Create new heavy equipment"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>

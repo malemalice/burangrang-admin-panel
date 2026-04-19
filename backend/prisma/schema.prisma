@@ -1469,6 +1469,9 @@ model HeavyEquipment {
   isActive    Boolean                    @default(true)
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
+  createdBy   String
+  // Note: create on the fly, when not listed
+  isFallbackCreated Boolean              @default(false)
   workPermits WorkPermitHeavyEquipment[]
   // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 

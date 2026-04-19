@@ -8,6 +8,7 @@ import {
   WorkPermitSearchParams,
   ApprovalTimelineItem,
   WorkPermitMasterData,
+  MasterDataOption,
   ClassificationSafetyGuidanceUpdate,
   mapWorkPermitDtoToWorkPermit,
   mapWorkPermitToUpdateDto,
@@ -185,6 +186,55 @@ const workPermitService = {
     description?: string;
   }): Promise<{ id: string; name: string; code: string }> => {
     const response = await api.post('/work-permits/professions', data);
+    return response.data;
+  },
+
+  /**
+   * Create tool master data (from work permit form when no match exists)
+   */
+  createTool: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/tools', data);
+    return response.data;
+  },
+
+  /**
+   * Create material master data (from work permit form when no match exists)
+   */
+  createMaterial: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/materials', data);
+    return response.data;
+  },
+
+  /**
+   * Create machine master data (from work permit form when no match exists)
+   */
+  createMachine: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/machines', data);
+    return response.data;
+  },
+
+  /**
+   * Create heavy equipment master data (from work permit form when no match exists)
+   * Note: backend sets `isFallbackCreated = true` for this route.
+   */
+  createHeavyEquipment: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/heavy-equipment', data);
     return response.data;
   },
 };

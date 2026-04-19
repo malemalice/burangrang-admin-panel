@@ -56,14 +56,27 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
     { name: 'Concrete Mixer', code: 'CM-001', description: 'Concrete mixing equipment' },
   ];
 
-  for (const equipment of heavyEquipment) {
-    await prisma.heavyEquipment.upsert({
-      where: { code: equipment.code },
-      update: equipment,
-      create: equipment,
-    });
+  const heavyEquipmentCreatedBy = await prisma.user.findFirst();
+  if (!heavyEquipmentCreatedBy) {
+    console.log('⚠️ No users found. Skipping Heavy Equipment seed (createdBy required).');
+  } else {
+    for (const equipment of heavyEquipment) {
+      await prisma.heavyEquipment.upsert({
+        where: { code: equipment.code },
+        update: {
+          name: equipment.name,
+          description: equipment.description,
+        },
+        create: {
+          name: equipment.name,
+          code: equipment.code,
+          description: equipment.description,
+          createdBy: heavyEquipmentCreatedBy.id,
+        },
+      });
+    }
+    console.log(`✅ Created ${heavyEquipment.length} heavy equipment`);
   }
-  console.log(`✅ Created ${heavyEquipment.length} heavy equipment`);
 
   // Seed Tools
   const tools = [
