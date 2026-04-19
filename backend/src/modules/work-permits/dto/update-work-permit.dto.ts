@@ -17,7 +17,6 @@ import {
   WorkPermitToolDto,
   WorkPermitMaterialDto,
   WorkPermitMachineDto,
-  WorkPermitProfessionDto,
   WorkPermitRequiredCourseDto,
   WorkPermitHazardDto,
   WorkPermitAttachmentDto,
@@ -139,13 +138,6 @@ export class UpdateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitMachineDto)
   machines?: WorkPermitMachineDto[];
-
-  @ApiProperty({ description: 'Professions', type: [WorkPermitProfessionDto], required: false })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => WorkPermitProfessionDto)
-  professions?: WorkPermitProfessionDto[];
 
   @ApiProperty({ description: 'Required courses', type: [WorkPermitRequiredCourseDto], required: false })
   @IsOptional()

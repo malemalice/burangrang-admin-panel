@@ -106,6 +106,7 @@ const formSchema = z.object({
     .array(
       z.object({
         userId: z.string().min(1, 'Worker is required'),
+        professionId: z.string().min(1, 'Profession is required'),
         idNumber: z.string().optional(),
         certificateUrl: z.string().optional(),
         healthDeclarationUrl: z.string().min(1, 'Health declaration is required'),
@@ -144,15 +145,6 @@ const formSchema = z.object({
     .array(
       z.object({
         machineId: z.string().min(1, 'Machine is required'),
-        quantity: z.number().min(1, 'Quantity must be at least 1'),
-        order: z.number().min(0),
-      }),
-    )
-    .optional(),
-  professions: z
-    .array(
-      z.object({
-        professionId: z.string().min(1, 'Profession is required'),
         quantity: z.number().min(1, 'Quantity must be at least 1'),
         order: z.number().min(0),
       }),
@@ -336,6 +328,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workers: [
         {
           userId: '',
+          professionId: '',
           idNumber: '',
           certificateUrl: '',
           healthDeclarationUrl: '',
@@ -346,7 +339,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       tools: [],
       materials: [],
       machines: [],
-      professions: [],
       requiredCourses: [],
       hazards: [],
       attachments: [],
@@ -417,15 +409,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   } = useFieldArray({
     control: form.control,
     name: 'machines',
-  });
-
-  const {
-    fields: professionFields,
-    append: appendProfession,
-    remove: removeProfession,
-  } = useFieldArray({
-    control: form.control,
-    name: 'professions',
   });
 
   const {
@@ -666,6 +649,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const workersData =
         workPermit.workers?.map((w) => ({
           userId: str(w.userId),
+          professionId: str(w.professionId),
           idNumber: str(w.idNumber),
           certificateUrl: str(w.certificateUrl),
           healthDeclarationUrl: str(w.healthDeclarationUrl),
@@ -673,6 +657,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         })) || [
           {
             userId: '',
+            professionId: '',
             idNumber: '',
             certificateUrl: '',
             healthDeclarationUrl: '',
@@ -738,12 +723,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             machineId: str(m.machineId),
             quantity: qty(m.quantity),
             order: m.order,
-          })) || [],
-        professions:
-          workPermit.professions?.map((p) => ({
-            professionId: str(p.professionId),
-            quantity: qty(p.quantity),
-            order: p.order,
           })) || [],
         requiredCourses:
           workPermit.requiredCourses?.map((c) => ({
@@ -1279,7 +1258,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
-              <CardDescription>List of workers assigned to this permit</CardDescription>
+              <CardDescription>Select each worker and their profession for this permit</CardDescription>
             </div>
             <Button
               type="button"
@@ -1288,6 +1267,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               onClick={() =>
                 appendWorker({
                   userId: '',
+                  professionId: '',
                   idNumber: '',
                   certificateUrl: '',
                   healthDeclarationUrl: '',
@@ -1366,6 +1346,27 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         </FormItem>
                       );
                     }}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`workers.${index}.professionId`}
+                    render={({ field: f }) => (
+                      <FormItem>
+                        <FormLabel>Profession <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={professionOptions}
+                            value={f.value}
+                            onValueChange={f.onChange}
+                            placeholder="Select profession"
+                            searchPlaceholder="Search..."
+                            onCreateNew={handleCreateProfession}
+                            createNewText="Create new profession"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   <FormField
                     control={form.control}
@@ -1606,80 +1607,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   size="icon"
                   onClick={() => removeEmployee(index)}
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
-              <CardDescription>
-                For each line, choose the profession and enter how many workers you need in that role for this
-                permit.
-              </CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                appendProfession({
-                  professionId: '',
-                  quantity: 1,
-                  order: professionFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {professionFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name={`professions.${index}.professionId`}
-                  render={({ field: f }) => (
-                    <FormItem className="flex-1">
-                      <FormLabel>Profession</FormLabel>
-                      <FormControl>
-                        <ModalCombobox
-                          options={professionOptions}
-                          value={f.value}
-                          onValueChange={f.onChange}
-                          placeholder="Select profession"
-                          searchPlaceholder="Search..."
-                          onCreateNew={handleCreateProfession}
-                          createNewText="Create new profession"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`professions.${index}.quantity`}
-                  render={({ field: f }) => (
-                    <FormItem className="w-36 shrink-0">
-                      <FormLabel>Workers in this role</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...f}
-                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeProfession(index)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>

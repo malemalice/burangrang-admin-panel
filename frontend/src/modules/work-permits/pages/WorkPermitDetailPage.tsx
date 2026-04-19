@@ -586,6 +586,11 @@ const WorkPermitDetailPage = () => {
                               ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
                               : 'Unknown'}
                           </p>
+                          {worker.profession ? (
+                            <p className="text-sm text-muted-foreground">
+                              {worker.profession.name} ({worker.profession.code})
+                            </p>
+                          ) : null}
                           {worker.idNumber ? (
                             <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>
                           ) : null}
@@ -614,36 +619,6 @@ const WorkPermitDetailPage = () => {
                       </li>
                     ))}
                   </ul>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.professions?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No professions listed.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Profession</TableHead>
-                        <TableHead className="w-24 text-right">Qty</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workPermit.professions!.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell>
-                            {displayField(p.profession?.name)} ({displayField(p.profession?.code)})
-                          </TableCell>
-                          <TableCell className="text-right">{p.quantity}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
                 )}
               </CardContent>
             </Card>

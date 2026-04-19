@@ -214,6 +214,7 @@ export class WorkPermitDto {
   workers?: Array<{
     id: string;
     userId: string;
+    professionId: string;
     idNumber?: string;
     certificateUrl?: string;
     healthDeclarationUrl: string;
@@ -222,6 +223,11 @@ export class WorkPermitDto {
       firstName: string;
       lastName: string;
       email: string;
+    };
+    profession?: {
+      id: string;
+      name: string;
+      code: string;
     };
     order: number;
   }>;
@@ -283,22 +289,6 @@ export class WorkPermitDto {
     machineId: string;
     quantity: number;
     machine?: {
-      id: string;
-      name: string;
-      code: string;
-    };
-    order: number;
-  }>;
-
-  @ApiProperty({ description: 'Professions', required: false, type: [Object] })
-  @Expose()
-  @IsOptional()
-  @IsArray()
-  professions?: Array<{
-    id: string;
-    professionId: string;
-    quantity: number;
-    profession?: {
       id: string;
       name: string;
       code: string;

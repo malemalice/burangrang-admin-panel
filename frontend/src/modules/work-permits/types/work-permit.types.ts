@@ -101,7 +101,6 @@ export interface WorkPermit {
   tools?: WorkPermitTool[];
   materials?: WorkPermitMaterial[];
   machines?: WorkPermitMachine[];
-  professions?: WorkPermitProfession[];
   requiredCourses?: WorkPermitRequiredCourse[];
   hazards?: WorkPermitHazard[];
   attachments?: WorkPermitAttachment[];
@@ -193,6 +192,7 @@ export interface WorkPermitEmployee {
 export interface WorkPermitWorker {
   id: string;
   userId: string;
+  professionId: string;
   idNumber?: string;
   certificateUrl?: string;
   healthDeclarationUrl: string;
@@ -201,6 +201,11 @@ export interface WorkPermitWorker {
     firstName: string;
     lastName: string;
     email: string;
+  };
+  profession?: {
+    id: string;
+    name: string;
+    code: string;
   };
   order: number;
 }
@@ -246,18 +251,6 @@ export interface WorkPermitMachine {
   machineId: string;
   quantity: number;
   machine?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-  order: number;
-}
-
-export interface WorkPermitProfession {
-  id: string;
-  professionId: string;
-  quantity: number;
-  profession?: {
     id: string;
     name: string;
     code: string;
@@ -372,7 +365,6 @@ export interface WorkPermitDTO {
   tools?: WorkPermitTool[];
   materials?: WorkPermitMaterial[];
   machines?: WorkPermitMachine[];
-  professions?: WorkPermitProfession[];
   requiredCourses?: WorkPermitRequiredCourse[];
   hazards?: WorkPermitHazard[];
   attachments?: WorkPermitAttachment[];
@@ -404,6 +396,7 @@ export interface CreateWorkPermitDTO {
   }>;
   workers: Array<{
     userId: string;
+    professionId: string;
     idNumber?: string;
     certificateUrl?: string;
     healthDeclarationUrl: string;
@@ -426,11 +419,6 @@ export interface CreateWorkPermitDTO {
   }>;
   machines?: Array<{
     machineId: string;
-    quantity: number;
-    order: number;
-  }>;
-  professions?: Array<{
-    professionId: string;
     quantity: number;
     order: number;
   }>;
@@ -526,6 +514,7 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   })),
   workers: workPermit.workers?.map((w) => ({
     userId: w.userId,
+    professionId: w.professionId,
     idNumber: w.idNumber,
     certificateUrl: w.certificateUrl,
     healthDeclarationUrl: w.healthDeclarationUrl,
@@ -550,11 +539,6 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
     machineId: m.machineId,
     quantity: m.quantity,
     order: m.order,
-  })),
-  professions: workPermit.professions?.map((p) => ({
-    professionId: p.professionId,
-    quantity: p.quantity,
-    order: p.order,
   })),
   requiredCourses: workPermit.requiredCourses?.map((c) => ({
     courseId: c.courseId,

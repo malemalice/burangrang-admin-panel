@@ -106,7 +106,6 @@ export function WorkPermitPDFTemplate({
   const tools = workPermit.tools ?? [];
   const materials = workPermit.materials ?? [];
   const machines = workPermit.machines ?? [];
-  const professions = workPermit.professions ?? [];
   const requiredCourses = workPermit.requiredCourses ?? [];
   const hazards = workPermit.hazards ?? [];
   const attachments = workPermit.attachments ?? [];
@@ -213,6 +212,7 @@ export function WorkPermitPDFTemplate({
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">User (Name / Email)</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Profession (Name / Code)</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">ID Number</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Certificate URL</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Health Declaration URL</th>
@@ -220,7 +220,7 @@ export function WorkPermitPDFTemplate({
           </thead>
           <tbody>
             {workers.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={6} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               workers.map((w, i) => (
                 <tr key={w.id}>
@@ -228,35 +228,12 @@ export function WorkPermitPDFTemplate({
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
                     {w.user ? `${na(w.user.firstName)} ${na(w.user.lastName)} / ${na(w.user.email)}` : '—'}
                   </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {w.profession ? `${na(w.profession.name)} / ${na(w.profession.code)}` : '—'}
+                  </td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.idNumber)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.certificateUrl)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.healthDeclarationUrl)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.professions}</h3>
-        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {professions.length === 0 ? (
-              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              professions.map((p, i) => (
-                <tr key={p.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.code)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.quantity)}</td>
                 </tr>
               ))
             )}

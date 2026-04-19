@@ -32,7 +32,6 @@ export type {
   WorkPermitTool,
   WorkPermitMaterial,
   WorkPermitMachine,
-  WorkPermitProfession,
   WorkPermitRequiredCourse,
   WorkPermitHazard,
   WorkPermitAttachment,

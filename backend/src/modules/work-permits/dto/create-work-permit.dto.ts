@@ -50,6 +50,11 @@ export class WorkPermitWorkerDto {
   @IsNotEmpty()
   userId: string;
 
+  @ApiProperty({ description: 'Profession ID for this worker' })
+  @IsString()
+  @IsNotEmpty()
+  professionId: string;
+
   @ApiProperty({ description: 'ID number', required: false })
   @IsOptional()
   @IsString()
@@ -127,23 +132,6 @@ export class WorkPermitMachineDto {
   @IsString()
   @IsNotEmpty()
   machineId: string;
-
-  @ApiProperty({ description: 'Quantity' })
-  @IsInt()
-  @Min(1)
-  quantity: number;
-
-  @ApiProperty({ description: 'Order/sequence' })
-  @IsInt()
-  @Min(0)
-  order: number;
-}
-
-export class WorkPermitProfessionDto {
-  @ApiProperty({ description: 'Profession ID' })
-  @IsString()
-  @IsNotEmpty()
-  professionId: string;
 
   @ApiProperty({ description: 'Quantity' })
   @IsInt()
@@ -343,13 +331,6 @@ export class CreateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitMachineDto)
   machines?: WorkPermitMachineDto[];
-
-  @ApiProperty({ description: 'Professions', type: [WorkPermitProfessionDto], required: false })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => WorkPermitProfessionDto)
-  professions?: WorkPermitProfessionDto[];
 
   @ApiProperty({ description: 'Required courses', type: [WorkPermitRequiredCourseDto], required: false })
   @IsOptional()

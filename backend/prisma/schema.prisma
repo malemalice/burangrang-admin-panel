@@ -1549,14 +1549,14 @@ model Company {
 }
 
 model Profession {
-  id          String                 @id @default(uuid())
-  name        String
-  code        String                 @unique
-  description String?                @db.Text
-  isActive    Boolean                @default(true)
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  workPermits WorkPermitProfession[]
+  id                 String             @id @default(uuid())
+  name               String
+  code               String             @unique
+  description        String?            @db.Text
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  workPermitWorkers  WorkPermitWorker[]
 
   @@map("m_professions")
 }
@@ -1785,7 +1785,6 @@ model WorkPermit {
   materials       WorkPermitMaterial[]
   machines        WorkPermitMachine[]
   workers         WorkPermitWorker[]
-  professions     WorkPermitProfession[]
   requiredCourses WorkPermitRequiredCourse[]
   hazards         WorkPermitHazard[]
   attachments     WorkPermitAttachment[]
@@ -1907,35 +1906,23 @@ model WorkPermitMachine {
 }
 
 model WorkPermitWorker {
-  id                   String   @id @default(uuid())
+  id                   String     @id @default(uuid())
   workPermitId         String
   userId               String
+  professionId         String
   idNumber             String?
   certificateUrl       String?
   healthDeclarationUrl String
   order                Int
-  createdAt            DateTime @default(now())
+  createdAt            DateTime   @default(now())
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  user       User      @relation("WorkPermitWorker", fields: [userId], references: [id])
-
-  @@map("t_work_permit_workers")
-}
-
-model WorkPermitProfession {
-  id           String   @id @default(uuid())
-  workPermitId String
-  professionId String
-  quantity     Int
-  order        Int
-  createdAt    DateTime @default(now())
-
-  // Relations
-  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  user       User       @relation("WorkPermitWorker", fields: [userId], references: [id])
   profession Profession @relation(fields: [professionId], references: [id])
 
-  @@map("t_work_permit_professions")
+  @@index([professionId])
+  @@map("t_work_permit_workers")
 }
 
 model WorkPermitRequiredCourse {

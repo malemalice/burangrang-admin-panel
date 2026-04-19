@@ -105,7 +105,7 @@ export class WorkPermitsService {
         orderBy: { order: 'asc' },
       },
       workers: {
-        include: { user: true },
+        include: { user: true, profession: true },
         orderBy: { order: 'asc' },
       },
       heavyEquipment: {
@@ -124,10 +124,6 @@ export class WorkPermitsService {
         include: { machine: true },
         orderBy: { order: 'asc' },
       },
-      professions: {
-        include: { profession: true },
-        orderBy: { order: 'asc' },
-      },
       requiredCourses: {
         include: { course: true },
         orderBy: { order: 'asc' },
@@ -138,6 +134,23 @@ export class WorkPermitsService {
       hseOfficers: { include: { user: true } },
       safetyEquipment: { include: { safetyEquipment: true } },
     };
+  }
+
+  private async validateWorkerProfessions(
+    workers: { professionId: string }[],
+  ): Promise<void> {
+    const professionIds = [...new Set(workers.map((w) => w.professionId))];
+    const professions = await this.prisma.profession.findMany({
+      where: { id: { in: professionIds } },
+    });
+    if (professions.length !== professionIds.length) {
+      this.errorHandler.throwBadRequest('One or more professions are invalid');
+    }
+    for (const p of professions) {
+      if (!p.isActive) {
+        this.errorHandler.throwBadRequest(`Profession ${p.id} is not active`);
+      }
+    }
   }
 
   /**
@@ -350,6 +363,8 @@ export class WorkPermitsService {
         }
       }
 
+      await this.validateWorkerProfessions(createDto.workers);
+
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
       if (createDto.classifications?.length) {
@@ -398,6 +413,7 @@ export class WorkPermitsService {
           workers: {
             create: createDto.workers.map((w) => ({
               userId: w.userId,
+              professionId: w.professionId,
               idNumber: w.idNumber,
               certificateUrl: w.certificateUrl,
               healthDeclarationUrl: w.healthDeclarationUrl,
@@ -437,15 +453,6 @@ export class WorkPermitsService {
                 machineId: m.machineId,
                 quantity: m.quantity,
                 order: m.order,
-              })),
-            }
-            : undefined,
-          professions: createDto.professions
-            ? {
-              create: createDto.professions.map((p) => ({
-                professionId: p.professionId,
-                quantity: p.quantity,
-                order: p.order,
               })),
             }
             : undefined,
@@ -807,6 +814,7 @@ export class WorkPermitsService {
       base.workers = workPermit.workers.map((w: any) => ({
         id: w.id,
         userId: w.userId,
+        professionId: w.professionId,
         idNumber: w.idNumber,
         certificateUrl: w.certificateUrl,
         healthDeclarationUrl: w.healthDeclarationUrl,
@@ -816,6 +824,13 @@ export class WorkPermitsService {
             firstName: w.user.firstName,
             lastName: w.user.lastName,
             email: w.user.email,
+          }
+          : undefined,
+        profession: w.profession
+          ? {
+            id: w.profession.id,
+            name: w.profession.name,
+            code: w.profession.code,
           }
           : undefined,
         order: w.order,
@@ -883,22 +898,6 @@ export class WorkPermitsService {
           }
           : undefined,
         order: m.order,
-      }));
-    }
-
-    if (workPermit.professions) {
-      base.professions = workPermit.professions.map((p: any) => ({
-        id: p.id,
-        professionId: p.professionId,
-        quantity: p.quantity,
-        profession: p.profession
-          ? {
-            id: p.profession.id,
-            name: p.profession.name,
-            code: p.profession.code,
-          }
-          : undefined,
-        order: p.order,
       }));
     }
 
@@ -1281,12 +1280,14 @@ export class WorkPermitsService {
             );
           }
         }
+        await this.validateWorkerProfessions(updateDto.workers);
         await this.prisma.workPermitWorker.deleteMany({
           where: { workPermitId: id },
         });
         updateData.workers = {
           create: updateDto.workers.map((w) => ({
             userId: w.userId,
+            professionId: w.professionId,
             idNumber: w.idNumber,
             certificateUrl: w.certificateUrl,
             healthDeclarationUrl: w.healthDeclarationUrl,
@@ -1350,21 +1351,6 @@ export class WorkPermitsService {
               machineId: m.machineId,
               quantity: m.quantity,
               order: m.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.professions !== undefined) {
-        await this.prisma.workPermitProfession.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.professions.length > 0) {
-          updateData.professions = {
-            create: updateDto.professions.map((p) => ({
-              professionId: p.professionId,
-              quantity: p.quantity,
-              order: p.order,
             })),
           };
         }

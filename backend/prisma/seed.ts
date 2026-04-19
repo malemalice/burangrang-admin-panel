@@ -99,7 +99,6 @@ async function main() {
       await prisma.workPermitAttachment.deleteMany();
       await prisma.workPermitHazard.deleteMany();
       await prisma.workPermitRequiredCourse.deleteMany();
-      await prisma.workPermitProfession.deleteMany();
       await prisma.workPermitMachine.deleteMany();
       await prisma.workPermitMaterial.deleteMany();
       await prisma.workPermitTool.deleteMany();
@@ -233,7 +232,6 @@ async function main() {
           await prisma.workPermitAttachment.deleteMany();
           await prisma.workPermitHazard.deleteMany();
           await prisma.workPermitRequiredCourse.deleteMany();
-          await prisma.workPermitProfession.deleteMany();
           await prisma.workPermitMachine.deleteMany();
           await prisma.workPermitMaterial.deleteMany();
           await prisma.workPermitTool.deleteMany();
@@ -424,7 +422,6 @@ async function main() {
           await prisma.workPermitAttachment.deleteMany();
           await prisma.workPermitHazard.deleteMany();
           await prisma.workPermitRequiredCourse.deleteMany();
-          await prisma.workPermitProfession.deleteMany();
           await prisma.workPermitMachine.deleteMany();
           await prisma.workPermitMaterial.deleteMany();
           await prisma.workPermitTool.deleteMany();
@@ -734,7 +731,6 @@ async function main() {
           await prisma.workPermitAttachment.deleteMany();
           await prisma.workPermitHazard.deleteMany();
           await prisma.workPermitRequiredCourse.deleteMany();
-          await prisma.workPermitProfession.deleteMany();
           await prisma.workPermitMachine.deleteMany();
           await prisma.workPermitMaterial.deleteMany();
           await prisma.workPermitTool.deleteMany();
