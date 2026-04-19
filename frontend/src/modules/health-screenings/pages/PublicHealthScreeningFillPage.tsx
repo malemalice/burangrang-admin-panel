@@ -216,8 +216,43 @@ const PublicHealthScreeningFillPage = () => {
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
   const declarationsComplete = ackTruth && ackDiscipline;
 
+  const participant = screening.user;
+  const fullName = participant
+    ? [participant.firstName, participant.lastName].filter(Boolean).join(' ').trim()
+    : '';
+  const emDash = '—';
+
   return (
     <div className="container mx-auto py-6 max-w-4xl px-4">
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Confirm who this declaration is for</CardTitle>
+          <p className="text-sm text-muted-foreground font-normal mt-1">
+            Check that the details match the person completing this form.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-3 sm:grid-cols-2 text-sm">
+            <div>
+              <dt className="text-muted-foreground">Name</dt>
+              <dd className="font-medium mt-0.5">{fullName || emDash}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="font-medium mt-0.5 break-all">{participant?.email?.trim() || emDash}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Profession</dt>
+              <dd className="font-medium mt-0.5">{participant?.profession?.name?.trim() || emDash}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Company</dt>
+              <dd className="font-medium mt-0.5">{screening.company?.name?.trim() || emDash}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">

@@ -317,12 +317,14 @@ export class HealthScreeningsService {
 
   private healthScreeningDetailInclude(): Prisma.HealthScreeningInclude {
     return {
+      company: { select: { id: true, name: true } },
       user: {
         select: {
           id: true,
           firstName: true,
           lastName: true,
           email: true,
+          profession: { select: { name: true, code: true } },
         },
       },
       quiz: {

@@ -155,32 +155,6 @@ const HealthScreeningDetailPage = () => {
         </CardContent>
       </Card>
 
-      {data.declarationTermsAcceptedAt && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Declaration confirmation</CardTitle>
-            <p className="text-sm text-muted-foreground font-normal">
-              The submitter confirmed the statements below on{' '}
-              {new Date(data.declarationTermsAcceptedAt).toLocaleString()}.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {HEALTH_DECLARATION_TERMS.map((term) => (
-              <div key={term.id} className="flex gap-3 items-start">
-                <CheckCircle2
-                  className="h-5 w-5 shrink-0 text-primary mt-0.5"
-                  aria-hidden
-                />
-                <p className="text-sm leading-relaxed">
-                  <span>{term.en} </span>
-                  <span className="text-muted-foreground">({term.idLang})</span>
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Responses</CardTitle>
@@ -219,6 +193,32 @@ const HealthScreeningDetailPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {data.declarationTermsAcceptedAt && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Declaration confirmation</CardTitle>
+            <p className="text-sm text-muted-foreground font-normal">
+              The submitter confirmed the statements below on{' '}
+              {new Date(data.declarationTermsAcceptedAt).toLocaleString()}.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {HEALTH_DECLARATION_TERMS.map((term) => (
+              <div key={term.id} className="flex gap-3 items-start">
+                <CheckCircle2
+                  className="h-5 w-5 shrink-0 text-primary mt-0.5"
+                  aria-hidden
+                />
+                <p className="text-sm leading-relaxed">
+                  <span>{term.en} </span>
+                  <span className="text-muted-foreground">({term.idLang})</span>
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

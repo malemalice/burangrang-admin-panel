@@ -25,6 +25,7 @@ export interface HealthScreeningListItem {
     firstName: string;
     lastName: string;
     email: string;
+    profession?: { name: string; code: string } | null;
   };
 }
 
