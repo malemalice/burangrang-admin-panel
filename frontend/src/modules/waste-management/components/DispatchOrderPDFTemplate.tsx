@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { Separator } from '@/core/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/core/components/ui/table';
 import type { ApprovalStatusHistory } from '@/modules/master-data';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import { DispatchOrder } from '../types/waste-management.types';
 
 const APPROVAL_FIELD_MARKERS = {
@@ -29,20 +29,79 @@ function formatEntityStatus(status: GeneralStatusEnum | string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Matches detail page badge wording */
+function getEntityStatusDisplayLabel(status?: string): string {
+  switch (status) {
+    case GeneralStatusEnum.DRAFT:
+      return 'Draft';
+    case GeneralStatusEnum.SCHEDULED:
+      return 'Scheduled';
+    case GeneralStatusEnum.OPEN:
+      return 'Open';
+    case GeneralStatusEnum.WAITING_APPROVAL:
+      return 'Waiting Approval';
+    case GeneralStatusEnum.DONE:
+      return 'Done';
+    case GeneralStatusEnum.REJECTED:
+      return 'Rejected';
+    case GeneralStatusEnum.CLOSE:
+      return 'Close';
+    default: {
+      const opt = GENERAL_STATUS_OPTIONS.find((o) => o.value === status);
+      return opt?.label ?? (status ? formatEntityStatus(status) : '—');
+    }
+  }
+}
+
+function formatApprovalActionLabel(status: string | undefined): string {
+  if (!status) return 'Completed';
+  return formatEntityStatus(status);
+}
+
 function workflowStepDisplay(line: number): number {
   return line + 1;
 }
 
 function formatWorkflowStatusLabel(
+  entityStatus: string | undefined,
   lineStatus: 'completed' | 'current' | 'pending',
   lastApprovalStatus: string | undefined,
 ): string {
+  const es = entityStatus as GeneralStatusEnum | undefined;
+  const lastUpper = lastApprovalStatus ? String(lastApprovalStatus).toUpperCase() : '';
+
   if (lineStatus === 'completed') {
-    return lastApprovalStatus || 'Completed';
+    if (lastUpper === 'REJECTED') return 'Rejected';
+    return formatApprovalActionLabel(lastApprovalStatus);
   }
-  if (lineStatus === 'current') {
+
+  if (lineStatus === 'pending') {
+    if (es === GeneralStatusEnum.DONE || es === GeneralStatusEnum.SCHEDULED) {
+      return 'Not applicable';
+    }
+    return 'Pending';
+  }
+
+  // current — interpret using entity lifecycle (API may leave steps current/pending after terminal states)
+  if (es === GeneralStatusEnum.DRAFT || es === GeneralStatusEnum.OPEN) {
+    return 'Pending';
+  }
+
+  if (es === GeneralStatusEnum.REJECTED) {
+    if (lastUpper === 'REJECTED') {
+      return 'Rejected';
+    }
+    return 'Pending';
+  }
+
+  if (es === GeneralStatusEnum.WAITING_APPROVAL) {
     return 'Awaiting verification';
   }
+
+  if (es === GeneralStatusEnum.DONE || es === GeneralStatusEnum.SCHEDULED) {
+    return lastApprovalStatus ? formatApprovalActionLabel(lastApprovalStatus) : 'Completed';
+  }
+
   return 'Pending';
 }
 
@@ -64,7 +123,11 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
       ?.slice()
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) ?? [];
   const approvalLines = approvalHistory?.allApprovalLines ?? [];
-  const isDone = dispatchOrder.status === GeneralStatusEnum.DONE;
+  const approvalStatusDisplay = formatEntityStatus(
+    approvalHistory?.currentStatus ?? dispatchOrder.status,
+  );
+  const showNextApprover =
+    dispatchOrder.status === GeneralStatusEnum.WAITING_APPROVAL && approvalHistory?.nextApprover;
 
   const attachmentLabels =
     dispatchOrder.attachments
@@ -105,15 +168,11 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
             </TableRow>
             <TableRow>
               <TableHead className="w-[38%] bg-muted/50 font-semibold">Status</TableHead>
-              <TableCell>{formatEntityStatus(dispatchOrder.status)}</TableCell>
+              <TableCell>{getEntityStatusDisplayLabel(dispatchOrder.status)}</TableCell>
             </TableRow>
             <TableRow>
               <TableHead className="w-[38%] bg-muted/50 font-semibold">Approval status</TableHead>
-              <TableCell>
-                {approvalHistory?.currentStatus
-                  ? formatEntityStatus(approvalHistory.currentStatus)
-                  : '—'}
-              </TableCell>
+              <TableCell>{approvalStatusDisplay}</TableCell>
             </TableRow>
             {dispatchOrder.memo && (
               <TableRow>
@@ -171,14 +230,14 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
         </h2>
         <div className="mb-4 text-sm text-gray-800 leading-relaxed">
           <span className="font-semibold">Current approval status: </span>
-          <span>{approvalHistory?.currentStatus ?? formatEntityStatus(dispatchOrder.status) ?? '—'}</span>
-          {!isDone && approvalHistory?.nextApprover && (
+          <span>{approvalStatusDisplay}</span>
+          {showNextApprover && (
             <>
               <span className="mx-2 text-gray-400">·</span>
               <span className="font-semibold">Next responsible party: </span>
               <span>
-                {approvalHistory.nextApprover.department.name} — {approvalHistory.nextApprover.jobPosition.name}{' '}
-                (Step {workflowStepDisplay(approvalHistory.nextApprover.line)})
+                {approvalHistory!.nextApprover!.department.name} — {approvalHistory!.nextApprover!.jobPosition.name}{' '}
+                (Step {workflowStepDisplay(approvalHistory!.nextApprover!.line)})
               </span>
             </>
           )}
@@ -215,7 +274,11 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
                   const approvalsForLine = allApprovals.filter((a) => a.line === line.line);
                   const lastApproval =
                     approvalsForLine.length > 0 ? approvalsForLine[approvalsForLine.length - 1] : null;
-                  const statusLabel = formatWorkflowStatusLabel(line.status, lastApproval?.status);
+                  const statusLabel = formatWorkflowStatusLabel(
+                    dispatchOrder.status,
+                    line.status,
+                    lastApproval?.status,
+                  );
 
                   return (
                     <tr key={`wf-${line.line}`}>
@@ -281,7 +344,7 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
                   <tr key={`ah-${approval.id}`}>
                     <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{idx + 1}</td>
                     <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 font-semibold">
-                      {approval.status}
+                      {formatApprovalActionLabel(approval.status)}
                     </td>
                     <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
                       {approval.creator?.name ?? '—'}
