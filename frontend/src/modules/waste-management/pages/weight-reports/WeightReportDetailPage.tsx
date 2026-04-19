@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
     ArrowLeft,
     Pencil,
-    Printer,
+    FileDown,
     Send,
     ClipboardCheck,
     CheckCircle2,
@@ -242,36 +242,25 @@ export default function WeightReportDetailPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Solid Waste Report Details"
-                subtitle={`Report Code: ${data.reportCode}`}
+                title={`Solid Waste Report: ${data.reportCode}`}
+                subtitle={`Period: ${data.reportMonth} ${data.reportYear}`}
                 actions={
                     <div className="flex gap-2 flex-wrap">
-                        <Button variant="outline" onClick={() => navigate('/waste-management/weight-reports')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                        </Button>
-                        <Button variant="outline" onClick={() => void handleExportPDF()}>
-                            <Printer className="mr-2 h-4 w-4" /> Export PDF
-                        </Button>
-                        {isEditable && (
-                            <Button variant="outline" onClick={() => navigate(`/waste-management/weight-reports/${id}/edit`)}>
-                                <Pencil className="mr-2 h-4 w-4" /> Edit
-                            </Button>
-                        )}
                         {data.status === WeightReportStatusEnum.DRAFT && (
                             <Button onClick={handleSubmit} disabled={isUpdatingStatus}>
-                                <Send className="mr-2 h-4 w-4" />
+                                <Send className="h-4 w-4 mr-2" />
                                 {isUpdatingStatus ? 'Submitting...' : 'Submit'}
                             </Button>
                         )}
                         {data.status === WeightReportStatusEnum.OPEN && (
                             <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
-                                <ClipboardCheck className="mr-2 h-4 w-4" />
+                                <ClipboardCheck className="h-4 w-4 mr-2" />
                                 {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
                             </Button>
                         )}
                         {data.status === WeightReportStatusEnum.REJECTED && (
                             <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
-                                <RotateCcw className="mr-2 h-4 w-4" />
+                                <RotateCcw className="h-4 w-4 mr-2" />
                                 {isUpdatingStatus ? 'Resubmitting...' : 'Resubmit for Approval'}
                             </Button>
                         )}
@@ -282,16 +271,31 @@ export default function WeightReportDetailPage() {
                                     onClick={openApproveDialog}
                                     disabled={isLoadingHistory}
                                 >
-                                    <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
+                                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve
                                 </Button>
                                 <Button variant="destructive" onClick={openRejectDialog} disabled={isLoadingHistory}>
-                                    <XCircle className="mr-2 h-4 w-4" /> Reject
+                                    <XCircle className="h-4 w-4 mr-2" /> Reject
                                 </Button>
                             </>
                         )}
+                        <Button variant="outline" onClick={() => void handleExportPDF()}>
+                            <FileDown className="h-4 w-4 mr-2" /> Export PDF
+                        </Button>
+                        {isEditable && (
+                            <Button variant="outline" onClick={() => navigate(`/waste-management/weight-reports/${id}/edit`)}>
+                                <Pencil className="h-4 w-4 mr-2" /> Edit
+                            </Button>
+                        )}
+                        <Button variant="outline" onClick={() => navigate('/waste-management/weight-reports')}>
+                            <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
+                        </Button>
                     </div>
                 }
-            />
+            >
+                <div className="flex items-center gap-3">
+                    {getStatusBadge(data.status)}
+                </div>
+            </PageHeader>
 
             <div className="max-w-4xl mx-auto space-y-6">
                 <Card>
@@ -303,10 +307,6 @@ export default function WeightReportDetailPage() {
                         <div>
                             <p className="text-sm text-muted-foreground">Report Code</p>
                             <p className="font-medium">{data.reportCode}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Status</p>
-                            <div className="mt-1">{getStatusBadge(data.status)}</div>
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">Source</p>
