@@ -9,6 +9,11 @@ export class QuizDto {
   @IsString()
   id: string;
 
+  @ApiProperty({ description: 'LMS quiz vs health declaration questionnaire', enum: ['LMS_QUIZ', 'HEALTH_DECLARATION'] })
+  @Expose()
+  @IsString()
+  kind: string;
+
   @ApiProperty({ description: 'Quiz title' })
   @Expose()
   @IsString()
@@ -90,6 +95,15 @@ export class QuizDto {
   @Expose()
   @IsBoolean()
   isActive: boolean;
+
+  @ApiProperty({
+    required: false,
+    description: 'When true, this quiz is the global default template for health screenings started without quizId',
+  })
+  @Expose()
+  @IsOptional()
+  @IsBoolean()
+  isDefaultForHealthScreening?: boolean;
 
   @ApiProperty({ description: 'Creator user ID' })
   @Expose()

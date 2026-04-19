@@ -18,6 +18,10 @@ export class AuthUserDto {
   @Expose()
   lastName: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  companyId?: string | null;
+
   @ApiProperty()
   @Expose()
   role: string;

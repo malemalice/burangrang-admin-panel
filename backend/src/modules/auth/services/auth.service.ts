@@ -21,6 +21,7 @@ interface AuthenticatedUser {
   email: string;
   firstName: string;
   lastName: string;
+  companyId?: string | null;
   role: {
     id: string;
     name: string;
@@ -124,6 +125,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        companyId: user.companyId ?? null,
         role: user.role.name,
         permissions: permissionNames,
       },
@@ -242,6 +244,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        companyId: user.companyId ?? null,
         role: user.role.name,
         permissions: permissionNames,
       },

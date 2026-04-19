@@ -8,6 +8,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
+  companyId?: string | null;
   role: string | { name: string; [key: string]: unknown };
   permissions?: string[];
 }

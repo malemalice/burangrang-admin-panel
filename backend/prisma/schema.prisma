@@ -33,12 +33,14 @@ model User {
   officeId                     String
   departmentId                 String?
   jobPositionId                String?
+  companyId                    String?
   createdAt                    DateTime                   @default(now())
   updatedAt                    DateTime                   @updatedAt
   lastLoginAt                  DateTime?
   refreshTokens                RefreshToken[]
   passwordResetTokens          PasswordResetToken[]
   office                       Office                     @relation(fields: [officeId], references: [id])
+  company                      Company?                   @relation(fields: [companyId], references: [id])
   role                         Role                       @relation(fields: [roleId], references: [id])
   department                   Department?                @relation(fields: [departmentId], references: [id])
   jobPosition                  JobPosition?               @relation(fields: [jobPositionId], references: [id])
@@ -66,6 +68,7 @@ model User {
   quizAssignments              QuizAssignment[]           @relation("QuizAssignmentUser")
   quizAssignmentsAssigned      QuizAssignment[]           @relation("QuizAssignmentAssigner")
   quizAttempts                 QuizAttempt[]              @relation("QuizAttemptUser")
+  healthScreenings             HealthScreening[]
   quizAnswersGraded            QuizAnswer[]               @relation("QuizAnswerGrader")
   certificatesAsPersonnel      Certificate[]              @relation("CertificatePersonnel")
   certificatesCreated          Certificate[]              @relation("CertificateCreator")
@@ -1136,6 +1139,19 @@ enum QuizEntityEnum {
   CHAPTER
 }
 
+/// Distinguishes LMS quizzes from health declaration questionnaires (no grading expectation for health).
+enum QuizKindEnum {
+  LMS_QUIZ
+  HEALTH_DECLARATION
+}
+
+/// IN_PROGRESS = filling not finalized. DONE = submitted. EXPIRED = scheduler when createdAt is outside validity window.
+enum HealthScreeningStatusEnum {
+  IN_PROGRESS
+  DONE
+  EXPIRED
+}
+
 enum QuizAttemptStatusEnum {
   INVITING
   INVITED
@@ -1144,9 +1160,10 @@ enum QuizAttemptStatusEnum {
   ABANDONED
 }
 
-// Quiz - Transactional Data (LMS)
+// Quiz - Transactional Data (LMS + health declaration questionnaires)
 model Quiz {
   id                String          @id @default(uuid())
+  kind              QuizKindEnum    @default(LMS_QUIZ)
   entity            QuizEntityEnum? // COURSE, CHAPTER, or null (standalone)
   entityId          String? // courseId or chapterId, or null
   title             String
@@ -1161,6 +1178,8 @@ model Quiz {
   isPublished       Boolean         @default(false)
   publishedAt       DateTime?
   isActive          Boolean         @default(true)
+  /// Globally at most one quiz may be true; used when starting a health screening without quizId.
+  isDefaultForHealthScreening Boolean @default(false)
   createdBy         String
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -1170,8 +1189,10 @@ model Quiz {
   questions   QuizQuestion[]
   assignments QuizAssignment[]
   attempts    QuizAttempt[]
+  healthScreenings HealthScreening[]
 
   @@index([entity, entityId])
+  @@index([kind])
   @@map("t_quizzes")
 }
 
@@ -1267,6 +1288,7 @@ model QuizAttempt {
   enrollment Enrollment?  @relation(fields: [enrollmentId], references: [id])
   user       User?        @relation("QuizAttemptUser", fields: [userId], references: [id])
   answers    QuizAnswer[]
+  healthScreening HealthScreening?
 
   @@index([enrollmentId, quizId])
   @@index([userId, quizId])
@@ -1297,6 +1319,30 @@ model QuizAnswer {
 
   @@unique([attemptId, questionId])
   @@map("t_quiz_answers")
+}
+
+/// Structured health declaration submission linked to a quiz template and quiz attempt (answers).
+model HealthScreening {
+  id                 String                     @id @default(uuid())
+  userId             String
+  companyId          String?
+  quizId             String
+  quizAttemptId      String                     @unique
+  workPermitWorkerId String?                    @unique
+  status             HealthScreeningStatusEnum  @default(IN_PROGRESS)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company            Company?                   @relation(fields: [companyId], references: [id])
+  quiz               Quiz                       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizAttempt        QuizAttempt                @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  workPermitWorker   WorkPermitWorker?          @relation(fields: [workPermitWorkerId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([quizId])
+  @@map("t_health_screenings")
 }
 
 // Certificate Management System
@@ -1544,6 +1590,8 @@ model Company {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   workPermits   WorkPermit[]
+  users         User[]
+  healthScreenings HealthScreening[]
 
   @@map("m_companies")
 }
@@ -1912,7 +1960,8 @@ model WorkPermitWorker {
   professionId         String
   idNumber             String?
   certificateUrl       String?
-  healthDeclarationUrl String
+  /// Legacy file URL; optional when structured health screening is used.
+  healthDeclarationUrl String?
   order                Int
   createdAt            DateTime   @default(now())
 
@@ -1920,6 +1969,7 @@ model WorkPermitWorker {
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
   user       User       @relation("WorkPermitWorker", fields: [userId], references: [id])
   profession Profession @relation(fields: [professionId], references: [id])
+  healthScreening HealthScreening?
 
   @@index([professionId])
   @@map("t_work_permit_workers")

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -66,6 +67,27 @@ import {
 } from '../constants/workPermitSections';
 import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import healthScreeningService from '@/modules/health-screenings/services/healthScreeningService';
+
+const workerRowSchema = z
+  .object({
+    userId: z.string().min(1, 'Worker is required'),
+    professionId: z.string().min(1, 'Profession is required'),
+    idNumber: z.string().optional(),
+    certificateUrl: z.string().optional(),
+    healthDeclarationUrl: z.string().optional(),
+    healthScreeningId: z.string().optional(),
+    order: z.number().min(0),
+  })
+  .refine(
+    (w) =>
+      !!(w.healthDeclarationUrl && w.healthDeclarationUrl.trim()) ||
+      !!(w.healthScreeningId && w.healthScreeningId.trim()),
+    {
+      message: 'Upload a health declaration or link a completed screening',
+      path: ['healthDeclarationUrl'],
+    },
+  );
 
 function selectionIncludesOthers(
   classifications: { workClassificationId: string }[] | undefined,
@@ -102,18 +124,7 @@ const formSchema = z.object({
       }),
     )
     .optional(),
-  workers: z
-    .array(
-      z.object({
-        userId: z.string().min(1, 'Worker is required'),
-        professionId: z.string().min(1, 'Profession is required'),
-        idNumber: z.string().optional(),
-        certificateUrl: z.string().optional(),
-        healthDeclarationUrl: z.string().min(1, 'Health declaration is required'),
-        order: z.number().min(0),
-      }),
-    )
-    .min(1, 'At least one worker is required'),
+  workers: z.array(workerRowSchema).min(1, 'At least one worker is required'),
   heavyEquipment: z
     .array(
       z.object({
@@ -230,6 +241,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
   const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
   const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
+  const [completedHealthScreenings, setCompletedHealthScreenings] = useState<
+    { value: string; label: string }[]
+  >([]);
 
   const [toolSearchQueries, setToolSearchQueries] = useState<Record<number, string>>({});
   const [materialSearchQueries, setMaterialSearchQueries] = useState<Record<number, string>>({});
@@ -332,6 +346,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           idNumber: '',
           certificateUrl: '',
           healthDeclarationUrl: '',
+          healthScreeningId: '',
           order: 0,
         },
       ],
@@ -639,6 +654,29 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     fetchData();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await healthScreeningService.list({ page: 1, limit: 200 });
+        const opts = res.data
+          .filter((s) => s.status === 'DONE')
+          .map((s) => ({
+            value: s.id,
+            label: `${s.quiz?.title ?? 'Declaration'} · valid ${
+              s.validUntil ? new Date(s.validUntil).toLocaleDateString() : '—'
+            }`,
+          }));
+        if (!cancelled) setCompletedHealthScreenings(opts);
+      } catch {
+        /* optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Populate form when editing
   useEffect(() => {
     if (workPermit && mode === 'edit') {
@@ -653,6 +691,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           idNumber: str(w.idNumber),
           certificateUrl: str(w.certificateUrl),
           healthDeclarationUrl: str(w.healthDeclarationUrl),
+          healthScreeningId: str(w.healthScreening?.id),
           order: w.order,
         })) || [
           {
@@ -661,6 +700,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             idNumber: '',
             certificateUrl: '',
             healthDeclarationUrl: '',
+            healthScreeningId: '',
             order: 0,
           },
         ];
@@ -804,6 +844,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           ? uploadService.getPublicFileUrl(response.id)
           : uploadService.getPrivateFileUrl(response.accessToken || response.id));
       form.setValue(`workers.${workerIndex}.${fieldName}`, fileUrl);
+      if (fieldName === 'healthDeclarationUrl') {
+        form.setValue(`workers.${workerIndex}.healthScreeningId`, '');
+      }
       // Trigger validation to clear error message (WP-039)
       form.trigger(`workers.${workerIndex}.${fieldName}`);
       setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
@@ -943,9 +986,19 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             })),
           );
 
+      const normalizeWorkers = (
+        workers: FormValues['workers'],
+      ): CreateWorkPermitDTO['workers'] =>
+        workers.map((w) => ({
+          ...w,
+          healthScreeningId: w.healthScreeningId?.trim() || undefined,
+          healthDeclarationUrl: w.healthDeclarationUrl?.trim() || undefined,
+        }));
+
       if (mode === 'create') {
         await onSubmit({
           ...dataForApi,
+          workers: normalizeWorkers(dataForApi.workers),
           ...(classificationContentEnabled
             ? {
                 classificationSafetyGuidance: guidanceBlocks.map((b) => ({
@@ -960,6 +1013,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       } else {
         await onSubmit({
           ...dataForApi,
+          workers: normalizeWorkers(dataForApi.workers),
           ...(classificationContentEnabled && !classificationsChanged
             ? {
                 classificationSafetyGuidance: guidanceBlocks
@@ -1271,6 +1325,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   idNumber: '',
                   certificateUrl: '',
                   healthDeclarationUrl: '',
+                  healthScreeningId: '',
                   order: workerFields.length,
                 })
               }
@@ -1471,7 +1526,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
                       return (
                         <FormItem>
-                          <FormLabel>Health Declaration <span className="text-destructive">*</span></FormLabel>
+                          <FormLabel>Health declaration file</FormLabel>
                           <FormControl>
                             <div className="space-y-2">
                               {hasFile ? (
@@ -1532,12 +1587,61 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                             </div>
                           </FormControl>
                           <p className="text-sm text-muted-foreground">
-                            Upload PDF, DOC, DOCX, or image files (max 10MB)
+                            Upload PDF, DOC, DOCX, or image files (max 10MB), or use a linked screening below
                           </p>
                           <FormMessage />
                         </FormItem>
                       );
                     }}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`workers.${index}.healthScreeningId`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Linked screening</FormLabel>
+                        <Select
+                          value={field.value || '__none__'}
+                          onValueChange={(v) => {
+                            field.onChange(v === '__none__' ? '' : v);
+                            if (v && v !== '__none__') {
+                              form.setValue(`workers.${index}.healthDeclarationUrl`, '');
+                              setUploadedFileNames((prev) => {
+                                const next = { ...prev };
+                                delete next[`healthDeclarationUrl-${index}`];
+                                return next;
+                              });
+                            }
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a completed declaration" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {completedHealthScreenings.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-muted-foreground">
+                          <Link
+                            to="/health-screenings"
+                            className="text-primary underline"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Health declarations
+                          </Link>{' '}
+                          — complete online, then link here (required if no file above)
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </CardContent>
               </Card>

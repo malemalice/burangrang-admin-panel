@@ -7,6 +7,7 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
 import { SharedModule } from '../../shared/shared.module';
 import { MasterApprovalsModule } from '../approvals/master-approvals.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SettingsModule } from '../settings/settings.module';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 
 /**
@@ -16,7 +17,13 @@ import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 export const WORK_PERMIT_APPROVAL_ENTITY = APPROVAL_ENTITIES.WORK_PERMIT;
 
 @Module({
-  imports: [PrismaModule, SharedModule, MasterApprovalsModule, NotificationsModule],
+  imports: [
+    PrismaModule,
+    SharedModule,
+    MasterApprovalsModule,
+    NotificationsModule,
+    SettingsModule,
+  ],
   controllers: [WorkPermitsController, WorkClassificationsController],
   providers: [WorkPermitsService, WorkClassificationsService],
   exports: [WorkPermitsService],

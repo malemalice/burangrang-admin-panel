@@ -195,7 +195,13 @@ export interface WorkPermitWorker {
   professionId: string;
   idNumber?: string;
   certificateUrl?: string;
-  healthDeclarationUrl: string;
+  healthDeclarationUrl?: string;
+  healthScreening?: {
+    id: string;
+    status: string;
+    validUntil?: string | null;
+    quizId: string;
+  };
   user?: {
     id: string;
     firstName: string;
@@ -399,7 +405,8 @@ export interface CreateWorkPermitDTO {
     professionId: string;
     idNumber?: string;
     certificateUrl?: string;
-    healthDeclarationUrl: string;
+    healthDeclarationUrl?: string;
+    healthScreeningId?: string;
     order: number;
   }>;
   heavyEquipment?: Array<{
@@ -518,6 +525,7 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
     idNumber: w.idNumber,
     certificateUrl: w.certificateUrl,
     healthDeclarationUrl: w.healthDeclarationUrl,
+    healthScreeningId: w.healthScreening?.id,
     order: w.order,
   })),
   heavyEquipment: workPermit.heavyEquipment?.map((e) => ({

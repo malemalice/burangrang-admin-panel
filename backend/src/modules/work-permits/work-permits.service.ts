@@ -31,6 +31,9 @@ import { NotificationsService } from '../notifications/services/notifications.se
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 import { WORK_CLASSIFICATION_OTHER_CODE } from './constants/work-classification.constants';
 import { WorkPermitClassificationSafetyGuidanceInputDto } from './dto/work-permit-classification-safety-guidance.dto';
+import { SettingsHelperService } from '../../shared/services/settings.service';
+
+const HEALTH_DECLARATION_VALIDITY_DAYS_KEY = 'health_declaration_validity_days';
 
 @Injectable()
 export class WorkPermitsService {
@@ -44,6 +47,7 @@ export class WorkPermitsService {
     private readonly masterApprovalsService: MasterApprovalsService,
     private readonly approvalAccessService: ApprovalAccessService,
     private readonly notificationsService: NotificationsService,
+    private readonly settingsHelper: SettingsHelperService,
   ) {
     this.rawWorkPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
       area: {
@@ -105,7 +109,13 @@ export class WorkPermitsService {
         orderBy: { order: 'asc' },
       },
       workers: {
-        include: { user: true, profession: true },
+        include: {
+          user: true,
+          profession: true,
+          healthScreening: {
+            select: { id: true, status: true, createdAt: true, quizId: true },
+          },
+        },
         orderBy: { order: 'asc' },
       },
       heavyEquipment: {
@@ -134,6 +144,63 @@ export class WorkPermitsService {
       hseOfficers: { include: { user: true } },
       safetyEquipment: { include: { safetyEquipment: true } },
     };
+  }
+
+  private validateWorkerHealthDeclarations(
+    workers: Array<{
+      healthDeclarationUrl?: string;
+      healthScreeningId?: string;
+    }>,
+  ): void {
+    for (const w of workers) {
+      const hasUrl =
+        w.healthDeclarationUrl != null &&
+        String(w.healthDeclarationUrl).trim().length > 0;
+      if (!hasUrl && !w.healthScreeningId) {
+        this.errorHandler.throwBadRequest(
+          'Each worker must have a health declaration URL and/or a linked health screening',
+        );
+      }
+    }
+  }
+
+  private async linkHealthScreeningsToWorkers(
+    dtos: Array<{ userId: string; order: number; healthScreeningId?: string }>,
+    createdRows: { id: string; userId: string; order: number }[],
+  ): Promise<void> {
+    for (const w of dtos) {
+      if (!w.healthScreeningId) {
+        continue;
+      }
+      const row = createdRows.find(
+        (r) => r.userId === w.userId && r.order === w.order,
+      );
+      if (!row) {
+        continue;
+      }
+      const screening = await this.prisma.healthScreening.findUnique({
+        where: { id: w.healthScreeningId },
+      });
+      this.errorHandler.throwIfNotFoundById(
+        'Health screening',
+        w.healthScreeningId,
+        screening,
+      );
+      if (screening!.userId !== w.userId) {
+        this.errorHandler.throwBadRequest(
+          'Health screening must belong to the worker user',
+        );
+      }
+      if (screening!.status !== 'DONE') {
+        this.errorHandler.throwBadRequest(
+          'Linked health screening must be completed (status DONE)',
+        );
+      }
+      await this.prisma.healthScreening.update({
+        where: { id: w.healthScreeningId },
+        data: { workPermitWorkerId: row.id },
+      });
+    }
   }
 
   private async validateWorkerProfessions(
@@ -364,6 +431,7 @@ export class WorkPermitsService {
       }
 
       await this.validateWorkerProfessions(createDto.workers);
+      this.validateWorkerHealthDeclarations(createDto.workers);
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
@@ -416,7 +484,7 @@ export class WorkPermitsService {
               professionId: w.professionId,
               idNumber: w.idNumber,
               certificateUrl: w.certificateUrl,
-              healthDeclarationUrl: w.healthDeclarationUrl,
+              healthDeclarationUrl: w.healthDeclarationUrl ?? null,
               order: w.order,
             })),
           },
@@ -511,6 +579,15 @@ export class WorkPermitsService {
         } as any,
       });
 
+      const createdWorkerRows = await this.prisma.workPermitWorker.findMany({
+        where: { workPermitId: workPermit.id },
+        select: { id: true, userId: true, order: true },
+      });
+      await this.linkHealthScreeningsToWorkers(
+        createDto.workers,
+        createdWorkerRows,
+      );
+
       if (createDto.classifications?.length) {
         await this.copySafetyGuidanceFromTemplates(workPermit.id);
       }
@@ -541,7 +618,7 @@ export class WorkPermitsService {
       });
       this.errorHandler.throwIfNotFoundById('WorkPermit', workPermit.id, full);
 
-      return this.mapWorkPermitWithRelations(full);
+      return await this.mapWorkPermitWithRelations(full);
     }, 'Creating work permit');
   }
 
@@ -749,7 +826,11 @@ export class WorkPermitsService {
   /**
    * Map work permit with all relations to DTO
    */
-  private mapWorkPermitWithRelations(workPermit: any): WorkPermitDto {
+  private async mapWorkPermitWithRelations(workPermit: any): Promise<WorkPermitDto> {
+    const validityDays = await this.settingsHelper.getNumber(
+      HEALTH_DECLARATION_VALIDITY_DAYS_KEY,
+      90,
+    );
     const base = this.mapWorkPermitToDto(workPermit);
 
     // Map nested relations
@@ -817,7 +898,18 @@ export class WorkPermitsService {
         professionId: w.professionId,
         idNumber: w.idNumber,
         certificateUrl: w.certificateUrl,
-        healthDeclarationUrl: w.healthDeclarationUrl,
+        healthDeclarationUrl: w.healthDeclarationUrl ?? undefined,
+        healthScreening: w.healthScreening
+          ? {
+            id: w.healthScreening.id,
+            status: w.healthScreening.status,
+            validUntil: new Date(
+              w.healthScreening.createdAt.getTime() +
+                validityDays * 24 * 60 * 60 * 1000,
+            ).toISOString(),
+            quizId: w.healthScreening.quizId,
+          }
+          : undefined,
         user: w.user
           ? {
             id: w.user.id,
@@ -1142,7 +1234,7 @@ export class WorkPermitsService {
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
-      return this.mapWorkPermitWithRelations(workPermit);
+      return await this.mapWorkPermitWithRelations(workPermit);
     }, 'Fetching work permit');
   }
 
@@ -1281,6 +1373,7 @@ export class WorkPermitsService {
           }
         }
         await this.validateWorkerProfessions(updateDto.workers);
+        this.validateWorkerHealthDeclarations(updateDto.workers);
         await this.prisma.workPermitWorker.deleteMany({
           where: { workPermitId: id },
         });
@@ -1290,7 +1383,7 @@ export class WorkPermitsService {
             professionId: w.professionId,
             idNumber: w.idNumber,
             certificateUrl: w.certificateUrl,
-            healthDeclarationUrl: w.healthDeclarationUrl,
+            healthDeclarationUrl: w.healthDeclarationUrl ?? null,
             order: w.order,
           })),
         };
@@ -1451,6 +1544,17 @@ export class WorkPermitsService {
         include: this.getWorkPermitFullInclude(),
       });
 
+      if (updateDto.workers !== undefined) {
+        const createdWorkerRows = await this.prisma.workPermitWorker.findMany({
+          where: { workPermitId: id },
+          select: { id: true, userId: true, order: true },
+        });
+        await this.linkHealthScreeningsToWorkers(
+          updateDto.workers,
+          createdWorkerRows,
+        );
+      }
+
       if (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0) {
         for (const block of updateDto.classificationSafetyGuidance) {
           await this.validateClassificationBelongsToPermit(block.workPermitClassificationId, id);
@@ -1467,7 +1571,7 @@ export class WorkPermitsService {
             })
           : workPermit;
 
-      return this.mapWorkPermitWithRelations(refreshed ?? workPermit);
+      return await this.mapWorkPermitWithRelations(refreshed ?? workPermit);
     }, 'Updating work permit');
   }
 

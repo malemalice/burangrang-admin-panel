@@ -38,6 +38,14 @@ export class UserDto {
   @Expose()
   jobPositionId?: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  companyId?: string | null;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  company?: { id: string; name: string; code: string };
+
   @ApiProperty()
   @Expose()
   createdAt: Date;

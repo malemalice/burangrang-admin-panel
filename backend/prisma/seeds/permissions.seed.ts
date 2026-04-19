@@ -140,6 +140,19 @@ export const permissions = [
   { name: 'quiz:adjust-score', description: 'Manually adjust quiz attempt scores' },
   { name: 'quiz:view-attempts', description: 'View all quiz attempts for grading' },
 
+  // Health questionnaire (master) — distinct from LMS quizzes
+  { name: 'health-quiz:create', description: 'Create health declaration questionnaires' },
+  { name: 'health-quiz:read', description: 'View health questionnaire templates' },
+  { name: 'health-quiz:update', description: 'Update health questionnaire templates' },
+  { name: 'health-quiz:delete', description: 'Deactivate health questionnaire templates' },
+  { name: 'health-quiz:list', description: 'List health questionnaire templates' },
+
+  // Health screening (worker filling)
+  { name: 'health-screening:start', description: 'Start a health screening / declaration' },
+  { name: 'health-screening:list', description: 'List health screenings (scoped)' },
+  { name: 'health-screening:read', description: 'View health screening details' },
+  { name: 'health-screening:submit', description: 'Submit answers and complete health screening' },
+
   // Incident Management
   { name: 'incident:create', description: 'Create new incidents' },
   { name: 'incident:read', description: 'View incident information' },

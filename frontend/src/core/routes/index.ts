@@ -13,6 +13,8 @@ import { courseRoutes } from '@/modules/courses';
 import { reminderRoutes } from '@/modules/reminders';
 import { enrollmentRoutes } from '@/modules/enrollments';
 import { quizRoutes } from '@/modules/quizzes';
+import { healthQuizRoutes } from '@/modules/health-quiz';
+import { healthScreeningRoutes } from '@/modules/health-screenings';
 import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 import { riskMatrixRoutes } from '@/modules/risk-matrix';
 import { manHourRoutes } from '@/modules/man-hours';
@@ -44,6 +46,8 @@ const routes: RouteConfig[] = [
   ...reminderRoutes,
   ...enrollmentRoutes,
   ...quizRoutes,
+  ...healthQuizRoutes,
+  ...healthScreeningRoutes,
   ...certificateRoutes,
   ...riskMatrixRoutes,
   ...manHourRoutes,

@@ -217,7 +217,13 @@ export class WorkPermitDto {
     professionId: string;
     idNumber?: string;
     certificateUrl?: string;
-    healthDeclarationUrl: string;
+    healthDeclarationUrl?: string | null;
+    healthScreening?: {
+      id: string;
+      status: string;
+      validUntil?: string | null;
+      quizId: string;
+    };
     user?: {
       id: string;
       firstName: string;

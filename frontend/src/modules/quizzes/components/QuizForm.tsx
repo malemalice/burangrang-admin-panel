@@ -19,14 +19,17 @@ interface QuizFormProps {
   entity?: string;
   entityId?: string;
   onQuestionMediaFileSelect?: (questionIndex: number, file: File | null, fieldId: string) => void;
+  /** Hide LMS-only fields (entity binding, passing score) for health questionnaires */
+  hideLmsFields?: boolean;
 }
 
-const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFormProps) => {
+const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect, hideLmsFields }: QuizFormProps) => {
   const { control, watch, setValue } = useFormContext();
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
   const [chapters, setChapters] = useState<{ id: string; title: string; courseId: string }[]>([]);
   const selectedEntity = watch('entity');
   const selectedEntityId = watch('entityId');
+  const isPublished = watch('isPublished');
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -150,7 +153,57 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
         </CardContent>
       </Card>
 
+      {hideLmsFields && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Health screening</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={control}
+              name="isDefaultForHealthScreening"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={!!field.value}
+                      onCheckedChange={(v) => field.onChange(v === true)}
+                      disabled={!!selectedEntity || (mode === 'edit' && !isPublished)}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-medium cursor-pointer">
+                      Default template for new health screenings
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Only one published standalone questionnaire can be the global default. Workers starting a declaration
+                      without a specific template use this quiz.
+                    </p>
+                    {!!selectedEntity && (
+                      <p className="text-sm text-amber-600 dark:text-amber-500">
+                        Clear course/chapter binding (standalone only) to use this option.
+                      </p>
+                    )}
+                    {!selectedEntity && mode === 'edit' && !isPublished && (
+                      <p className="text-sm text-muted-foreground">
+                        Publish this questionnaire first, then enable this option.
+                      </p>
+                    )}
+                    {!selectedEntity && mode === 'create' && (
+                      <p className="text-sm text-muted-foreground">
+                        Use Create &amp; Publish if you set this as the default (drafts cannot be the default).
+                      </p>
+                    )}
+                  </div>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Entity Binding Section */}
+      {!hideLmsFields && (
       <Card>
         <CardHeader>
           <CardTitle>Quiz Binding</CardTitle>
@@ -249,6 +302,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Settings Section */}
       <Card>
@@ -277,6 +331,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
               )}
             />
 
+            {!hideLmsFields && (
             <FormField
               control={control}
               name="passingScore"
@@ -308,6 +363,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
                 </FormItem>
               )}
             />
+            )}
 
             <FormField
               control={control}

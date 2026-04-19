@@ -34,6 +34,8 @@ import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
+import { HealthQuizzesModule } from './modules/health-quizzes/health-quizzes.module';
+import { HealthScreeningsModule } from './modules/health-screenings/health-screenings.module';
 import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
@@ -87,6 +89,8 @@ import { AccessLogsModule } from './modules/access-logs/access-logs.module';
     ProgressModule,
     RemindersModule,
     QuizzesModule,
+    HealthQuizzesModule,
+    HealthScreeningsModule,
     CertificatesModule,
     WorkPermitsModule,
     RoomsModule,

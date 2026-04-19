@@ -21,6 +21,7 @@ import { seedCertificateCategories } from './seeds/certificate-categories.seed';
 import { seedCertificates } from './seeds/certificates.seed';
 import { seedCourses } from './seeds/courses.seed';
 import { seedQuizzes } from './seeds/quizzes.seed';
+import { seedHealthQuizzes } from './seeds/health-quizzes.seed';
 import { seedWorkPermitsData } from './seeds/work-permits.seed';
 import { seedAreas } from './seeds/areas.seed';
 import { seedRooms } from './seeds/rooms.seed';
@@ -417,6 +418,10 @@ async function main() {
           await prisma.quizQuestion.deleteMany();
           await prisma.quiz.deleteMany();
           break;
+        case 'health_quizzes':
+        case 'health-quizzes':
+          // Idempotent seed (skip if template exists); do not delete all quizzes
+          break;
         case 'work-permits':
         case 'work_permits':
           await prisma.workPermitAttachment.deleteMany();
@@ -520,7 +525,7 @@ async function main() {
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents, work-classifications, work-classification-safety-guidelines',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, health-quizzes (or health_quizzes), file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents, work-classifications, work-classification-safety-guidelines',
           );
           process.exit(1);
       }
@@ -567,6 +572,7 @@ async function main() {
       await seedCertificates(prisma);
       await seedCourses();
       await seedQuizzes();
+      await seedHealthQuizzes();
       await seedWorkClassifications(prisma);
       await seedWorkClassificationSafetyGuidelines(prisma);
       await seedWorkPermitsData(prisma);
@@ -725,6 +731,10 @@ async function main() {
             await seedCourses();
           }
           await seedQuizzes();
+          break;
+        case 'health_quizzes':
+        case 'health-quizzes':
+          await seedHealthQuizzes();
           break;
         case 'work_permits':
           // Clear work permit related data

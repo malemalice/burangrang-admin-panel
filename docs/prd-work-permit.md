@@ -1,382 +1,223 @@
 # PRD: Digital Work Permit Management System
 
 **Document Type:** Product Requirements Document  
-**Version:** 1.0  
-**Date:** April 12, 2026  
+**Version:** 1.1  
+**Date:** April 19, 2026  
 **Author:** Senior PM  
-**Source Document:** BSJ/F.5/H&S Policy 05/Rev 02 — Ijin Bekerja / Permit to Work  
-**Status:** Draft
+**Source policy (intent):** BSJ/F.5/H&S Policy 05/Rev 02 — Ijin Bekerja / Permit to Work  
+**Status:** Draft — **aligned with current codebase (types + DTO + service behaviour)**
 
 ---
 
 ## 1. Executive Summary
 
-BSJ currently uses a paper-based Work Permit form (Ijin Bekerja) to authorize contractors and vendors to perform hazardous or high-risk work on-site. The permit requires multi-party sign-off (Vendor → HSE Officer → Environment Coordinator → BSJ PIC → Security Risk & Business Continuity Manager), is printed in triplicate, and must be physically distributed. This process is slow, error-prone, difficult to audit, and creates compliance risk.
+BSJ historically used a paper-based Work Permit (Ijin Bekerja) for hazardous or high-risk on-site work. The **implemented** digital product is a web application backed by **master data** (areas, companies, work classifications, tools, materials, machines, heavy equipment, professions, safety equipment, guests) and a **configurable Master Approval** workflow (`WORK_PERMIT` entity) rather than a fixed six-signature row on a PDF.
 
-This PRD defines the requirements for a **Digital Work Permit Management System** — a web/mobile application that digitizes, automates, and tracks the full lifecycle of work permits end-to-end.
+This PRD describes **what the product does today** as reflected in `work-permit.types.ts` and `work-permit.dto.ts`, plus the **paper form** in the appendix as regulatory / UX reference where the UI still maps conceptually (classifications, hazards, PPE/safety equipment).
 
 ---
 
-## 2. Problem Statement
+## 2. Implementation source of truth (code)
+
+| Layer | Path | Notes |
+|------|------|--------|
+| Frontend types | `frontend/src/modules/work-permits/types/work-permit.types.ts` | `WorkPermit`, `WorkPermitStatus`, nested relation types, `CreateWorkPermitDTO` / `UpdateWorkPermitDTO` |
+| Backend API shape | `backend/src/modules/work-permits/dto/work-permit.dto.ts` | `WorkPermitDto`, `WorkPermitStatusEnum` |
+| Workflow behaviour | `backend/src/modules/work-permits/work-permits.service.ts` | Submit, approve, reject, request-info, sign SK, extend, close |
+| Approval configuration | `backend/src/modules/work-permits/WORK_PERMIT_SETUP.md` | Master Approval setup for `WORK_PERMIT` |
+
+**Rule:** `WorkPermitStatus` in the frontend and `WorkPermitStatusEnum` in the backend **must stay in sync** (same string literals).
+
+---
+
+## 3. Problem Statement
 
 | Pain Point | Impact |
-|---|---|
+|------------|--------|
 | Paper permits can be lost or illegible | Compliance gaps, audit failure |
 | Multi-step approval requires physical presence | Delays work start, idle contractor time |
-| No real-time visibility into permit status | HSE Officers cannot monitor active work |
-| Duplicate form submission and manual tracking | Administrative overhead |
-| No automated escalation or expiry alerts | Permits expire unnoticed; safety risk |
-| Triplicate printing and manual distribution | Cost and environmental waste |
-| No searchable history of past permits | Incident investigation is slow |
+| No real-time visibility into permit status | Stakeholders cannot see queue position |
+| Manual tracking | Administrative overhead |
+| No searchable history | Incident investigation is slow |
+
+*(Framing unchanged; solution is the shipped module + notifications + timeline.)*
 
 ---
 
-## 3. Goals and Non-Goals
+## 4. Goals and Non-Goals
 
 ### Goals
-- Fully digitize the paper form BSJ/F.5/H&S Policy 05/Rev 02 into an interactive digital form
-- Enable mobile-friendly permit submission by vendors/contractors in the field
-- Implement a sequential multi-step approval workflow with digital signatures
-- Provide real-time status tracking and notifications to all stakeholders
-- Allow permit extensions and work result verification digitally
-- Maintain a searchable, exportable audit trail of all permits
+- Capture permit data using **master-data-backed** fields (classifications, equipment lists, hazards, etc.)
+- Support **Master Approval**-driven review (not a hard-coded list of six signatories in code)
+- Support **applicant safety-guideline acknowledgement** (`applicantSignedAt` / `applicantSignature`) before security review when workflow requires it
+- Track **status** and **approval timeline** (`GET /work-permits/:id/timeline`)
+- Allow **extension** and **closure** for completed work
 
-### Non-Goals
-- Integration with external contractor HR systems (out of scope v1)
-- IoT/sensor-based work monitoring
-- Automated risk scoring (may be considered for v2)
+### Non-Goals (still)
+- Full parity with every row of the paper PDF layout in a single screen (the digital model is normalized)
+- Integration with external contractor HR systems (unless added later)
 
 ---
 
-## 4. Target Users
+## 5. Target users and roles (implementation-aligned)
 
-| Persona | Role | Primary Need |
-|---|---|---|
-| **Vendor/Contractor Supervisor** | Permit Requestor | Submit permit, upload documents, track approval status |
-| **BSJ HSE Officer** | Reviewer & Approver (L1) | Review safety plan, PPE checklist, approve/reject |
-| **BSJ Environment Coordinator** | Approver (L2) | Review environmental impact, approve/reject |
-| **BSJ PIC (Person In Charge)** | Approver (L3) | Authorize work to begin |
-| **Security Risk & Business Continuity Manager** | Approver (L4) | Final approval authority |
-| **BSJ HSE Admin** | System Admin | Manage users, templates, reports |
+| Actor | Who in the system | Primary need |
+|-------|-------------------|--------------|
+| **Applicant / creator** | `User` who creates the permit (`createdBy`) | Create/edit (when allowed), submit, sign SK when status is `WAITING_APPLICANT_SIGN`, extend/close when allowed |
+| **Workers** | `User` records on the permit (`WorkPermitWorker.userId`) | Represented on the permit with `professionId`, optional `idNumber` / `certificateUrl`, required `healthDeclarationUrl` |
+| **HSE officers** | `User`s linked via `hseOfficerIds` / `hseOfficers` | Named on the permit; notifications and operational context |
+| **Supervisors (vendor)** | `Guest` records via `supervisorIds` / `supervisors` | Contact/supervision data |
+| **Approvers** | Users allowed by **Master Approval** for `WORK_PERMIT` | Approve / reject / request info according to chain and department rules |
 
----
-
-## 5. User Stories
-
-### Vendor/Contractor
-- As a vendor supervisor, I want to fill out a digital work permit on my phone so I can submit it without going to the office.
-- As a vendor supervisor, I want to upload certificate copies (Heavy Eq. Operator, Rigger, Electric Technician, Welder, HSE Personnel) directly in the form.
-- As a vendor supervisor, I want to track where my permit is in the approval chain in real time.
-- As a vendor supervisor, I want to request a permit extension before expiry.
-- As a vendor supervisor, I want to mark work as complete or incomplete upon finishing.
-
-### HSE Officer
-- As a BSJ HSE Officer, I want to receive a push notification when a new permit needs my review.
-- As a BSJ HSE Officer, I want to approve or reject a permit with a typed/drawn digital signature from my device.
-- As a BSJ HSE Officer, I want to add comments when rejecting so the vendor knows what to fix.
-
-### Manager / Approver
-- As an approver, I want to see the full permit details (classification, risk assessment, PPE, personnel list) before approving.
-- As the Security Risk Manager, I want a dashboard of all active permits on site at any time.
-
-### Admin
-- As an admin, I want to generate a PDF export of any permit for physical archival or regulatory submission.
-- As an admin, I want to pull a report of all permits by date range, work type, location, or vendor.
+**Implementation note (workers):** On create, the backend validates that each worker `userId` refers to a user whose **role code is `GUEST`**. Product / training should reflect that “workers on the permit” are **guest users** in this system, not arbitrary unstructured names only.
 
 ---
 
-## 6. Functional Requirements
+## 6. Functional requirements — **current data model**
 
-### 6.1 Work Permit Form (Digital)
+### 6.1 Work permit header (`WorkPermit` / `WorkPermitDto`)
 
-The digital form must mirror sections A–F of BSJ/F.5/H&S Policy 05/Rev 02.
+| Field | Description |
+|-------|-------------|
+| `id` | UUID |
+| `code` | Auto-generated (e.g. `WP-YYYY-NNNN`) |
+| `projectName` | Project / job title |
+| `areaId` | FK to area (master) |
+| `companyId` | FK to company (master) |
+| `proposedStartDate` / `proposedEndDate` | Proposed work window |
+| `workStagesDescription` | Narrative description of stages |
+| `jobSafetyAnalysis` | Optional JSA text |
+| `workRequirements` | Optional |
+| `workClassificationOtherDetail` | Required when “Others” classification is used (validated with classifications) |
+| `requireCourseVerification` | Boolean |
+| `acknowledgedSafetyGuideline` | Derived for API: true when `applicantSignedAt` is set |
+| `applicantSignedAt` / `applicantSignature` | Applicant acknowledgement of HSE safety guideline |
+| `status` | See §6.3 |
+| `isActive` | Soft lifecycle flag |
+| `createdBy`, `createdAt`, `updatedAt` | Audit |
 
-#### Section A — Work Classification
-- Multi-select checkboxes for work type:
-  - Hot Work (Kerja Panas)
-  - Electricity (Listrik)
-  - Height (Ketinggian)
-  - Heavy Equipment (Alat Berat)
-  - Plumbing (Perpipaan)
-  - Tank Storage (Tangki)
-  - Confined Space (Ruang Terbatas)
-  - Digging (Galian)
-  - Affects the Neighbors (Berdampak ke Tetangga)
-  - Others / Lainnya (free text)
-- At least one classification must be selected before submission
-- Selecting certain high-risk types (e.g., Confined Space, Hot Work) should trigger additional mandatory fields
+### 6.2 Nested collections (types + create/update DTOs)
 
-#### Section B — Work and Personnel Data
+| Collection | Content |
+|------------|---------|
+| **classifications** | Links to `workClassificationId` + `order`; per-classification **safety guideline snapshot** and **safety guidance rows** (risk + safety equipment + notes) via PATCH / create payloads (`classificationSafetyGuidance`) |
+| **employees** | `userId` optional, `employeeName` optional, `order` — BSJ / internal personnel lines |
+| **workers** | `userId`, `professionId`, optional `idNumber`, optional `certificateUrl`, **required `healthDeclarationUrl`**, `order` |
+| **heavyEquipment**, **tools**, **materials**, **machines** | Master id + `quantity` + `order` |
+| **requiredCourses** | `courseId`, `isRequired`, `order` (LMS integration) |
+| **hazards** | Optional `hazardId` (risk master); `hazardName`, optional `activity`, `mitigation`, `order` |
+| **attachments** | `fileUrl`, `fileName`, `fileType`, `description`, `order` |
+| **supervisors** | `guestId` (vendor supervisors) |
+| **hseOfficers** | `userId` list |
+| **safetyEquipment** | `safetyEquipmentId` list |
 
-**Work Info Fields:**
-- Job description (Pekerjaan) — text area
-- Location (Lokasi) — text
-- Area — text or dropdown from master data
-- BSJ PIC name — lookup from user directory
-- BSJ PIC phone number — auto-filled on PIC selection
-- Vendor name — text or lookup
-- Vendor phone number — text
-- Vendor Supervisor name — text
-- Vendor Supervisor phone number — text
-- Vendor HSE Personnel name — text
-- Vendor HSE Personnel phone number — text
-- BSJ HSE Officer — pre-filled (Maxwal & Yudi Eka Satria as default, 087786348030 / 085759902236)
+Master data for picklists is loaded via **work permit master-data** endpoints (see `WorkPermitMasterData` in frontend types: areas, companies, work classifications with guidelines/attachments, guests, heavy equipment, tools, materials, machines, professions).
 
-**Worker List Table (DAFTAR PEKERJA):**
-Dynamic rows for each worker category with quantity input:
-| Worker Category | Qty |
-|---|---|
-| Engineer | numeric |
-| Surveyor | numeric |
-| Heavy Equipment Operator | numeric |
-| Rigger | numeric |
-| Electric Technician | numeric |
-| Mechanic | numeric |
-| Welder | numeric |
-| Fitter | numeric |
-| Civil Worker (Tukang Bangunan) | numeric |
-| Carpenter (Tukang Kayu) | numeric |
-| Helper | numeric |
-| Others (Lainnya) | numeric + label |
+### 6.3 Status values (`WorkPermitStatus` / `WorkPermitStatusEnum`)
 
-#### Section C — Material, Tools and Equipment
+| Status | Meaning (product) |
+|--------|-------------------|
+| `DRAFT` | Editable; not submitted |
+| `OPEN` | Generic / legacy “in review” fallback when next department does not match known patterns |
+| `WAITING_APPROVAL` | May appear in approval gating checks; used as a **review-eligible** status alongside HSE/Security/Project Owner in `checkApprovalRights` |
+| `IN_REVIEW_PROJECT_OWNER` | After submit: first review stage (submit sets this status) |
+| `IN_REVIEW_HSE` | Queue with HSE |
+| `WAITING_APPLICANT_SIGN` | Applicant must sign/acknowledge safety guideline (`signSk`) |
+| `IN_REVIEW_SECURITY` | Security review |
+| `NEED_INFO` | Approver requested more information; applicant edits then returns to `DRAFT` on save (see §6.4) |
+| `APPROVED` | Approved |
+| `REJECTED` | Rejected |
+| `CLOSED` | Work closed |
+| `EXTENDED` | End date extended from an `APPROVED` permit |
 
-Four separate tables with dynamic rows:
-1. **Tools (Peralatan):** Name, Unit, Qty
-2. **Machines (Mesin):** Name, Unit, Qty
-3. **Materials:** Name, Unit, Qty
-4. **Heavy Equipment (Alat Berat):** Name, Unit, Qty
+### 6.4 Workflow rules (service-level, current behaviour)
 
-- Note: All equipment must be inspected by HSE, Technical, and Security BSJ before work starts
+- **Create:** Status `DRAFT`; **at least one worker** required; workers must be **Guest** users; “Others” classification requires `workClassificationOtherDetail`.
+- **Update:** Only `DRAFT` or `NEED_INFO`. If saving while `NEED_INFO`, status becomes **`DRAFT`** after update (“WP-049”).
+- **Submit:** Only from **`DRAFT`** → **`IN_REVIEW_PROJECT_OWNER`**; notifies HSE (implementation).
+- **Approve / reject / request-info:** Driven by **Master Approval** rights (`checkApprovalRights`). Reject sets `REJECTED`. Request info sets `NEED_INFO`.
+- **Next status after approve:** Computed from Master Approval completion and **department name** of the current and next approver (e.g. HSE, SECURITY, PROJECT/OWNER). Can move to `IN_REVIEW_HSE`, `IN_REVIEW_SECURITY`, `IN_REVIEW_PROJECT_OWNER`, `WAITING_APPLICANT_SIGN`, `OPEN`, or **`APPROVED`** when the final approval is Security and the chain completes (see `approve()` in `work-permits.service.ts`).
+- **Applicant sign SK (`signSk`):** Only when status is **`WAITING_APPLICANT_SIGN`**, only **`createdBy`** user, safety guideline content must exist → then **`IN_REVIEW_SECURITY`** and notify security.
+- **Extend:** Only **`APPROVED`** → updates end date, status **`EXTENDED`**.
+- **Close:** Only **`APPROVED`** or **`EXTENDED`** → **`CLOSED`**.
 
-#### Section D — Occupational Health & Safety
+### 6.5 Policy form (paper) vs product
 
-Dynamic table with columns:
-- No. (auto-increment)
-- Activity (Aktivitas) — text
-- Potential Risk (Potensi Bahaya) — text
-- Worksafe Method (Langkah Aman Pekerjaan) — text
-
-- Minimum 1 row required before submission
-- Add/remove row functionality
-
-#### Section E — Safety Equipment
-
-Three groups of checkboxes:
-
-**Personal Protective Equipment (PPE / APD):**
-- Helmet (Helm)
-- Glasses (Kacamata)
-- Welding Goggles (Kacamata las)
-- Face Shield (Tameng muka)
-- Welding Hood (Kap las)
-- Dust Mask (Masker kain)
-- Chemical Respirator (Masker kimia)
-- Ear Plug/Muff (Alat Pelindung Pendengaran)
-- Cotton Gloves (Sarung Tangan Katun)
-- Rubber Gloves (Sarung Tangan Karet)
-- Leather Gloves (Sarung Tangan Kulit)
-- Welding Gloves (Sarung Tangan Las)
-- Special Gloves (Sarung Tangan Khusus)
-- Full Body Harness
-- Special Apron (chemical or welding)
-- Safety Vest
-- Safety Shoes or Boots
-- Breathing Apparatus (Tabung Pernapasan)
-- Special Shoes (for live electrical work)
-- Others
-
-**Safety & Emergency Equipment (Perlengkapan Keselamatan dan Darurat):**
-- Fire Extinguisher / APAR (Pemadam Api)
-- Barrier / Safety Line (Barikade/Garis Tanda Bahaya)
-- Signage (Rambu / Tanda Keselamatan)
-- Lock Out Tag Out (LOTO) Tool Set
-- Radio Telecommunication
-- Safety Nets / Lifeline (Jaring / Tali Keselamatan)
-- Others
-
-**Copy of Certificate (Salinan Sertifikat) — file upload fields:**
-- Heavy Equipment Operator certificate
-- Rigger certificate
-- Electric Technician certificate
-- Welder certificate
-- HSE Personnel (Personil K3) certificate
-- COVID-19 Vaccine and Rapid Antigen Test result
-
-#### Section F — Validation & Evaluation
-
-**Initial Permit Grant:**
-- Work starting date (Tanggal mulai kerja)
-- Work completion date (Tanggal akhir kerja)
-- Work starting time (Jam mulai kerja)
-- Work completion time (Jam selesai kerja)
-
-**Permit Extension (optional):**
-- Extended starting date
-- Extended completion date
-- Extended starting time
-- Extended completion time
-
-**Approval Chain (sequential, each requires name, date, digital signature):**
-1. Prepared by Requestor/Vendor (Disiapkan oleh pemohon/vendor)
-2. Checked & Approved by BSJ HSE (Diperiksa dan disetujui oleh Health & Safety BSJ) — Level 1
-3. Approved by BSJ HSE (second HSE sign-off) — Level 2
-4. Approved by Environment Coordinator (Disetujui oleh Koordinator Lingkungan)
-5. Approved by BSJ PIC (Disetujui oleh PIC BSJ)
-6. Approved by Security Risk & Business Continuity Manager
-
-**Work Result Verification (after work completion):**
-- Status: Work Finished (Pekerjaan Selesai) or Work Unfinished (Pekerjaan Tidak Selesai)
-- Notes (Catatan) — free text
+Sections A–F in **§11** remain the **original paper** reference. The **implemented** app uses normalized lists, master data IDs, and digital attachments instead of a single flat “worker qty table” only.
 
 ---
 
-### 6.2 Permit Lifecycle & Workflow
+## 7. Sequence diagrams (Swimlanes.io format)
 
-```
-[Vendor Submits] → [HSE Review L1] → [HSE Review L2] → [Env. Coordinator] 
-→ [BSJ PIC] → [Security Risk Manager] → [ACTIVE / Work in Progress] 
-→ [Work Completion Verification] → [CLOSED]
+Paste into [Swimlanes.io](https://swimlanes.io/) to render. Actor names are identifiers (no spaces). Adjust messages for your exact Master Approval chain.
+
+### 7.1 Draft, submit, and need-info loop
+
+```text
+title: Work Permit — Draft, submit, need info (implementation)
+
+Applicant -> Applicant: Create permit (DRAFT), list workers + URLs
+Applicant -> System: PATCH /work-permits/:id (DRAFT or NEED_INFO)
+note: NEED_INFO save moves permit back to DRAFT after edit (WP-049)
+Applicant -> System: POST /work-permits/:id/submit
+System -> Applicant: 200, status IN_REVIEW_PROJECT_OWNER
+System -> HSE: notification WORK_PERMIT_SUBMITTED (per implementation)
+Approver -> System: POST /work-permits/:id/request-info
+System -> Applicant: status NEED_INFO
+Applicant -> System: PATCH /work-permits/:id
+System -> Applicant: status DRAFT
 ```
 
-**Status States:**
-| Status | Description |
-|---|---|
-| `DRAFT` | Vendor is filling out the form, not yet submitted |
-| `PENDING_HSE_L1` | Awaiting first HSE Officer review |
-| `PENDING_HSE_L2` | Awaiting second HSE Officer review |
-| `PENDING_ENV` | Awaiting Environment Coordinator approval |
-| `PENDING_PIC` | Awaiting BSJ PIC approval |
-| `PENDING_SECURITY` | Awaiting Security Risk Manager approval |
-| `ACTIVE` | Fully approved; work can proceed |
-| `EXTENSION_REQUESTED` | Vendor has requested a time extension |
-| `EXTENSION_APPROVED` | Extension approved, work continues |
-| `REJECTED` | Rejected at any approval stage |
-| `CLOSED` | Work completed and verified |
-| `EXPIRED` | Permit passed completion date with no closure |
+### 7.2 Approval chain (generic — Master Approval)
 
-**Rules:**
-- Any approver can reject with mandatory comment; permit returns to `DRAFT` for revision
-- Permits auto-expire 24h after work completion date if not closed
-- Extension requests restart approval from BSJ PIC level
-- Permits are made in 3 copies: original to licensor, copies to Vendor/Contractor, Security, and Related Department
+```text
+title: Work Permit — Approvals (Master Approval; departments drive next status)
 
----
+Approver -> System: POST /work-permits/:id/approve (notes, optional classificationSafetyGuidance for HSE)
+System -> System: masterApprovalsService.submitApproval + checkApprovalStatus
+System -> Approver: 200, status per next department / completion
+note: Next status can be IN_REVIEW_PROJECT_OWNER, IN_REVIEW_HSE, IN_REVIEW_SECURITY, WAITING_APPLICANT_SIGN, OPEN, or APPROVED when Security completes chain — see work-permits.service approve()
+Approver -> System: POST /work-permits/:id/reject
+System -> Applicant: status REJECTED
+```
 
-### 6.3 Notifications
+### 7.3 Applicant safety guideline sign → security → approve → close
 
-- Email and in-app notifications triggered on:
-  - New permit submitted (HSE Officer L1 notified)
-  - Permit advanced to next approver
-  - Permit rejected (vendor notified with reason)
-  - Permit fully approved (vendor + BSJ PIC notified)
-  - Permit expiring in 24 hours (all stakeholders)
-  - Work completed and verified
+```text
+title: Work Permit — Applicant SK sign, security, closure
+
+Applicant -> System: POST /work-permits/:id/sign-sk (only WAITING_APPLICANT_SIGN, only creator)
+System -> Security: notify, status IN_REVIEW_SECURITY
+Security -> System: POST /work-permits/:id/approve
+System -> Applicant: status APPROVED (when chain rules say so)
+Applicant -> System: POST /work-permits/:id/extend (APPROVED only)
+System -> Applicant: status EXTENDED, new proposedEndDate
+Applicant -> System: POST /work-permits/:id/close
+System -> Applicant: status CLOSED
+```
 
 ---
 
-### 6.4 Permit Dashboard
-
-- List view of all permits with filters: status, work type, date range, vendor, location
-- Detail view showing full form and approval history with timestamps
-- Active permits map/list visible to Security team
-- Summary metrics: pending approvals, active permits, expiring soon, completed this month
-
----
-
-### 6.5 PDF Export
-
-- Generate a PDF that matches the visual layout of BSJ/F.5/H&S Policy 05/Rev 02
-- Include digital signature images and timestamps
-- Header: BSJ logo, form number, revision date
-- Footer: copy distribution note (original vs. copies)
-- Bilingual (Indonesian + English) as per original form
-
----
-
-### 6.6 Audit Trail
-
-- Every action (submit, approve, reject, view, extend, close) logged with:
-  - User ID + name
-  - Timestamp
-  - Action type
-  - Comment (if rejection or extension)
-- Read-only audit log visible to admins and HSE Officers
-
----
-
-## 7. Non-Functional Requirements
+## 8. Non-functional requirements
 
 | Category | Requirement |
-|---|---|
-| **Performance** | Form submission and approval actions must complete in < 2 seconds |
-| **Mobile** | Form and approval UI must be fully usable on mobile browsers (iOS Safari, Android Chrome) |
-| **Availability** | 99.5% uptime during BSJ working hours (07:00–17:00 WIB) |
-| **Security** | All data transmitted over HTTPS; role-based access control on all endpoints |
-| **Data Retention** | Permits retained for minimum 5 years (regulatory compliance) |
-| **Accessibility** | WCAG 2.1 AA for form inputs and approval actions |
-| **Language** | UI supports Indonesian and English (bilingual toggle) |
-| **File Upload** | Certificate uploads: PDF or JPG, max 5MB per file |
+|----------|-------------|
+| **Performance** | API responses for CRUD and workflow actions should be snappy under normal load |
+| **Mobile** | UI usable on mobile browsers for field use |
+| **Security** | HTTPS; RBAC on endpoints; approvals via Master Approval |
+| **Audit** | Timeline via approvals + timestamps on permit |
 
 ---
 
-## 8. Data Model (High-Level)
+## 9. Data model summary (DTO-aligned)
 
-### WorkPermit
-| Field | Type | Notes |
-|---|---|---|
-| id | UUID | |
-| permitNumber | String | Auto-generated, e.g. WP-2026-001 |
-| formCode | String | BSJ/F.5/H&S Policy 05/Rev 02 |
-| status | Enum | See status states above |
-| workClassifications | String[] | Multi-select from Section A |
-| jobDescription | String | |
-| location | String | |
-| area | String | |
-| bsjPicId | FK → User | |
-| vendorName | String | |
-| vendorPhone | String | |
-| vendorSupervisorName | String | |
-| hseOfficerId | FK → User | |
-| workerList | JSON | Worker category + qty |
-| tools | JSON | Tools table rows |
-| machines | JSON | Machines table rows |
-| materials | JSON | Materials table rows |
-| heavyEquipment | JSON | Heavy equipment table rows |
-| riskAssessments | JSON | Section D rows |
-| ppeChecklist | JSON | Section E checkboxes |
-| safetyEquipment | JSON | Section E checkboxes |
-| certificateFiles | FileRef[] | Uploaded certificates |
-| workStartDate | DateTime | |
-| workEndDate | DateTime | |
-| workStartTime | String | |
-| workEndTime | String | |
-| extensionStartDate | DateTime | nullable |
-| extensionEndDate | DateTime | nullable |
-| workResultStatus | Enum | FINISHED / UNFINISHED |
-| workResultNote | String | nullable |
-| approvals | Approval[] | |
-| createdAt | DateTime | |
-| updatedAt | DateTime | |
-
-### Approval
-| Field | Type | Notes |
-|---|---|---|
-| id | UUID | |
-| permitId | FK → WorkPermit | |
-| stage | Enum | HSE_L1, HSE_L2, ENV, PIC, SECURITY, VENDOR |
-| approverId | FK → User | |
-| approverName | String | |
-| status | Enum | PENDING / APPROVED / REJECTED |
-| comment | String | nullable |
-| signatureData | String | Base64 or file URL |
-| actedAt | DateTime | nullable |
+The physical schema is in Prisma (`WorkPermit` and related tables). Product-facing **API shape** matches `WorkPermitDto` and nested arrays above. There is **no** single JSON blob for “Section D”; hazards are rows. **Workers** carry **`healthDeclarationUrl`** (file URL), not a structured questionnaire in v1.1.
 
 ---
 
-## 9. OCR Results — Original Form (BSJ/F.5/H&S Policy 05/Rev 02)
+## 10. OCR — Original paper form (BSJ/F.5/H&S Policy 05/Rev 02)
 
-The following is the full OCR extraction of the source document `DEV Work Permit Form Package.pdf`:
+The following is the OCR extraction of the source document `DEV Work Permit Form Package.pdf` for **wording and checklist parity** discussions:
 
 ---
 
@@ -533,55 +374,43 @@ Catatan (Note): ___________
 
 ---
 
-## 10. Acceptance Criteria
+## 11. Acceptance criteria (implementation-focused)
 
-| Feature | Acceptance Criteria |
-|---|---|
-| Form submission | Vendor can complete and submit all sections A–F on mobile without needing a desktop |
-| Approval workflow | Each approver receives notification; can approve or reject with digital signature and comments |
-| Sequential approval | Approver at stage N cannot act until stage N-1 is complete |
-| Certificate upload | Supports PDF and JPG uploads up to 5MB; preview available before submit |
-| Permit extension | Vendor can request extension before expiry; restarts approval from PIC level |
-| Work verification | Work result (finished/unfinished + notes) recorded by authorized BSJ officer |
-| PDF export | System-generated PDF visually matches source form BSJ/F.5/H&S Policy 05/Rev 02 |
-| Audit trail | Every status change logged with user, timestamp, and comments |
-| Expiry handling | System automatically marks permits as EXPIRED if work end date passes without closure |
-| Bilingual support | All form labels display in both Indonesian and English |
+| Area | Criteria |
+|------|----------|
+| Status | All UI and API use the enum values in §6.3 consistently |
+| Create | Enforces workers present, Guest role workers, classifications + Others detail when needed |
+| Submit | Only from `DRAFT`; result `IN_REVIEW_PROJECT_OWNER` |
+| Edit | Only `DRAFT` / `NEED_INFO`; `NEED_INFO` → `DRAFT` after successful update |
+| Approvals | Master Approval configuration determines who can approve; service sets next status |
+| Sign SK | Only applicant, only in `WAITING_APPLICANT_SIGN`, requires guideline content |
+| Extend / close | Rules in §6.4 |
 
 ---
 
-## 11. Out of Scope (v1)
+## 12. Open questions
 
-- Integration with external HR or contractor databases
-- Automated risk scoring / AI-based hazard detection
-- IoT sensor integration for real-time work monitoring
-- Multi-site / multi-company support
-- Native mobile app (PWA or mobile-responsive web is sufficient for v1)
-
----
-
-## 12. Open Questions
-
-1. Should rejected permits restart from the beginning (Vendor) or from the rejecting approver's stage?
-2. Is there a maximum number of extensions allowed per permit?
-3. Should the system support multiple concurrent HSE Officers reviewing in parallel, or strictly sequential?
-4. Are there different approval chains for different work classifications (e.g., Confined Space may require additional approvers)?
-5. What is the preferred digital signature method — drawn signature, uploaded image, or OTP-based e-sign?
-6. Should the BSJ PIC be the same person who is listed in Section B, or can they differ?
+1. Should Master Approval chains always include every department in the paper form (Env Coordinator, PIC, etc.), or is the current HSE / Project Owner / Security pattern sufficient by policy?
+2. `OPEN` and `WAITING_APPROVAL`: should product copy treat them as user-visible states or internal/fallback only?
+3. Worker **health declaration** is a **URL** today — when will structured questionnaire + token link replace or supplement uploads?
+4. PDF export: single layout matching BSJ/F.5 or export from current normalized model only?
 
 ---
 
-## 13. Milestones (Suggested)
+## 13. Milestones (suggested — update with actual releases)
 
-| Milestone | Deliverable | Target |
-|---|---|---|
-| M1 | Design + Wireframes for all 6 form sections | Week 2 |
-| M2 | Backend API: permit CRUD + approval workflow | Week 4 |
-| M3 | Frontend: form submission (Sections A–F) | Week 6 |
-| M4 | Frontend: approval dashboard + notifications | Week 8 |
-| M5 | PDF export + audit trail | Week 9 |
-| M6 | UAT with BSJ HSE team | Week 10 |
-| M7 | Go-live | Week 12 |
+| Milestone | Deliverable |
+|-----------|-------------|
+| M1 | Master Approval configured for `WORK_PERMIT` in target env |
+| M2 | End-to-end: create → submit → approve → sign SK → close |
+| M3 | Hardening: notifications, timeline, mobile UX |
+| M4 | Optional: PDF parity with paper appendix |
+
+---
+
+## Related documents
+
+- **[prd-work-permit-health-declaration.md](./prd-work-permit-health-declaration.md)** — Extension: vendor portal, worker roster, health declaration questionnaire (`HEALTH_DECLARATION` type), onboarding.
 
 ---
 

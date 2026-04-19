@@ -1,5 +1,13 @@
 import { PrismaClient, Permission, DataLevelEnum } from '@prisma/client';
 
+/** Health screening permissions for Guest (worker) role — must match permissions.seed names. */
+const GUEST_HEALTH_SCREENING_PERMISSION_NAMES = [
+  'health-screening:start',
+  'health-screening:list',
+  'health-screening:read',
+  'health-screening:submit',
+];
+
 /** Permission names that belong to modules under the Settings menu (Admin excludes these). */
 const SETTINGS_PERMISSION_PREFIXES = ['setting:', 'mail-template:', 'reminder:'];
 
@@ -35,6 +43,19 @@ function getManagerUserPermissionNames(): Set<string> {
     'quiz:list',
     'quiz:attempt',
   ];
+  const healthQuizPermissions = [
+    'health-quiz:create',
+    'health-quiz:read',
+    'health-quiz:update',
+    'health-quiz:delete',
+    'health-quiz:list',
+  ];
+  const healthScreeningPermissions = [
+    'health-screening:start',
+    'health-screening:list',
+    'health-screening:read',
+    'health-screening:submit',
+  ];
   const readListOnlyModules = [
     'dashboard',
     'audit-policy',
@@ -52,6 +73,12 @@ function getManagerUserPermissionNames(): Set<string> {
     for (const a of actions) set.add(`${mod}:${a}`);
   }
   for (const permission of quizPermissions) {
+    set.add(permission);
+  }
+  for (const permission of healthQuizPermissions) {
+    set.add(permission);
+  }
+  for (const permission of healthScreeningPermissions) {
     set.add(permission);
   }
   for (const mod of readListOnlyModules) {
@@ -128,7 +155,13 @@ export const roles = [
     dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions
-        .filter((p) => p.name === 'auth:login' || p.name === 'auth:logout')
+        .filter(
+          (p) =>
+            p.name === 'auth:login' ||
+            p.name === 'auth:logout' ||
+            p.name === 'menu:read' ||
+            GUEST_HEALTH_SCREENING_PERMISSION_NAMES.includes(p.name),
+        )
         .map((p) => p.id),
   },
   {

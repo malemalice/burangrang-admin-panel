@@ -233,7 +233,17 @@ export function WorkPermitPDFTemplate({
                   </td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.idNumber)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.certificateUrl)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.healthDeclarationUrl)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {w.healthDeclarationUrl ?
+                      na(w.healthDeclarationUrl)
+                    : w.healthScreening ?
+                      `Screening ${na(w.healthScreening.status)}${
+                        w.healthScreening.validUntil ?
+                          ` · valid ${format(new Date(w.healthScreening.validUntil), 'dd MMM yyyy')}`
+                        : ''
+                      }`
+                    : '—'}
+                  </td>
                 </tr>
               ))
             )}

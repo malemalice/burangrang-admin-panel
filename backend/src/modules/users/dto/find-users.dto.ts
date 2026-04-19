@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, IsNumber, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsBoolean, IsUUID } from 'class-validator';
 
 export interface FindUsersOptions {
   page?: number;
@@ -12,6 +12,7 @@ export interface FindUsersOptions {
   officeId?: string;
   departmentId?: string;
   jobPositionId?: string;
+  companyId?: string;
 }
 
 export class FindUsersDto implements FindUsersOptions {
@@ -61,4 +62,8 @@ export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsString()
   jobPositionId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  companyId?: string;
 }

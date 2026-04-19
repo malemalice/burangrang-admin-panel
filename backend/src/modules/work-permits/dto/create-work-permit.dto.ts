@@ -65,10 +65,21 @@ export class WorkPermitWorkerDto {
   @IsString()
   certificateUrl?: string;
 
-  @ApiProperty({ description: 'Health declaration URL' })
+  @ApiProperty({
+    description: 'Legacy uploaded health declaration file URL (optional if healthScreeningId is set)',
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  healthDeclarationUrl: string;
+  healthDeclarationUrl?: string;
+
+  @ApiProperty({
+    description: 'Existing structured health screening id to link (optional if healthDeclarationUrl is set)',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  healthScreeningId?: string;
 
   @ApiProperty({ description: 'Order/sequence' })
   @IsInt()

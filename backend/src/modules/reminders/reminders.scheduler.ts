@@ -4,6 +4,7 @@ import { RemindersService } from './reminders.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ReminderTargetTypeEnum } from './dto/reminder.dto';
+import { HealthScreeningsService } from '../health-screenings/health-screenings.service';
 
 /**
  * ReminderScheduler handles automatic execution of due reminders
@@ -18,6 +19,7 @@ export class RemindersScheduler {
     private readonly remindersService: RemindersService,
     private readonly notificationsService: NotificationsService,
     private readonly prisma: PrismaService,
+    private readonly healthScreeningsService: HealthScreeningsService,
   ) {}
 
   /**
@@ -62,6 +64,25 @@ export class RemindersScheduler {
       this.logger.error('Error in reminder cron job', error.stack);
     } finally {
       this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Marks health screenings DONE → EXPIRED when createdAt is outside the
+   * configured validity window (health_declaration_validity_days).
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  async expireHealthScreeningsCron() {
+    if (process.env.DISABLE_SCHEDULERS === 'true') {
+      return;
+    }
+    try {
+      const n = await this.healthScreeningsService.expireStaleHealthScreenings();
+      if (n > 0) {
+        this.logger.log(`Health screenings marked EXPIRED: ${n}`);
+      }
+    } catch (e) {
+      this.logger.error('expireStaleHealthScreenings failed', e);
     }
   }
 

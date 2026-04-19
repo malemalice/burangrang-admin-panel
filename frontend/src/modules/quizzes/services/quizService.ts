@@ -22,8 +22,9 @@ import {
 } from '../types/quiz.types';
 
 // Data transformation functions
-const mapQuizDtoToQuiz = (quizDto: QuizDTO): Quiz => ({
+export const mapQuizDtoToQuiz = (quizDto: QuizDTO): Quiz => ({
   id: quizDto.id,
+  kind: quizDto.kind,
   title: quizDto.title,
   description: quizDto.description,
   instructions: quizDto.instructions,
@@ -73,7 +74,7 @@ const mapQuizDtoToQuiz = (quizDto: QuizDTO): Quiz => ({
   statistics: quizDto.statistics,
 });
 
-const mapQuizAttemptDtoToQuizAttempt = (attemptDto: QuizAttemptDTO): QuizAttempt => ({
+export const mapQuizAttemptDtoToQuizAttempt = (attemptDto: QuizAttemptDTO): QuizAttempt => ({
   id: attemptDto.id,
   quizId: attemptDto.quizId,
   enrollmentId: attemptDto.enrollmentId,
