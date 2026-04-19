@@ -8,6 +8,35 @@ const GUEST_HEALTH_SCREENING_PERMISSION_NAMES = [
   'health-screening:submit',
 ];
 
+/** Contractor (work-permit worker) — work permit module + uploads + basics + health screening flow */
+const CONTRACTOR_PERMISSION_NAMES = [
+  ...GUEST_HEALTH_SCREENING_PERMISSION_NAMES,
+  'auth:login',
+  'auth:logout',
+  'auth:change-password',
+  'menu:read',
+  'user:read',
+  'setting:read',
+  'setting:update',
+  'notification:read',
+  'notification:mark-read',
+  'notification:mark-all-read',
+  'notification:unread-count',
+  'notification:types',
+  'company:read',
+  'company:list',
+  'work-permit:create',
+  'work-permit:read',
+  'work-permit:update',
+  'work-permit:delete',
+  'work-permit:list',
+  'upload:create',
+  'upload:read',
+  'upload:update',
+  'upload:delete',
+  'upload:list',
+];
+
 /** Permission names that belong to modules under the Settings menu (Admin excludes these). */
 const SETTINGS_PERMISSION_PREFIXES = ['setting:', 'mail-template:', 'reminder:'];
 
@@ -162,6 +191,17 @@ export const roles = [
             p.name === 'menu:read' ||
             GUEST_HEALTH_SCREENING_PERMISSION_NAMES.includes(p.name),
         )
+        .map((p) => p.id),
+  },
+  {
+    name: 'Contractor',
+    code: 'CONTRACTOR',
+    description:
+      'External contractor user tied to a company; work permit access, uploads, and health screening',
+    dataLevel: DataLevelEnum.SELF,
+    permissions: (permissions: Permission[]) =>
+      permissions
+        .filter((p) => CONTRACTOR_PERMISSION_NAMES.includes(p.name))
         .map((p) => p.id),
   },
   {

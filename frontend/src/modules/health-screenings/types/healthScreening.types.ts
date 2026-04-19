@@ -19,6 +19,7 @@ export interface HealthScreeningListItem {
   createdAt: string;
   updatedAt: string;
   quiz?: { id: string; title: string };
+  company?: { id: string; name: string } | null;
   user?: {
     id: string;
     firstName: string;

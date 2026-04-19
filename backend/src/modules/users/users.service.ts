@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateGuestWorkerDto } from './dto/create-guest-worker.dto';
+import { CreateWorkPermitWorkerDto } from './dto/create-work-permit-worker.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDto } from './dto/user.dto';
 import { FindUsersOptions } from './dto/find-users.dto';
@@ -21,6 +23,9 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
 import { MailService } from '../mail/mail.service';
+import { Role } from '../../shared/types/role.enum';
+import { ROLE_CODES } from '../../shared/constants/role-codes';
+import { WorkPermitWorkerProfileResponseDto } from './dto/work-permit-worker-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -166,7 +171,90 @@ export class UsersService {
     }
   }
 
-  async findAll(options?: FindUsersOptions): Promise<{
+  async createWorkPermitWorker(
+    dto: CreateWorkPermitWorkerDto,
+    createdBy: string,
+    requester: { role: string; companyId: string | null },
+  ): Promise<UserDto> {
+    const contractorRole = await this.prisma.role.findFirst({
+      where: { code: ROLE_CODES.CONTRACTOR },
+    });
+    if (!contractorRole) {
+      throw new BadRequestException('Contractor role not found');
+    }
+    const defaultOffice = await this.prisma.office.findFirst({
+      where: { isActive: true },
+    });
+    if (!defaultOffice) {
+      throw new BadRequestException('No active office found');
+    }
+
+    let resolvedCompanyId: string | undefined;
+    if (requester.role === (Role.SUPER_ADMIN as string)) {
+      if (!dto.companyId) {
+        throw new BadRequestException('companyId is required for Super Admin');
+      }
+      resolvedCompanyId = dto.companyId;
+    } else {
+      if (!requester.companyId) {
+        throw new BadRequestException(
+          'Only users associated with a company can create workers',
+        );
+      }
+      resolvedCompanyId = requester.companyId;
+    }
+
+    const randomPassword = crypto.randomBytes(16).toString('base64');
+    const hashedPassword = await this.errorHandler.safeHashPassword(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      () => bcrypt.hash(randomPassword, 10),
+    );
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          password: hashedPassword,
+          roleId: contractorRole.id,
+          officeId: defaultOffice.id,
+          companyId: resolvedCompanyId,
+          isActive: true,
+        },
+        include: {
+          role: true,
+          office: true,
+          department: true,
+          jobPosition: true,
+          company: true,
+        },
+      });
+
+      await this.activityLogger.logUserActivity(
+        'create',
+        {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        },
+        createdBy,
+      );
+
+      return this.userMapper(user);
+    } catch (error: any) {
+      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+        throw new ConflictException('User with this email already exists');
+      }
+      throw error;
+    }
+  }
+
+  async findAll(
+    options?: FindUsersOptions,
+    requester?: { role: string; companyId: string | null },
+  ): Promise<{
     data: UserDto[];
     meta: { total: number; page: number; limit: number };
   }> {
@@ -178,11 +266,26 @@ export class UsersService {
       isActive,
       search,
       roleId,
+      roleCode,
       officeId,
       departmentId,
       jobPositionId,
-      companyId,
+      companyId: companyIdFromQuery,
     } = options || {};
+
+    let companyId = companyIdFromQuery;
+
+    if (requester) {
+      if (requester.role !== (Role.SUPER_ADMIN as string)) {
+        if (!requester.companyId) {
+          return {
+            data: [],
+            meta: { total: 0, page, limit },
+          };
+        }
+        companyId = requester.companyId;
+      }
+    }
 
     const where: Prisma.UserWhereInput = {};
 
@@ -204,6 +307,10 @@ export class UsersService {
 
     if (roleId) {
       where.roleId = roleId;
+    }
+
+    if (roleCode) {
+      where.role = { code: roleCode };
     }
 
     if (officeId) {
@@ -265,6 +372,117 @@ export class UsersService {
     const permissions =
       user.role?.permissions?.map((p: { name: string }) => p.name) ?? [];
     return { ...dto, permissions, roleName: dto.roleName } as UserDto;
+  }
+
+  async getWorkPermitWorkerProfile(
+    targetUserId: string,
+    requester: { role: string; companyId: string | null },
+  ): Promise<WorkPermitWorkerProfileResponseDto> {
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, companyId: true },
+    });
+    this.errorHandler.throwIfNotFoundById('User', targetUserId, targetUser);
+
+    if (requester.role !== (Role.SUPER_ADMIN as string)) {
+      if (
+        !requester.companyId ||
+        targetUser.companyId !== requester.companyId
+      ) {
+        throw new ForbiddenException(
+          'You can only view workers from your company',
+        );
+      }
+    }
+
+    const where: Prisma.WorkPermitWorkerWhereInput = {
+      userId: targetUserId,
+    };
+    if (requester.role !== (Role.SUPER_ADMIN as string)) {
+      where.workPermit = { companyId: requester.companyId! };
+    }
+
+    const rows = await this.prisma.workPermitWorker.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        profession: true,
+        healthScreening: {
+          include: {
+            quiz: { select: { id: true, title: true } },
+          },
+        },
+        workPermit: {
+          select: {
+            id: true,
+            code: true,
+            projectName: true,
+            status: true,
+            company: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: {
+        role: { include: { permissions: { select: { name: true } } } },
+        office: true,
+        department: true,
+        jobPosition: true,
+        company: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('User', targetUserId, user);
+
+    const dto = this.userMapper(user);
+    const permissions =
+      user.role?.permissions?.map((p: { name: string }) => p.name) ?? [];
+    const userOut = { ...dto, permissions, roleName: dto.roleName } as UserDto;
+
+    const assignments = rows.map((r) => ({
+      id: r.id,
+      order: r.order,
+      createdAt: r.createdAt,
+      idNumber: r.idNumber,
+      certificateUrl: r.certificateUrl,
+      healthDeclarationUrl: r.healthDeclarationUrl,
+      profession: {
+        id: r.profession.id,
+        name: r.profession.name,
+        code: r.profession.code,
+      },
+      workPermit: {
+        id: r.workPermit.id,
+        code: r.workPermit.code,
+        projectName: r.workPermit.projectName,
+        status: r.workPermit.status,
+        company: r.workPermit.company
+          ? {
+              id: r.workPermit.company.id,
+              name: r.workPermit.company.name,
+              code: r.workPermit.company.code,
+            }
+          : undefined,
+      },
+      healthScreening: r.healthScreening
+        ? {
+            id: r.healthScreening.id,
+            status: r.healthScreening.status,
+            quizId: r.healthScreening.quizId,
+            quiz: r.healthScreening.quiz
+              ? {
+                  id: r.healthScreening.quiz.id,
+                  title: r.healthScreening.quiz.title,
+                }
+              : undefined,
+          }
+        : null,
+    }));
+
+    return { user: userOut, assignments };
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDto> {

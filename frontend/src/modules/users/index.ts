@@ -21,6 +21,7 @@ export type {
   User,
   UserDTO,
   CreateUserDTO,
+  CreateWorkPermitWorkerDTO,
   UpdateUserDTO,
   UserFormData,
   UserFilters,

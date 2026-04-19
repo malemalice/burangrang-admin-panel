@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -85,6 +86,7 @@ export class HealthScreeningsController {
   @Post('attempts/:attemptId/submit')
   @Permissions('health-screening:submit')
   @ApiOperation({ summary: 'Finalize health screening attempt (no score)' })
+  @ApiBody({ type: SubmitHealthScreeningAttemptDto })
   async submitAttempt(
     @Param('attemptId') attemptId: string,
     @Body() dto: SubmitHealthScreeningAttemptDto,

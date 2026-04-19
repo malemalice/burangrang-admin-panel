@@ -32,6 +32,12 @@ export interface UserDTO {
     id: string;
     name: string;
   };
+  companyId?: string | null;
+  company?: {
+    id: string;
+    name: string;
+    code: string;
+  };
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -54,6 +60,14 @@ export interface CreateGuestWorkerDTO {
   email: string;
   firstName: string;
   lastName: string;
+}
+
+/** POST /users/work-permit-worker — Contractor role, optional company for Super Admin */
+export interface CreateWorkPermitWorkerDTO {
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyId?: string;
 }
 
 // Interface for updating a user

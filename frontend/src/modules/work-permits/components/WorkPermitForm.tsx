@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, X, Trash2 } from 'lucide-react';
@@ -206,6 +206,62 @@ const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }
   { id: 3, title: 'Hazards & Safety', description: 'Sections D, E, and G safety guideline' },
   { id: 4, title: 'Courses & Attachments', description: 'Section F and final review before submit' },
 ];
+
+function getFirstFieldErrorDetail(
+  errors: Record<string, unknown>,
+  pathPrefix: string[] = [],
+): { message: string; path: string[] } | undefined {
+  for (const [key, value] of Object.entries(errors)) {
+    if (value === null || value === undefined) continue;
+
+    if (typeof value === 'object' && value !== null && 'message' in value) {
+      const m = (value as FieldError).message;
+      if (typeof m === 'string' && m) {
+        return { message: m, path: [...pathPrefix, key] };
+      }
+    }
+
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i++) {
+        const item = value[i];
+        if (item && typeof item === 'object') {
+          const nested = getFirstFieldErrorDetail(item as Record<string, unknown>, [...pathPrefix, key, String(i)]);
+          if (nested) return nested;
+        }
+      }
+      continue;
+    }
+
+    if (value && typeof value === 'object') {
+      const nested = getFirstFieldErrorDetail(value as Record<string, unknown>, [...pathPrefix, key]);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
+
+function wizardStepForRootField(field: string): WizardStep | undefined {
+  const step1 = new Set([
+    'classifications',
+    'workClassificationOtherDetail',
+    'projectName',
+    'areaId',
+    'companyId',
+    'proposedStartDate',
+    'proposedEndDate',
+    'workStagesDescription',
+    'workers',
+    'employees',
+  ]);
+  const step2 = new Set(['tools', 'materials', 'machines', 'heavyEquipment']);
+  const step3 = new Set(['hazards']);
+  const step4 = new Set(['requiredCourses', 'attachments', 'requireCourseVerification']);
+  if (step1.has(field)) return 1;
+  if (step2.has(field)) return 2;
+  if (step3.has(field)) return 3;
+  if (step4.has(field)) return 4;
+  return undefined;
+}
 
 interface WorkPermitFormProps {
   workPermit?: WorkPermit;
@@ -931,6 +987,32 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       });
   };
 
+  const handleSubmitInvalid = useCallback(
+    (errors: FieldErrors<FormValues>) => {
+      const detail = getFirstFieldErrorDetail(errors as Record<string, unknown>);
+      const message = detail?.message ?? 'Please complete all required fields.';
+      const rootField = detail?.path[0];
+      const targetStep = rootField ? wizardStepForRootField(rootField) : undefined;
+
+      if (targetStep !== undefined && targetStep !== currentStep) {
+        setCurrentStep(targetStep);
+        const stepMeta = WIZARD_STEPS.find((s) => s.id === targetStep);
+        toast.error(message, {
+          description: `Switched to step ${targetStep}${stepMeta ? ` — ${stepMeta.title}` : ''}. Complete the fields there, then return to submit.`,
+        });
+        return;
+      }
+
+      toast.error(message, {
+        description:
+          targetStep === undefined
+            ? 'Check earlier steps for missing required fields.'
+            : 'Review the highlighted fields before submitting.',
+      });
+    },
+    [currentStep],
+  );
+
   const handleSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
@@ -1027,8 +1109,11 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             : {}),
         } as UpdateWorkPermitDTO);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error submitting form:', error);
+      const maybeAxiosError = error as { response?: { data?: { message?: string } }; message?: string };
+      const apiMessage = maybeAxiosError.response?.data?.message ?? maybeAxiosError.message;
+      toast.error(apiMessage || 'Failed to save work permit');
     } finally {
       setIsSubmitting(false);
     }
@@ -1055,7 +1140,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleSubmitInvalid)} className="space-y-6">
         <Card>
           <CardHeader>
             <WorkPermitSubsectionTitle>Form Progress</WorkPermitSubsectionTitle>

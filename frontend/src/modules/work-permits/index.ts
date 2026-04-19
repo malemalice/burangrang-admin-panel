@@ -12,6 +12,9 @@ export { default as WorkClassificationsPage } from './pages/WorkClassificationsP
 export { default as CreateWorkClassificationPage } from './pages/CreateWorkClassificationPage';
 export { default as EditWorkClassificationPage } from './pages/EditWorkClassificationPage';
 export { default as WorkClassificationDetailPage } from './pages/WorkClassificationDetailPage';
+export { default as WorkPermitWorkersPage } from './pages/WorkPermitWorkersPage';
+export { default as CreateWorkPermitWorkerPage } from './pages/CreateWorkPermitWorkerPage';
+export { default as WorkPermitWorkerDetailPage } from './pages/WorkPermitWorkerDetailPage';
 
 // Routes
 export { default as workPermitRoutes } from './routes/workPermitRoutes';
@@ -20,6 +23,14 @@ export { default as workPermitRoutes } from './routes/workPermitRoutes';
 export { default as workPermitService } from './services/workPermitService';
 export type { CreateWorkPermitDTO, UpdateWorkPermitDTO } from './services/workPermitService';
 export { default as workClassificationService } from './services/workClassificationService';
+export {
+  default as workPermitWorkerService,
+  WORK_PERMIT_WORKER_ROLE_CODE,
+} from './services/workPermitWorkerService';
+export type {
+  WorkPermitWorkerProfileDTO,
+  WorkPermitWorkerProfileAssignmentDTO,
+} from './types/work-permit-worker-profile.types';
 
 // Types
 export type {
@@ -57,6 +68,7 @@ export type {
 // Hooks
 export { useWorkPermits, useWorkPermit, useWorkPermitActions } from './hooks/useWorkPermits';
 export { useWorkClassifications, useWorkClassification } from './hooks/useWorkClassifications';
+export { useWorkPermitWorkers } from './hooks/useWorkPermitWorkers';
 
 // Utils
 export { getWorkPermitStatusColor, getWorkPermitStatusType } from './utils/statusColors';

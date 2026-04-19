@@ -128,15 +128,50 @@ export class HealthScreeningsService {
     };
   }
 
-  async findAll(userId: string, query: { page?: number; limit?: number }) {
+  async findAll(
+    userId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      participantName?: string;
+    },
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-    const where = await this.scopeWhere(userId);
+    const scope = await this.scopeWhere(userId);
+    const searchTerm = query.search?.trim();
+    const participantTerm = query.participantName?.trim();
+
+    const andFilters: Prisma.HealthScreeningWhereInput[] = [scope];
+    if (searchTerm) {
+      andFilters.push({
+        quiz: {
+          title: { contains: searchTerm, mode: 'insensitive' },
+        },
+      });
+    }
+    if (participantTerm) {
+      andFilters.push({
+        user: {
+          OR: [
+            { firstName: { contains: participantTerm, mode: 'insensitive' } },
+            { lastName: { contains: participantTerm, mode: 'insensitive' } },
+            { email: { contains: participantTerm, mode: 'insensitive' } },
+          ],
+        },
+      });
+    }
+
+    const where: Prisma.HealthScreeningWhereInput =
+      andFilters.length > 1 ? { AND: andFilters } : scope;
+
     const [data, total] = await Promise.all([
       this.prisma.healthScreening.findMany({
         where,
         include: {
           quiz: { select: { id: true, title: true } },
+          company: { select: { id: true, name: true } },
           user: {
             select: {
               id: true,
@@ -221,11 +256,6 @@ export class HealthScreeningsService {
     dto: SubmitHealthScreeningAttemptDto,
   ): Promise<QuizAttemptDto> {
     await this.assertAttemptOwnedHealthScreening(attemptId, userId);
-    if (!dto.ackTruth || !dto.ackDiscipline) {
-      this.errorHandler.throwBadRequest(
-        'Both declaration acknowledgements must be accepted',
-      );
-    }
     const acceptedAt = new Date();
     const result = await this.quizzesService.submitAttempt(attemptId, userId);
     await this.prisma.healthScreening.updateMany({

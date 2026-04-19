@@ -22,6 +22,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateGuestWorkerDto } from './dto/create-guest-worker.dto';
+import { CreateWorkPermitWorkerDto } from './dto/create-work-permit-worker.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -32,6 +33,7 @@ import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Request } from 'express';
 import { UserDto } from './dto/user.dto';
+import { WorkPermitWorkerProfileResponseDto } from './dto/work-permit-worker-profile.dto';
 
 // Define interface for request with user property
 interface RequestWithUser extends Request {
@@ -87,6 +89,37 @@ export class UsersController {
     @Req() req: any,
   ): Promise<UserDto> {
     return this.usersService.createGuestWorker(dto, req.user.id);
+  }
+
+  @Post('work-permit-worker')
+  @Permissions('user:create')
+  @ApiOperation({
+    summary:
+      'Create a work permit worker (user with Contractor role and random password)',
+  })
+  @ApiBody({ type: CreateWorkPermitWorkerDto })
+  @ApiResponse({
+    status: 201,
+    description: 'The work permit worker has been successfully created.',
+    type: UserDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Bad request - validation error or Contractor role/office not found.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - user with this email already exists.',
+  })
+  createWorkPermitWorker(
+    @Body() dto: CreateWorkPermitWorkerDto,
+    @Req() req: any,
+  ): Promise<UserDto> {
+    return this.usersService.createWorkPermitWorker(dto, req.user.id, {
+      role: req.user.role as string,
+      companyId: req.user.companyId ?? null,
+    });
   }
 
   @Get()
@@ -154,6 +187,19 @@ export class UsersController {
     description: 'Filter by job position ID',
   })
   @ApiQuery({
+    name: 'companyId',
+    required: false,
+    type: String,
+    description:
+      'Filter by company ID (Super Admin only; others are scoped to their company)',
+  })
+  @ApiQuery({
+    name: 'roleCode',
+    required: false,
+    type: String,
+    description: 'Filter by role code (e.g. CONTRACTOR)',
+  })
+  @ApiQuery({
     name: 'options',
     required: false,
     type: Boolean,
@@ -180,6 +226,7 @@ export class UsersController {
   })
   
   findAll(
+    @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('sortBy') sortBy?: string,
@@ -190,6 +237,8 @@ export class UsersController {
     @Query('roleId') roleId?: string,
     @Query('departmentId') departmentId?: string,
     @Query('jobPositionId') jobPositionId?: string,
+    @Query('companyId') companyId?: string,
+    @Query('roleCode') roleCode?: string,
   ): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -201,18 +250,28 @@ export class UsersController {
     const trimmedSearch = search?.trim();
     const finalSearch = trimmedSearch && trimmedSearch.length > 0 ? trimmedSearch : undefined;
 
-    return this.usersService.findAll({
-      page: pageNumber,
-      limit: limitNumber,
-      sortBy,
-      sortOrder,
-      isActive: isActiveBoolean,
-      search: finalSearch,
-      officeId,
-      roleId,
-      departmentId,
-      jobPositionId,
-    });
+    return this.usersService.findAll(
+      {
+        page: pageNumber,
+        limit: limitNumber,
+        sortBy,
+        sortOrder,
+        isActive: isActiveBoolean,
+        search: finalSearch,
+        officeId,
+        roleId,
+        departmentId,
+        jobPositionId,
+        companyId,
+        roleCode,
+      },
+      req.user
+        ? {
+            role: req.user.role as string,
+            companyId: req.user.companyId ?? null,
+          }
+        : undefined,
+    );
   }
 
   @Get('me')
@@ -276,6 +335,30 @@ export class UsersController {
     @Body() changePasswordDto: ChangePasswordDto,
   ): Promise<{ message: string }> {
     return this.usersService.changePassword(req.user.id, changePasswordDto);
+  }
+
+  @Get(':id/work-permit-worker-profile')
+  @Permissions('user:read')
+  @ApiOperation({
+    summary:
+      'Work permit worker profile: user summary plus WorkPermitWorker rows (profession, certificate, health screening)',
+  })
+  @ApiParam({ name: 'id', description: 'User ID', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'User and per–work-permit worker assignments.',
+    type: WorkPermitWorkerProfileResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - wrong company or role.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  getWorkPermitWorkerProfile(
+    @Param('id') id: string,
+    @Req() req: any,
+  ): Promise<WorkPermitWorkerProfileResponseDto> {
+    return this.usersService.getWorkPermitWorkerProfile(id, {
+      role: req.user.role as string,
+      companyId: req.user.companyId ?? null,
+    });
   }
 
   @Get(':id')

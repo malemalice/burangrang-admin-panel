@@ -15,6 +15,9 @@ export interface User {
   position?: string;
   department?: string;
   office?: string;
+  /** Contractor / vendor company (when set on user) */
+  companyId?: string | null;
+  company?: string;
   status: 'active' | 'inactive' | 'pending';
   lastLogin?: string;
   createdAt: string;

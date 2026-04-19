@@ -19,11 +19,20 @@ const healthScreeningService = {
     return res.data as StartHealthScreeningResponse;
   },
 
-  list: async (params: { page?: number; limit?: number }) => {
+  list: async (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    participantName?: string;
+  }) => {
     const q = new URLSearchParams({
       page: String(params.page ?? 1),
       limit: String(params.limit ?? 10),
     });
+    const search = params.search?.trim();
+    if (search) q.set('search', search);
+    const participantName = params.participantName?.trim();
+    if (participantName) q.set('participantName', participantName);
     const res = await api.get(`${base}?${q.toString()}`);
     return res.data as {
       data: HealthScreeningListItem[];

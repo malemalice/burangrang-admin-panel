@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus, Eye, MoreHorizontal } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
 import DataTable from '@/core/components/ui/data-table/DataTable';
+import type { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -29,11 +30,38 @@ const HealthScreeningsPage = () => {
   const [limit, setLimit] = useState(10);
   const [starting, setStarting] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<
+    Record<string, { value: string; label: string }>
+  >({});
+
+  const filterFields: FilterField[] = useMemo(
+    () => [
+      {
+        id: 'participantName',
+        label: 'Participant name',
+        type: 'text',
+        placeholder: 'First name, last name, or email',
+      },
+    ],
+    [],
+  );
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await healthScreeningService.list({ page: pageIndex + 1, limit });
+      const trimmedSearch = searchTerm.trim();
+      const participantRaw = activeFilters.participantName?.value;
+      const participantName =
+        typeof participantRaw === 'string' && participantRaw.trim().length > 0
+          ? participantRaw.trim()
+          : undefined;
+      const res = await healthScreeningService.list({
+        page: pageIndex + 1,
+        limit,
+        search: trimmedSearch.length > 0 ? trimmedSearch : undefined,
+        participantName,
+      });
       setRows(res.data);
       setTotal(res.meta.total);
     } catch (e) {
@@ -41,11 +69,27 @@ const HealthScreeningsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit]);
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0);
+  };
+
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const p = filters.find((f) => f.id === 'participantName');
+    const next: Record<string, { value: string; label: string }> = {};
+    if (p && typeof p.value === 'string' && p.value.trim()) {
+      const v = p.value.trim();
+      next.participantName = { value: v, label: `Participant: ${v}` };
+    }
+    setActiveFilters(next);
+    setPageIndex(0);
+  };
 
   const handleStart = async () => {
     if (!hasPermission('health-screening:start')) return;
@@ -59,6 +103,12 @@ const HealthScreeningsPage = () => {
     } finally {
       setStarting(false);
     }
+  };
+
+  const participantLabel = (r: HealthScreeningListItem) => {
+    if (!r.user) return '—';
+    const name = `${r.user.firstName} ${r.user.lastName}`.trim();
+    return name || r.user.email;
   };
 
   const statusBadge = (s: HealthScreeningListItem['status']) => {
@@ -79,21 +129,49 @@ const HealthScreeningsPage = () => {
       id: 'quiz',
       header: 'Questionnaire',
       cell: (r: HealthScreeningListItem) => (
-        <div>
-          <div className="font-medium">{r.quiz?.title ?? '—'}</div>
-          <div className="text-xs text-muted-foreground">
-            {r.user && r.userId !== user?.id
-              ? `${r.user.firstName} ${r.user.lastName}`.trim() || r.user.email
-              : null}
-          </div>
-        </div>
+        <div className="font-medium">{r.quiz?.title ?? '—'}</div>
       ),
+      isSortable: true,
+    },
+    {
+      id: 'participant',
+      header: 'Participant',
+      cell: (r: HealthScreeningListItem) => {
+        const hasName = r.user && `${r.user.firstName} ${r.user.lastName}`.trim();
+        return (
+          <div>
+            <div className="font-medium">{participantLabel(r)}</div>
+            {hasName && r.user?.email ? (
+              <div className="text-xs text-muted-foreground">{r.user.email}</div>
+            ) : null}
+          </div>
+        );
+      },
+      isSortable: true,
+    },
+    {
+      id: 'company',
+      header: 'Company',
+      cell: (r: HealthScreeningListItem) =>
+        r.company?.name ? (
+          <span className="text-sm">{r.company.name}</span>
+        ) : (
+          <span className="text-muted-foreground text-sm">—</span>
+        ),
       isSortable: true,
     },
     {
       id: 'status',
       header: 'Status',
       cell: (r: HealthScreeningListItem) => statusBadge(r.status),
+      isSortable: true,
+    },
+    {
+      id: 'createdAt',
+      header: 'Created at',
+      cell: (r: HealthScreeningListItem) => (
+        <span className="text-sm">{new Date(r.createdAt).toLocaleString()}</span>
+      ),
       isSortable: true,
     },
     {
@@ -158,6 +236,12 @@ const HealthScreeningsPage = () => {
         columns={columns}
         data={rows}
         isLoading={isLoading}
+        searchValue={searchTerm}
+        searchPlaceholder="Search by questionnaire title..."
+        onSearch={handleSearch}
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onApplyFilters={handleApplyFilters}
         pagination={{
           pageIndex,
           limit,

@@ -9,6 +9,8 @@ export interface FindUsersOptions {
   isActive?: boolean;
   search?: string;
   roleId?: string;
+  /** Filter by role.code (e.g. CONTRACTOR for work-permit workers) */
+  roleCode?: string;
   officeId?: string;
   departmentId?: string;
   jobPositionId?: string;
@@ -66,4 +68,8 @@ export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsUUID()
   companyId?: string;
+
+  @IsOptional()
+  @IsString()
+  roleCode?: string;
 }
