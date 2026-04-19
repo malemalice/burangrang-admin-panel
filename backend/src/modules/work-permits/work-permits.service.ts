@@ -146,8 +146,8 @@ export class WorkPermitsService {
   private normalizeHazards<T extends {
     hazardId?: string;
     hazardName?: string;
-    description?: string;
-    controlMeasure?: string;
+    activity?: string;
+    mitigation?: string;
     order: number;
   }>(hazards?: T[]): T[] | undefined {
     if (!hazards) {
@@ -159,13 +159,13 @@ export class WorkPermitsService {
         ...hazard,
         hazardId: hazard.hazardId?.trim() || undefined,
         hazardName: hazard.hazardName?.trim() || '',
-        description: hazard.description?.trim() || undefined,
-        controlMeasure: hazard.controlMeasure?.trim() || undefined,
+        activity: hazard.activity?.trim() || undefined,
+        mitigation: hazard.mitigation?.trim() || undefined,
         order: index,
       }))
       .filter((hazard) => {
         const hasHazardName = hazard.hazardName.length > 0;
-        const hasOtherValues = Boolean(hazard.description || hazard.controlMeasure || hazard.hazardId);
+        const hasOtherValues = Boolean(hazard.activity || hazard.mitigation || hazard.hazardId);
 
         return hasHazardName || hasOtherValues;
       }) as T[];
@@ -463,8 +463,8 @@ export class WorkPermitsService {
               create: normalizedHazards.map((h) => ({
                 hazardId: h.hazardId,
                 hazardName: h.hazardName,
-                description: h.description,
-                controlMeasure: h.controlMeasure,
+                activity: h.activity,
+                mitigation: h.mitigation,
                 order: h.order,
               })),
             }
@@ -923,8 +923,8 @@ export class WorkPermitsService {
         id: h.id,
         hazardId: h.hazardId,
         hazardName: h.hazardName,
-        description: h.description,
-        controlMeasure: h.controlMeasure,
+        activity: h.activity,
+        mitigation: h.mitigation,
         order: h.order,
       }));
     }
@@ -1395,8 +1395,8 @@ export class WorkPermitsService {
             create: normalizedHazards.map((h) => ({
               hazardId: h.hazardId,
               hazardName: h.hazardName,
-              description: h.description,
-              controlMeasure: h.controlMeasure,
+              activity: h.activity,
+              mitigation: h.mitigation,
               order: h.order,
             })),
           };

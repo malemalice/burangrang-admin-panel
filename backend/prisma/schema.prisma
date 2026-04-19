@@ -1959,9 +1959,9 @@ model WorkPermitHazard {
   id             String   @id @default(uuid())
   workPermitId   String
   hazardId       String? // Reference to m_risks if exists
-  hazardName     String // Free text hazard name
-  description    String?  @db.Text
-  controlMeasure String?  @db.Text
+  hazardName String // Free text hazard name
+  activity   String?  @db.Text
+  mitigation String?  @db.Text
   order          Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -426,13 +426,23 @@ export function WorkPermitPDFTemplate({
       {/* Section D — PRD */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.D}</h2>
-        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table
+          data-pdf-table-splittable
+          className="min-w-full border border-gray-300 table-fixed"
+          style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%' }}
+        >
+          <colgroup>
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '37%' }} />
+            <col style={{ width: '37%' }} />
+          </colgroup>
           <thead>
             <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Hazard Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Control Measure</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">Hazard name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">Activity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">Mitigation</th>
             </tr>
           </thead>
           <tbody>
@@ -441,10 +451,10 @@ export function WorkPermitPDFTemplate({
             ) : (
               hazards.map((h, i) => (
                 <tr key={h.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(h.hazardName)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(h.description)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(h.controlMeasure)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top break-words whitespace-pre-wrap">{na(h.hazardName)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top break-words whitespace-pre-wrap">{na(h.activity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top break-words whitespace-pre-wrap">{na(h.mitigation)}</td>
                 </tr>
               ))
             )}

@@ -330,8 +330,8 @@ export class WorkPermitDto {
     id: string;
     hazardId?: string;
     hazardName: string;
-    description?: string;
-    controlMeasure?: string;
+    activity?: string;
+    mitigation?: string;
     order: number;
   }>;
 

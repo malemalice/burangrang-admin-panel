@@ -184,15 +184,15 @@ export class WorkPermitHazardDto {
   @IsNotEmpty()
   hazardName: string;
 
-  @ApiProperty({ description: 'Description', required: false })
+  @ApiProperty({ description: 'Activity', required: false })
   @IsOptional()
   @IsString()
-  description?: string;
+  activity?: string;
 
-  @ApiProperty({ description: 'Control measure', required: false })
+  @ApiProperty({ description: 'Mitigation', required: false })
   @IsOptional()
   @IsString()
-  controlMeasure?: string;
+  mitigation?: string;
 
   @ApiProperty({ description: 'Order/sequence' })
   @IsInt()

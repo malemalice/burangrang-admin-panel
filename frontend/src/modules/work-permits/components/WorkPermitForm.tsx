@@ -172,8 +172,8 @@ const formSchema = z.object({
       z.object({
         hazardId: z.string().optional(),
         hazardName: z.string().min(1, 'Hazard name is required'),
-        description: z.string().optional(),
-        controlMeasure: z.string().optional(),
+        activity: z.string().optional(),
+        mitigation: z.string().optional(),
         order: z.number().min(0),
       }),
     )
@@ -755,8 +755,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           workPermit.hazards?.map((h) => ({
             hazardId: str(h.hazardId),
             hazardName: str(h.hazardName),
-            description: str(h.description),
-            controlMeasure: str(h.controlMeasure),
+            activity: str(h.activity),
+            mitigation: str(h.mitigation),
             order: h.order,
           })) || [],
         attachments:
@@ -897,13 +897,13 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         ...hazard,
         hazardId: hazard.hazardId?.trim() || undefined,
         hazardName: hazard.hazardName.trim(),
-        description: hazard.description?.trim() || undefined,
-        controlMeasure: hazard.controlMeasure?.trim() || undefined,
+        activity: hazard.activity?.trim() || undefined,
+        mitigation: hazard.mitigation?.trim() || undefined,
         order: index,
       }))
       .filter((hazard) => {
         const hasHazardName = hazard.hazardName.length > 0;
-        const hasOtherValues = Boolean(hazard.description || hazard.controlMeasure || hazard.hazardId);
+        const hasOtherValues = Boolean(hazard.activity || hazard.mitigation || hazard.hazardId);
 
         return hasHazardName || hasOtherValues;
       });
@@ -2165,8 +2165,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 appendHazard({
                   hazardId: '',
                   hazardName: '',
-                  description: '',
-                  controlMeasure: '',
+                  activity: '',
+                  mitigation: '',
                   order: hazardFields.length,
                 })
               }
@@ -2182,42 +2182,40 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name={`hazards.${index}.hazardName`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormLabel>Hazard Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Hazard name" {...f} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`hazards.${index}.description`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Description" {...f} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <FormField
                   control={form.control}
-                  name={`hazards.${index}.controlMeasure`}
+                  name={`hazards.${index}.hazardName`}
                   render={({ field: f }) => (
                     <FormItem>
-                      <FormLabel>Control Measure</FormLabel>
+                      <FormLabel>Hazard Name</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Control measure" rows={2} {...f} />
+                        <Input placeholder="Hazard name" {...f} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`hazards.${index}.activity`}
+                  render={({ field: f }) => (
+                    <FormItem>
+                      <FormLabel>Activity</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Activity" rows={4} className="min-h-[120px] resize-y" {...f} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`hazards.${index}.mitigation`}
+                  render={({ field: f }) => (
+                    <FormItem>
+                      <FormLabel>Mitigation</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Mitigation" rows={3} className="resize-y" {...f} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

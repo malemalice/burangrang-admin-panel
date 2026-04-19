@@ -489,14 +489,14 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             hazardName: 'Electrical Shock',
-            description: 'Risk of electric shock during installation',
-            controlMeasure: 'Use insulated tools, proper grounding, lockout/tagout',
+            activity: 'Risk of electric shock during installation',
+            mitigation: 'Use insulated tools, proper grounding, lockout/tagout',
             order: 0,
           },
           {
             hazardName: 'Falling Objects',
-            description: 'Risk of tools or materials falling',
-            controlMeasure: 'Secure tools, use tool lanyards, barricade work area',
+            activity: 'Risk of tools or materials falling',
+            mitigation: 'Secure tools, use tool lanyards, barricade work area',
             order: 1,
           },
         ],
@@ -558,8 +558,8 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             hazardName: 'Confined Space',
-            description: 'Working in tight spaces',
-            controlMeasure: 'Proper ventilation, entry permit, safety monitoring',
+            activity: 'Working in tight spaces',
+            mitigation: 'Proper ventilation, entry permit, safety monitoring',
             order: 0,
           },
         ],
@@ -731,8 +731,8 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             hazardName: 'Confined Space',
-            description: 'Limited entry and exit',
-            controlMeasure: 'Permit to work, attendant',
+            activity: 'Limited entry and exit',
+            mitigation: 'Permit to work, attendant',
             order: 0,
           },
         ],
@@ -779,8 +779,8 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             hazardName: 'Fall from height',
-            description: 'Working above 1.5m',
-            controlMeasure: 'Fall arrest, barriers',
+            activity: 'Working above 1.5m',
+            mitigation: 'Fall arrest, barriers',
             order: 0,
           },
         ],

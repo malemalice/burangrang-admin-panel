@@ -823,22 +823,28 @@ const WorkPermitDetailPage = () => {
               {(workPermit.hazards?.length ?? 0) === 0 ? (
                 <p className="text-sm text-muted-foreground">No hazard rows.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">No</TableHead>
-                      <TableHead>Activity</TableHead>
-                      <TableHead>Potential risk</TableHead>
-                      <TableHead>Worksafe method</TableHead>
+                      <TableHead className="w-[22%] min-w-0">Hazard name</TableHead>
+                      <TableHead className="min-w-0">Activity</TableHead>
+                      <TableHead className="min-w-0">Mitigation</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {workPermit.hazards!.map((h, i) => (
                       <TableRow key={h.id}>
-                        <TableCell>{i + 1}</TableCell>
-                        <TableCell className="whitespace-pre-wrap">{displayField(h.hazardName)}</TableCell>
-                        <TableCell className="whitespace-pre-wrap">{displayField(h.description)}</TableCell>
-                        <TableCell className="whitespace-pre-wrap">{displayField(h.controlMeasure)}</TableCell>
+                        <TableCell className="align-top text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
+                          {displayField(h.hazardName)}
+                        </TableCell>
+                        <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
+                          {displayField(h.activity)}
+                        </TableCell>
+                        <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
+                          {displayField(h.mitigation)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

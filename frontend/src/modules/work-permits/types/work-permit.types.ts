@@ -281,8 +281,8 @@ export interface WorkPermitHazard {
   id: string;
   hazardId?: string;
   hazardName: string;
-  description?: string;
-  controlMeasure?: string;
+  activity?: string;
+  mitigation?: string;
   order: number;
 }
 
@@ -442,8 +442,8 @@ export interface CreateWorkPermitDTO {
   hazards?: Array<{
     hazardId?: string;
     hazardName: string;
-    description?: string;
-    controlMeasure?: string;
+    activity?: string;
+    mitigation?: string;
     order: number;
   }>;
   attachments?: Array<{
@@ -564,8 +564,8 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   hazards: workPermit.hazards?.map((h) => ({
     hazardId: h.hazardId,
     hazardName: h.hazardName,
-    description: h.description,
-    controlMeasure: h.controlMeasure,
+    activity: h.activity,
+    mitigation: h.mitigation,
     order: h.order,
   })),
   attachments: workPermit.attachments?.map((a) => ({
