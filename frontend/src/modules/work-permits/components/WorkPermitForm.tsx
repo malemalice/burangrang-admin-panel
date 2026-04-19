@@ -1529,18 +1529,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         <FormItem>
                           <div className="flex items-center justify-between gap-2">
                             <FormLabel>Worker <span className="text-destructive">*</span></FormLabel>
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="h-auto p-0 text-sm"
-                              onClick={() => {
-                                setAddWorkerForIndex(index);
-                                setAddWorkerInitialName('');
-                                setAddWorkerModalOpen(true);
-                              }}
-                            >
-                              Add new worker
-                            </Button>
                           </div>
                           <FormControl>
                             <SearchableSelect
