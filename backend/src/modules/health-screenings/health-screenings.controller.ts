@@ -21,6 +21,7 @@ import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { HealthScreeningsService } from './health-screenings.service';
 import { StartHealthScreeningDto } from './dto/start-health-screening.dto';
 import { FindHealthScreeningsDto } from './dto/find-health-screenings.dto';
+import { SubmitHealthScreeningAttemptDto } from './dto/submit-health-screening-attempt.dto';
 import { SubmitAnswerDto } from '../quizzes/dto/quiz-answer.dto';
 
 interface RequestWithUser extends Request {
@@ -86,8 +87,13 @@ export class HealthScreeningsController {
   @ApiOperation({ summary: 'Finalize health screening attempt (no score)' })
   async submitAttempt(
     @Param('attemptId') attemptId: string,
+    @Body() dto: SubmitHealthScreeningAttemptDto,
     @Req() req: RequestWithUser,
   ) {
-    return this.healthScreeningsService.submitAttempt(attemptId, req.user.id);
+    return this.healthScreeningsService.submitAttempt(
+      attemptId,
+      req.user.id,
+      dto,
+    );
   }
 }

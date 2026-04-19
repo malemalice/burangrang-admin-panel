@@ -12,6 +12,8 @@ export interface HealthScreeningListItem {
   quizAttemptId: string;
   workPermitWorkerId?: string | null;
   status: HealthScreeningStatus;
+  /** ISO timestamp when submit included both declaration acknowledgements (audit). */
+  declarationTermsAcceptedAt?: string | null;
   /** Derived: createdAt + health_declaration_validity_days (API). */
   validUntil?: string | null;
   createdAt: string;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Eye, MoreHorizontal, CheckCircle2, XCircle } from 'lucide-react';
+import { Edit, Trash2, Plus, Eye, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -16,7 +16,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { useHealthQuizzes } from '../hooks/useHealthQuizzes';
 import { Quiz } from '@/modules/quizzes/types/quiz.types';
-import quizService from '@/modules/quizzes/services/quizService';
+import { formatDateTime } from '@/core/utils/date';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
 
@@ -49,6 +49,15 @@ const HealthQuizzesPage = () => {
     setDeleteDialogOpen(true);
   };
 
+  const formatCreator = (q: Quiz) => {
+    if (q.creator) {
+      const name = [q.creator.firstName, q.creator.lastName].filter(Boolean).join(' ').trim();
+      if (name) return name;
+      if (q.creator.email) return q.creator.email;
+    }
+    return q.createdBy || '—';
+  };
+
   const handleDeleteConfirm = async () => {
     if (!quizToDelete) return;
     try {
@@ -70,11 +79,6 @@ const HealthQuizzesPage = () => {
         <div>
           <div className="font-medium flex items-center gap-2 flex-wrap">
             <span>{q.title}</span>
-            {q.isDefaultForHealthScreening && (
-              <Badge variant="secondary" className="text-xs font-normal">
-                Default screening
-              </Badge>
-            )}
           </div>
           {q.questions && (
             <div className="text-xs text-muted-foreground mt-1">
@@ -86,24 +90,39 @@ const HealthQuizzesPage = () => {
       isSortable: true,
     },
     {
-      id: 'status',
-      header: 'Status',
+      id: 'defaultForHealthScreening',
+      header: 'Default for screening',
+      cell: (q: Quiz) =>
+        q.isDefaultForHealthScreening ? (
+          <Badge variant="secondary" className="text-xs font-normal">
+            Yes
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-sm">No</span>
+        ),
+      isSortable: false,
+    },
+    {
+      id: 'createdAt',
+      header: 'Created',
       cell: (q: Quiz) => (
-        <div className="flex flex-col gap-1">
-          {q.isPublished ? (
-            <Badge variant="outline" className={`${quizService.getStatusBadgeColor('published')} border-0 text-xs`}>
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Published
-            </Badge>
-          ) : (
-            <Badge variant="outline" className={`${quizService.getStatusBadgeColor('draft')} border-0 text-xs`}>
-              <XCircle className="h-3 w-3 mr-1" />
-              Draft
-            </Badge>
-          )}
-        </div>
+        <span className="text-sm whitespace-nowrap">{formatDateTime(q.createdAt)}</span>
       ),
       isSortable: true,
+    },
+    {
+      id: 'updatedAt',
+      header: 'Updated',
+      cell: (q: Quiz) => (
+        <span className="text-sm whitespace-nowrap">{formatDateTime(q.updatedAt)}</span>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'createdBy',
+      header: 'Created by',
+      cell: (q: Quiz) => <span className="text-sm">{formatCreator(q)}</span>,
+      isSortable: false,
     },
     {
       id: 'actions',

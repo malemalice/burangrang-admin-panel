@@ -56,8 +56,11 @@ const healthScreeningService = {
     return res.data;
   },
 
-  submitAttempt: async (attemptId: string): Promise<QuizAttempt> => {
-    const res = await api.post(`${base}/attempts/${attemptId}/submit`);
+  submitAttempt: async (
+    attemptId: string,
+    body: { ackTruth: boolean; ackDiscipline: boolean },
+  ): Promise<QuizAttempt> => {
+    const res = await api.post(`${base}/attempts/${attemptId}/submit`, body);
     return mapQuizAttemptDtoToQuizAttempt(res.data as QuizAttemptDTO);
   },
 };

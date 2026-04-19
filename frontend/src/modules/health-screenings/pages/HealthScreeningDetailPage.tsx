@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, ClipboardList, Play } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardList, Play } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -12,6 +12,7 @@ import { useAuth } from '@/core/lib/auth';
 import type { QuizAnswer, QuestionType } from '@/modules/quizzes/types/quiz.types';
 import healthScreeningService from '../services/healthScreeningService';
 import type { HealthScreeningDetailView } from '../types/healthScreening.types';
+import { HEALTH_DECLARATION_TERMS } from '../constants/declarationTerms';
 
 function answerSummary(questionType: QuestionType, answer: QuizAnswer | undefined): string {
   if (!answer) return 'Not answered';
@@ -83,7 +84,7 @@ const HealthScreeningDetailPage = () => {
   ].filter(Boolean);
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="w-full space-y-6">
       <PageHeader
         title="Health declaration"
         subtitle={
@@ -153,6 +154,32 @@ const HealthScreeningDetailPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {data.declarationTermsAcceptedAt && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Declaration confirmation</CardTitle>
+            <p className="text-sm text-muted-foreground font-normal">
+              The submitter confirmed the statements below on{' '}
+              {new Date(data.declarationTermsAcceptedAt).toLocaleString()}.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {HEALTH_DECLARATION_TERMS.map((term) => (
+              <div key={term.id} className="flex gap-3 items-start">
+                <CheckCircle2
+                  className="h-5 w-5 shrink-0 text-primary mt-0.5"
+                  aria-hidden
+                />
+                <p className="text-sm leading-relaxed">
+                  <span>{term.en} </span>
+                  <span className="text-muted-foreground">({term.idLang})</span>
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

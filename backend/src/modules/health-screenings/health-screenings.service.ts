@@ -9,6 +9,7 @@ import {
   QuizAttemptDto,
   CreateQuizAttemptDto,
 } from '../quizzes/dto/quiz-attempt.dto';
+import { SubmitHealthScreeningAttemptDto } from './dto/submit-health-screening-attempt.dto';
 
 const VALIDITY_SETTING_KEY = 'health_declaration_validity_days';
 
@@ -217,12 +218,19 @@ export class HealthScreeningsService {
   async submitAttempt(
     attemptId: string,
     userId: string,
+    dto: SubmitHealthScreeningAttemptDto,
   ): Promise<QuizAttemptDto> {
     await this.assertAttemptOwnedHealthScreening(attemptId, userId);
+    if (!dto.ackTruth || !dto.ackDiscipline) {
+      this.errorHandler.throwBadRequest(
+        'Both declaration acknowledgements must be accepted',
+      );
+    }
+    const acceptedAt = new Date();
     const result = await this.quizzesService.submitAttempt(attemptId, userId);
     await this.prisma.healthScreening.updateMany({
       where: { quizAttemptId: attemptId },
-      data: { status: 'DONE' },
+      data: { status: 'DONE', declarationTermsAcceptedAt: acceptedAt },
     });
     return result;
   }

@@ -39,6 +39,7 @@ export const mapQuizDtoToQuiz = (quizDto: QuizDTO): Quiz => ({
   isPublished: quizDto.isPublished,
   publishedAt: quizDto.publishedAt,
   isActive: quizDto.isActive,
+  isDefaultForHealthScreening: quizDto.isDefaultForHealthScreening,
   createdBy: quizDto.createdBy,
   createdAt: quizDto.createdAt,
   updatedAt: quizDto.updatedAt,

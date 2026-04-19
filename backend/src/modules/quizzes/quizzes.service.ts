@@ -174,7 +174,7 @@ export class QuizzesService {
       isPublished: createQuizDto.isPublished || false,
       publishedAt,
       isDefaultForHealthScreening: setHealthScreeningDefault,
-      createdBy,
+      creator: { connect: { id: createdBy } },
       questions: {
         create: createQuizDto.questions.map((q) => ({
           questionType: q.questionType,
@@ -637,7 +637,7 @@ export class QuizzesService {
         },
         orderBy: { order: 'asc' },
       },
-    };
+    } as const;
 
     const quiz = useDefaultTransaction
       ? await this.prisma.$transaction(async (tx) => {

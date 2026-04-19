@@ -8,6 +8,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Label } from '@/core/components/ui/label';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { Separator } from '@/core/components/ui/separator';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { useAuth } from '@/core/lib/auth';
@@ -15,6 +16,7 @@ import healthScreeningService from '../services/healthScreeningService';
 import type { HealthScreeningDetailView } from '../types/healthScreening.types';
 import type { SubmitAnswerDTO } from '@/modules/quizzes/types/quiz.types';
 import type { QuizQuestion } from '@/modules/quizzes/types/quiz.types';
+import { HEALTH_DECLARATION_TERMS } from '../constants/declarationTerms';
 
 const HealthScreeningFillPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,8 @@ const HealthScreeningFillPage = () => {
   const [answers, setAnswers] = useState<Record<string, Partial<SubmitAnswerDTO>>>({});
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [ackTruth, setAckTruth] = useState(false);
+  const [ackDiscipline, setAckDiscipline] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
@@ -120,7 +124,10 @@ const HealthScreeningFillPage = () => {
     if (!attemptId) return;
     setSubmitting(true);
     try {
-      await healthScreeningService.submitAttempt(attemptId);
+      await healthScreeningService.submitAttempt(attemptId, {
+        ackTruth: true,
+        ackDiscipline: true,
+      });
       toast.success('Declaration submitted');
       navigate(`/health-screenings/${screening?.id}`);
     } catch (e) {
@@ -159,6 +166,8 @@ const HealthScreeningFillPage = () => {
   const currentAnswer = (answers[currentQuestion.id] || {}) as Partial<SubmitAnswerDTO>;
   const totalQuestions = displayQuiz.questions.length;
   const answeredCount = Object.keys(answers).length;
+  const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
+  const declarationsComplete = ackTruth && ackDiscipline;
 
   return (
     <div className="container mx-auto py-6 max-w-4xl">
@@ -277,6 +286,51 @@ const HealthScreeningFillPage = () => {
         </CardContent>
       </Card>
 
+      {isLastQuestion && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Declaration confirmation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-3 items-start">
+              <Checkbox
+                id="health-screening-ack-truth"
+                checked={ackTruth}
+                onCheckedChange={(v) => setAckTruth(v === true)}
+                className="mt-1"
+              />
+              <Label htmlFor="health-screening-ack-truth" className="text-sm font-normal leading-relaxed cursor-pointer">
+                <span>
+                  {HEALTH_DECLARATION_TERMS[0].en}{' '}
+                  <span className="text-muted-foreground block sm:inline">
+                    ({HEALTH_DECLARATION_TERMS[0].idLang})
+                  </span>
+                </span>
+              </Label>
+            </div>
+            <div className="flex gap-3 items-start">
+              <Checkbox
+                id="health-screening-ack-discipline"
+                checked={ackDiscipline}
+                onCheckedChange={(v) => setAckDiscipline(v === true)}
+                className="mt-1"
+              />
+              <Label htmlFor="health-screening-ack-discipline" className="text-sm font-normal leading-relaxed cursor-pointer">
+                <span>
+                  {HEALTH_DECLARATION_TERMS[1].en}{' '}
+                  <span className="text-muted-foreground block sm:inline">
+                    ({HEALTH_DECLARATION_TERMS[1].idLang})
+                  </span>
+                </span>
+              </Label>
+            </div>
+            {!declarationsComplete && (
+              <p className="text-sm text-muted-foreground">Please confirm both statements to submit.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between mt-6">
         <Button
           variant="outline"
@@ -288,7 +342,7 @@ const HealthScreeningFillPage = () => {
         </Button>
         <div className="flex gap-2">
           {currentQuestionIndex === totalQuestions - 1 ? (
-            <Button onClick={() => setSubmitOpen(true)} disabled={submitting}>
+            <Button onClick={() => setSubmitOpen(true)} disabled={submitting || !declarationsComplete}>
               <Send className="mr-2 h-4 w-4" />
               Submit declaration
             </Button>
@@ -306,7 +360,7 @@ const HealthScreeningFillPage = () => {
         onOpenChange={setSubmitOpen}
         onConfirm={handleSubmit}
         title="Submit declaration"
-        description="You will not be able to change answers after submission."
+        description="You have confirmed the statements above. You will not be able to change answers after submission."
         confirmText="Submit"
       />
     </div>
