@@ -45,20 +45,13 @@ export class WorkPermitEmployeeDto {
 }
 
 export class WorkPermitWorkerDto {
-  @ApiProperty({ description: 'User ID (worker with role Guest)' })
+  @ApiProperty({
+    description:
+      'User ID (contractor worker). Profession and ID number come from the user profile, not the permit row.',
+  })
   @IsString()
   @IsNotEmpty()
   userId: string;
-
-  @ApiProperty({ description: 'Profession ID for this worker' })
-  @IsString()
-  @IsNotEmpty()
-  professionId: string;
-
-  @ApiProperty({ description: 'ID number', required: false })
-  @IsOptional()
-  @IsString()
-  idNumber?: string;
 
   @ApiProperty({ description: 'Certificate URL', required: false })
   @IsOptional()

@@ -210,6 +210,15 @@ export class UsersService {
       () => bcrypt.hash(randomPassword, 10),
     );
 
+    if (dto.professionId) {
+      const prof = await this.prisma.profession.findFirst({
+        where: { id: dto.professionId, isActive: true },
+      });
+      if (!prof) {
+        throw new BadRequestException('Profession not found or inactive');
+      }
+    }
+
     try {
       const user = await this.prisma.user.create({
         data: {
@@ -221,6 +230,10 @@ export class UsersService {
           officeId: defaultOffice.id,
           companyId: resolvedCompanyId,
           isActive: true,
+          ...(dto.professionId ? { professionId: dto.professionId } : {}),
+          ...(dto.idNumber !== undefined && dto.idNumber !== null
+            ? { idNumber: dto.idNumber.trim() || null }
+            : {}),
         },
         include: {
           role: true,
@@ -228,6 +241,7 @@ export class UsersService {
           department: true,
           jobPosition: true,
           company: true,
+          profession: true,
         },
       });
 
@@ -338,6 +352,7 @@ export class UsersService {
           department: true,
           jobPosition: true,
           company: true,
+          profession: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -363,6 +378,7 @@ export class UsersService {
         department: true,
         jobPosition: true,
         company: true,
+        profession: true,
       },
     });
 
@@ -406,7 +422,6 @@ export class UsersService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        profession: true,
         healthScreening: {
           include: {
             quiz: { select: { id: true, title: true } },
@@ -432,6 +447,7 @@ export class UsersService {
         department: true,
         jobPosition: true,
         company: true,
+        profession: true,
       },
     });
 
@@ -446,14 +462,16 @@ export class UsersService {
       id: r.id,
       order: r.order,
       createdAt: r.createdAt,
-      idNumber: r.idNumber,
+      idNumber: user.idNumber,
       certificateUrl: r.certificateUrl,
       healthDeclarationUrl: r.healthDeclarationUrl,
-      profession: {
-        id: r.profession.id,
-        name: r.profession.name,
-        code: r.profession.code,
-      },
+      profession: user.profession
+        ? {
+            id: user.profession.id,
+            name: user.profession.name,
+            code: user.profession.code,
+          }
+        : undefined,
       workPermit: {
         id: r.workPermit.id,
         code: r.workPermit.code,
@@ -510,6 +528,7 @@ export class UsersService {
         department: true,
         jobPosition: true,
         company: true,
+        profession: true,
       },
     });
 

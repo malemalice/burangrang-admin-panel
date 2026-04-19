@@ -1,6 +1,13 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useForm, useFieldArray, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
+import {
+  useForm,
+  useFieldArray,
+  useWatch,
+  type Control,
+  type FieldError,
+  type FieldErrors,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, X, Trash2 } from 'lucide-react';
@@ -27,7 +34,6 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
-import { ModalCombobox } from '@/core/components/ui/modal-combobox';
 import {
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
@@ -39,7 +45,6 @@ import {
 } from '../types/work-permit.types';
 import { riskService } from '@/modules/master-data';
 import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
-import { createProfessionFromQuery } from '../utils/professionHelpers';
 import {
   createHeavyEquipmentFromQuery,
   createMachineFromQuery,
@@ -51,8 +56,9 @@ import uploadService from '@/modules/uploads/services/uploadService';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
 import { userService, type User } from '@/modules/users';
-import { roleService } from '@/modules/roles';
 import AddWorkerModal from './AddWorkerModal';
+import { WORK_PERMIT_WORKER_ROLE_CODE } from '../services/workPermitWorkerService';
+import { useAuth } from '@/core/lib/auth';
 import { WorkPermitSection, WorkPermitSubsectionTitle } from './WorkPermitSection';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
@@ -72,8 +78,6 @@ import healthScreeningService from '@/modules/health-screenings/services/healthS
 const workerRowSchema = z
   .object({
     userId: z.string().min(1, 'Worker is required'),
-    professionId: z.string().min(1, 'Profession is required'),
-    idNumber: z.string().optional(),
     certificateUrl: z.string().optional(),
     healthDeclarationUrl: z.string().optional(),
     healthScreeningId: z.string().optional(),
@@ -198,6 +202,66 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+/** Profession and ID number are read-only from the selected worker user profile. */
+function WorkerProfileFromUser({
+  control,
+  index,
+  workerUsers,
+  permitWorkers,
+}: {
+  control: Control<FormValues>;
+  index: number;
+  workerUsers: User[];
+  permitWorkers?: WorkPermit['workers'];
+}) {
+  const userId = useWatch({ control, name: `workers.${index}.userId` });
+  const profile = workerUsers.find((u) => u.id === userId);
+  const permitRow = permitWorkers?.find((w) => w.userId === userId);
+
+  if (!userId) {
+    return (
+      <p className="text-sm text-muted-foreground">Select a worker to see profession and ID number.</p>
+    );
+  }
+
+  const professionLabel =
+    profile?.profession?.trim() ||
+    (permitRow?.profession
+      ? `${permitRow.profession.name} (${permitRow.profession.code})`
+      : '') ||
+    '—';
+
+  const idLabel =
+    profile?.idNumber?.trim() ||
+    permitRow?.idNumber?.trim() ||
+    '—';
+
+  const missingProfession =
+    !profile?.professionId &&
+    !profile?.profession?.trim() &&
+    !permitRow?.professionId &&
+    !permitRow?.profession;
+
+  return (
+    <div className="grid gap-2 rounded-md border bg-muted/30 p-3 text-sm">
+      <div>
+        <p className="text-muted-foreground">Profession</p>
+        <p className="font-medium">{professionLabel}</p>
+      </div>
+      <div>
+        <p className="text-muted-foreground">ID number</p>
+        <p className="font-medium">{idLabel}</p>
+      </div>
+      {missingProfession && (
+        <p className="text-xs text-destructive">
+          Set profession on the worker profile (Workers module) before submitting this permit.
+        </p>
+      )}
+    </div>
+  );
+}
+
 type WizardStep = 1 | 2 | 3 | 4;
 
 const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
@@ -270,6 +334,13 @@ interface WorkPermitFormProps {
 }
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
+  const { user: authUser } = useAuth();
+  const isSuperAdmin = useMemo(() => {
+    const r = authUser?.role;
+    const name = typeof r === 'string' ? r : r?.name;
+    return name === 'Super Admin';
+  }, [authUser?.role]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -284,7 +355,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [tools, setTools] = useState<MasterDataOption[]>([]);
   const [materials, setMaterials] = useState<MasterDataOption[]>([]);
   const [machines, setMachines] = useState<MasterDataOption[]>([]);
-  const [professions, setProfessions] = useState<MasterDataOption[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
   const [risks, setRisks] = useState<Array<{ id: string; name: string; code: string }>>([]);
@@ -339,10 +409,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     () => machines.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` })),
     [machines],
   );
-  const professionOptions = useMemo(
-    () => professions.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
-    [professions],
-  );
   const courseOptions = useMemo(
     () => courses.map((c) => ({ value: c.id, label: c.title ?? c.slug ?? c.id })),
     [courses],
@@ -356,11 +422,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     [guests],
   );
 
-  const handleCreateProfession = useCallback(async (searchQuery: string) => {
-    return createProfessionFromQuery(searchQuery, (newProf) => {
-      setProfessions((prev) => [newProf, ...prev]);
-    });
-  }, []);
   const hseOfficerOptions = useMemo(
     () =>
       users.map((u) => ({
@@ -398,8 +459,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workers: [
         {
           userId: '',
-          professionId: '',
-          idNumber: '',
           certificateUrl: '',
           healthDeclarationUrl: '',
           healthScreeningId: '',
@@ -418,6 +477,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       safetyEquipmentIds: [],
     },
   });
+
+  const watchedCompanyId = useWatch({ control: form.control, name: 'companyId' });
 
   const {
     fields: workerFields,
@@ -644,24 +705,23 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 tools: [],
                 materials: [],
                 machines: [],
-                professions: [],
               };
             }),
             userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
               console.error('Failed to fetch users:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
             }),
-            (async () => {
-              const roles = await roleService.getRoles({ page: 1, limit: 100, options: true }).catch(() => ({ data: [] }));
-              const guestRole = roles.data?.find((r) => r.code === 'GUEST');
-              if (!guestRole?.id) return { data: [] };
-              return userService
-                .getUsers({ page: 1, limit: 500, options: true, filters: { roleId: guestRole.id } })
-                .catch((error) => {
-                  console.error('Failed to fetch worker users (Guest role):', error);
-                  return { data: [], meta: { total: 0, page: 1, limit: 500, pageCount: 0 } };
-                });
-            })(),
+            userService
+              .getUsers({
+                page: 1,
+                limit: 500,
+                options: true,
+                filters: { roleCode: WORK_PERMIT_WORKER_ROLE_CODE },
+              })
+              .catch((error) => {
+                console.error('Failed to fetch contractor workers:', error);
+                return { data: [], meta: { total: 0, page: 1, limit: 500, pageCount: 0 } };
+              }),
             courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
               console.error('Failed to fetch courses:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
@@ -685,7 +745,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         setTools(masterDataResponse.tools);
         setMaterials(masterDataResponse.materials);
         setMachines(masterDataResponse.machines);
-        setProfessions(masterDataResponse.professions);
 
         // Set data from other modules
         setUsers(usersResponse.data);
@@ -743,8 +802,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const workersData =
         workPermit.workers?.map((w) => ({
           userId: str(w.userId),
-          professionId: str(w.professionId),
-          idNumber: str(w.idNumber),
           certificateUrl: str(w.certificateUrl),
           healthDeclarationUrl: str(w.healthDeclarationUrl),
           healthScreeningId: str(w.healthScreening?.id),
@@ -752,8 +809,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         })) || [
           {
             userId: '',
-            professionId: '',
-            idNumber: '',
             certificateUrl: '',
             healthDeclarationUrl: '',
             healthScreeningId: '',
@@ -1072,10 +1127,30 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         workers: FormValues['workers'],
       ): CreateWorkPermitDTO['workers'] =>
         workers.map((w) => ({
-          ...w,
+          userId: w.userId,
+          order: w.order,
+          certificateUrl: w.certificateUrl?.trim() || undefined,
           healthScreeningId: w.healthScreeningId?.trim() || undefined,
           healthDeclarationUrl: w.healthDeclarationUrl?.trim() || undefined,
         }));
+
+      for (const w of dataForApi.workers) {
+        const profile = workerUsers.find((u) => u.id === w.userId);
+        const fromPermit =
+          mode === 'edit' ? workPermit?.workers?.find((x) => x.userId === w.userId) : undefined;
+        const hasProfession =
+          (profile?.professionId && String(profile.professionId).length > 0) ||
+          (profile?.profession && String(profile.profession).trim().length > 0) ||
+          (fromPermit?.professionId && String(fromPermit.professionId).length > 0) ||
+          !!fromPermit?.profession;
+        if (!hasProfession) {
+          toast.error(
+            'Each worker must have a profession on their profile. Update the worker in Workers or edit their user profile.',
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
 
       if (mode === 'create') {
         await onSubmit({
@@ -1397,7 +1472,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
-              <CardDescription>Select each worker and their profession for this permit</CardDescription>
+              <CardDescription>
+                Select each worker; profession and ID number come from their profile (Workers module).
+              </CardDescription>
             </div>
             <Button
               type="button"
@@ -1406,8 +1483,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               onClick={() =>
                 appendWorker({
                   userId: '',
-                  professionId: '',
-                  idNumber: '',
                   certificateUrl: '',
                   healthDeclarationUrl: '',
                   healthScreeningId: '',
@@ -1487,40 +1562,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                       );
                     }}
                   />
-                  <FormField
-                    control={form.control}
-                    name={`workers.${index}.professionId`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormLabel>Profession <span className="text-destructive">*</span></FormLabel>
-                        <FormControl>
-                          <ModalCombobox
-                            options={professionOptions}
-                            value={f.value}
-                            onValueChange={f.onChange}
-                            placeholder="Select profession"
-                            searchPlaceholder="Search..."
-                            onCreateNew={handleCreateProfession}
-                            createNewText="Create new profession"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`workers.${index}.idNumber`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ID Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Worker ID number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium leading-none">
+                      Profession &amp; ID number{' '}
+                      <span className="text-muted-foreground font-normal">(from worker profile)</span>
+                    </p>
+                    <WorkerProfileFromUser
+                      control={form.control}
+                      index={index}
+                      workerUsers={workerUsers}
+                      permitWorkers={workPermit?.workers}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
                     name={`workers.${index}.certificateUrl`}
@@ -2596,6 +2649,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
       <AddWorkerModal
         open={addWorkerModalOpen}
+        createMode="contractor"
+        permitCompanyId={watchedCompanyId}
+        isSuperAdmin={isSuperAdmin}
         onOpenChange={(open) => {
           setAddWorkerModalOpen(open);
           if (!open) {

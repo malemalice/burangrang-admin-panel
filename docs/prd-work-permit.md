@@ -64,12 +64,12 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 | Actor | Who in the system | Primary need |
 |-------|-------------------|--------------|
 | **Applicant / creator** | `User` who creates the permit (`createdBy`) | Create/edit (when allowed), submit, sign SK when status is `WAITING_APPLICANT_SIGN`, extend/close when allowed |
-| **Workers** | `User` records on the permit (`WorkPermitWorker.userId`) | Represented on the permit with `professionId`, optional `idNumber` / `certificateUrl`, required `healthDeclarationUrl` |
+| **Workers** | `User` records on the permit (`WorkPermitWorker.userId`) | Profession and optional ID number come from the **worker user profile** (`User.professionId`, `User.idNumber`). The permit row stores `certificateUrl`, health declaration / screening link, and `order`. |
 | **HSE officers** | `User`s linked via `hseOfficerIds` / `hseOfficers` | Named on the permit; notifications and operational context |
 | **Supervisors (vendor)** | `Guest` records via `supervisorIds` / `supervisors` | Contact/supervision data |
 | **Approvers** | Users allowed by **Master Approval** for `WORK_PERMIT` | Approve / reject / request info according to chain and department rules |
 
-**Implementation note (workers):** On create, the backend validates that each worker `userId` refers to a user whose **role code is `GUEST`**. Product / training should reflect that “workers on the permit” are **guest users** in this system, not arbitrary unstructured names only.
+**Implementation note (workers):** On create/update, the backend validates that each worker `userId` refers to a user whose **role code is `GUEST` or `CONTRACTOR`**, with an **active profession** on their user profile. Permit payloads do not send per-row `professionId` / `idNumber`; those fields are user-profile data only.
 
 ---
 
@@ -102,7 +102,7 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 |------------|---------|
 | **classifications** | Links to `workClassificationId` + `order`; per-classification **safety guideline snapshot** and **safety guidance rows** (risk + safety equipment + notes) via PATCH / create payloads (`classificationSafetyGuidance`) |
 | **employees** | `userId` optional, `employeeName` optional, `order` — BSJ / internal personnel lines |
-| **workers** | `userId`, `professionId`, optional `idNumber`, optional `certificateUrl`, **required `healthDeclarationUrl`**, `order` |
+| **workers** | `userId`, optional `certificateUrl`, health declaration URL and/or linked health screening, `order` (profession / ID number are **not** on the permit row; they come from `User`) |
 | **heavyEquipment**, **tools**, **materials**, **machines** | Master id + `quantity` + `order` |
 | **requiredCourses** | `courseId`, `isRequired`, `order` (LMS integration) |
 | **hazards** | Optional `hazardId` (risk master); `hazardName`, optional `activity`, `mitigation`, `order` |

@@ -81,8 +81,12 @@ export class WorkPermitWorkerProfileAssignmentDto {
   @ApiProperty({ required: false, nullable: true })
   healthDeclarationUrl?: string | null;
 
-  @ApiProperty({ type: WorkPermitWorkerProfileProfessionDto })
-  profession: WorkPermitWorkerProfileProfessionDto;
+  @ApiProperty({
+    type: WorkPermitWorkerProfileProfessionDto,
+    required: false,
+    description: 'From the worker user profile (same for all assignments)',
+  })
+  profession?: WorkPermitWorkerProfileProfessionDto;
 
   @ApiProperty({ type: WorkPermitWorkerProfilePermitSummaryDto })
   workPermit: WorkPermitWorkerProfilePermitSummaryDto;

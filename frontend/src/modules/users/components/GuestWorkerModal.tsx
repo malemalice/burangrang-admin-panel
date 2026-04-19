@@ -42,6 +42,15 @@ export interface GuestWorkerModalProps {
   description?: string;
   successToastMessage?: string;
   submitButtonLabel?: string;
+  /**
+   * When `contractor`, creates a Contractor via POST /users/work-permit-worker (same as workers module).
+   * When `guest` (default), creates Guest via POST /users/guest-worker.
+   */
+  createMode?: 'guest' | 'contractor';
+  /** When createMode is contractor and the requester is Super Admin, permit/vendor company for the new user */
+  permitCompanyId?: string;
+  /** Must be true when using contractor mode from a Super Admin so we can require permitCompanyId */
+  isSuperAdmin?: boolean;
 }
 
 const GuestWorkerModal = ({
@@ -49,12 +58,24 @@ const GuestWorkerModal = ({
   onOpenChange,
   onSuccess,
   initialName = '',
-  title = 'Add new worker',
-  description = 'Create a new worker (Guest user) with name and email. A random password is set; they can use Forgot password to set one.',
-  successToastMessage = 'Worker created. They can use Forgot password to set a password.',
+  title,
+  description,
+  successToastMessage,
   submitButtonLabel = 'Create worker',
+  createMode = 'guest',
+  permitCompanyId,
+  isSuperAdmin = false,
 }: GuestWorkerModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
+
+  const resolvedTitle = title ?? 'Add new worker';
+  const resolvedDescription =
+    description ??
+    (createMode === 'contractor'
+      ? 'Create a new contractor worker with name and email. A random password is set; they can use Forgot password to set one.'
+      : 'Create a new worker (Guest user) with name and email. A random password is set; they can use Forgot password to set one.');
+  const resolvedSuccessToast =
+    successToastMessage ?? 'Worker created. They can use Forgot password to set a password.';
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -88,12 +109,29 @@ const GuestWorkerModal = ({
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
+      if (createMode === 'contractor') {
+        if (isSuperAdmin && (!permitCompanyId || !String(permitCompanyId).trim())) {
+          toast.error('Select a company on the work permit before adding a worker.');
+          return;
+        }
+        const user = await userService.createWorkPermitWorker({
+          email: data.email.trim(),
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          ...(isSuperAdmin && permitCompanyId ? { companyId: permitCompanyId.trim() } : {}),
+        });
+        toast.success(resolvedSuccessToast);
+        onSuccess(user);
+        onOpenChange(false);
+        return;
+      }
+
       const user = await userService.createGuestWorker({
         email: data.email.trim(),
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
       });
-      toast.success(successToastMessage);
+      toast.success(resolvedSuccessToast);
       onSuccess(user);
       onOpenChange(false);
     } catch (error: unknown) {
@@ -108,8 +146,8 @@ const GuestWorkerModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{resolvedTitle}</DialogTitle>
+          <DialogDescription>{resolvedDescription}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

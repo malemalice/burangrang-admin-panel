@@ -15,6 +15,7 @@ import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { MailService } from '../../mail/mail.service';
+import { mergeRoleAndDirectPermissionNames } from '../../../shared/utils/merge-user-permission-names';
 
 interface AuthenticatedUser {
   id: string;
@@ -22,6 +23,8 @@ interface AuthenticatedUser {
   firstName: string;
   lastName: string;
   companyId?: string | null;
+  /** Direct permissions (PermissionToUser); merged with role.permissions for API parity */
+  permissions?: { name: string }[];
   role: {
     id: string;
     name: string;
@@ -45,7 +48,10 @@ export class AuthService {
   ): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { role: { include: { permissions: { select: { name: true } } } } },
+      include: {
+        permissions: { where: { isActive: true }, select: { name: true } },
+        role: { include: { permissions: { where: { isActive: true }, select: { name: true } } } },
+      },
     });
 
     if (!user) {
@@ -92,7 +98,10 @@ export class AuthService {
     const EMBED_VIEWER_EMAIL = 'embed-viewer@system';
     const user = await this.prisma.user.findUnique({
       where: { email: EMBED_VIEWER_EMAIL },
-      include: { role: { include: { permissions: { select: { name: true } } } } },
+      include: {
+        permissions: { where: { isActive: true }, select: { name: true } },
+        role: { include: { permissions: { where: { isActive: true }, select: { name: true } } } },
+      },
     });
 
     if (!user) {
@@ -114,8 +123,10 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour in seconds
     const refreshToken = await this.createRefreshToken(user.id);
 
-    const permissionNames =
-      user.role.permissions?.map((p) => p.name) ?? [];
+    const permissionNames = mergeRoleAndDirectPermissionNames(
+      user.role.permissions,
+      user.permissions,
+    );
 
     return {
       accessToken,
@@ -205,7 +216,8 @@ export class AuthService {
       include: {
         user: {
           include: {
-            role: { include: { permissions: { select: { name: true } } } },
+            permissions: { where: { isActive: true }, select: { name: true } },
+            role: { include: { permissions: { where: { isActive: true }, select: { name: true } } } },
           },
         },
       },
@@ -233,8 +245,10 @@ export class AuthService {
     // Create new refresh token
     const newRefreshToken = await this.createRefreshToken(user.id);
 
-    const permissionNames =
-      user.role.permissions?.map((p) => p.name) ?? [];
+    const permissionNames = mergeRoleAndDirectPermissionNames(
+      user.role.permissions,
+      user.permissions,
+    );
 
     return {
       accessToken,

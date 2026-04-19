@@ -18,6 +18,10 @@ export interface User {
   /** Contractor / vendor company (when set on user) */
   companyId?: string | null;
   company?: string;
+  professionId?: string | null;
+  idNumber?: string | null;
+  /** Profession display name when loaded from API */
+  profession?: string;
   status: 'active' | 'inactive' | 'pending';
   lastLogin?: string;
   createdAt: string;

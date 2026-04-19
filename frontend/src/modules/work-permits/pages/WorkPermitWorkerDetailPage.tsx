@@ -189,10 +189,15 @@ const WorkPermitWorkerDetailPage = () => {
                     Profession
                   </span>
                   <p className="font-medium">
-                    {a.profession.name}{' '}
-                    <span className="text-muted-foreground">
-                      ({a.profession.code})
-                    </span>
+                    {(() => {
+                      const prof = a.profession ?? u?.profession;
+                      return prof ?
+                          <>
+                            {prof.name}{' '}
+                            <span className="text-muted-foreground">({prof.code})</span>
+                          </>
+                        : '—';
+                    })()}
                   </p>
                 </div>
 
@@ -200,7 +205,9 @@ const WorkPermitWorkerDetailPage = () => {
                   <span className="text-sm text-muted-foreground">
                     ID number
                   </span>
-                  <p className="font-medium">{a.idNumber?.trim() || '—'}</p>
+                  <p className="font-medium">
+                    {a.idNumber?.trim() || u?.idNumber?.trim() || '—'}
+                  </p>
                 </div>
 
                 <div>

@@ -9,6 +9,7 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { Prisma } from '@prisma/client';
 import { ROLE_CODES } from '../../shared/constants/role-codes';
 import { pathToRequiredPermission } from './utils/path-to-permission';
+import { mergeRoleAndDirectPermissionNames } from '../../shared/utils/merge-user-permission-names';
 
 // Define options for findAll method
 export interface FindMenusOptions {
@@ -268,6 +269,7 @@ export class MenusService {
       this.prisma.user.findUnique({
         where: { id: userId },
         include: {
+          permissions: { where: { isActive: true }, select: { name: true } },
           role: {
             include: { permissions: { where: { isActive: true }, select: { name: true } } },
           },
@@ -283,7 +285,10 @@ export class MenusService {
     }
 
     const userPermissions = new Set(
-      userWithRole?.role?.permissions?.map((p) => p.name) ?? [],
+      mergeRoleAndDirectPermissionNames(
+        userWithRole?.role?.permissions,
+        userWithRole?.permissions,
+      ),
     );
     const allowedPermissionNames = new Set(permissionNames.map((p) => p.name));
 

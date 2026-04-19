@@ -341,7 +341,7 @@ export class UsersController {
   @Permissions('user:read')
   @ApiOperation({
     summary:
-      'Work permit worker profile: user summary plus WorkPermitWorker rows (profession, certificate, health screening)',
+      'Work permit worker profile: user summary plus WorkPermitWorker rows (certificate, health screening; profession/ID from user profile)',
   })
   @ApiParam({ name: 'id', description: 'User ID', type: String })
   @ApiResponse({

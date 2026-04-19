@@ -26,4 +26,20 @@ export class CreateWorkPermitWorkerDto {
   @IsUUID()
   @IsOptional()
   companyId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Default profession for this contractor (optional)',
+  })
+  @IsUUID()
+  @IsOptional()
+  professionId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Worker ID number (e.g. national ID), optional',
+  })
+  @IsString()
+  @IsOptional()
+  idNumber?: string;
 }

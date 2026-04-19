@@ -58,6 +58,8 @@ function getManagerUserPermissionNames(): Set<string> {
     'chapter',
     'enrollment',
     'work-permit',
+    'progress', // LMS: ProgressController requires progress:read / progress:update for course player
+    'certificate', // full CRUD for HSE officers (was read/list-only; forms need create + certificate-category list)
     'upload', // attachments; backend POST /uploads/upload requires upload:create
     'risk',
     'risk-mitigation',
@@ -89,7 +91,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'dashboard',
     'audit-policy',
     'audit-criteria',
-    'certificate',
+    'certificate-category', // category dropdowns on certificate forms (GET /certificates/categories)
     'environmental-measurement',
     'waste-management',
     'man-hour',
@@ -159,7 +161,7 @@ export const roles = [
     name: 'Manager',
     code: 'MANAGER',
     description:
-      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit, file uploads',
+      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (full CRUD + certificate categories read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, LMS progress, quizzes, work permit, file uploads',
     dataLevel: DataLevelEnum.DEPARTMENT,
     permissions: (permissions: Permission[]) =>
       permissions
@@ -170,7 +172,7 @@ export const roles = [
     name: 'User',
     code: 'USER',
     description:
-      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit, file uploads',
+      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (full CRUD + certificate categories read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, LMS progress, quizzes, work permit, file uploads',
     dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions

@@ -214,8 +214,10 @@ export class WorkPermitDto {
   workers?: Array<{
     id: string;
     userId: string;
-    professionId: string;
-    idNumber?: string;
+    /** From linked user profile (not stored on permit worker row). */
+    professionId?: string | null;
+    /** From linked user profile (not stored on permit worker row). */
+    idNumber?: string | null;
     certificateUrl?: string;
     healthDeclarationUrl?: string | null;
     healthScreening?: {
@@ -229,6 +231,8 @@ export class WorkPermitDto {
       firstName: string;
       lastName: string;
       email: string;
+      professionId?: string | null;
+      idNumber?: string | null;
     };
     profession?: {
       id: string;

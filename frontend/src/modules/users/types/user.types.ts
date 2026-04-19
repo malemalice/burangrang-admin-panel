@@ -38,6 +38,13 @@ export interface UserDTO {
     name: string;
     code: string;
   };
+  professionId?: string | null;
+  idNumber?: string | null;
+  profession?: {
+    id: string;
+    name: string;
+    code: string;
+  };
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -68,6 +75,8 @@ export interface CreateWorkPermitWorkerDTO {
   firstName: string;
   lastName: string;
   companyId?: string;
+  professionId?: string;
+  idNumber?: string;
 }
 
 // Interface for updating a user

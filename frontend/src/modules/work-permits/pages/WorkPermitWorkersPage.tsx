@@ -124,6 +124,16 @@ const WorkPermitWorkersPage = () => {
           ]
         : []),
       {
+        id: 'profession',
+        header: 'Profession',
+        cell: (row: User) => (
+          <span className="text-sm text-muted-foreground">
+            {row.profession ?? '—'}
+          </span>
+        ),
+        isSortable: false,
+      },
+      {
         id: 'role',
         header: 'Role',
         cell: (row: User) => (

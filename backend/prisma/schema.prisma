@@ -34,6 +34,10 @@ model User {
   departmentId                 String?
   jobPositionId                String?
   companyId                    String?
+  /// Default profession for contractor / work-permit workers (optional).
+  professionId                 String?
+  /// Worker ID number (e.g. national ID) for contractor profile; optional.
+  idNumber                     String?
   createdAt                    DateTime                   @default(now())
   updatedAt                    DateTime                   @updatedAt
   lastLoginAt                  DateTime?
@@ -41,6 +45,7 @@ model User {
   passwordResetTokens          PasswordResetToken[]
   office                       Office                     @relation(fields: [officeId], references: [id])
   company                      Company?                   @relation(fields: [companyId], references: [id])
+  profession                   Profession?                @relation(fields: [professionId], references: [id])
   role                         Role                       @relation(fields: [roleId], references: [id])
   department                   Department?                @relation(fields: [departmentId], references: [id])
   jobPosition                  JobPosition?               @relation(fields: [jobPositionId], references: [id])
@@ -1606,7 +1611,7 @@ model Profession {
   isActive           Boolean            @default(true)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
-  workPermitWorkers  WorkPermitWorker[]
+  users              User[]
 
   @@map("m_professions")
 }
@@ -1959,8 +1964,6 @@ model WorkPermitWorker {
   id                   String     @id @default(uuid())
   workPermitId         String
   userId               String
-  professionId         String
-  idNumber             String?
   certificateUrl       String?
   /// Legacy file URL; optional when structured health screening is used.
   healthDeclarationUrl String?
@@ -1970,10 +1973,8 @@ model WorkPermitWorker {
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
   user       User       @relation("WorkPermitWorker", fields: [userId], references: [id])
-  profession Profession @relation(fields: [professionId], references: [id])
   healthScreening HealthScreening?
 
-  @@index([professionId])
   @@map("t_work_permit_workers")
 }
 

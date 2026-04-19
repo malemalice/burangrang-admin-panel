@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
+import { ModalCombobox } from '@/core/components/ui/modal-combobox';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { useAuth } from '@/core/lib/auth';
@@ -29,6 +30,9 @@ import { usePermissions } from '@/core/hooks/usePermissions';
 import userService from '@/modules/users/services/userService';
 import companyService from '@/modules/master-data/services/companyService';
 import type { CompanyDTO } from '@/modules/master-data/types/master-data.types';
+import workPermitService from '@/modules/work-permits/services/workPermitService';
+import type { MasterDataOption } from '@/modules/work-permits/types/work-permit.types';
+import { createProfessionFromQuery } from '@/modules/work-permits/utils/professionHelpers';
 
 function getAuthRoleName(role: { name: string } | string | undefined): string {
   if (!role) return '';
@@ -42,10 +46,24 @@ const CreateWorkPermitWorkerPage = () => {
   const [companyOptions, setCompanyOptions] = useState<
     { value: string; label: string }[]
   >([]);
+  const [professions, setProfessions] = useState<MasterDataOption[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const roleName = getAuthRoleName(authUser?.role);
   const isSuperAdmin = roleName === 'Super Admin';
   const defaultCompanyId = authUser?.companyId ?? '';
+
+  const professionOptions = useMemo(
+    () =>
+      professions.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
+    [professions],
+  );
+
+  const handleCreateProfession = async (searchQuery: string) => {
+    return createProfessionFromQuery(searchQuery, (newProf) => {
+      setProfessions((prev) => [newProf, ...prev]);
+    });
+  };
 
   const formSchema = useMemo(
     () =>
@@ -54,6 +72,8 @@ const CreateWorkPermitWorkerPage = () => {
           firstName: z.string().min(1, 'First name is required'),
           lastName: z.string().min(1, 'Last name is required'),
           email: z.string().min(1, 'Email is required').email('Invalid email'),
+          professionId: z.string().min(1, 'Profession is required'),
+          idNumber: z.string().optional(),
           companyId: z.string().optional(),
         })
         .superRefine((data, ctx) => {
@@ -76,6 +96,8 @@ const CreateWorkPermitWorkerPage = () => {
       firstName: '',
       lastName: '',
       email: '',
+      professionId: '',
+      idNumber: '',
       companyId: isSuperAdmin ? '' : defaultCompanyId,
     },
   });
@@ -111,6 +133,21 @@ const CreateWorkPermitWorkerPage = () => {
       cancelled = true;
     };
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const master = await workPermitService.getMasterData();
+        if (!cancelled) setProfessions(master.professions ?? []);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!hasPermission('user:create')) {
     return (
@@ -158,10 +195,13 @@ const CreateWorkPermitWorkerPage = () => {
 
   const onSubmit = async (data: FormValues) => {
     try {
+      setIsSubmitting(true);
       await userService.createWorkPermitWorker({
         email: data.email.trim(),
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
+        professionId: data.professionId,
+        ...(data.idNumber?.trim() ? { idNumber: data.idNumber.trim() } : {}),
         ...(isSuperAdmin && data.companyId
           ? { companyId: data.companyId }
           : {}),
@@ -172,6 +212,8 @@ const CreateWorkPermitWorkerPage = () => {
       const message =
         error instanceof Error ? error.message : 'Failed to create worker';
       toast.error(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -251,6 +293,44 @@ const CreateWorkPermitWorkerPage = () => {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="professionId"
+                  render={({ field: f }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Profession <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <ModalCombobox
+                          options={professionOptions}
+                          value={f.value}
+                          onValueChange={f.onChange}
+                          placeholder="Select profession"
+                          searchPlaceholder="Search..."
+                          onCreateNew={handleCreateProfession}
+                          createNewText="Create new profession"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="idNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ID number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Worker ID number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {isSuperAdmin && (
                   <FormField
                     control={form.control}
@@ -279,7 +359,19 @@ const CreateWorkPermitWorkerPage = () => {
                   </p>
                 )}
 
-                <Button type="submit">Create worker</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    onClick={() => navigate('/work-permits/workers')}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Creating...' : 'Create worker'}
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>

@@ -2324,34 +2324,20 @@ Table t_work_permit_machines {
 Table t_work_permit_workers {
   id varchar [pk, default: `uuid()`]
   workPermitId varchar [not null, ref: > t_work_permits.id, note: 'onDelete: Cascade']
-  guestId varchar [not null, ref: > t_guests.id]
-  idNumber varchar [null]
+  userId varchar [not null, ref: > t_users.id]
   certificateUrl varchar [null]
-  healthDeclarationUrl varchar [not null]
+  healthDeclarationUrl varchar [null]
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
   
-  Note: 'Workers assigned to work permit with ID, certificates, and health declaration'
+  Note: 'Worker assignment line; profession and ID number are on t_users (User.professionId, User.idNumber), not duplicated here'
   indexes {
     workPermitId
-    guestId
+    userId
   }
 }
 
-Table t_work_permit_professions {
-  id varchar [pk, default: `uuid()`]
-  workPermitId varchar [not null, ref: > t_work_permits.id, note: 'onDelete: Cascade']
-  professionId varchar [not null, ref: > m_professions.id]
-  quantity int [not null]
-  order int [not null]
-  createdAt timestamp [not null, default: `now()`]
-  
-  Note: 'Professions required for work permit with quantities'
-  indexes {
-    workPermitId
-    professionId
-  }
-}
+// Legacy aggregate table t_work_permit_professions was removed; profession is per worker user profile.
 
 Table t_work_permit_required_courses {
   id varchar [pk, default: `uuid()`]
@@ -2962,7 +2948,6 @@ TableGroup work_permit_system {
   t_work_permit_materials
   t_work_permit_machines
   t_work_permit_workers
-  t_work_permit_professions
   t_work_permit_required_courses
   t_work_permit_hazards
   t_work_permit_attachments

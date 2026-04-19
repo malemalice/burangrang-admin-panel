@@ -192,8 +192,10 @@ export interface WorkPermitEmployee {
 export interface WorkPermitWorker {
   id: string;
   userId: string;
-  professionId: string;
-  idNumber?: string;
+  /** From linked user profile (API may omit if user has no profession). */
+  professionId?: string | null;
+  /** From linked user profile. */
+  idNumber?: string | null;
   certificateUrl?: string;
   healthDeclarationUrl?: string;
   healthScreening?: {
@@ -402,8 +404,6 @@ export interface CreateWorkPermitDTO {
   }>;
   workers: Array<{
     userId: string;
-    professionId: string;
-    idNumber?: string;
     certificateUrl?: string;
     healthDeclarationUrl?: string;
     healthScreeningId?: string;
@@ -521,8 +521,6 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   })),
   workers: workPermit.workers?.map((w) => ({
     userId: w.userId,
-    professionId: w.professionId,
-    idNumber: w.idNumber,
     certificateUrl: w.certificateUrl,
     healthDeclarationUrl: w.healthDeclarationUrl,
     healthScreeningId: w.healthScreening?.id,

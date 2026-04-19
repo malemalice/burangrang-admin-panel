@@ -110,8 +110,7 @@ export class WorkPermitsService {
       },
       workers: {
         include: {
-          user: true,
-          profession: true,
+          user: { include: { profession: true } },
           healthScreening: {
             select: { id: true, status: true, createdAt: true, quizId: true },
           },
@@ -203,19 +202,40 @@ export class WorkPermitsService {
     }
   }
 
-  private async validateWorkerProfessions(
-    workers: { professionId: string }[],
+  /**
+   * Workers on a permit reference users by id; profession and ID number are stored on User only.
+   */
+  private async validateWorkersForPermit(
+    workers: Array<{ userId: string }>,
   ): Promise<void> {
-    const professionIds = [...new Set(workers.map((w) => w.professionId))];
-    const professions = await this.prisma.profession.findMany({
-      where: { id: { in: professionIds } },
-    });
-    if (professions.length !== professionIds.length) {
-      this.errorHandler.throwBadRequest('One or more professions are invalid');
+    const userIds = [...new Set(workers.map((w) => w.userId))];
+    if (userIds.length === 0) {
+      this.errorHandler.throwBadRequest('At least one worker is required');
+      return;
     }
-    for (const p of professions) {
-      if (!p.isActive) {
-        this.errorHandler.throwBadRequest(`Profession ${p.id} is not active`);
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      include: { role: true, profession: true },
+    });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    for (const uid of userIds) {
+      const u = byId.get(uid);
+      this.errorHandler.throwIfNotFoundById('User', uid, u);
+      const code = u!.role?.code;
+      if (code !== 'GUEST' && code !== 'CONTRACTOR') {
+        this.errorHandler.throwBadRequest(
+          `User ${uid} must have role Guest or Contractor to be assigned as a worker`,
+        );
+      }
+      if (!u!.professionId || !u!.profession) {
+        this.errorHandler.throwBadRequest(
+          `Worker user ${uid} must have an active profession set on their profile`,
+        );
+      }
+      if (!u!.profession.isActive) {
+        this.errorHandler.throwBadRequest(
+          `Profession for worker ${uid} is not active`,
+        );
       }
     }
   }
@@ -416,21 +436,7 @@ export class WorkPermitsService {
         this.errorHandler.throwBadRequest('At least one worker is required');
       }
 
-      // Validate workers: User exists and has role Guest
-      for (const worker of createDto.workers) {
-        const user = await this.prisma.user.findUnique({
-          where: { id: worker.userId },
-          include: { role: true },
-        });
-        this.errorHandler.throwIfNotFoundById('User', worker.userId, user);
-        if (user?.role?.code !== 'GUEST') {
-          this.errorHandler.throwBadRequest(
-            `User ${worker.userId} must have role Guest to be assigned as a worker`,
-          );
-        }
-      }
-
-      await this.validateWorkerProfessions(createDto.workers);
+      await this.validateWorkersForPermit(createDto.workers);
       this.validateWorkerHealthDeclarations(createDto.workers);
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
@@ -481,8 +487,6 @@ export class WorkPermitsService {
           workers: {
             create: createDto.workers.map((w) => ({
               userId: w.userId,
-              professionId: w.professionId,
-              idNumber: w.idNumber,
               certificateUrl: w.certificateUrl,
               healthDeclarationUrl: w.healthDeclarationUrl ?? null,
               order: w.order,
@@ -892,41 +896,47 @@ export class WorkPermitsService {
     }
 
     if (workPermit.workers) {
-      base.workers = workPermit.workers.map((w: any) => ({
-        id: w.id,
-        userId: w.userId,
-        professionId: w.professionId,
-        idNumber: w.idNumber,
-        certificateUrl: w.certificateUrl,
-        healthDeclarationUrl: w.healthDeclarationUrl ?? undefined,
-        healthScreening: w.healthScreening
-          ? {
-            id: w.healthScreening.id,
-            status: w.healthScreening.status,
-            validUntil: new Date(
-              w.healthScreening.createdAt.getTime() +
-                validityDays * 24 * 60 * 60 * 1000,
-            ).toISOString(),
-            quizId: w.healthScreening.quizId,
-          }
-          : undefined,
-        user: w.user
-          ? {
-            id: w.user.id,
-            firstName: w.user.firstName,
-            lastName: w.user.lastName,
-            email: w.user.email,
-          }
-          : undefined,
-        profession: w.profession
-          ? {
-            id: w.profession.id,
-            name: w.profession.name,
-            code: w.profession.code,
-          }
-          : undefined,
-        order: w.order,
-      }));
+      base.workers = workPermit.workers.map((w: any) => {
+        const u = w.user;
+        const prof = u?.profession;
+        return {
+          id: w.id,
+          userId: w.userId,
+          professionId: u?.professionId ?? undefined,
+          idNumber: u?.idNumber ?? undefined,
+          certificateUrl: w.certificateUrl,
+          healthDeclarationUrl: w.healthDeclarationUrl ?? undefined,
+          healthScreening: w.healthScreening
+            ? {
+              id: w.healthScreening.id,
+              status: w.healthScreening.status,
+              validUntil: new Date(
+                w.healthScreening.createdAt.getTime() +
+                  validityDays * 24 * 60 * 60 * 1000,
+              ).toISOString(),
+              quizId: w.healthScreening.quizId,
+            }
+            : undefined,
+          user: u
+            ? {
+              id: u.id,
+              firstName: u.firstName,
+              lastName: u.lastName,
+              email: u.email,
+              professionId: u.professionId ?? undefined,
+              idNumber: u.idNumber ?? undefined,
+            }
+            : undefined,
+          profession: prof
+            ? {
+              id: prof.id,
+              name: prof.name,
+              code: prof.code,
+            }
+            : undefined,
+          order: w.order,
+        };
+      });
     }
 
     if (workPermit.heavyEquipment) {
@@ -1360,19 +1370,7 @@ export class WorkPermitsService {
         if (updateDto.workers.length === 0) {
           this.errorHandler.throwBadRequest('At least one worker is required');
         }
-        for (const worker of updateDto.workers) {
-          const user = await this.prisma.user.findUnique({
-            where: { id: worker.userId },
-            include: { role: true },
-          });
-          this.errorHandler.throwIfNotFoundById('User', worker.userId, user);
-          if (user?.role?.code !== 'GUEST') {
-            this.errorHandler.throwBadRequest(
-              `User ${worker.userId} must have role Guest to be assigned as a worker`,
-            );
-          }
-        }
-        await this.validateWorkerProfessions(updateDto.workers);
+        await this.validateWorkersForPermit(updateDto.workers);
         this.validateWorkerHealthDeclarations(updateDto.workers);
         await this.prisma.workPermitWorker.deleteMany({
           where: { workPermitId: id },
@@ -1380,8 +1378,6 @@ export class WorkPermitsService {
         updateData.workers = {
           create: updateDto.workers.map((w) => ({
             userId: w.userId,
-            professionId: w.professionId,
-            idNumber: w.idNumber,
             certificateUrl: w.certificateUrl,
             healthDeclarationUrl: w.healthDeclarationUrl ?? null,
             order: w.order,

@@ -42,9 +42,21 @@ export class UserDto {
   @Expose()
   companyId?: string | null;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  professionId?: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  idNumber?: string | null;
+
   @ApiProperty({ required: false })
   @Expose()
   company?: { id: string; name: string; code: string };
+
+  @ApiProperty({ required: false })
+  @Expose()
+  profession?: { id: string; name: string; code: string };
 
   @ApiProperty()
   @Expose()

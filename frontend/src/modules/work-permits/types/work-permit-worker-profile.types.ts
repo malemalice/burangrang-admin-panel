@@ -7,7 +7,7 @@ export interface WorkPermitWorkerProfileAssignmentDTO {
   idNumber?: string | null;
   certificateUrl?: string | null;
   healthDeclarationUrl?: string | null;
-  profession: {
+  profession?: {
     id: string;
     name: string;
     code: string;

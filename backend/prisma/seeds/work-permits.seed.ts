@@ -380,6 +380,29 @@ export async function seedWorkPermits(prisma: PrismaClient) {
   const worker4 = workerUsers[3]!;
   const worker5 = workerUsers[4]!;
 
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: worker1.id },
+      data: { professionId: profession.id, idNumber: 'ID123456789' },
+    }),
+    prisma.user.update({
+      where: { id: worker2.id },
+      data: { professionId: professionAlt.id, idNumber: 'ID987654321' },
+    }),
+    prisma.user.update({
+      where: { id: worker3.id },
+      data: { professionId: profession.id, idNumber: 'ID111222333' },
+    }),
+    prisma.user.update({
+      where: { id: worker4.id },
+      data: { professionId: profession.id, idNumber: 'ID444555666' },
+    }),
+    prisma.user.update({
+      where: { id: worker5.id },
+      data: { professionId: profession.id, idNumber: 'ID777888999' },
+    }),
+  ]);
+
   // Helper function to generate work permit code
   const generateCode = (year: number, sequence: number) => {
     return `WP-${year}-${String(sequence).padStart(4, '0')}`;
@@ -429,15 +452,11 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker1.id,
-            professionId: profession.id,
-            idNumber: 'ID123456789',
             healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
             order: 0,
           },
           {
             userId: worker2.id,
-            professionId: professionAlt.id,
-            idNumber: 'ID987654321',
             healthDeclarationUrl: 'https://example.com/health-declaration-2.pdf',
             order: 1,
           },
@@ -542,8 +561,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker3.id,
-            professionId: profession.id,
-            idNumber: 'ID111222333',
             healthDeclarationUrl: 'https://example.com/health-declaration-3.pdf',
             order: 0,
           },
@@ -592,8 +609,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker4.id,
-            professionId: profession.id,
-            idNumber: 'ID444555666',
             healthDeclarationUrl: 'https://example.com/health-declaration-4.pdf',
             order: 0,
           },
@@ -649,8 +664,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker5.id,
-            professionId: profession.id,
-            idNumber: 'ID777888999',
             healthDeclarationUrl: 'https://example.com/health-declaration-5.pdf',
             order: 0,
           },
@@ -680,8 +693,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker1.id,
-            professionId: profession.id,
-            idNumber: 'ID123456789',
             healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
             order: 0,
           },
@@ -719,8 +730,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker1.id,
-            professionId: profession.id,
-            idNumber: 'ID111111111',
             healthDeclarationUrl: 'https://example.com/health-declaration-wp6.pdf',
             order: 0,
           },
@@ -768,8 +777,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker2.id,
-            professionId: profession.id,
-            idNumber: 'ID222222222',
             healthDeclarationUrl: 'https://example.com/health-declaration-wp7.pdf',
             order: 0,
           },
@@ -816,8 +823,6 @@ export async function seedWorkPermits(prisma: PrismaClient) {
         create: [
           {
             userId: worker2.id,
-            professionId: profession.id,
-            idNumber: 'ID987654321',
             healthDeclarationUrl: 'https://example.com/health-declaration-wp8.pdf',
             order: 0,
           },

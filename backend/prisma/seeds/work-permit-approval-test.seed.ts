@@ -223,6 +223,11 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
     return;
   }
 
+  await prisma.user.update({
+    where: { id: workerUser.id },
+    data: { professionId: profession.id, idNumber: 'WP-TEST-ID' },
+  });
+
   // 5. Create Test Work Permits in Various States
   console.log('\n📋 Creating test Work Permits...');
 
@@ -248,7 +253,6 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       workers: {
         create: [{
           userId: workerUser.id,
-          professionId: profession.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -275,7 +279,6 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       workers: {
         create: [{
           userId: workerUser.id,
-          professionId: profession.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -302,7 +305,6 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       workers: {
         create: [{
           userId: workerUser.id,
-          professionId: profession.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -345,7 +347,6 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       workers: {
         create: [{
           userId: workerUser.id,
-          professionId: profession.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -399,7 +400,6 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       workers: {
         create: [{
           userId: workerUser.id,
-          professionId: profession.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
