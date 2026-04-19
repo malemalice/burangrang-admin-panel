@@ -7,6 +7,7 @@ import {
   type Control,
   type FieldError,
   type FieldErrors,
+  type UseFormSetValue,
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -57,8 +58,10 @@ import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
 import { userService, type User } from '@/modules/users';
 import AddWorkerModal from './AddWorkerModal';
+import AddCompanyModal from './AddCompanyModal';
 import { WORK_PERMIT_WORKER_ROLE_CODE } from '../services/workPermitWorkerService';
 import { useAuth } from '@/core/lib/auth';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import { WorkPermitSection, WorkPermitSubsectionTitle } from './WorkPermitSection';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
@@ -74,6 +77,8 @@ import {
 import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 import healthScreeningService from '@/modules/health-screenings/services/healthScreeningService';
+import type { HealthScreeningListItem } from '@/modules/health-screenings/types/healthScreening.types';
+import type { CompanyDTO } from '@/modules/master-data/types/master-data.types';
 
 const workerRowSchema = z
   .object({
@@ -262,6 +267,133 @@ function WorkerProfileFromUser({
   );
 }
 
+function isEligibleHealthScreening(s: HealthScreeningListItem): boolean {
+  if (s.status !== 'DONE') return false;
+  if (s.validUntil) {
+    return new Date(s.validUntil).getTime() >= Date.now();
+  }
+  return true;
+}
+
+/** Resolves latest valid DONE screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
+function WorkerAutoLinkedHealthScreening({
+  control,
+  index,
+  setValue,
+}: {
+  control: Control<FormValues>;
+  index: number;
+  setValue: UseFormSetValue<FormValues>;
+}) {
+  const userId = useWatch({ control, name: `workers.${index}.userId` });
+  const linkedId = useWatch({ control, name: `workers.${index}.healthScreeningId` });
+  const healthDeclarationUrl = useWatch({ control, name: `workers.${index}.healthDeclarationUrl` });
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<HealthScreeningListItem | null>(null);
+
+  useEffect(() => {
+    if (!linkedId) setPreview(null);
+  }, [linkedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!userId?.trim()) {
+        setValue(`workers.${index}.healthScreeningId`, '');
+        setPreview(null);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setValue(`workers.${index}.healthScreeningId`, '');
+      setPreview(null);
+      try {
+        const res = await healthScreeningService.list({
+          userId: userId.trim(),
+          page: 1,
+          limit: 20,
+        });
+        if (cancelled) return;
+        const pick = res.data.find(isEligibleHealthScreening);
+        if (pick) {
+          setValue(`workers.${index}.healthScreeningId`, pick.id);
+          setPreview(pick);
+        } else {
+          setValue(`workers.${index}.healthScreeningId`, '');
+          setPreview(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setValue(`workers.${index}.healthScreeningId`, '');
+          setPreview(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, index, setValue]);
+
+  return (
+    <>
+      <div className="space-y-2">
+        <p className="text-sm font-medium leading-none">
+          Linked health screening{' '}
+          <span className="text-muted-foreground font-normal">(automatic from latest valid declaration)</span>
+        </p>
+        <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+          {!userId?.trim() ? (
+            <p className="text-muted-foreground">Select a worker to show the linked declaration.</p>
+          ) : loading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : preview ? (
+            <div className="space-y-1">
+              <p className="font-medium">
+                <Link
+                  to={`/health-screenings/${preview.id}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {preview.quiz?.title ?? 'Health screening'}
+                </Link>
+              </p>
+              <p className="text-xs text-muted-foreground">Status: {preview.status}</p>
+              {preview.validUntil && (
+                <p className="text-xs text-muted-foreground">
+                  Valid until: {new Date(preview.validUntil).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          ) : healthDeclarationUrl?.trim() ? (
+            <p className="text-muted-foreground">
+              Health declaration is provided via the uploaded file above (no online screening linked).
+            </p>
+          ) : (
+            <p className="text-muted-foreground">
+              No completed declaration in the validity window for this worker. Upload a file above, or complete a{' '}
+              <Link to="/health-screenings" className="text-primary underline" target="_blank" rel="noreferrer">
+                health declaration
+              </Link>{' '}
+              online first.
+            </p>
+          )}
+        </div>
+      </div>
+      <FormField
+        control={control}
+        name={`workers.${index}.healthScreeningId`}
+        render={({ field }) => <input type="hidden" {...field} />}
+      />
+    </>
+  );
+}
+
 type WizardStep = 1 | 2 | 3 | 4;
 
 const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
@@ -334,6 +466,7 @@ interface WorkPermitFormProps {
 }
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
+  const { hasPermission } = usePermissions();
   const { user: authUser } = useAuth();
   const isSuperAdmin = useMemo(() => {
     const r = authUser?.role;
@@ -367,10 +500,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [addWorkerModalOpen, setAddWorkerModalOpen] = useState(false);
   const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
   const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
+  const [addCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
+  const [addCompanyInitialName, setAddCompanyInitialName] = useState('');
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
   const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
-  const [completedHealthScreenings, setCompletedHealthScreenings] = useState<
-    { value: string; label: string }[]
-  >([]);
 
   const [toolSearchQueries, setToolSearchQueries] = useState<Record<number, string>>({});
   const [materialSearchQueries, setMaterialSearchQueries] = useState<Record<number, string>>({});
@@ -387,6 +520,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       })),
     [companies],
   );
+  const companyOptionsFiltered = useMemo(() => {
+    const q = companySearchQuery.trim();
+    if (q === '') {
+      return companyOptions;
+    }
+    const lower = q.toLowerCase();
+    return companyOptions.filter((o) => o.label.toLowerCase().includes(lower));
+  }, [companyOptions, companySearchQuery]);
   const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
   const workerOptions = useMemo(
     () =>
@@ -770,29 +911,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     };
 
     fetchData();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await healthScreeningService.list({ page: 1, limit: 200 });
-        const opts = res.data
-          .filter((s) => s.status === 'DONE')
-          .map((s) => ({
-            value: s.id,
-            label: `${s.quiz?.title ?? 'Declaration'} · valid ${
-              s.validUntil ? new Date(s.validUntil).toLocaleDateString() : '—'
-            }`,
-          }));
-        if (!cancelled) setCompletedHealthScreenings(opts);
-      } catch {
-        /* optional */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // Populate form when editing
@@ -1405,11 +1523,21 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormLabel>Company <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <SearchableSelect
-                        options={companyOptions}
+                        options={companyOptionsFiltered}
                         value={field.value}
                         onValueChange={field.onChange}
                         placeholder="Select company"
                         searchPlaceholder="Search company..."
+                        onSearch={(q) => setCompanySearchQuery(q)}
+                        {...(hasPermission('company:create')
+                          ? {
+                              onCreateNew: (query: string) => {
+                                setAddCompanyInitialName(query);
+                                setAddCompanyModalOpen(true);
+                              },
+                              createNewText: 'Add new company',
+                            }
+                          : {})}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1716,61 +1844,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                             </div>
                           </FormControl>
                           <p className="text-sm text-muted-foreground">
-                            Upload PDF, DOC, DOCX, or image files (max 10MB), or use a linked screening below
+                            Upload PDF, DOC, DOCX, or image files (max 10MB), or rely on the linked online declaration
+                            shown below when available
                           </p>
                           <FormMessage />
                         </FormItem>
                       );
                     }}
                   />
-                  <FormField
+                  <WorkerAutoLinkedHealthScreening
                     control={form.control}
-                    name={`workers.${index}.healthScreeningId`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Linked screening</FormLabel>
-                        <Select
-                          value={field.value || '__none__'}
-                          onValueChange={(v) => {
-                            field.onChange(v === '__none__' ? '' : v);
-                            if (v && v !== '__none__') {
-                              form.setValue(`workers.${index}.healthDeclarationUrl`, '');
-                              setUploadedFileNames((prev) => {
-                                const next = { ...prev };
-                                delete next[`healthDeclarationUrl-${index}`];
-                                return next;
-                              });
-                            }
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a completed declaration" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">None</SelectItem>
-                            {completedHealthScreenings.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-sm text-muted-foreground">
-                          <Link
-                            to="/health-screenings"
-                            className="text-primary underline"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Health declarations
-                          </Link>{' '}
-                          — complete online, then link here (required if no file above)
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    index={index}
+                    setValue={form.setValue}
                   />
                 </CardContent>
               </Card>
@@ -2637,6 +2722,29 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </div>
         </div>
       </form>
+
+      <AddCompanyModal
+        open={addCompanyModalOpen}
+        onOpenChange={(open) => {
+          setAddCompanyModalOpen(open);
+          if (!open) {
+            setAddCompanyInitialName('');
+          }
+        }}
+        initialName={addCompanyInitialName}
+        onSuccess={(company: CompanyDTO) => {
+          const row: CompanyOption = {
+            id: company.id,
+            name: company.name,
+            code: company.code,
+            phone: company.phone ?? null,
+          };
+          setCompanies((prev) => (prev.some((c) => c.id === row.id) ? prev : [...prev, row]));
+          form.setValue('companyId', company.id);
+          void form.trigger('companyId');
+          setAddCompanyInitialName('');
+        }}
+      />
 
       <AddWorkerModal
         open={addWorkerModalOpen}

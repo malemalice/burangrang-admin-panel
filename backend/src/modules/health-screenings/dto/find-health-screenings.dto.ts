@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsInt, Min, Max, IsString, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsString,
+  MaxLength,
+  IsUUID,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class FindHealthScreeningsDto {
@@ -36,4 +44,12 @@ export class FindHealthScreeningsDto {
   @IsString()
   @MaxLength(200)
   participantName?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Filter by screening participant user id (exact match)',
+  })
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 }

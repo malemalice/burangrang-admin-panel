@@ -68,6 +68,7 @@ const healthScreeningService = {
     limit?: number;
     search?: string;
     participantName?: string;
+    userId?: string;
   }) => {
     const q = new URLSearchParams({
       page: String(params.page ?? 1),
@@ -77,6 +78,8 @@ const healthScreeningService = {
     if (search) q.set('search', search);
     const participantName = params.participantName?.trim();
     if (participantName) q.set('participantName', participantName);
+    const participantUserId = params.userId?.trim();
+    if (participantUserId) q.set('userId', participantUserId);
     const res = await api.get(`${base}?${q.toString()}`);
     return res.data as {
       data: HealthScreeningListItem[];

@@ -168,6 +168,7 @@ export class HealthScreeningsService {
       limit?: number;
       search?: string;
       participantName?: string;
+      userId?: string;
     },
   ) {
     const page = query.page ?? 1;
@@ -175,8 +176,12 @@ export class HealthScreeningsService {
     const scope = await this.scopeWhere(userId);
     const searchTerm = query.search?.trim();
     const participantTerm = query.participantName?.trim();
+    const participantUserId = query.userId?.trim();
 
     const andFilters: Prisma.HealthScreeningWhereInput[] = [scope];
+    if (participantUserId) {
+      andFilters.push({ userId: participantUserId });
+    }
     if (searchTerm) {
       andFilters.push({
         quiz: {

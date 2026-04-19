@@ -248,8 +248,8 @@ const WorkPermitsPage = () => {
           <div className="font-medium">{workPermit.projectName}</div>
           {workPermit.company && (
             <div className="text-sm text-muted-foreground">
-              {workPermit.company.name}
-              {workPermit.company.phone ? ` · ${workPermit.company.phone}` : ''}
+              {workPermit.company.name} <br/>
+              {workPermit.company.phone ? `${workPermit.company.phone}` : ''}
             </div>
           )}
         </div>
@@ -268,9 +268,15 @@ const WorkPermitsPage = () => {
       id: 'dates',
       header: 'Schedule',
       cell: (workPermit: WorkPermit) => (
-        <div className="text-sm">
-          <div>{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</div>
-          <div className="text-muted-foreground">to {format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</div>
+        <div className="space-y-0.5 text-sm tabular-nums">
+          <div className="flex items-center gap-2">
+            <span className="w-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">From</span>
+            <span className="whitespace-nowrap font-medium">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">To</span>
+            <span className="whitespace-nowrap text-muted-foreground">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</span>
+          </div>
         </div>
       ),
       isSortable: false,
