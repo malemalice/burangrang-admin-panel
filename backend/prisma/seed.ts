@@ -91,6 +91,7 @@ async function main() {
       await prisma.courseCategory.deleteMany();
       // Clear Quiz data (before User deletion)
       await prisma.quizAnswer.deleteMany();
+      await prisma.healthScreening.deleteMany();
       await prisma.quizAttempt.deleteMany();
       await prisma.quizAssignment.deleteMany();
       await prisma.quizQuestionOption.deleteMany();
@@ -105,6 +106,7 @@ async function main() {
       await prisma.workPermitTool.deleteMany();
       await prisma.workPermitHeavyEquipment.deleteMany();
       await prisma.workPermitWorker.deleteMany();
+      await prisma.worker.deleteMany();
       await prisma.workPermitEmployee.deleteMany();
       await prisma.workPermitClassification.deleteMany();
       await prisma.workPermitToSafetyEquipment.deleteMany();
@@ -224,6 +226,7 @@ async function main() {
           await prisma.course.deleteMany();
           // Clear Quiz data
           await prisma.quizAnswer.deleteMany();
+          await prisma.healthScreening.deleteMany();
           await prisma.quizAttempt.deleteMany();
           await prisma.quizAssignment.deleteMany();
           await prisma.quizQuestionOption.deleteMany();
@@ -238,6 +241,7 @@ async function main() {
           await prisma.workPermitTool.deleteMany();
           await prisma.workPermitHeavyEquipment.deleteMany();
           await prisma.workPermitWorker.deleteMany();
+          await prisma.worker.deleteMany();
           await prisma.workPermitEmployee.deleteMany();
           await prisma.workPermitClassification.deleteMany();
           await prisma.workPermitToSafetyEquipment.deleteMany();
@@ -424,6 +428,7 @@ async function main() {
           break;
         case 'work-permits':
         case 'work_permits':
+          await prisma.healthScreening.deleteMany();
           await prisma.workPermitAttachment.deleteMany();
           await prisma.workPermitHazard.deleteMany();
           await prisma.workPermitRequiredCourse.deleteMany();
@@ -432,6 +437,7 @@ async function main() {
           await prisma.workPermitTool.deleteMany();
           await prisma.workPermitHeavyEquipment.deleteMany();
           await prisma.workPermitWorker.deleteMany();
+          await prisma.worker.deleteMany();
           await prisma.workPermitEmployee.deleteMany();
           await prisma.workPermitClassification.deleteMany();
           await prisma.workPermitToSafetyEquipment.deleteMany();
@@ -738,6 +744,7 @@ async function main() {
           break;
         case 'work_permits':
           // Clear work permit related data
+          await prisma.healthScreening.deleteMany();
           await prisma.workPermitAttachment.deleteMany();
           await prisma.workPermitHazard.deleteMany();
           await prisma.workPermitRequiredCourse.deleteMany();
@@ -746,6 +753,7 @@ async function main() {
           await prisma.workPermitTool.deleteMany();
           await prisma.workPermitHeavyEquipment.deleteMany();
           await prisma.workPermitWorker.deleteMany();
+          await prisma.worker.deleteMany();
           await prisma.workPermitEmployee.deleteMany();
           await prisma.workPermitClassification.deleteMany();
           await prisma.workPermitToSafetyEquipment.deleteMany();

@@ -12,9 +12,10 @@ export class StartHealthScreeningDto {
 
   @ApiProperty({
     required: false,
-    description: 'Optional work permit worker line to link this declaration to',
+    description:
+      'Optional worker profile id (`t_worker`) to link this declaration (e.g. work-permit context)',
   })
   @IsOptional()
   @IsUUID()
-  workPermitWorkerId?: string;
+  workerId?: string;
 }

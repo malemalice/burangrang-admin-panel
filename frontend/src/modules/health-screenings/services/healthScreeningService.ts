@@ -1,4 +1,4 @@
-import api from '@/core/lib/api';
+import api, { publicApi } from '@/core/lib/api';
 import {
   mapQuizAttemptDtoToQuizAttempt,
   mapQuizDtoToQuiz,
@@ -14,9 +14,53 @@ import type {
 const base = '/health-screenings';
 
 const healthScreeningService = {
-  start: async (body: { quizId?: string; workPermitWorkerId?: string }): Promise<StartHealthScreeningResponse> => {
+  start: async (body: { quizId?: string; workerId?: string }): Promise<StartHealthScreeningResponse> => {
     const res = await api.post(`${base}/start`, body);
     return res.data as StartHealthScreeningResponse;
+  },
+
+  generatePublicLink: async (body: {
+    workerId?: string;
+    userId?: string;
+  }): Promise<{ linkUrl: string; expiresAt: string; screeningId: string }> => {
+    const res = await api.post(`${base}/public-links`, body);
+    return res.data as { linkUrl: string; expiresAt: string; screeningId: string };
+  },
+
+  getPublicByToken: async (token: string): Promise<HealthScreeningDetailView> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.get(`${base}/public/${enc}`);
+    const raw = res.data as {
+      quiz: QuizDTO;
+      quizAttempt: QuizAttemptDTO;
+      worker?: HealthScreeningDetailView['worker'];
+    } & HealthScreeningListItem;
+    const attempt = mapQuizAttemptDtoToQuizAttempt(raw.quizAttempt);
+    const quiz = mapQuizDtoToQuiz(raw.quiz);
+    const mergedAttempt: QuizAttempt = {
+      ...attempt,
+      quiz: attempt.quiz ?? quiz,
+    };
+    return {
+      ...raw,
+      quiz,
+      quizAttempt: mergedAttempt,
+    };
+  },
+
+  submitPublicAnswer: async (token: string, dto: SubmitAnswerDTO) => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(`${base}/public/${enc}/answers`, dto);
+    return res.data;
+  },
+
+  submitPublicAttempt: async (
+    token: string,
+    body: { ackTruth: boolean; ackDiscipline: boolean },
+  ): Promise<QuizAttempt> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(`${base}/public/${enc}/submit`, body);
+    return mapQuizAttemptDtoToQuizAttempt(res.data as QuizAttemptDTO);
   },
 
   list: async (params: {
@@ -45,7 +89,7 @@ const healthScreeningService = {
     const raw = res.data as {
       quiz: QuizDTO;
       quizAttempt: QuizAttemptDTO;
-      workPermitWorker?: HealthScreeningDetailView['workPermitWorker'];
+      worker?: HealthScreeningDetailView['worker'];
     } & HealthScreeningListItem;
     const attempt = mapQuizAttemptDtoToQuizAttempt(raw.quizAttempt);
     const quiz = mapQuizDtoToQuiz(raw.quiz);

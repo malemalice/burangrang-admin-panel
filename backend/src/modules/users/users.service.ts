@@ -154,6 +154,12 @@ export class UsersService {
         },
       });
 
+      await this.prisma.worker.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id },
+        update: {},
+      });
+
       await this.activityLogger.logUserActivity('create', {
         id: user.id,
         firstName: user.firstName,
@@ -243,6 +249,12 @@ export class UsersService {
           company: true,
           profession: true,
         },
+      });
+
+      await this.prisma.worker.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id },
+        update: {},
       });
 
       await this.activityLogger.logUserActivity(
@@ -412,7 +424,7 @@ export class UsersService {
     }
 
     const where: Prisma.WorkPermitWorkerWhereInput = {
-      userId: targetUserId,
+      worker: { userId: targetUserId },
     };
     if (requester.role !== (Role.SUPER_ADMIN as string)) {
       where.workPermit = { companyId: requester.companyId! };
@@ -422,9 +434,15 @@ export class UsersService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        healthScreening: {
+        worker: {
           include: {
-            quiz: { select: { id: true, title: true } },
+            healthScreenings: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              include: {
+                quiz: { select: { id: true, title: true } },
+              },
+            },
           },
         },
         workPermit: {
@@ -458,47 +476,51 @@ export class UsersService {
       user.role?.permissions?.map((p: { name: string }) => p.name) ?? [];
     const userOut = { ...dto, permissions, roleName: dto.roleName } as UserDto;
 
-    const assignments = rows.map((r) => ({
-      id: r.id,
-      order: r.order,
-      createdAt: r.createdAt,
-      idNumber: user.idNumber,
-      certificateUrl: r.certificateUrl,
-      healthDeclarationUrl: r.healthDeclarationUrl,
-      profession: user.profession
-        ? {
-            id: user.profession.id,
-            name: user.profession.name,
-            code: user.profession.code,
-          }
-        : undefined,
-      workPermit: {
-        id: r.workPermit.id,
-        code: r.workPermit.code,
-        projectName: r.workPermit.projectName,
-        status: r.workPermit.status,
-        company: r.workPermit.company
+    const assignments = rows.map((r) => {
+      const wr = r.worker;
+      const hs = wr?.healthScreenings?.[0];
+      return {
+        id: r.id,
+        order: r.order,
+        createdAt: r.createdAt,
+        idNumber: user.idNumber,
+        certificateUrl: wr?.certificateUrl ?? null,
+        healthDeclarationUrl: wr?.healthDeclarationUrl ?? null,
+        profession: user.profession
           ? {
-              id: r.workPermit.company.id,
-              name: r.workPermit.company.name,
-              code: r.workPermit.company.code,
+              id: user.profession.id,
+              name: user.profession.name,
+              code: user.profession.code,
             }
           : undefined,
-      },
-      healthScreening: r.healthScreening
-        ? {
-            id: r.healthScreening.id,
-            status: r.healthScreening.status,
-            quizId: r.healthScreening.quizId,
-            quiz: r.healthScreening.quiz
-              ? {
-                  id: r.healthScreening.quiz.id,
-                  title: r.healthScreening.quiz.title,
-                }
-              : undefined,
-          }
-        : null,
-    }));
+        workPermit: {
+          id: r.workPermit.id,
+          code: r.workPermit.code,
+          projectName: r.workPermit.projectName,
+          status: r.workPermit.status,
+          company: r.workPermit.company
+            ? {
+                id: r.workPermit.company.id,
+                name: r.workPermit.company.name,
+                code: r.workPermit.company.code,
+              }
+            : undefined,
+        },
+        healthScreening: hs
+          ? {
+              id: hs.id,
+              status: hs.status,
+              quizId: hs.quizId,
+              quiz: hs.quiz
+                ? {
+                    id: hs.quiz.id,
+                    title: hs.quiz.title,
+                  }
+                : undefined,
+            }
+          : null,
+      };
+    });
 
     return { user: userOut, assignments };
   }

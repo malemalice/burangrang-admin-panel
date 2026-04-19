@@ -47,19 +47,23 @@ export class WorkPermitEmployeeDto {
 export class WorkPermitWorkerDto {
   @ApiProperty({
     description:
-      'User ID (contractor worker). Profession and ID number come from the user profile, not the permit row.',
+      'User ID (contractor/guest worker). Profession and ID number come from the user profile. Certificate and health declaration URLs are stored on the worker profile (`t_worker`), not on the permit join row.',
   })
   @IsString()
   @IsNotEmpty()
   userId: string;
 
-  @ApiProperty({ description: 'Certificate URL', required: false })
+  @ApiProperty({
+    description: 'Certificate URL (persisted on worker profile)',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   certificateUrl?: string;
 
   @ApiProperty({
-    description: 'Legacy uploaded health declaration file URL (optional if healthScreeningId is set)',
+    description:
+      'Legacy uploaded health declaration file URL (optional if healthScreeningId is set); persisted on worker profile',
     required: false,
   })
   @IsOptional()

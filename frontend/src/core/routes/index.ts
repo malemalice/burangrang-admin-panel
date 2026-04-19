@@ -1,6 +1,11 @@
+import { lazy } from 'react';
 import { RouteConfig } from './types';
 import coreRoutes from './modules/coreRoutes';
 import moduleRoutes from './modules/moduleRoutes';
+
+const PublicHealthScreeningFillPage = lazy(
+  () => import('@/modules/health-screenings/pages/PublicHealthScreeningFillPage'),
+);
 import { settingsRoutes } from '@/modules/settings';
 import { accessLogRoutes } from '@/modules/access-logs';
 import { userRoutes } from '@/modules/users';
@@ -67,6 +72,10 @@ const routes: RouteConfig[] = [
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
   coreRoutes.find(route => route.path === '/reset-password')!,
+  {
+    path: '/health-screenings/public/:token',
+    component: PublicHealthScreeningFillPage,
+  },
 ];
 
 // Not Found route

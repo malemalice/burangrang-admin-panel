@@ -10,7 +10,7 @@ export interface HealthScreeningListItem {
   companyId?: string | null;
   quizId: string;
   quizAttemptId: string;
-  workPermitWorkerId?: string | null;
+  workerId?: string | null;
   status: HealthScreeningStatus;
   /** ISO timestamp when submit included both declaration acknowledgements (audit). */
   declarationTermsAcceptedAt?: string | null;
@@ -36,8 +36,10 @@ export interface StartHealthScreeningResponse {
 export interface HealthScreeningDetailView extends HealthScreeningListItem {
   quiz: Quiz;
   quizAttempt: QuizAttempt;
-  workPermitWorker?: {
+  worker?: {
     id: string;
-    workPermit?: { id: string; code: string };
+    workPermitWorkers?: Array<{
+      workPermit?: { id: string; code: string };
+    }>;
   } | null;
 }

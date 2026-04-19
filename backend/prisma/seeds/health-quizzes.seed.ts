@@ -6,7 +6,7 @@ import { seedPrisma as prisma } from './prisma-seed-client';
 
 const HEALTH_QUIZ_TITLE = 'Deklarasi Kesehatan — Skrining Kondisi Medis';
 
-const yaTidakOptions = [
+const yesNoOptions = [
   { optionText: 'Ya', isCorrect: true, order: 1 },
   { optionText: 'Tidak', isCorrect: true, order: 2 },
 ];
@@ -18,7 +18,7 @@ const healthDeclarationQuestions = [
     explanation: null as string | null,
     points: 1,
     order: 1,
-    options: yaTidakOptions,
+    options: yesNoOptions,
   },
   {
     questionType: 'MULTIPLE_CHOICE' as const,
@@ -26,7 +26,7 @@ const healthDeclarationQuestions = [
     explanation: null,
     points: 1,
     order: 2,
-    options: yaTidakOptions,
+    options: yesNoOptions,
   },
   {
     questionType: 'MULTIPLE_CHOICE' as const,
@@ -34,7 +34,7 @@ const healthDeclarationQuestions = [
     explanation: null,
     points: 1,
     order: 3,
-    options: yaTidakOptions,
+    options: yesNoOptions,
   },
   {
     questionType: 'MULTIPLE_CHOICE' as const,
@@ -42,7 +42,7 @@ const healthDeclarationQuestions = [
     explanation: null,
     points: 1,
     order: 4,
-    options: yaTidakOptions,
+    options: yesNoOptions,
   },
   {
     questionType: 'MULTIPLE_CHOICE' as const,
@@ -50,7 +50,7 @@ const healthDeclarationQuestions = [
     explanation: null,
     points: 1,
     order: 5,
-    options: yaTidakOptions,
+    options: yesNoOptions,
   },
   {
     questionType: 'MULTIPLE_CHOICE' as const,
@@ -58,7 +58,7 @@ const healthDeclarationQuestions = [
     explanation: null,
     points: 1,
     order: 6,
-    options: yaTidakOptions,
+    options: yesNoOptions,
   },
   {
     questionType: 'ESSAY' as const,

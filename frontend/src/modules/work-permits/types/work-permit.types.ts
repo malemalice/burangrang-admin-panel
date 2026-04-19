@@ -191,6 +191,8 @@ export interface WorkPermitEmployee {
 
 export interface WorkPermitWorker {
   id: string;
+  /** Worker profile id (`t_worker`) */
+  workerId: string;
   userId: string;
   /** From linked user profile (API may omit if user has no profession). */
   professionId?: string | null;

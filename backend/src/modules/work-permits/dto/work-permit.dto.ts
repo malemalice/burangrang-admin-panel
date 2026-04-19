@@ -213,12 +213,16 @@ export class WorkPermitDto {
   @IsArray()
   workers?: Array<{
     id: string;
+    /** Join row id; profile data is on `worker`. */
+    workerId: string;
     userId: string;
     /** From linked user profile (not stored on permit worker row). */
     professionId?: string | null;
     /** From linked user profile (not stored on permit worker row). */
     idNumber?: string | null;
+    /** From `t_worker` (worker profile). */
     certificateUrl?: string;
+    /** From `t_worker` (worker profile). */
     healthDeclarationUrl?: string | null;
     healthScreening?: {
       id: string;

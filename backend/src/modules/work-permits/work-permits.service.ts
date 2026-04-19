@@ -24,7 +24,7 @@ import { WorkPermitStatusEnum } from './dto/work-permit.dto';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
 import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
@@ -32,6 +32,8 @@ import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 import { WORK_CLASSIFICATION_OTHER_CODE } from './constants/work-classification.constants';
 import { WorkPermitClassificationSafetyGuidanceInputDto } from './dto/work-permit-classification-safety-guidance.dto';
 import { SettingsHelperService } from '../../shared/services/settings.service';
+
+type DbClient = PrismaClient | Prisma.TransactionClient;
 
 const HEALTH_DECLARATION_VALIDITY_DAYS_KEY = 'health_declaration_validity_days';
 
@@ -110,9 +112,15 @@ export class WorkPermitsService {
       },
       workers: {
         include: {
-          user: { include: { profession: true } },
-          healthScreening: {
-            select: { id: true, status: true, createdAt: true, quizId: true },
+          worker: {
+            include: {
+              user: { include: { profession: true } },
+              healthScreenings: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: { id: true, status: true, createdAt: true, quizId: true },
+              },
+            },
           },
         },
         orderBy: { order: 'asc' },
@@ -145,16 +153,28 @@ export class WorkPermitsService {
     };
   }
 
-  private validateWorkerHealthDeclarations(
+  /** Merges payload with existing `t_worker` URLs when validating declaration requirement. */
+  private async validateWorkerHealthDeclarations(
     workers: Array<{
+      userId: string;
       healthDeclarationUrl?: string;
       healthScreeningId?: string;
     }>,
-  ): void {
+  ): Promise<void> {
+    const userIds = [...new Set(workers.map((w) => w.userId))];
+    const existing = await this.prisma.worker.findMany({
+      where: { userId: { in: userIds } },
+    });
+    const byUser = new Map(existing.map((x) => [x.userId, x]));
     for (const w of workers) {
-      const hasUrl =
+      const row = byUser.get(w.userId);
+      const mergedUrl =
         w.healthDeclarationUrl != null &&
-        String(w.healthDeclarationUrl).trim().length > 0;
+        String(w.healthDeclarationUrl).trim().length > 0
+          ? w.healthDeclarationUrl
+          : row?.healthDeclarationUrl;
+      const hasUrl =
+        mergedUrl != null && String(mergedUrl).trim().length > 0;
       if (!hasUrl && !w.healthScreeningId) {
         this.errorHandler.throwBadRequest(
           'Each worker must have a health declaration URL and/or a linked health screening',
@@ -163,19 +183,51 @@ export class WorkPermitsService {
     }
   }
 
+  private async upsertWorkerForPermit(
+    db: DbClient,
+    w: {
+      userId: string;
+      certificateUrl?: string;
+      healthDeclarationUrl?: string | null;
+    },
+  ): Promise<{ id: string }> {
+    return db.worker.upsert({
+      where: { userId: w.userId },
+      create: {
+        userId: w.userId,
+        certificateUrl: w.certificateUrl ?? null,
+        healthDeclarationUrl: w.healthDeclarationUrl ?? null,
+      },
+      update: {
+        ...(w.certificateUrl !== undefined
+          ? { certificateUrl: w.certificateUrl }
+          : {}),
+        ...(w.healthDeclarationUrl !== undefined
+          ? { healthDeclarationUrl: w.healthDeclarationUrl }
+          : {}),
+      },
+    });
+  }
+
   private async linkHealthScreeningsToWorkers(
     dtos: Array<{ userId: string; order: number; healthScreeningId?: string }>,
-    createdRows: { id: string; userId: string; order: number }[],
+    createdRows: { id: string; workerId: string; order: number }[],
   ): Promise<void> {
     for (const w of dtos) {
       if (!w.healthScreeningId) {
         continue;
       }
-      const row = createdRows.find(
-        (r) => r.userId === w.userId && r.order === w.order,
-      );
+      const row = createdRows.find((r) => r.order === w.order);
       if (!row) {
         continue;
+      }
+      const worker = await this.prisma.worker.findUnique({
+        where: { id: row.workerId },
+      });
+      if (worker && worker.userId !== w.userId) {
+        this.errorHandler.throwBadRequest(
+          'Worker assignment order does not match user for health screening link',
+        );
       }
       const screening = await this.prisma.healthScreening.findUnique({
         where: { id: w.healthScreeningId },
@@ -197,7 +249,7 @@ export class WorkPermitsService {
       }
       await this.prisma.healthScreening.update({
         where: { id: w.healthScreeningId },
-        data: { workPermitWorkerId: row.id },
+        data: { workerId: row.workerId },
       });
     }
   }
@@ -437,7 +489,7 @@ export class WorkPermitsService {
       }
 
       await this.validateWorkersForPermit(createDto.workers);
-      this.validateWorkerHealthDeclarations(createDto.workers);
+      await this.validateWorkerHealthDeclarations(createDto.workers);
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
@@ -451,47 +503,51 @@ export class WorkPermitsService {
       // Generate code
       const code = await this.generateCode();
 
-      // Create work permit with all relations
-      const workPermit = await this.prisma.workPermit.create({
-        data: {
-          code,
-          projectName: createDto.projectName,
-          areaId: createDto.areaId,
-          companyId: createDto.companyId,
-          proposedStartDate,
-          proposedEndDate,
-          workStagesDescription: createDto.workStagesDescription,
-          jobSafetyAnalysis: createDto.jobSafetyAnalysis ?? null,
-          workRequirements: createDto.workRequirements,
-          workClassificationOtherDetail: createDto.workClassificationOtherDetail,
-          requireCourseVerification: createDto.requireCourseVerification || false,
-          status: 'DRAFT',
-          createdBy,
-          classifications: createDto.classifications
-            ? {
-              create: createDto.classifications.map((c) => ({
-                workClassificationId: c.workClassificationId,
-                order: c.order,
+      // Create work permit with all relations (worker profile rows on t_worker, join on t_work_permit_workers)
+      const workPermit = await this.prisma.$transaction(async (tx) => {
+        const workerIdByOrder = new Map<string, string>();
+        for (const w of createDto.workers) {
+          const wr = await this.upsertWorkerForPermit(tx, w);
+          workerIdByOrder.set(`${w.order}`, wr.id);
+        }
+        return tx.workPermit.create({
+          data: {
+            code,
+            projectName: createDto.projectName,
+            areaId: createDto.areaId,
+            companyId: createDto.companyId,
+            proposedStartDate,
+            proposedEndDate,
+            workStagesDescription: createDto.workStagesDescription,
+            jobSafetyAnalysis: createDto.jobSafetyAnalysis ?? null,
+            workRequirements: createDto.workRequirements,
+            workClassificationOtherDetail: createDto.workClassificationOtherDetail,
+            requireCourseVerification: createDto.requireCourseVerification || false,
+            status: 'DRAFT',
+            createdBy,
+            classifications: createDto.classifications
+              ? {
+                create: createDto.classifications.map((c) => ({
+                  workClassificationId: c.workClassificationId,
+                  order: c.order,
+                })),
+              }
+              : undefined,
+            employees: createDto.employees
+              ? {
+                create: createDto.employees.map((e) => ({
+                  userId: e.userId,
+                  employeeName: e.employeeName,
+                  order: e.order,
+                })),
+              }
+              : undefined,
+            workers: {
+              create: createDto.workers.map((w) => ({
+                workerId: workerIdByOrder.get(`${w.order}`)!,
+                order: w.order,
               })),
-            }
-            : undefined,
-          employees: createDto.employees
-            ? {
-              create: createDto.employees.map((e) => ({
-                userId: e.userId,
-                employeeName: e.employeeName,
-                order: e.order,
-              })),
-            }
-            : undefined,
-          workers: {
-            create: createDto.workers.map((w) => ({
-              userId: w.userId,
-              certificateUrl: w.certificateUrl,
-              healthDeclarationUrl: w.healthDeclarationUrl ?? null,
-              order: w.order,
-            })),
-          },
+            },
           heavyEquipment: createDto.heavyEquipment
             ? {
               create: createDto.heavyEquipment.map((e) => ({
@@ -581,11 +637,12 @@ export class WorkPermitsService {
             }
             : undefined,
         } as any,
+        });
       });
 
       const createdWorkerRows = await this.prisma.workPermitWorker.findMany({
         where: { workPermitId: workPermit.id },
-        select: { id: true, userId: true, order: true },
+        select: { id: true, workerId: true, order: true },
       });
       await this.linkHealthScreeningsToWorkers(
         createDto.workers,
@@ -897,24 +954,27 @@ export class WorkPermitsService {
 
     if (workPermit.workers) {
       base.workers = workPermit.workers.map((w: any) => {
-        const u = w.user;
+        const wr = w.worker;
+        const u = wr?.user;
         const prof = u?.profession;
+        const hs = wr?.healthScreenings?.[0];
         return {
           id: w.id,
-          userId: w.userId,
+          workerId: w.workerId,
+          userId: u?.id ?? wr?.userId,
           professionId: u?.professionId ?? undefined,
           idNumber: u?.idNumber ?? undefined,
-          certificateUrl: w.certificateUrl,
-          healthDeclarationUrl: w.healthDeclarationUrl ?? undefined,
-          healthScreening: w.healthScreening
+          certificateUrl: wr?.certificateUrl,
+          healthDeclarationUrl: wr?.healthDeclarationUrl ?? undefined,
+          healthScreening: hs
             ? {
-              id: w.healthScreening.id,
-              status: w.healthScreening.status,
+              id: hs.id,
+              status: hs.status,
               validUntil: new Date(
-                w.healthScreening.createdAt.getTime() +
+                hs.createdAt.getTime() +
                   validityDays * 24 * 60 * 60 * 1000,
               ).toISOString(),
-              quizId: w.healthScreening.quizId,
+              quizId: hs.quizId,
             }
             : undefined,
           user: u
@@ -1371,18 +1431,26 @@ export class WorkPermitsService {
           this.errorHandler.throwBadRequest('At least one worker is required');
         }
         await this.validateWorkersForPermit(updateDto.workers);
-        this.validateWorkerHealthDeclarations(updateDto.workers);
-        await this.prisma.workPermitWorker.deleteMany({
-          where: { workPermitId: id },
+        await this.validateWorkerHealthDeclarations(updateDto.workers);
+        await this.prisma.$transaction(async (tx) => {
+          await tx.workPermitWorker.deleteMany({
+            where: { workPermitId: id },
+          });
+          const workerIdByOrder = new Map<string, string>();
+          for (const w of updateDto.workers!) {
+            const wr = await this.upsertWorkerForPermit(tx, w);
+            workerIdByOrder.set(`${w.order}`, wr.id);
+          }
+          for (const w of updateDto.workers!) {
+            await tx.workPermitWorker.create({
+              data: {
+                workPermitId: id,
+                workerId: workerIdByOrder.get(`${w.order}`)!,
+                order: w.order,
+              },
+            });
+          }
         });
-        updateData.workers = {
-          create: updateDto.workers.map((w) => ({
-            userId: w.userId,
-            certificateUrl: w.certificateUrl,
-            healthDeclarationUrl: w.healthDeclarationUrl ?? null,
-            order: w.order,
-          })),
-        };
       }
 
       if (updateDto.heavyEquipment !== undefined) {
@@ -1543,7 +1611,7 @@ export class WorkPermitsService {
       if (updateDto.workers !== undefined) {
         const createdWorkerRows = await this.prisma.workPermitWorker.findMany({
           where: { workPermitId: id },
-          select: { id: true, userId: true, order: true },
+          select: { id: true, workerId: true, order: true },
         });
         await this.linkHealthScreeningsToWorkers(
           updateDto.workers,

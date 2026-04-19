@@ -2321,19 +2321,31 @@ Table t_work_permit_machines {
   }
 }
 
+Table t_worker {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [not null, unique, ref: > t_users.id, note: 'onDelete: Cascade']
+  certificateUrl varchar [null]
+  healthDeclarationUrl varchar [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+
+  Note: 'Contractor / work-permit worker profile (URLs); identity and profession are on t_users'
+  indexes {
+    userId [unique]
+  }
+}
+
 Table t_work_permit_workers {
   id varchar [pk, default: `uuid()`]
   workPermitId varchar [not null, ref: > t_work_permits.id, note: 'onDelete: Cascade']
-  userId varchar [not null, ref: > t_users.id]
-  certificateUrl varchar [null]
-  healthDeclarationUrl varchar [null]
+  workerId varchar [not null, ref: > t_worker.id, note: 'onDelete: Cascade']
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
-  
-  Note: 'Worker assignment line; profession and ID number are on t_users (User.professionId, User.idNumber), not duplicated here'
+
+  Note: 'Join: work permit ↔ worker profile (order on permit only)'
   indexes {
     workPermitId
-    userId
+    workerId
   }
 }
 
@@ -2947,6 +2959,7 @@ TableGroup work_permit_system {
   t_work_permit_tools
   t_work_permit_materials
   t_work_permit_machines
+  t_worker
   t_work_permit_workers
   t_work_permit_required_courses
   t_work_permit_hazards

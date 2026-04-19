@@ -64,7 +64,7 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 | Actor | Who in the system | Primary need |
 |-------|-------------------|--------------|
 | **Applicant / creator** | `User` who creates the permit (`createdBy`) | Create/edit (when allowed), submit, sign SK when status is `WAITING_APPLICANT_SIGN`, extend/close when allowed |
-| **Workers** | `User` records on the permit (`WorkPermitWorker.userId`) | Profession and optional ID number come from the **worker user profile** (`User.professionId`, `User.idNumber`). The permit row stores `certificateUrl`, health declaration / screening link, and `order`. |
+| **Workers** | `User` via **`Worker`** (`t_worker.userId`) joined to the permit by **`WorkPermitWorker`** (`workPermitId` + `workerId` + `order`) | Profession and optional ID number come from the **worker user profile** (`User.professionId`, `User.idNumber`). `certificateUrl`, legacy health declaration URL, and structured health screening linkage are on **`Worker`** / `HealthScreening.workerId`; the join row only carries `order`. |
 | **HSE officers** | `User`s linked via `hseOfficerIds` / `hseOfficers` | Named on the permit; notifications and operational context |
 | **Supervisors (vendor)** | `Guest` records via `supervisorIds` / `supervisors` | Contact/supervision data |
 | **Approvers** | Users allowed by **Master Approval** for `WORK_PERMIT` | Approve / reject / request info according to chain and department rules |
@@ -102,7 +102,7 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 |------------|---------|
 | **classifications** | Links to `workClassificationId` + `order`; per-classification **safety guideline snapshot** and **safety guidance rows** (risk + safety equipment + notes) via PATCH / create payloads (`classificationSafetyGuidance`) |
 | **employees** | `userId` optional, `employeeName` optional, `order` — BSJ / internal personnel lines |
-| **workers** | `userId`, optional `certificateUrl`, health declaration URL and/or linked health screening, `order` (profession / ID number are **not** on the permit row; they come from `User`) |
+| **workers** | `userId`, optional `certificateUrl`, health declaration URL and/or linked health screening, `order` — URLs persist on **`Worker`**; profession / ID number come from `User` only |
 | **heavyEquipment**, **tools**, **materials**, **machines** | Master id + `quantity` + `order` |
 | **requiredCourses** | `courseId`, `isRequired`, `order` (LMS integration) |
 | **hazards** | Optional `hazardId` (risk master); `hazardName`, optional `activity`, `mitigation`, `order` |

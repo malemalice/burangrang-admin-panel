@@ -403,6 +403,47 @@ export async function seedWorkPermits(prisma: PrismaClient) {
     }),
   ]);
 
+  const wk1 = await prisma.worker.upsert({
+    where: { userId: worker1.id },
+    create: {
+      userId: worker1.id,
+      healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
+    },
+    update: {},
+  });
+  const wk2 = await prisma.worker.upsert({
+    where: { userId: worker2.id },
+    create: {
+      userId: worker2.id,
+      healthDeclarationUrl: 'https://example.com/health-declaration-2.pdf',
+    },
+    update: {},
+  });
+  const wk3 = await prisma.worker.upsert({
+    where: { userId: worker3.id },
+    create: {
+      userId: worker3.id,
+      healthDeclarationUrl: 'https://example.com/health-declaration-3.pdf',
+    },
+    update: {},
+  });
+  const wk4 = await prisma.worker.upsert({
+    where: { userId: worker4.id },
+    create: {
+      userId: worker4.id,
+      healthDeclarationUrl: 'https://example.com/health-declaration-4.pdf',
+    },
+    update: {},
+  });
+  const wk5 = await prisma.worker.upsert({
+    where: { userId: worker5.id },
+    create: {
+      userId: worker5.id,
+      healthDeclarationUrl: 'https://example.com/health-declaration-5.pdf',
+    },
+    update: {},
+  });
+
   // Helper function to generate work permit code
   const generateCode = (year: number, sequence: number) => {
     return `WP-${year}-${String(sequence).padStart(4, '0')}`;
@@ -451,13 +492,11 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker1.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
+            workerId: wk1.id,
             order: 0,
           },
           {
-            userId: worker2.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-2.pdf',
+            workerId: wk2.id,
             order: 1,
           },
         ],
@@ -560,8 +599,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker3.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-3.pdf',
+            workerId: wk3.id,
             order: 0,
           },
         ],
@@ -608,8 +646,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker4.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-4.pdf',
+            workerId: wk4.id,
             order: 0,
           },
         ],
@@ -663,8 +700,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker5.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-5.pdf',
+            workerId: wk5.id,
             order: 0,
           },
         ],
@@ -692,8 +728,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker1.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
+            workerId: wk1.id,
             order: 0,
           },
         ],
@@ -729,8 +764,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker1.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-wp6.pdf',
+            workerId: wk1.id,
             order: 0,
           },
         ],
@@ -776,8 +810,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker2.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-wp7.pdf',
+            workerId: wk2.id,
             order: 0,
           },
         ],
@@ -822,8 +855,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            userId: worker2.id,
-            healthDeclarationUrl: 'https://example.com/health-declaration-wp8.pdf',
+            workerId: wk2.id,
             order: 0,
           },
         ],

@@ -228,6 +228,15 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
     data: { professionId: profession.id, idNumber: 'WP-TEST-ID' },
   });
 
+  const approvalTestWorkerProfile = await prisma.worker.upsert({
+    where: { userId: workerUser.id },
+    create: {
+      userId: workerUser.id,
+      healthDeclarationUrl: 'https://test.com/health.pdf',
+    },
+    update: {},
+  });
+
   // 5. Create Test Work Permits in Various States
   console.log('\n📋 Creating test Work Permits...');
 
@@ -252,8 +261,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          userId: workerUser.id,
-          healthDeclarationUrl: 'https://test.com/health.pdf',
+          workerId: approvalTestWorkerProfile.id,
           order: 1,
         }],
       },
@@ -278,8 +286,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          userId: workerUser.id,
-          healthDeclarationUrl: 'https://test.com/health.pdf',
+          workerId: approvalTestWorkerProfile.id,
           order: 1,
         }],
       },
@@ -304,8 +311,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          userId: workerUser.id,
-          healthDeclarationUrl: 'https://test.com/health.pdf',
+          workerId: approvalTestWorkerProfile.id,
           order: 1,
         }],
       },
@@ -346,8 +352,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          userId: workerUser.id,
-          healthDeclarationUrl: 'https://test.com/health.pdf',
+          workerId: approvalTestWorkerProfile.id,
           order: 1,
         }],
       },
@@ -399,8 +404,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          userId: workerUser.id,
-          healthDeclarationUrl: 'https://test.com/health.pdf',
+          workerId: approvalTestWorkerProfile.id,
           order: 1,
         }],
       },

@@ -146,10 +146,10 @@ const HealthScreeningDetailPage = () => {
               </span>
             </div>
           )}
-          {data.workPermitWorker?.workPermit && (
+          {data.worker?.workPermitWorkers?.[0]?.workPermit && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Work permit</span>
-              <span>{data.workPermitWorker.workPermit.code}</span>
+              <span>{data.worker.workPermitWorkers[0].workPermit.code}</span>
             </div>
           )}
         </CardContent>

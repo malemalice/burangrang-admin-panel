@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { QuizzesService } from '../quizzes/quizzes.service';
@@ -10,6 +11,7 @@ import {
   CreateQuizAttemptDto,
 } from '../quizzes/dto/quiz-attempt.dto';
 import { SubmitHealthScreeningAttemptDto } from './dto/submit-health-screening-attempt.dto';
+import { HealthScreeningPublicLinkService } from './services/health-screening-public-link.service';
 
 const VALIDITY_SETTING_KEY = 'health_declaration_validity_days';
 
@@ -20,6 +22,8 @@ export class HealthScreeningsService {
     private readonly quizzesService: QuizzesService,
     private readonly settingsHelper: SettingsHelperService,
     private readonly errorHandler: ErrorHandlingService,
+    private readonly configService: ConfigService,
+    private readonly publicLinkService: HealthScreeningPublicLinkService,
   ) {}
 
   /** Row-level scope: own rows, or same company when companyId is set; admins see all. */
@@ -41,11 +45,14 @@ export class HealthScreeningsService {
   }
 
   async start(
-    dto: { quizId?: string; workPermitWorkerId?: string },
-    userId: string,
+    dto: { quizId?: string; workerId?: string },
+    requesterUserId: string,
   ) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    this.errorHandler.throwIfNotFoundById('User', userId, user);
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterUserId },
+      include: { role: true },
+    });
+    this.errorHandler.throwIfNotFoundById('User', requesterUserId, requester);
 
     let quizId = dto.quizId;
     if (!quizId) {
@@ -78,42 +85,68 @@ export class HealthScreeningsService {
       }
     }
 
-    let workPermitWorkerId = dto.workPermitWorkerId;
-    if (workPermitWorkerId) {
-      const wpw = await this.prisma.workPermitWorker.findUnique({
-        where: { id: workPermitWorkerId },
-        include: { workPermit: true },
+    /** Who owns the quiz attempt / screening row: requester, or the contractor when linked to a worker. */
+    let participantUserId = requesterUserId;
+    /** Company on the screening: from worker context when worker-linked, else requester's company. */
+    let screeningCompanyId: string | null = requester.companyId ?? null;
+
+    let workerId = dto.workerId ?? null;
+    if (workerId) {
+      const worker = await this.prisma.worker.findUnique({
+        where: { id: workerId },
+        include: {
+          user: { select: { id: true, companyId: true } },
+          workPermitWorkers: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: { workPermit: { select: { companyId: true } } },
+          },
+        },
       });
-      this.errorHandler.throwIfNotFoundById(
-        'Work permit worker',
-        workPermitWorkerId,
-        wpw,
-      );
+      this.errorHandler.throwIfNotFoundById('Worker', workerId, worker);
+
+      const permitCompanyId =
+        worker.workPermitWorkers[0]?.workPermit?.companyId ?? null;
+      const workerUserCompanyId = worker.user.companyId ?? null;
+      const requesterRole = requester.role?.name ?? '';
+      const isPlatformAdmin =
+        requesterRole === 'Super Admin' || requesterRole === 'Administrator';
+
+      const sameCompanyAsRequester =
+        requester.companyId != null &&
+        (permitCompanyId === requester.companyId ||
+          workerUserCompanyId === requester.companyId);
+
       const allowed =
-        wpw!.userId === userId ||
-        (user!.companyId != null &&
-          wpw!.workPermit.companyId === user.companyId);
+        isPlatformAdmin ||
+        worker.userId === requesterUserId ||
+        sameCompanyAsRequester;
+
       if (!allowed) {
         this.errorHandler.throwForbidden(
           'Cannot link screening to this worker',
         );
       }
+
+      // Quiz attempt + screening participant = contractor; company from permit or worker's user, not the requester.
+      participantUserId = worker.userId;
+      screeningCompanyId = permitCompanyId ?? workerUserCompanyId ?? null;
     }
 
     const createAttemptDto = {} as CreateQuizAttemptDto;
     const attemptResult = await this.quizzesService.startAttempt(
       quizId!,
       createAttemptDto,
-      userId,
+      participantUserId,
     );
 
     const screening = await this.prisma.healthScreening.create({
       data: {
-        userId,
-        companyId: user!.companyId ?? null,
+        userId: participantUserId,
+        companyId: screeningCompanyId,
         quizId: quizId!,
         quizAttemptId: attemptResult.id,
-        workPermitWorkerId: workPermitWorkerId ?? null,
+        workerId: workerId ?? null,
         status: 'IN_PROGRESS',
       },
       include: {
@@ -203,42 +236,146 @@ export class HealthScreeningsService {
     const scope = await this.scopeWhere(userId);
     const screening = await this.prisma.healthScreening.findFirst({
       where: { id, ...scope },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        quiz: {
-          include: {
-            questions: {
-              where: { isActive: true },
-              include: { options: { orderBy: { order: 'asc' } } },
-              orderBy: { order: 'asc' },
-            },
-          },
-        },
-        quizAttempt: {
-          include: {
-            answers: {
-              include: {
-                question: { include: { options: true } },
-                selectedOption: true,
-              },
-            },
-          },
-        },
-        workPermitWorker: {
-          include: { workPermit: { select: { id: true, code: true } } },
-        },
-      },
+      include: this.healthScreeningDetailInclude(),
     });
     this.errorHandler.throwIfNotFoundById('Health screening', id, screening);
     const days = await this.getValidityDays();
     return this.enrichWithValidUntil(screening, days);
+  }
+
+  async generatePublicFillLink(
+    dto: { workerId?: string; userId?: string },
+    requesterUserId: string,
+  ) {
+    let resolvedWorkerId = dto.workerId;
+    if (!resolvedWorkerId && dto.userId) {
+      const worker = await this.prisma.worker.findFirst({
+        where: { userId: dto.userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      this.errorHandler.throwIfNotFound(
+        'Worker',
+        `for user ID ${dto.userId}`,
+        worker,
+      );
+      resolvedWorkerId = worker!.id;
+    }
+    if (!resolvedWorkerId) {
+      this.errorHandler.throwBadRequest('workerId or userId is required');
+    }
+
+    const { screening, attempt } = await this.start(
+      { workerId: resolvedWorkerId },
+      requesterUserId,
+    );
+    const { token, expiresAt } = this.publicLinkService.signToken(
+      screening.id,
+      attempt.id,
+    );
+    const frontendUrl =
+      this.configService.get<string>('app.frontendUrl') ??
+      'http://localhost:5173';
+    const linkUrl = `${frontendUrl}/health-screenings/public/${encodeURIComponent(token)}`;
+    return {
+      linkUrl,
+      expiresAt: expiresAt.toISOString(),
+      screeningId: screening.id,
+    };
+  }
+
+  async getPublicScreeningByToken(token: string) {
+    const screening = await this.loadScreeningForPublicToken(token);
+    const days = await this.getValidityDays();
+    return this.enrichWithValidUntil(screening, days);
+  }
+
+  async submitPublicAnswerByToken(token: string, dto: SubmitAnswerDto) {
+    const screening = await this.loadScreeningForPublicToken(token);
+    return this.quizzesService.submitAnswer(
+      screening.quizAttemptId,
+      dto,
+      screening.userId,
+    );
+  }
+
+  async submitPublicAttemptByToken(
+    token: string,
+    _dto: SubmitHealthScreeningAttemptDto,
+  ): Promise<QuizAttemptDto> {
+    const screening = await this.loadScreeningForPublicToken(token);
+    const acceptedAt = new Date();
+    const result = await this.quizzesService.submitAttempt(
+      screening.quizAttemptId,
+      screening.userId,
+    );
+    await this.prisma.healthScreening.updateMany({
+      where: { quizAttemptId: screening.quizAttemptId },
+      data: { status: 'DONE', declarationTermsAcceptedAt: acceptedAt },
+    });
+    return result;
+  }
+
+  private healthScreeningDetailInclude(): Prisma.HealthScreeningInclude {
+    return {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      quiz: {
+        include: {
+          questions: {
+            where: { isActive: true },
+            include: { options: { orderBy: { order: 'asc' } } },
+            orderBy: { order: 'asc' },
+          },
+        },
+      },
+      quizAttempt: {
+        include: {
+          answers: {
+            include: {
+              question: { include: { options: true } },
+              selectedOption: true,
+            },
+          },
+        },
+      },
+      worker: {
+        include: {
+          workPermitWorkers: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            include: { workPermit: { select: { id: true, code: true } } },
+          },
+        },
+      },
+    };
+  }
+
+  private async loadScreeningForPublicToken(token: string) {
+    const payload = this.publicLinkService.parseAndVerifyToken(token);
+    const screening = await this.prisma.healthScreening.findUnique({
+      where: { id: payload.screeningId },
+      include: this.healthScreeningDetailInclude(),
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'Health screening',
+      payload.screeningId,
+      screening,
+    );
+    if (screening.quizAttemptId !== payload.attemptId) {
+      this.errorHandler.throwForbidden('Invalid link');
+    }
+    if (screening.status !== 'IN_PROGRESS') {
+      this.errorHandler.throwBadRequest(
+        'This declaration is no longer editable',
+      );
+    }
+    return screening;
   }
 
   async submitAnswer(

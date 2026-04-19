@@ -83,7 +83,8 @@ model User {
   workPermitsCreated           WorkPermit[]               @relation("WorkPermitCreator")
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
-  workPermitWorkers           WorkPermitWorker[]         @relation("WorkPermitWorker")
+  /// One-to-one worker profile (contractor / work-permit worker details).
+  worker                      Worker?
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
   inspectionsCreated           Inspection[]               @relation("InspectionCreator")
   inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
@@ -1333,7 +1334,8 @@ model HealthScreening {
   companyId          String?
   quizId             String
   quizAttemptId      String                     @unique
-  workPermitWorkerId String?                    @unique
+  /// Links structured declaration to worker profile (not to a specific permit assignment).
+  workerId           String?
   status             HealthScreeningStatusEnum  @default(IN_PROGRESS)
   /// Set when the user submits with both declaration acknowledgements (audit).
   declarationTermsAcceptedAt DateTime?          @map("declaration_terms_accepted_at")
@@ -1344,11 +1346,12 @@ model HealthScreening {
   company            Company?                   @relation(fields: [companyId], references: [id])
   quiz               Quiz                       @relation(fields: [quizId], references: [id], onDelete: Cascade)
   quizAttempt        QuizAttempt                @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
-  workPermitWorker   WorkPermitWorker?          @relation(fields: [workPermitWorkerId], references: [id], onDelete: Cascade)
+  worker             Worker?                    @relation(fields: [workerId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([companyId])
   @@index([quizId])
+  @@index([workerId])
   @@map("t_health_screenings")
 }
 
@@ -1960,20 +1963,35 @@ model WorkPermitMachine {
   @@map("t_work_permit_machines")
 }
 
-model WorkPermitWorker {
-  id                   String     @id @default(uuid())
-  workPermitId         String
-  userId               String
+/// Contractor / work-permit worker profile: URLs and link to auth user.
+/// Assignment to a permit is `WorkPermitWorker` (join).
+model Worker {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
   certificateUrl       String?
   /// Legacy file URL; optional when structured health screening is used.
   healthDeclarationUrl String?
-  order                Int
-  createdAt            DateTime   @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workPermitWorkers   WorkPermitWorker[]
+  healthScreenings    HealthScreening[]
+
+  @@map("t_worker")
+}
+
+/// Join: work permit ↔ worker profile (order on permit only).
+model WorkPermitWorker {
+  id           String   @id @default(uuid())
+  workPermitId String
+  workerId     String
+  order        Int
+  createdAt    DateTime @default(now())
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  user       User       @relation("WorkPermitWorker", fields: [userId], references: [id])
-  healthScreening HealthScreening?
+  worker     Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@map("t_work_permit_workers")
 }

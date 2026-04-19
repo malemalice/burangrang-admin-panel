@@ -346,6 +346,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [professions, setProfessions] = useState<MasterDataOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
   const [workerUsers, setWorkerUsers] = useState<User[]>([]);
@@ -705,6 +706,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 tools: [],
                 materials: [],
                 machines: [],
+                professions: [],
               };
             }),
             userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
@@ -739,6 +741,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         // Set master data from work permit service
         setAreas(masterDataResponse.areas);
         setCompanies(masterDataResponse.companies);
+        setProfessions(masterDataResponse.professions ?? []);
         setWorkClassifications(masterDataResponse.workClassifications);
         setGuests(masterDataResponse.guests);
         setHeavyEquipment(masterDataResponse.heavyEquipment);
@@ -1137,7 +1140,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       for (const w of dataForApi.workers) {
         const profile = workerUsers.find((u) => u.id === w.userId);
         const fromPermit =
-          mode === 'edit' ? workPermit?.workers?.find((x) => x.userId === w.userId) : undefined;
+          mode === 'edit' ? workPermit?.workers?.find((x) => x.order === w.order) : undefined;
         const hasProfession =
           (profile?.professionId && String(profile.professionId).length > 0) ||
           (profile?.profession && String(profile.profession).trim().length > 0) ||
@@ -2652,6 +2655,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         createMode="contractor"
         permitCompanyId={watchedCompanyId}
         isSuperAdmin={isSuperAdmin}
+        professions={professions}
+        onProfessionCreated={(p) => setProfessions((prev) => [p, ...prev])}
         onOpenChange={(open) => {
           setAddWorkerModalOpen(open);
           if (!open) {
