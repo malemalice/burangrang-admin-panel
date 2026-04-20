@@ -11,7 +11,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -54,8 +54,8 @@ import {
 } from '../utils/equipmentHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
-import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
+import workPermitWorkerService from '../services/workPermitWorkerService';
 import { userService, type User } from '@/modules/users';
 import AddWorkerModal from './AddWorkerModal';
 import AddCompanyModal from './AddCompanyModal';
@@ -80,23 +80,11 @@ import healthScreeningService from '@/modules/health-screenings/services/healthS
 import type { HealthScreeningListItem } from '@/modules/health-screenings/types/healthScreening.types';
 import type { CompanyDTO } from '@/modules/master-data/types/master-data.types';
 
-const workerRowSchema = z
-  .object({
-    userId: z.string().min(1, 'Worker is required'),
-    certificateUrl: z.string().optional(),
-    healthDeclarationUrl: z.string().optional(),
-    healthScreeningId: z.string().optional(),
-    order: z.number().min(0),
-  })
-  .refine(
-    (w) =>
-      !!(w.healthDeclarationUrl && w.healthDeclarationUrl.trim()) ||
-      !!(w.healthScreeningId && w.healthScreeningId.trim()),
-    {
-      message: 'Upload a health declaration or link a completed screening',
-      path: ['healthDeclarationUrl'],
-    },
-  );
+const workerRowSchema = z.object({
+  userId: z.string().min(1, 'Worker is required'),
+  healthScreeningId: z.string().optional(),
+  order: z.number().min(0),
+});
 
 function selectionIncludesOthers(
   classifications: { workClassificationId: string }[] | undefined,
@@ -267,6 +255,85 @@ function WorkerProfileFromUser({
   );
 }
 
+/** Certificate URL is managed on the worker profile; this block is read-only. */
+function WorkerCertificateReadonly({
+  control,
+  index,
+}: {
+  control: Control<FormValues>;
+  index: number;
+}) {
+  const userId = useWatch({ control, name: `workers.${index}.userId` });
+  const [url, setUrl] = useState<string | null | undefined>(undefined);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!userId?.trim()) {
+      setUrl(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await workPermitWorkerService.getWorkPermitWorkerProfile(userId.trim());
+        const cert =
+          res.workerDocuments?.certificateUrl ??
+          res.assignments[0]?.certificateUrl ??
+          null;
+        if (!cancelled) setUrl(cert);
+      } catch {
+        if (!cancelled) setUrl(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (!userId?.trim()) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select a worker to show certificate (from worker profile).
+      </p>
+    );
+  }
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading certificate…
+      </div>
+    );
+  }
+  if (!url?.trim()) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No certificate on file. Upload it from the{' '}
+        <Link
+          to={`/work-permits/workers/${userId}`}
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          worker profile
+        </Link>
+        .
+      </p>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+    >
+      Open certificate
+    </a>
+  );
+}
+
 function isEligibleHealthScreening(s: HealthScreeningListItem): boolean {
   if (s.status !== 'DONE') return false;
   if (s.validUntil) {
@@ -287,7 +354,6 @@ function WorkerAutoLinkedHealthScreening({
 }) {
   const userId = useWatch({ control, name: `workers.${index}.userId` });
   const linkedId = useWatch({ control, name: `workers.${index}.healthScreeningId` });
-  const healthDeclarationUrl = useWatch({ control, name: `workers.${index}.healthDeclarationUrl` });
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<HealthScreeningListItem | null>(null);
 
@@ -370,13 +436,16 @@ function WorkerAutoLinkedHealthScreening({
                 </p>
               )}
             </div>
-          ) : healthDeclarationUrl?.trim() ? (
-            <p className="text-muted-foreground">
-              Health declaration is provided via the uploaded file above (no online screening linked).
-            </p>
           ) : (
             <p className="text-muted-foreground">
-              No completed declaration in the validity window for this worker. Upload a file above, or complete a{' '}
+              No completed declaration in the validity window for this worker. If a declaration file is stored on the{' '}
+              <Link
+                to={userId?.trim() ? `/work-permits/workers/${userId}` : '/work-permits/workers'}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                worker profile
+              </Link>
+              , the permit can still be validated by the system. Otherwise complete a{' '}
               <Link to="/health-screenings" className="text-primary underline" target="_blank" rel="noreferrer">
                 health declaration
               </Link>{' '}
@@ -495,8 +564,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [guidanceBlocks, setGuidanceBlocks] = useState<SafetyGuidanceBlock[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
-  const [uploadedFileNames, setUploadedFileNames] = useState<Record<string, string>>({});
   const [addWorkerModalOpen, setAddWorkerModalOpen] = useState(false);
   const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
   const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
@@ -601,8 +668,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workers: [
         {
           userId: '',
-          certificateUrl: '',
-          healthDeclarationUrl: '',
           healthScreeningId: '',
           order: 0,
         },
@@ -923,31 +988,15 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const workersData =
         workPermit.workers?.map((w) => ({
           userId: str(w.userId),
-          certificateUrl: str(w.certificateUrl),
-          healthDeclarationUrl: str(w.healthDeclarationUrl),
           healthScreeningId: str(w.healthScreening?.id),
           order: w.order,
         })) || [
           {
             userId: '',
-            certificateUrl: '',
-            healthDeclarationUrl: '',
             healthScreeningId: '',
             order: 0,
           },
         ];
-
-      // Set uploaded file names for display
-      const fileNames: Record<string, string> = {};
-      workPermit.workers?.forEach((w, index) => {
-        if (w.certificateUrl) {
-          fileNames[`certificateUrl-${index}`] = 'Certificate file';
-        }
-        if (w.healthDeclarationUrl) {
-          fileNames[`healthDeclarationUrl-${index}`] = 'Health declaration file';
-        }
-      });
-      setUploadedFileNames(fileNames);
 
       form.reset({
         projectName: str(workPermit.projectName),
@@ -1030,89 +1079,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       });
     }
   }, [workPermit, mode, form]);
-
-  const handleFileUpload = async (
-    file: File,
-    fieldName: 'certificateUrl' | 'healthDeclarationUrl',
-    workerIndex: number,
-  ) => {
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-    ];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      toast.error('File size exceeds 10MB limit.');
-      return;
-    }
-
-    if (!workPermitDocumentsCategoryId) {
-      toast.error('File category not found. Please refresh the page.');
-      return;
-    }
-
-    const uploadKey = `${fieldName}-${workerIndex}`;
-    setUploadingFiles((prev) => ({ ...prev, [uploadKey]: true }));
-
-    try {
-      const response = await uploadService.uploadFile(file, workPermitDocumentsCategoryId, false);
-
-      // Get the file URL from response
-      // Response from backend includes downloadUrl computed property
-      const fileUrl = response.downloadUrl ||
-        (response.isPublic
-          ? uploadService.getPublicFileUrl(response.id)
-          : uploadService.getPrivateFileUrl(response.accessToken || response.id));
-      form.setValue(`workers.${workerIndex}.${fieldName}`, fileUrl);
-      if (fieldName === 'healthDeclarationUrl') {
-        form.setValue(`workers.${workerIndex}.healthScreeningId`, '');
-      }
-      // Trigger validation to clear error message (WP-039)
-      form.trigger(`workers.${workerIndex}.${fieldName}`);
-      setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
-      toast.success('File uploaded successfully');
-    } catch (error: unknown) {
-      console.error('Error uploading file:', error);
-      const maybeAxiosError = error as { response?: { data?: { message?: string } } };
-      const errorMessage = maybeAxiosError.response?.data?.message || 'Failed to upload file';
-      toast.error(errorMessage);
-    } finally {
-      setUploadingFiles((prev) => ({ ...prev, [uploadKey]: false }));
-    }
-  };
-
-  const handleFileRemove = (fieldName: 'certificateUrl' | 'healthDeclarationUrl', workerIndex: number) => {
-    const uploadKey = `${fieldName}-${workerIndex}`;
-    form.setValue(`workers.${workerIndex}.${fieldName}`, '');
-    setUploadedFileNames((prev) => {
-      const newState = { ...prev };
-      delete newState[uploadKey];
-      return newState;
-    });
-  };
-
-  const handleFileInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: 'certificateUrl' | 'healthDeclarationUrl',
-    workerIndex: number,
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file, fieldName, workerIndex);
-    }
-  };
 
   const handleAttachmentUpload = async (file: File) => {
     if (!workPermitDocumentsCategoryId) {
@@ -1250,9 +1216,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         workers.map((w) => ({
           userId: w.userId,
           order: w.order,
-          certificateUrl: w.certificateUrl?.trim() || undefined,
           healthScreeningId: w.healthScreeningId?.trim() || undefined,
-          healthDeclarationUrl: w.healthDeclarationUrl?.trim() || undefined,
         }));
 
       for (const w of dataForApi.workers) {
@@ -1614,8 +1578,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               onClick={() =>
                 appendWorker({
                   userId: '',
-                  certificateUrl: '',
-                  healthDeclarationUrl: '',
                   healthScreeningId: '',
                   order: workerFields.length,
                 })
@@ -1693,165 +1655,15 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                       permitWorkers={workPermit?.workers}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name={`workers.${index}.certificateUrl`}
-                    render={({ field }) => {
-                      const uploadKey = `certificateUrl-${index}`;
-                      const isUploading = uploadingFiles[uploadKey] || false;
-                      const uploadedFileName = uploadedFileNames[uploadKey];
-                      const hasFile = uploadedFileName || field.value;
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Certificate</FormLabel>
-                          <FormControl>
-                            <div className="space-y-2">
-                              {hasFile ? (
-                                <div className="flex items-center justify-between p-3 border rounded-md bg-muted">
-                                  <div className="flex items-center gap-2">
-                                    <Upload className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">
-                                      {uploadedFileName || 'Certificate file uploaded'}
-                                    </span>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleFileRemove('certificateUrl', index)}
-                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/20"
-                                    disabled={isUploading}
-                                  >
-                                    <XIcon className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
-                                      input.onchange = (e) => {
-                                        handleFileInputChange(
-                                          e as React.ChangeEvent<HTMLInputElement>,
-                                          'certificateUrl',
-                                          index,
-                                        );
-                                      };
-                                      input.click();
-                                    }}
-                                    disabled={isUploading || !workPermitDocumentsCategoryId}
-                                    className="cursor-pointer"
-                                  >
-                                    {isUploading ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Uploading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Choose File
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              )}
-                              <input type="hidden" {...field} />
-                            </div>
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Upload PDF, DOC, DOCX, or image files (max 10MB)
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`workers.${index}.healthDeclarationUrl`}
-                    render={({ field }) => {
-                      const uploadKey = `healthDeclarationUrl-${index}`;
-                      const isUploading = uploadingFiles[uploadKey] || false;
-                      const uploadedFileName = uploadedFileNames[uploadKey];
-                      const hasFile = uploadedFileName || field.value;
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Health declaration file</FormLabel>
-                          <FormControl>
-                            <div className="space-y-2">
-                              {hasFile ? (
-                                <div className="flex items-center justify-between p-3 border rounded-md bg-muted">
-                                  <div className="flex items-center gap-2">
-                                    <Upload className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">
-                                      {uploadedFileName || 'Health declaration file uploaded'}
-                                    </span>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleFileRemove('healthDeclarationUrl', index)}
-                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/20"
-                                    disabled={isUploading}
-                                  >
-                                    <XIcon className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
-                                      input.onchange = (e) => {
-                                        handleFileInputChange(
-                                          e as React.ChangeEvent<HTMLInputElement>,
-                                          'healthDeclarationUrl',
-                                          index,
-                                        );
-                                      };
-                                      input.click();
-                                    }}
-                                    disabled={isUploading || !workPermitDocumentsCategoryId}
-                                    className="cursor-pointer"
-                                  >
-                                    {isUploading ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Uploading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Choose File
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              )}
-                              <input type="hidden" {...field} />
-                            </div>
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Upload PDF, DOC, DOCX, or image files (max 10MB), or rely on the linked online declaration
-                            shown below when available
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                  />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium leading-none">
+                      Certificate{' '}
+                      <span className="text-muted-foreground font-normal">(from worker profile)</span>
+                    </p>
+                    <div className="rounded-md border bg-muted/30 p-3">
+                      <WorkerCertificateReadonly control={form.control} index={index} />
+                    </div>
+                  </div>
                   <WorkerAutoLinkedHealthScreening
                     control={form.control}
                     index={index}
@@ -2692,7 +2504,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         className="text-destructive hover:text-destructive"
                         onClick={() => removeAttachment(index)}
                       >
-                        <XIcon className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}

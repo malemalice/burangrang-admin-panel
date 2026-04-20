@@ -99,9 +99,34 @@ export class WorkPermitWorkerProfileAssignmentDto {
   healthScreening?: WorkPermitWorkerProfileHealthScreeningDto | null;
 }
 
+export class WorkPermitWorkerProfileWorkerDocumentsDto {
+  @ApiProperty({ required: false, nullable: true })
+  certificateUrl?: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  healthDeclarationUrl?: string | null;
+}
+
 export class WorkPermitWorkerProfileResponseDto {
   @ApiProperty({ type: UserDto })
   user: UserDto;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    type: WorkPermitWorkerProfileHealthScreeningDto,
+    description:
+      'Latest health screening linked to the worker profile (from `t_health_screenings`), even when there are no work permit assignments.',
+  })
+  latestHealthScreening?: WorkPermitWorkerProfileHealthScreeningDto | null;
+
+  @ApiProperty({
+    type: WorkPermitWorkerProfileWorkerDocumentsDto,
+    required: false,
+    description:
+      'Document URLs from `t_worker` (same for all assignments); present even when there are no permit assignments.',
+  })
+  workerDocuments?: WorkPermitWorkerProfileWorkerDocumentsDto;
 
   @ApiProperty({ type: [WorkPermitWorkerProfileAssignmentDto] })
   assignments: WorkPermitWorkerProfileAssignmentDto[];

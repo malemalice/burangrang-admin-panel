@@ -36,6 +36,17 @@ const workPermitWorkerService = {
     );
     return data;
   },
+
+  async updateWorkerDocuments(
+    userId: string,
+    body: { certificateUrl?: string | null },
+  ): Promise<{ certificateUrl: string | null }> {
+    const { data } = await api.patch<{ certificateUrl: string | null }>(
+      `/users/${userId}/worker-documents`,
+      body,
+    );
+    return data;
+  },
 };
 
 export default workPermitWorkerService;

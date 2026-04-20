@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, FileText, User } from 'lucide-react';
+import { ArrowLeft, ExternalLink, FileText, Loader2, Upload, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
@@ -13,6 +13,7 @@ import {
 } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { usePermissions } from '@/core/hooks/usePermissions';
+import uploadService from '@/modules/uploads/services/uploadService';
 import workPermitWorkerService from '../services/workPermitWorkerService';
 import type { WorkPermitWorkerProfileDTO } from '../types/work-permit-worker-profile.types';
 
@@ -22,10 +23,23 @@ const WorkPermitWorkerDetailPage = () => {
   const { hasPermission } = usePermissions();
   const [data, setData] = useState<WorkPermitWorkerProfileDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [isUploadingCert, setIsUploadingCert] = useState(false);
+  const certFileInputRef = useRef<HTMLInputElement>(null);
+
+  const canReadProfile = hasPermission('user:read');
+  const canUploadCertificate =
+    hasPermission('user:read') && hasPermission('upload:create');
+
+  const loadProfile = useCallback(async () => {
+    if (!userId || !canReadProfile) return;
+    const res = await workPermitWorkerService.getWorkPermitWorkerProfile(userId);
+    setData(res);
+  }, [userId, canReadProfile]);
 
   useEffect(() => {
     if (!userId) return;
-    if (!hasPermission('user:read')) {
+    if (!canReadProfile) {
       setIsLoading(false);
       return;
     }
@@ -33,10 +47,7 @@ const WorkPermitWorkerDetailPage = () => {
     (async () => {
       try {
         setIsLoading(true);
-        const res = await workPermitWorkerService.getWorkPermitWorkerProfile(
-          userId,
-        );
-        if (!cancelled) setData(res);
+        await loadProfile();
       } catch (e: unknown) {
         if (!cancelled) {
           const msg =
@@ -64,9 +75,109 @@ const WorkPermitWorkerDetailPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [userId, hasPermission]);
+  }, [userId, canReadProfile, loadProfile]);
 
-  if (!hasPermission('user:read')) {
+  useEffect(() => {
+    const loadCategory = async () => {
+      try {
+        const category = await uploadService.getCategoryByName('work-permit-documents');
+        if (category) setCategoryId(category.id);
+        else toast.error('File category for work permit documents not found');
+      } catch {
+        toast.error('Failed to resolve upload category');
+      }
+    };
+    void loadCategory();
+  }, []);
+
+  const workerDocs = data
+    ? (data.workerDocuments ?? {
+        certificateUrl: data.assignments[0]?.certificateUrl ?? null,
+        healthDeclarationUrl: data.assignments[0]?.healthDeclarationUrl ?? null,
+      })
+    : null;
+
+  const relatedPermits = data
+    ? Object.values(
+        data.assignments.reduce(
+          (acc, a) => {
+            acc[a.workPermit.id] = a.workPermit;
+            return acc;
+          },
+          {} as Record<
+            string,
+            {
+              id: string;
+              code: string;
+              projectName: string;
+              status: string;
+              company?: { id: string; name: string; code: string };
+            }
+          >,
+        ),
+      ).sort((a, b) => a.code.localeCompare(b.code))
+    : [];
+
+  const handleCertificateFile = async (file: File | undefined) => {
+    if (!file || !userId) return;
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+      return;
+    }
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('File size exceeds 10MB limit.');
+      return;
+    }
+    if (!categoryId) {
+      toast.error('File category not found. Please refresh the page.');
+      return;
+    }
+    setIsUploadingCert(true);
+    try {
+      const response = await uploadService.uploadFile(file, categoryId, false);
+      const fileUrl =
+        response.downloadUrl ||
+        (response.isPublic
+          ? uploadService.getPublicFileUrl(response.id)
+          : uploadService.getPrivateFileUrl(response.accessToken || response.id));
+      await workPermitWorkerService.updateWorkerDocuments(userId, {
+        certificateUrl: fileUrl,
+      });
+      toast.success('Certificate saved');
+      await loadProfile();
+    } catch (e: unknown) {
+      const maybeAxios = e as { response?: { data?: { message?: string } } };
+      toast.error(maybeAxios.response?.data?.message ?? 'Failed to upload certificate');
+    } finally {
+      setIsUploadingCert(false);
+      if (certFileInputRef.current) certFileInputRef.current.value = '';
+    }
+  };
+
+  const handleClearCertificate = async () => {
+    if (!userId) return;
+    setIsUploadingCert(true);
+    try {
+      await workPermitWorkerService.updateWorkerDocuments(userId, { certificateUrl: '' });
+      toast.success('Certificate removed');
+      await loadProfile();
+    } catch (e: unknown) {
+      const maybeAxios = e as { response?: { data?: { message?: string } } };
+      toast.error(maybeAxios.response?.data?.message ?? 'Failed to remove certificate');
+    } finally {
+      setIsUploadingCert(false);
+    }
+  };
+
+  if (!canReadProfile) {
     return (
       <>
         <PageHeader title="Worker" subtitle="Work permit assignments" />
@@ -111,7 +222,7 @@ const WorkPermitWorkerDetailPage = () => {
               </CardTitle>
               <CardDescription>Contractor user</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+            <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
               <div>
                 <span className="text-muted-foreground">Email</span>
                 <p className="font-medium">{u.email}</p>
@@ -128,6 +239,90 @@ const WorkPermitWorkerDetailPage = () => {
                   <p className="font-medium">{u.role.name}</p>
                 </div>
               )}
+
+              <div className="sm:col-span-2 border-t pt-4 space-y-3">
+                <p className="text-sm font-medium">Documents</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <span className="text-muted-foreground">Certificate</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      {workerDocs?.certificateUrl ? (
+                        <a
+                          href={workerDocs.certificateUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Open file
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <p className="text-muted-foreground">—</p>
+                      )}
+                      {canUploadCertificate && (
+                        <>
+                          <input
+                            ref={certFileInputRef}
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            className="hidden"
+                            onChange={(e) => void handleCertificateFile(e.target.files?.[0])}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isUploadingCert || !categoryId}
+                            onClick={() => certFileInputRef.current?.click()}
+                          >
+                            {isUploadingCert ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="mr-2 h-4 w-4" />
+                            )}
+                            {workerDocs?.certificateUrl ? 'Replace' : 'Upload'}
+                          </Button>
+                          {workerDocs?.certificateUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              disabled={isUploadingCert}
+                              onClick={() => void handleClearCertificate()}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload PDF, DOC, DOCX, or image (max 10MB). Shown read-only on work permits.
+                    </p>
+                  </div>
+                  {/* <div>
+                    <span className="text-muted-foreground">Health declaration file</span>
+                    {workerDocs?.healthDeclarationUrl ? (
+                      <div className="mt-1">
+                        <a
+                          href={workerDocs.healthDeclarationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Open file
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-muted-foreground">—</p>
+                    )}
+                  </div> */}
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -136,17 +331,82 @@ const WorkPermitWorkerDetailPage = () => {
           <p className="text-center text-muted-foreground">Loading…</p>
         )}
 
-        {!isLoading && !data && hasPermission('user:read') && (
+        {!isLoading && !data && canReadProfile && (
           <p className="text-center text-muted-foreground">
             Could not load this worker profile.
           </p>
         )}
 
-        {!isLoading && data && data.assignments.length === 0 && (
+        {!isLoading && data && (
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              This worker is not yet assigned on any work permit (or no permits
-              match your company scope).
+            <CardHeader>
+              <CardTitle className="text-base">Health screening</CardTitle>
+              <CardDescription>
+                Linked to the worker profile (not a specific permit)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {data.latestHealthScreening ? (
+                <>
+                  <p className="font-medium">
+                    <Link
+                      to={`/health-screenings/${data.latestHealthScreening.id}`}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      {data.latestHealthScreening.quiz?.title ?? 'Health screening'}
+                    </Link>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Status: {data.latestHealthScreening.status}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No health screening submitted yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {!isLoading && data && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Related work permits</CardTitle>
+              <CardDescription>
+                Permits where this worker is assigned (within your scope)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {relatedPermits.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No related work permits found in your scope yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {relatedPermits.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex flex-col gap-1 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          <Link
+                            to={`/work-permits/${p.id}`}
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            {p.code} — {p.projectName}
+                          </Link>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Status: {p.status}
+                          {p.company ? ` • ${p.company.name} (${p.company.code})` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -208,46 +468,6 @@ const WorkPermitWorkerDetailPage = () => {
                   <p className="font-medium">
                     {a.idNumber?.trim() || u?.idNumber?.trim() || '—'}
                   </p>
-                </div>
-
-                <div>
-                  <span className="text-sm text-muted-foreground">
-                    Certificate
-                  </span>
-                  {a.certificateUrl ? (
-                    <a
-                      href={a.certificateUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Open file
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    <p className="text-muted-foreground">—</p>
-                  )}
-                </div>
-
-                <div>
-                  <span className="text-sm text-muted-foreground">
-                    Health declaration file
-                  </span>
-                  {a.healthDeclarationUrl ? (
-                    <a
-                      href={a.healthDeclarationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Open file
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    <p className="text-muted-foreground">—</p>
-                  )}
                 </div>
 
                 <div>

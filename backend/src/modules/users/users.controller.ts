@@ -34,6 +34,7 @@ import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass
 import { Request } from 'express';
 import { UserDto } from './dto/user.dto';
 import { WorkPermitWorkerProfileResponseDto } from './dto/work-permit-worker-profile.dto';
+import { UpdateWorkerDocumentsDto } from './dto/update-worker-documents.dto';
 
 // Define interface for request with user property
 interface RequestWithUser extends Request {
@@ -357,7 +358,38 @@ export class UsersController {
   ): Promise<WorkPermitWorkerProfileResponseDto> {
     return this.usersService.getWorkPermitWorkerProfile(id, {
       role: req.user.role as string,
-      companyId: req.user.companyId ?? null,
+      requesterUserId: req.user.id as string,
+    });
+  }
+
+  @Patch(':id/worker-documents')
+  @Permissions('user:read', 'upload:create')
+  @ApiOperation({
+    summary:
+      'Update worker profile documents (`t_worker`), e.g. certificate URL (upload file elsewhere, then save URL)',
+  })
+  @ApiParam({ name: 'id', description: 'Worker user ID', type: String })
+  @ApiBody({ type: UpdateWorkerDocumentsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated certificate URL on worker profile.',
+    schema: {
+      type: 'object',
+      properties: {
+        certificateUrl: { type: 'string', nullable: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - wrong company.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  updateWorkerDocuments(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkerDocumentsDto,
+    @Req() req: any,
+  ): Promise<{ certificateUrl: string | null }> {
+    return this.usersService.updateWorkerDocuments(id, dto, {
+      role: req.user.role as string,
+      requesterUserId: req.user.id as string,
     });
   }
 

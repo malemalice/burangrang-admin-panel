@@ -26,6 +26,7 @@ import { MailService } from '../mail/mail.service';
 import { Role } from '../../shared/types/role.enum';
 import { ROLE_CODES } from '../../shared/constants/role-codes';
 import { WorkPermitWorkerProfileResponseDto } from './dto/work-permit-worker-profile.dto';
+import { UpdateWorkerDocumentsDto } from './dto/update-worker-documents.dto';
 
 @Injectable()
 export class UsersService {
@@ -404,8 +405,27 @@ export class UsersService {
 
   async getWorkPermitWorkerProfile(
     targetUserId: string,
-    requester: { role: string; companyId: string | null },
+    requester: { role: string; requesterUserId: string },
   ): Promise<WorkPermitWorkerProfileResponseDto> {
+    const requesterUser =
+      requester.role === (Role.SUPER_ADMIN as string)
+        ? null
+        : await this.prisma.user.findUnique({
+            where: { id: requester.requesterUserId },
+            select: { id: true, companyId: true },
+          });
+    if (requester.role !== (Role.SUPER_ADMIN as string)) {
+      this.errorHandler.throwIfNotFoundById(
+        'User',
+        requester.requesterUserId,
+        requesterUser,
+      );
+    }
+    const requesterCompanyId =
+      requester.role === (Role.SUPER_ADMIN as string)
+        ? null
+        : (requesterUser?.companyId ?? null);
+
     const targetUser = await this.prisma.user.findUnique({
       where: { id: targetUserId },
       select: { id: true, companyId: true },
@@ -414,8 +434,8 @@ export class UsersService {
 
     if (requester.role !== (Role.SUPER_ADMIN as string)) {
       if (
-        !requester.companyId ||
-        targetUser.companyId !== requester.companyId
+        !requesterCompanyId ||
+        targetUser.companyId !== requesterCompanyId
       ) {
         throw new ForbiddenException(
           'You can only view workers from your company',
@@ -427,7 +447,7 @@ export class UsersService {
       worker: { userId: targetUserId },
     };
     if (requester.role !== (Role.SUPER_ADMIN as string)) {
-      where.workPermit = { companyId: requester.companyId! };
+      where.workPermit = { companyId: requesterCompanyId! };
     }
 
     const rows = await this.prisma.workPermitWorker.findMany({
@@ -476,6 +496,39 @@ export class UsersService {
       user.role?.permissions?.map((p: { name: string }) => p.name) ?? [];
     const userOut = { ...dto, permissions, roleName: dto.roleName } as UserDto;
 
+    const workerRow = await this.prisma.worker.findUnique({
+      where: { userId: targetUserId },
+      select: {
+        certificateUrl: true,
+        healthDeclarationUrl: true,
+        healthScreenings: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          where:
+            requester.role === (Role.SUPER_ADMIN as string)
+              ? undefined
+              : { companyId: requesterCompanyId! },
+          include: {
+            quiz: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+
+    const latestHealthScreening = workerRow?.healthScreenings?.[0]
+      ? {
+          id: workerRow.healthScreenings[0].id,
+          status: workerRow.healthScreenings[0].status,
+          quizId: workerRow.healthScreenings[0].quizId,
+          quiz: workerRow.healthScreenings[0].quiz
+            ? {
+                id: workerRow.healthScreenings[0].quiz.id,
+                title: workerRow.healthScreenings[0].quiz.title,
+              }
+            : undefined,
+        }
+      : null;
+
     const assignments = rows.map((r) => {
       const wr = r.worker;
       const hs = wr?.healthScreenings?.[0];
@@ -522,7 +575,86 @@ export class UsersService {
       };
     });
 
-    return { user: userOut, assignments };
+    return {
+      user: userOut,
+      latestHealthScreening,
+      workerDocuments: {
+        certificateUrl: workerRow?.certificateUrl ?? null,
+        healthDeclarationUrl: workerRow?.healthDeclarationUrl ?? null,
+      },
+      assignments,
+    };
+  }
+
+  /**
+   * Updates `t_worker` document fields for a user (e.g. certificate URL).
+   * Authorization matches {@link getWorkPermitWorkerProfile} (same company, or Super Admin).
+   */
+  async updateWorkerDocuments(
+    targetUserId: string,
+    dto: UpdateWorkerDocumentsDto,
+    requester: { role: string; requesterUserId: string },
+  ): Promise<{ certificateUrl: string | null }> {
+    const requesterUser =
+      requester.role === (Role.SUPER_ADMIN as string)
+        ? null
+        : await this.prisma.user.findUnique({
+            where: { id: requester.requesterUserId },
+            select: { id: true, companyId: true },
+          });
+    if (requester.role !== (Role.SUPER_ADMIN as string)) {
+      this.errorHandler.throwIfNotFoundById(
+        'User',
+        requester.requesterUserId,
+        requesterUser,
+      );
+    }
+    const requesterCompanyId =
+      requester.role === (Role.SUPER_ADMIN as string)
+        ? null
+        : (requesterUser?.companyId ?? null);
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, companyId: true },
+    });
+    this.errorHandler.throwIfNotFoundById('User', targetUserId, targetUser);
+
+    if (requester.role !== (Role.SUPER_ADMIN as string)) {
+      if (
+        !requesterCompanyId ||
+        targetUser.companyId !== requesterCompanyId
+      ) {
+        throw new ForbiddenException(
+          'You can only update worker documents for users in your company',
+        );
+      }
+    }
+
+    if (dto.certificateUrl === undefined) {
+      const existing = await this.prisma.worker.findUnique({
+        where: { userId: targetUserId },
+      });
+      return { certificateUrl: existing?.certificateUrl ?? null };
+    }
+
+    const normalized =
+      dto.certificateUrl === null || String(dto.certificateUrl).trim() === ''
+        ? null
+        : String(dto.certificateUrl).trim();
+
+    const worker = await this.prisma.worker.upsert({
+      where: { userId: targetUserId },
+      create: {
+        userId: targetUserId,
+        certificateUrl: normalized,
+      },
+      update: {
+        certificateUrl: normalized,
+      },
+    });
+
+    return { certificateUrl: worker.certificateUrl ?? null };
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDto> {

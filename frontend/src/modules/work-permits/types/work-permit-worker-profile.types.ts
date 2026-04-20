@@ -37,5 +37,20 @@ export interface WorkPermitWorkerProfileAssignmentDTO {
 /** GET /users/:id/work-permit-worker-profile */
 export interface WorkPermitWorkerProfileDTO {
   user: UserDTO & { permissions?: string[]; roleName?: string };
+  /** Latest health screening from worker profile even if `assignments` is empty. */
+  latestHealthScreening?: {
+    id: string;
+    status: string;
+    quizId: string;
+    quiz?: {
+      id: string;
+      title: string;
+    };
+  } | null;
+  /** URLs from `t_worker`; present even when `assignments` is empty. */
+  workerDocuments?: {
+    certificateUrl?: string | null;
+    healthDeclarationUrl?: string | null;
+  };
   assignments: WorkPermitWorkerProfileAssignmentDTO[];
 }
