@@ -81,6 +81,8 @@ model User {
   certificateRenewalsProcessed CertificateRenewal[]       @relation("CertificateRenewalProcessor")
   certificateReminders         CertificateReminder[]      @relation("CertificateReminderRecipient")
   workPermitsCreated           WorkPermit[]               @relation("WorkPermitCreator")
+  /// Business applicant for work permits created on behalf.
+  workPermitsApplied           WorkPermit[]               @relation("WorkPermitApplicant")
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
   /// One-to-one worker profile (contractor / work-permit worker details).
@@ -1831,11 +1833,15 @@ model WorkPermit {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   createdBy                 String
+  /// Business applicant (contractor user) who must perform applicant-only actions (e.g. sign SK).
+  /// Nullable for legacy rows created before this enhancement.
+  applicantUserId           String?
 
   // Relations
   area            Area                          @relation(fields: [areaId], references: [id])
   company         Company                       @relation(fields: [companyId], references: [id])
   creator         User                          @relation("WorkPermitCreator", fields: [createdBy], references: [id])
+  applicant       User?                         @relation("WorkPermitApplicant", fields: [applicantUserId], references: [id])
   classifications WorkPermitClassification[]
   employees       WorkPermitEmployee[]
   heavyEquipment  WorkPermitHeavyEquipment[]

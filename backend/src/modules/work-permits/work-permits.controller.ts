@@ -68,7 +68,7 @@ export class WorkPermitsController {
     @Body() createWorkPermitDto: CreateWorkPermitDto,
     @Request() req,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.create(createWorkPermitDto, req.user.id);
+    return this.workPermitsService.create(createWorkPermitDto, req.user.id, req.userContext);
   }
 
   @Get()
@@ -214,6 +214,7 @@ export class WorkPermitsController {
         materials: { type: 'array' },
         machines: { type: 'array' },
         professions: { type: 'array' },
+        applicants: { type: 'array' },
       },
     },
   })

@@ -120,6 +120,16 @@ export class WorkPermitDto {
   @IsString()
   createdBy: string;
 
+  @ApiProperty({
+    description:
+      'Business applicant user ID (contractor) who must perform applicant-only actions (e.g. sign SK).',
+    required: false,
+  })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  applicantUserId?: string;
+
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()
   @IsDate()
@@ -154,6 +164,16 @@ export class WorkPermitDto {
   @Expose()
   @IsOptional()
   creator?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+
+  @ApiProperty({ description: 'Applicant user (contractor)', required: false })
+  @Expose()
+  @IsOptional()
+  applicant?: {
     id: string;
     firstName: string;
     lastName: string;

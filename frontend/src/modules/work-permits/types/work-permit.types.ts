@@ -51,6 +51,13 @@ export interface WorkPermitMasterData {
   materials: MasterDataOption[];
   machines: MasterDataOption[];
   professions: MasterDataOption[];
+  applicants: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    companyId?: string | null;
+  }>;
 }
 
 export interface WorkPermit {
@@ -71,6 +78,7 @@ export interface WorkPermit {
   acknowledgedSafetyGuideline: boolean;
   applicantSignedAt?: string;
   applicantSignature?: string;
+  applicantUserId?: string;
   status: WorkPermitStatus;
   isActive: boolean;
   createdBy: string;
@@ -89,6 +97,12 @@ export interface WorkPermit {
     phone?: string | null;
   };
   creator?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  applicant?: {
     id: string;
     firstName: string;
     lastName: string;
@@ -346,6 +360,7 @@ export interface WorkPermitDTO {
   acknowledgedSafetyGuideline?: boolean;
   applicantSignedAt?: string;
   applicantSignature?: string;
+  applicantUserId?: string;
   status: string;
   isActive: boolean;
   createdBy: string;
@@ -368,6 +383,12 @@ export interface WorkPermitDTO {
     lastName: string;
     email: string;
   };
+  applicant?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
   classifications?: WorkPermitClassification[];
   employees?: WorkPermitEmployee[];
   workers?: WorkPermitWorker[];
@@ -384,6 +405,7 @@ export interface WorkPermitDTO {
 }
 
 export interface CreateWorkPermitDTO {
+  applicantUserId?: string;
   projectName: string;
   areaId: string;
   companyId: string;
@@ -502,6 +524,7 @@ export const mapWorkPermitDtoToWorkPermit = (dto: WorkPermitDTO): WorkPermit => 
 });
 
 export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): UpdateWorkPermitDTO => ({
+  applicantUserId: workPermit.applicantUserId,
   projectName: workPermit.projectName,
   areaId: workPermit.areaId,
   companyId: workPermit.companyId,

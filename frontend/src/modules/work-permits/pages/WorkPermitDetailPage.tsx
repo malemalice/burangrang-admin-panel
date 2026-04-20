@@ -99,6 +99,12 @@ const WorkPermitDetailPage = () => {
     const fullName = `${creator.firstName ?? ''} ${creator.lastName ?? ''}`.trim();
     return displayField(fullName || creator.email || workPermit?.createdBy);
   })();
+  const applicantLabel = (() => {
+    const applicant = workPermit?.applicant;
+    if (!applicant) return displayField(workPermit?.applicantUserId);
+    const fullName = `${applicant.firstName ?? ''} ${applicant.lastName ?? ''}`.trim();
+    return displayField(fullName || applicant.email || workPermit?.applicantUserId);
+  })();
 
   const [approvalRights, setApprovalRights] = useState<{
     canApprove: boolean;
@@ -290,7 +296,9 @@ const WorkPermitDetailPage = () => {
   const canApprove = approvalRights?.canApprove ?? false;
   const canReject = approvalRights?.canReject ?? false;
   const canSignSk =
-    workPermit?.status === 'WAITING_APPLICANT_SIGN' && Boolean(currentUser?.id) && workPermit.createdBy === currentUser.id;
+    workPermit?.status === 'WAITING_APPLICANT_SIGN' &&
+    Boolean(currentUser?.id) &&
+    (workPermit.applicantUserId ?? workPermit.createdBy) === currentUser.id;
   
   const canExtend = workPermit?.status === 'APPROVED';
   const canClose = ['APPROVED', 'EXTENDED'].includes(workPermit?.status || '');
@@ -509,6 +517,10 @@ const WorkPermitDetailPage = () => {
                   <div>
                     <Label className="text-muted-foreground">Created by</Label>
                     <p className="mt-1">{createdByLabel}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Applicant (Contractor)</Label>
+                    <p className="mt-1">{applicantLabel}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Project Name</Label>

@@ -78,6 +78,18 @@ export class WorkPermitsService {
         }),
         isArray: false,
       },
+      applicant: {
+        mapper: (applicant: any) =>
+          applicant
+            ? {
+                id: applicant.id,
+                firstName: applicant.firstName,
+                lastName: applicant.lastName,
+                email: applicant.email,
+              }
+            : undefined,
+        isArray: false,
+      },
     });
   }
 
@@ -85,6 +97,7 @@ export class WorkPermitsService {
   private mapWorkPermitToDto(entity: any): WorkPermitDto {
     const dto = this.rawWorkPermitMapper(entity);
     dto.acknowledgedSafetyGuideline = entity.applicantSignedAt != null;
+    dto.applicantUserId = entity.applicantUserId ?? undefined;
     return dto;
   }
 
@@ -93,6 +106,7 @@ export class WorkPermitsService {
       area: true,
       company: true,
       creator: true,
+      applicant: true,
       classifications: {
         include: {
           workClassification: true,
@@ -373,6 +387,7 @@ export class WorkPermitsService {
     this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
     const recordForCheck = {
       createdBy: workPermit.createdBy,
+      applicantUserId: (workPermit as any).applicantUserId,
       creator: workPermit.creator
         ? { departmentId: workPermit.creator.departmentId }
         : undefined,
@@ -461,8 +476,62 @@ export class WorkPermitsService {
   /**
    * Create a new work permit
    */
-  async create(createDto: CreateWorkPermitDto, createdBy: string): Promise<WorkPermitDto> {
+  async create(
+    createDto: CreateWorkPermitDto,
+    createdBy: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      // Resolve creator role (for contractor vs internal branching)
+      const creatorUser = await this.prisma.user.findUnique({
+        where: { id: createdBy },
+        include: { role: true },
+      });
+      this.errorHandler.throwIfNotFoundById('User', createdBy, creatorUser);
+
+      const creatorRoleCode = String(creatorUser!.role?.code ?? '').toUpperCase();
+      const creatorIsContractor = creatorRoleCode === 'CONTRACTOR';
+
+      // Determine applicantUserId per PRD rules
+      const requestedApplicantId = (createDto.applicantUserId ?? '').trim() || undefined;
+      let applicantUserId: string;
+
+      if (creatorIsContractor) {
+        // Contractor cannot create on behalf; force to self.
+        if (requestedApplicantId && requestedApplicantId !== createdBy) {
+          this.errorHandler.throwBadRequest('Contractor users cannot set applicant to a different user');
+        }
+        applicantUserId = createdBy;
+      } else {
+        // Internal users must explicitly pick an applicant contractor.
+        if (!requestedApplicantId) {
+          this.errorHandler.throwBadRequest('applicantUserId is required when creating a work permit on behalf');
+        }
+
+        const applicant = await this.prisma.user.findUnique({
+          where: { id: requestedApplicantId },
+          include: { role: true },
+        });
+        this.errorHandler.throwIfNotFoundById('Applicant user', requestedApplicantId, applicant);
+
+        const applicantRoleCode = String(applicant!.role?.code ?? '').toUpperCase();
+        if (applicantRoleCode !== 'CONTRACTOR') {
+          this.errorHandler.throwBadRequest('Applicant user must have role CONTRACTOR');
+        }
+        if (applicant!.isActive !== true) {
+          this.errorHandler.throwBadRequest('Applicant user must be active');
+        }
+
+        // Data-level access: creator must be allowed to create records in their scope.
+        // (We still rely on permission guard for work-permit:create.)
+        if (userContext?.dataLevel === 'SELF') {
+          // SELF-scoped internal users should not be allowed to create on behalf; it breaks "self" semantics.
+          this.errorHandler.throwForbidden('You are not allowed to create work permits on behalf in SELF scope');
+        }
+
+        applicantUserId = requestedApplicantId;
+      }
+
       // Validate area exists
       const area = await this.prisma.area.findUnique({
         where: { id: createDto.areaId },
@@ -525,6 +594,7 @@ export class WorkPermitsService {
             requireCourseVerification: createDto.requireCourseVerification || false,
             status: 'DRAFT',
             createdBy,
+            applicantUserId,
             classifications: createDto.classifications
               ? {
                 create: createDto.classifications.map((c) => ({
@@ -1276,6 +1346,7 @@ export class WorkPermitsService {
           area: true,
           company: true,
           creator: true,
+          applicant: true,
         },
       });
 
@@ -1956,7 +2027,8 @@ export class WorkPermitsService {
         );
       }
 
-      if (workPermit.createdBy !== userId) {
+      const applicantIdForAuth = (workPermit as any).applicantUserId ?? workPermit.createdBy;
+      if (applicantIdForAuth !== userId) {
         this.errorHandler.throwForbidden('Only the applicant can sign and acknowledge this safety guideline');
       }
 
@@ -2592,7 +2664,7 @@ export class WorkPermitsService {
   async getMasterData() {
     return this.errorHandler.safeExecute(
       async () => {
-        const [areas, companies, workClassifications, guests, heavyEquipment, tools, materials, machines, professions] = await Promise.all([
+        const [areas, companies, workClassifications, guests, heavyEquipment, tools, materials, machines, professions, applicants] = await Promise.all([
           this.prisma.area.findMany({
             where: { isActive: true },
             select: { id: true, name: true, code: true },
@@ -2667,6 +2739,20 @@ export class WorkPermitsService {
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
+          this.prisma.user.findMany({
+            where: {
+              isActive: true,
+              role: { code: 'CONTRACTOR' },
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              companyId: true,
+            },
+            orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+          }),
         ]);
 
         return {
@@ -2679,6 +2765,7 @@ export class WorkPermitsService {
           materials,
           machines,
           professions,
+          applicants,
         };
       },
       'Get master data for work permit form',

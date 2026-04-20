@@ -63,7 +63,7 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 
 | Actor | Who in the system | Primary need |
 |-------|-------------------|--------------|
-| **Applicant / creator** | `User` who creates the permit (`createdBy`) | Create/edit (when allowed), submit, sign SK when status is `WAITING_APPLICANT_SIGN`, extend/close when allowed |
+| **Applicant / creator** | **Current implementation:** `User` who creates the permit (`createdBy`) | Create/edit (when allowed), submit, sign SK when status is `WAITING_APPLICANT_SIGN`, extend/close when allowed |
 | **Workers** | `User` via **`Worker`** (`t_worker.userId`) joined to the permit by **`WorkPermitWorker`** (`workPermitId` + `workerId` + `order`) | Profession and optional ID number come from the **worker user profile** (`User.professionId`, `User.idNumber`). `certificateUrl`, legacy health declaration URL, and structured health screening linkage are on **`Worker`** / `HealthScreening.workerId`; the join row only carries `order`. |
 | **HSE officers** | `User`s linked via `hseOfficerIds` / `hseOfficers` | Named on the permit; notifications and operational context |
 | **Supervisors (vendor)** | `Guest` records via `supervisorIds` / `supervisors` | Contact/supervision data |
@@ -140,6 +140,33 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 - **Applicant sign SK (`signSk`):** Only when status is **`WAITING_APPLICANT_SIGN`**, only **`createdBy`** user, safety guideline content must exist → then **`IN_REVIEW_SECURITY`** and notify security.
 - **Extend:** Only **`APPROVED`** → updates end date, status **`EXTENDED`**.
 - **Close:** Only **`APPROVED`** or **`EXTENDED`** → **`CLOSED`**.
+
+### 6.6 Planned enhancement — Applicant identity & “create on behalf of contractor”
+
+**Background:** A new requirement allows an **authorized internal user** to create a Work Permit **on behalf of a contractor**. Using `createdBy` as the “applicant” becomes confusing in master approval and applicant-sign flows.
+
+**Proposed identity separation:**
+- **`createdBy` (actor / audit):** Always the logged-in user who performs the create action.
+- **`applicantUserId` (business applicant):** The contractor (or contractor PIC user) who the permit is **for** and who must perform applicant actions (e.g. sign SK, respond to request-info loop where applicable).
+
+**Rules on create (functional):**
+- Always set `createdBy = req.user.id`.
+- Determine `applicantUserId`:
+  - If `req.user.role.code === 'CONTRACTOR'`: default `applicantUserId = req.user.id` (self-service).
+  - If `req.user.role.code !== 'CONTRACTOR'`: UI must require applicant selection and API must validate `applicantUserId` is provided and is an allowed contractor/PIC.
+- Guardrails:
+  - A contractor user cannot set `applicantUserId` to a different user.
+  - Internal users can only set `applicantUserId` when authorized by permissions/scope.
+
+**Impact on workflow semantics (functional):**
+- “Applicant-only” actions (e.g. **SK sign** in `WAITING_APPLICANT_SIGN`) must be authorized against `applicantUserId` (not `createdBy`).
+- UI copy must show both:
+  - **Applicant (Contractor)** = `applicantUserId`
+  - **Created by (System)** = `createdBy`
+
+**Form visibility requirement (functional):**
+- If current user role **is** `CONTRACTOR`: hide/lock “Applicant” (auto = self).
+- If current user role **is not** `CONTRACTOR`: show “Applicant (Contractor)” field and make it **required**.
 
 ### 6.5 Policy form (paper) vs product
 

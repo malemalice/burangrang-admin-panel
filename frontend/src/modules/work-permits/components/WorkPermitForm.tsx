@@ -96,6 +96,7 @@ function selectionIncludesOthers(
 
 // Form schema for validation
 const formSchema = z.object({
+  applicantUserId: z.string().optional(),
   projectName: z.string().min(1, 'Project name is required'),
   areaId: z.string().min(1, 'Area is required'),
   companyId: z.string().min(1, 'Company is required'),
@@ -537,6 +538,12 @@ interface WorkPermitFormProps {
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
   const { hasPermission } = usePermissions();
   const { user: authUser } = useAuth();
+  const currentRoleCode = useMemo(() => {
+    const r = authUser?.role as any;
+    const code = typeof r === 'object' && r ? r.code : undefined;
+    return String(code ?? '').toUpperCase();
+  }, [authUser?.role]);
+  const isContractor = currentRoleCode === 'CONTRACTOR';
   const isSuperAdmin = useMemo(() => {
     const r = authUser?.role;
     const name = typeof r === 'string' ? r : r?.name;
@@ -552,6 +559,13 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
   const [workerUsers, setWorkerUsers] = useState<User[]>([]);
+  const [applicants, setApplicants] = useState<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    companyId?: string | null;
+  }>>([]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [heavyEquipment, setHeavyEquipment] = useState<MasterDataOption[]>([]);
@@ -604,6 +618,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       })),
     [workerUsers],
   );
+  const applicantOptions = useMemo(
+    () =>
+      applicants.map((u) => ({
+        value: u.id,
+        label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || u.id,
+      })),
+    [applicants],
+  );
 
   const heavyEquipmentOptions = useMemo(
     () => heavyEquipment.map((e) => ({ value: e.id, label: `${e.name} (${e.code})` })),
@@ -655,6 +677,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      applicantUserId: '',
       projectName: '',
       areaId: '',
       companyId: '',
@@ -913,6 +936,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 materials: [],
                 machines: [],
                 professions: [],
+                applicants: [],
               };
             }),
             userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
@@ -954,6 +978,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         setTools(masterDataResponse.tools);
         setMaterials(masterDataResponse.materials);
         setMachines(masterDataResponse.machines);
+        setApplicants(masterDataResponse.applicants ?? []);
 
         // Set data from other modules
         setUsers(usersResponse.data);
@@ -999,6 +1024,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         ];
 
       form.reset({
+        applicantUserId: str(workPermit.applicantUserId),
         projectName: str(workPermit.projectName),
         areaId: str(workPermit.areaId),
         companyId: str(workPermit.companyId),
@@ -1238,6 +1264,12 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       }
 
       if (mode === 'create') {
+        if (!isContractor && !String(dataForApi.applicantUserId ?? '').trim()) {
+          toast.error('Applicant (Contractor) is required.');
+          form.setError('applicantUserId', { type: 'manual', message: 'Applicant is required' });
+          setIsSubmitting(false);
+          return;
+        }
         await onSubmit({
           ...dataForApi,
           workers: normalizeWorkers(dataForApi.workers),
@@ -1301,6 +1333,37 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit, handleSubmitInvalid)} className="space-y-6">
+        {mode === 'create' && !isContractor && (
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>Applicant</WorkPermitSubsectionTitle>
+              <CardDescription>Select the contractor applicant for this permit</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="applicantUserId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Applicant (Contractor) <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        options={applicantOptions}
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        placeholder="Select applicant"
+                        searchPlaceholder="Search contractor..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <WorkPermitSubsectionTitle>Form Progress</WorkPermitSubsectionTitle>

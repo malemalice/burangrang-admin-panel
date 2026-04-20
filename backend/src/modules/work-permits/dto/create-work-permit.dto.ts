@@ -224,6 +224,15 @@ export class WorkPermitAttachmentDto {
 }
 
 export class CreateWorkPermitDto {
+  @ApiProperty({
+    description:
+      'Business applicant user ID (contractor). Required when creator is not CONTRACTOR; ignored/forced to self when creator is CONTRACTOR.',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  applicantUserId?: string;
+
   @ApiProperty({ description: 'Project name' })
   @IsString()
   @IsNotEmpty()
