@@ -61,6 +61,94 @@ export class EnrollmentsService {
       this.dtoMapper.createArrayMapper(EnrollmentDto);
   }
 
+  private buildChapterLearningState(
+    chapters: Array<{
+      id: string;
+      order: number;
+      isActive: boolean;
+      [key: string]: any;
+    }>,
+    progressRecords: Array<{
+      id: string;
+      chapterId: string;
+      status: string;
+      progress: unknown;
+      timeSpent: number;
+      startedAt?: Date | null;
+      completedAt?: Date | null;
+      lastAccessedAt?: Date | null;
+    }>,
+  ) {
+    const progressByChapterId = new Map(
+      progressRecords.map((record) => [record.chapterId, record]),
+    );
+
+    const currentChapter = chapters.find((chapter) => {
+      const progressRecord = progressByChapterId.get(chapter.id);
+      return progressRecord?.status !== 'COMPLETED';
+    });
+
+    const currentChapterId = currentChapter?.id ?? chapters.at(-1)?.id;
+    const currentChapterOrder = currentChapter?.order ?? null;
+
+    const chaptersWithLearningState = chapters.map((chapter) => {
+      const progressRecord = progressByChapterId.get(chapter.id);
+      const progressStatus = progressRecord?.status ?? 'NOT_STARTED';
+      const isCompleted = progressStatus === 'COMPLETED';
+      const isCurrent = chapter.id === currentChapterId;
+      const isUnlocked =
+        isCompleted ||
+        currentChapterOrder === null ||
+        chapter.order <= currentChapterOrder;
+      const isLocked = !isUnlocked;
+      const completedAt = progressRecord?.completedAt ?? null;
+
+      let status: 'completed' | 'active' | 'unlocked' | 'locked' = 'locked';
+
+      if (isCompleted) {
+        status = 'completed';
+      } else if (isCurrent) {
+        status = 'active';
+      } else if (isUnlocked) {
+        status = 'unlocked';
+      }
+
+      return {
+        ...chapter,
+        progress: progressRecord
+          ? {
+              id: progressRecord.id,
+              chapterId: progressRecord.chapterId,
+              status: progressStatus,
+              progress: Number(progressRecord.progress ?? 0),
+              timeSpent: progressRecord.timeSpent,
+              startedAt: progressRecord.startedAt ?? null,
+              completedAt,
+              lastAccessedAt: progressRecord.lastAccessedAt ?? null,
+            }
+          : null,
+        learningState: {
+          status,
+          isActive: isCurrent,
+          isCurrent,
+          isCompleted,
+          isUnlocked,
+          isLocked,
+          canPlay: isUnlocked,
+          showPlayControl: isCurrent || isCompleted,
+          progressStatus,
+          progressPercent: Number(progressRecord?.progress ?? 0),
+          completedAt,
+        },
+      };
+    });
+
+    return {
+      currentChapterId,
+      chaptersWithLearningState,
+    };
+  }
+
   async create(
     createEnrollmentDto: CreateEnrollmentDto,
     userId: string,
@@ -711,10 +799,13 @@ export class EnrollmentsService {
         },
       });
 
+      const { currentChapterId, chaptersWithLearningState } =
+        this.buildChapterLearningState(chapters, enrollment.progressRecords);
+
       // Attach chapters to course object
       const courseWithChapters = {
         ...enrollment.course,
-        chapters,
+        chapters: chaptersWithLearningState,
       };
 
       // Determine visibility for quizzes
@@ -772,6 +863,7 @@ export class EnrollmentsService {
         quizzes,
         progress: enrollment.progressRecords,
         quizAttempts,
+        currentChapterId,
       };
     }, 'Getting learning context');
   }
