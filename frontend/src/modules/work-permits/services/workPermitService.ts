@@ -87,11 +87,18 @@ const workPermitService = {
    */
   approveWorkPermit: async (
     id: string,
-    payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] },
+    payload?: {
+      notes?: string;
+      classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[];
+      requireCourseVerification?: boolean;
+      requiredCourses?: Array<{ courseId: string; isRequired?: boolean; order: number }>;
+    },
   ): Promise<WorkPermit> => {
     const response = await api.post(`/work-permits/${id}/approve`, {
       notes: payload?.notes,
       classificationSafetyGuidance: payload?.classificationSafetyGuidance,
+      requireCourseVerification: payload?.requireCourseVerification,
+      requiredCourses: payload?.requiredCourses,
     });
     return mapWorkPermitDtoToWorkPermit(response.data);
   },

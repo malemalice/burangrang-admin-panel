@@ -721,6 +721,15 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   });
 
   const watchedCompanyId = useWatch({ control: form.control, name: 'companyId' });
+  const requireCourseVerificationEnabled = useWatch({
+    control: form.control,
+    name: 'requireCourseVerification',
+  });
+
+  const isHseReviewPhase = useMemo(
+    () => workPermit?.status === 'IN_REVIEW_HSE',
+    [workPermit?.status],
+  );
 
   const {
     fields: workerFields,
@@ -2439,8 +2448,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           />
         )}
 
-        {/* Section F — PRD */}
-        {currentStep === 4 && (
+        {/* Section F — PRD (HSE review phase only) */}
+        {currentStep === 4 && isHseReviewPhase && (
         <WorkPermitSection id="work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
             <Card>
               <CardHeader>
@@ -2468,6 +2477,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               </CardContent>
             </Card>
 
+            {requireCourseVerificationEnabled && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -2529,6 +2539,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 ))}
               </CardContent>
             </Card>
+            )}
 
             {classificationContentEnabled && (
               <Card>

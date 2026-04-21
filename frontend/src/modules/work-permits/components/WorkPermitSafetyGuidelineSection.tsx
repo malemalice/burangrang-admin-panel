@@ -27,6 +27,10 @@ type Props = {
   workClassifications: WorkClassificationMasterOption[];
   risks: Array<{ id: string; name: string; code: string }>;
   safetyEquipment: SafetyEquipment[];
+  /** When true, hides guideline narrative (e.g. HSE approval modal focuses on risk/equipment rows). */
+  hideGuidelineNarrative?: boolean;
+  /** Embedded mode for dialog usage: compact spacing and no outer section wrapper. */
+  embedded?: boolean;
 };
 
 export function WorkPermitSafetyGuidelineSection({
@@ -35,6 +39,8 @@ export function WorkPermitSafetyGuidelineSection({
   workClassifications,
   risks,
   safetyEquipment,
+  hideGuidelineNarrative = false,
+  embedded = false,
 }: Props) {
   const updateBlock = (idx: number, partial: Partial<SafetyGuidanceBlock>) => {
     const next = [...blocks];
@@ -79,30 +85,29 @@ export function WorkPermitSafetyGuidelineSection({
   const riskOptions = risks.map((r) => ({ value: r.id, label: `${r.name} (${r.code})` }));
   const eqOptions = safetyEquipment.map((s) => ({ value: s.id, label: `${s.name} (${s.code})` }));
 
-  return (
-    <WorkPermitSection
-      id="work-permit-section-g"
-      title={WORK_PERMIT_SECTIONS.G}
-      description="Copied from each work classification; HSE may adjust before applicant sign. Removing a classification removes its block."
-    >
-      {blocks.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">
-            Select at least one work classification in Section A to load safety guidance.
-          </CardContent>
-        </Card>
-      ) : (
-        blocks.map((block, bi) => {
-          const wc = workClassifications.find((w) => w.id === block.workClassificationId);
-          const title = wc ? `${wc.name} (${wc.code})` : block.workClassificationId;
-          return (
-            <Card key={`${block.workClassificationId}-${block.order}`} className="mb-4">
-              <CardHeader>
-                <WorkPermitSubsectionTitle>
-                  {WORK_PERMIT_SECTION_G_SUB.byClassification}: {title}
-                </WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+  const content =
+    blocks.length === 0 ? (
+      <Card className={embedded ? 'border-dashed bg-muted/20' : undefined}>
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          Select at least one work classification in Section A to load safety guidance.
+        </CardContent>
+      </Card>
+    ) : (
+      blocks.map((block, bi) => {
+        const wc = workClassifications.find((w) => w.id === block.workClassificationId);
+        const title = wc ? `${wc.name} (${wc.code})` : block.workClassificationId;
+        return (
+          <Card
+            key={`${block.workClassificationId}-${block.order}`}
+            className={embedded ? 'mb-3 border-muted-foreground/20 shadow-sm' : 'mb-4'}
+          >
+            <CardHeader className={embedded ? 'pb-3' : undefined}>
+              <WorkPermitSubsectionTitle>
+                {WORK_PERMIT_SECTION_G_SUB.byClassification}: {title}
+              </WorkPermitSubsectionTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!hideGuidelineNarrative && (
                 <div>
                   <label className="text-sm font-medium">{WORK_PERMIT_SECTION_G_SUB.guidelineText}</label>
                   <Textarea
@@ -113,54 +118,77 @@ export function WorkPermitSafetyGuidelineSection({
                     placeholder="Guideline content (HTML or text copied from master)"
                   />
                 </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.riskEquipmentRows}</WorkPermitSubsectionTitle>
-                    <Button type="button" variant="outline" size="sm" onClick={() => addRow(bi)}>
-                      <Plus className="h-4 w-4 mr-1" /> Add row
-                    </Button>
-                  </div>
-                  {block.rows.map((row, ri) => (
-                    <div key={ri} className="flex flex-wrap gap-2 items-end border rounded p-3 mb-2">
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-muted-foreground">Risk</label>
-                        <SearchableSelect
-                          options={riskOptions}
-                          value={row.riskId}
-                          onValueChange={(v) => updateRow(bi, ri, { riskId: v })}
-                          placeholder="Select risk"
-                          searchPlaceholder="Search..."
-                        />
-                      </div>
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-muted-foreground">Safety equipment</label>
-                        <SearchableSelect
-                          options={eqOptions}
-                          value={row.safetyEquipmentId}
-                          onValueChange={(v) => updateRow(bi, ri, { safetyEquipmentId: v })}
-                          placeholder="Select equipment"
-                          searchPlaceholder="Search..."
-                        />
-                      </div>
-                      <div className="flex-1 min-w-[160px]">
-                        <label className="text-xs text-muted-foreground">Notes</label>
-                        <Textarea
-                          rows={2}
-                          value={row.notes ?? ''}
-                          onChange={(e) => updateRow(bi, ri, { notes: e.target.value })}
-                        />
-                      </div>
+              )}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.riskEquipmentRows}</WorkPermitSubsectionTitle>
+                  <Button type="button" variant="outline" size="sm" onClick={() => addRow(bi)}>
+                    <Plus className="h-4 w-4 mr-1" /> Add row
+                  </Button>
+                </div>
+                {block.rows.map((row, ri) => (
+                  <div
+                    key={ri}
+                    className={
+                      embedded
+                        ? 'grid grid-cols-1 md:grid-cols-12 gap-2 items-end border rounded-md p-3 mb-2 bg-background'
+                        : 'flex flex-wrap gap-2 items-end border rounded p-3 mb-2'
+                    }
+                  >
+                    <div className={embedded ? 'md:col-span-4' : 'flex-1 min-w-[200px]'}>
+                      <label className="text-xs text-muted-foreground">Risk</label>
+                      <SearchableSelect
+                        options={riskOptions}
+                        value={row.riskId}
+                        onValueChange={(v) => updateRow(bi, ri, { riskId: v })}
+                        placeholder="Select risk"
+                        searchPlaceholder="Search..."
+                      />
+                    </div>
+                    <div className={embedded ? 'md:col-span-4' : 'flex-1 min-w-[200px]'}>
+                      <label className="text-xs text-muted-foreground">Safety equipment</label>
+                      <SearchableSelect
+                        options={eqOptions}
+                        value={row.safetyEquipmentId}
+                        onValueChange={(v) => updateRow(bi, ri, { safetyEquipmentId: v })}
+                        placeholder="Select equipment"
+                        searchPlaceholder="Search..."
+                      />
+                    </div>
+                    <div className={embedded ? 'md:col-span-3' : 'flex-1 min-w-[160px]'}>
+                      <label className="text-xs text-muted-foreground">Mitigation notes</label>
+                      <Textarea
+                        rows={2}
+                        value={row.notes ?? ''}
+                        onChange={(e) => updateRow(bi, ri, { notes: e.target.value })}
+                        className={embedded ? 'min-h-[72px] resize-y' : undefined}
+                      />
+                    </div>
+                    <div className={embedded ? 'md:col-span-1 flex justify-end' : undefined}>
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeRow(bi, ri)}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })
-      )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })
+    );
+
+  if (embedded) {
+    return <div className="space-y-2">{content}</div>;
+  }
+
+  return (
+    <WorkPermitSection
+      id="work-permit-section-g"
+      title={WORK_PERMIT_SECTIONS.G}
+      description="Copied from each work classification; HSE may adjust before applicant sign. Removing a classification removes its block."
+    >
+      {content}
     </WorkPermitSection>
   );
 }

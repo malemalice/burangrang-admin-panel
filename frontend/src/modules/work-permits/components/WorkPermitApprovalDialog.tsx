@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -17,9 +17,10 @@ import { toast } from 'sonner';
 import workPermitService from '../services/workPermitService';
 import { riskService } from '@/modules/master-data';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
+import { courseService, type Course } from '@/modules/courses';
 import type { WorkClassificationMasterOption } from '../types/work-permit.types';
 import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
-import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import { WorkPermitHseSectionFReview, type HseRequiredCourseDraft } from './WorkPermitHseSectionFReview';
 
 function getErrorMessage(error: unknown): string | undefined {
   if (!error || typeof error !== 'object' || !('response' in error)) return undefined;
@@ -48,7 +49,6 @@ export const WorkPermitApprovalDialog = ({
   onSubmitted,
   initialStatus = ApprovalStatus.APPROVED,
 }: WorkPermitApprovalDialogProps) => {
-  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(initialStatus);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,33 +57,56 @@ export const WorkPermitApprovalDialog = ({
   const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
   const [risks, setRisks] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [requireCourseVerification, setRequireCourseVerification] = useState(false);
+  const [requiredCoursesDraft, setRequiredCoursesDraft] = useState<HseRequiredCourseDraft[]>([]);
 
   const isHseApprove = workPermitStatus === 'IN_REVIEW_HSE' && approvalStatus === ApprovalStatus.APPROVED;
+
+  const courseOptions = useMemo(
+    () => courses.map((c) => ({ value: c.id, label: c.title ?? c.slug ?? c.id })),
+    [courses],
+  );
 
   useEffect(() => {
     if (open) {
       setApprovalStatus(initialStatus);
       setApprovalNotes('');
       setGuidanceBlocks([]);
+      setRequireCourseVerification(false);
+      setRequiredCoursesDraft([]);
+      setCourses([]);
     }
   }, [open, initialStatus]);
 
   useEffect(() => {
-    if (!open || !isHseApprove || !workPermitId || !classificationContentEnabled) return;
+    if (!open || !isHseApprove || !workPermitId) return;
     let cancelled = false;
     (async () => {
       setLoadingHse(true);
       try {
-        const [wp, md, risksRes, seRes] = await Promise.all([
-          workPermitService.getWorkPermitById(workPermitId),
+        const wpPromise = workPermitService.getWorkPermitById(workPermitId);
+        const coursesPromise = courseService.getCourses({ page: 1, limit: 100, isActive: true });
+
+        const [wp, md, risksRes, seRes, coursesRes] = await Promise.all([
+          wpPromise,
           workPermitService.getMasterData(),
           riskService.getAll({ page: 1, limit: 500, isActive: true, options: true }),
           safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }),
+          coursesPromise,
         ]);
         if (cancelled) return;
         setWorkClassifications(md.workClassifications);
         setRisks((risksRes.data ?? []).map((r) => ({ id: r.id, name: r.name, code: r.code })));
         setSafetyEquipment(seRes.data ?? []);
+        setCourses(coursesRes.data);
+        setRequireCourseVerification(wp.requireCourseVerification ?? false);
+        setRequiredCoursesDraft(
+          (wp.requiredCourses ?? []).map((c) => ({
+            courseId: c.courseId,
+            order: c.order,
+          })),
+        );
         setGuidanceBlocks(
           (wp.classifications ?? []).map((c) => ({
             workPermitClassificationId: c.id,
@@ -100,7 +123,7 @@ export const WorkPermitApprovalDialog = ({
         );
       } catch (e) {
         console.error(e);
-        toast.error('Failed to load safety guidance for editing');
+        toast.error('Failed to load HSE review data');
       } finally {
         if (!cancelled) setLoadingHse(false);
       }
@@ -108,7 +131,7 @@ export const WorkPermitApprovalDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [open, isHseApprove, workPermitId, classificationContentEnabled]);
+  }, [open, isHseApprove, workPermitId]);
 
   const handleSubmit = async () => {
     if (!workPermitId) return;
@@ -119,12 +142,41 @@ export const WorkPermitApprovalDialog = ({
       return;
     }
 
+    if (
+      approvalStatus === ApprovalStatus.APPROVED &&
+      isHseApprove &&
+      requireCourseVerification
+    ) {
+      const filled = requiredCoursesDraft.filter((r) => r.courseId);
+      if (filled.length === 0) {
+        toast.error('Add at least one required course, or turn off course verification.');
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       if (approvalStatus === ApprovalStatus.APPROVED) {
+        const hseSectionF =
+          isHseApprove
+            ? {
+                requireCourseVerification,
+                requiredCourses: requireCourseVerification
+                  ? requiredCoursesDraft
+                      .filter((r) => r.courseId)
+                      .map((r, i) => ({
+                        courseId: r.courseId,
+                        isRequired: true,
+                        order: i,
+                      }))
+                  : [],
+              }
+            : {};
+
         await workPermitService.approveWorkPermit(workPermitId, {
           ...(trimmedNotes ? { notes: trimmedNotes } : {}),
-          ...(isHseApprove && classificationContentEnabled
+          ...hseSectionF,
+          ...(isHseApprove
             ? {
                 classificationSafetyGuidance: guidanceBlocks.map((b) => ({
                   workPermitClassificationId: b.workPermitClassificationId!,
@@ -153,13 +205,55 @@ export const WorkPermitApprovalDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Submit Approval</DialogTitle>
-          <DialogDescription>Review and submit your approval for this work permit.</DialogDescription>
+          <DialogTitle>{isHseApprove ? 'HSE review & approval' : 'Submit approval'}</DialogTitle>
+          <DialogDescription>
+            {isHseApprove
+              ? 'Complete Section F and Section G safety guideline, then approve or reject.'
+              : 'Review and submit your approval for this work permit.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {isHseApprove && (
+            <div className="rounded-lg border border-dashed border-primary/40 bg-muted/40 p-4 space-y-4">
+              {loadingHse ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading HSE review…
+                </div>
+              ) : (
+                <>
+                  <WorkPermitHseSectionFReview
+                    requireCourseVerification={requireCourseVerification}
+                    onRequireCourseVerificationChange={setRequireCourseVerification}
+                    requiredCourses={requiredCoursesDraft}
+                    onRequiredCoursesChange={setRequiredCoursesDraft}
+                    courseOptions={courseOptions}
+                  />
+                  <div className="space-y-2 pt-2 border-t">
+                    <div>
+                      <p className="text-sm font-medium">G. Safety Guideline</p>
+                      <p className="text-xs text-muted-foreground">
+                        Review and adjust risk, safety equipment, and mitigation rows.
+                      </p>
+                    </div>
+                    <WorkPermitSafetyGuidelineSection
+                      blocks={guidanceBlocks}
+                      onChange={setGuidanceBlocks}
+                      workClassifications={workClassifications}
+                      risks={risks}
+                      safetyEquipment={safetyEquipment}
+                      hideGuidelineNarrative
+                      embedded
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label>Approval Status</Label>
+            <Label>Approval decision</Label>
             <RadioGroup
               value={approvalStatus}
               onValueChange={(value) => setApprovalStatus(value as ApprovalStatus)}
@@ -181,25 +275,6 @@ export const WorkPermitApprovalDialog = ({
               </div>
             </RadioGroup>
           </div>
-
-          {isHseApprove && classificationContentEnabled && (
-            <div className="space-y-2">
-              {loadingHse ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading safety guidance…
-                </div>
-              ) : (
-                <WorkPermitSafetyGuidelineSection
-                  blocks={guidanceBlocks}
-                  onChange={setGuidanceBlocks}
-                  workClassifications={workClassifications}
-                  risks={risks}
-                  safetyEquipment={safetyEquipment}
-                />
-              )}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="wp-notes">
@@ -227,7 +302,9 @@ export const WorkPermitApprovalDialog = ({
           <Button
             onClick={handleSubmit}
             disabled={
-              isSubmitting || (approvalStatus === ApprovalStatus.REJECTED && !approvalNotes.trim())
+              isSubmitting ||
+              (approvalStatus === ApprovalStatus.REJECTED && !approvalNotes.trim()) ||
+              (isHseApprove && loadingHse)
             }
           >
             {isSubmitting ? 'Submitting...' : 'Submit Approval'}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Clock, FileText, FileDown, PenLine } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Clock, FileText, FileDown, PenLine, AlertCircle } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
@@ -48,6 +48,7 @@ import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/Appro
 import { useAuth } from '@/core/lib/auth';
 import { ApprovalStatus } from '@/core/lib/types';
 import { WorkPermitApprovalDialog } from '../components/WorkPermitApprovalDialog';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
 
@@ -410,6 +411,77 @@ const WorkPermitDetailPage = () => {
       />
 
       <div className="max-w-4xl mx-auto space-y-6 mt-6">
+        {workPermit.status === 'IN_REVIEW_HSE' && (canApprove || canReject) && (
+          <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800/50 dark:bg-yellow-950/30">
+            <AlertCircle className="h-4 w-4 text-yellow-800 dark:text-yellow-200" />
+            <AlertDescription className="text-foreground">
+              <div className="space-y-3">
+                <div>
+                  <p className="font-semibold">Action required — HSE review</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Before you approve: set course verification and required courses (Section F), review or edit the safety
+                    guideline by work classification (Section G), then submit your decision in the approval dialog.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      setApprovalInitialStatus(ApprovalStatus.APPROVED);
+                      setApprovalDialogOpen(true);
+                    }}
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Open HSE review &amp; approve
+                  </Button>
+                  {canReject && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setApprovalInitialStatus(ApprovalStatus.REJECTED);
+                        setApprovalDialogOpen(true);
+                      }}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {workPermit.status !== 'IN_REVIEW_HSE' &&
+          ['IN_REVIEW_PROJECT_OWNER', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(
+            workPermit.status,
+          ) &&
+          (canApprove || canReject) && (
+            <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800/50 dark:bg-yellow-950/30">
+              <AlertCircle className="h-4 w-4 text-yellow-800 dark:text-yellow-200" />
+              <AlertDescription className="text-foreground">
+                <div className="space-y-2">
+                  <p className="font-semibold">Approval pending</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your decision is needed for this work permit. Use Approve or Reject below or in the header.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setApprovalInitialStatus(ApprovalStatus.APPROVED);
+                      setApprovalDialogOpen(true);
+                    }}
+                  >
+                    Open approval dialog
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
         <WorkPermitSection
           id="work-permit-detail-approval-timeline"
           title={WORK_PERMIT_SECTION_F_SUB.approvalTimeline}

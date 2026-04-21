@@ -1819,6 +1819,43 @@ export class WorkPermitsService {
         this.errorHandler.throwForbidden('You do not have permission to approve this work permit');
       }
 
+      const isHseReviewPhase = workPermit.status === WorkPermitStatusEnum.IN_REVIEW_HSE;
+      const sectionFInPayload =
+        approveDto.requireCourseVerification !== undefined || approveDto.requiredCourses !== undefined;
+
+      if (sectionFInPayload && (!isHseReviewPhase || !isHseApprover)) {
+        this.errorHandler.throwBadRequest(
+          'Course verification fields can only be submitted when approving as HSE during HSE review',
+        );
+      }
+
+      if (isHseReviewPhase && isHseApprover && sectionFInPayload) {
+        const updateData: Prisma.WorkPermitUpdateInput = {};
+        if (approveDto.requireCourseVerification !== undefined) {
+          updateData.requireCourseVerification = approveDto.requireCourseVerification;
+        }
+        if (approveDto.requiredCourses !== undefined) {
+          await this.prisma.workPermitRequiredCourse.deleteMany({
+            where: { workPermitId: id },
+          });
+          if (approveDto.requiredCourses.length > 0) {
+            updateData.requiredCourses = {
+              create: approveDto.requiredCourses.map((c) => ({
+                courseId: c.courseId,
+                isRequired: c.isRequired !== undefined ? c.isRequired : true,
+                order: c.order,
+              })),
+            };
+          }
+        }
+        if (Object.keys(updateData).length > 0) {
+          await this.prisma.workPermit.update({
+            where: { id },
+            data: updateData,
+          });
+        }
+      }
+
       if (isHseApprover && approveDto.classificationSafetyGuidance?.length) {
         for (const block of approveDto.classificationSafetyGuidance) {
           await this.validateClassificationBelongsToPermit(block.workPermitClassificationId, id);
