@@ -1,5 +1,7 @@
+import type { User } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import { seedWorkClassifications } from './work-classifications.seed';
+import { seedPreProfessions } from './seed-pre.seed';
 
 /** Mirrors WorkPermitsService.copySafetyGuidanceFromTemplates for seed data */
 export async function copySafetyGuidanceFromTemplatesForSeed(prisma: PrismaClient, workPermitId: string) {
@@ -157,6 +159,22 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
       phone: '+62-31-11223344',
       email: 'admin@bangunsejahtera.com',
     },
+    {
+      name: 'PT Mitra Perkasa',
+      code: 'MP-001',
+      address: 'Jl. Industri Raya No. 200, Bekasi',
+      contactPerson: 'Rina Wijaya',
+      phone: '+62-21-99887766',
+      email: 'hq@mitraperksa.com',
+    },
+    {
+      name: 'UD Sentosa Jaya',
+      code: 'SJ-001',
+      address: 'Jl. Niaga No. 45, Tangerang',
+      contactPerson: 'Eko Prasetyo',
+      phone: '+62-21-55443322',
+      email: 'office@sentosajaya.com',
+    },
   ];
 
   for (const company of companies) {
@@ -168,24 +186,7 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
   }
   console.log(`✅ Created ${companies.length} companies`);
 
-  // Seed Professions
-  const professions = [
-    { name: 'Welder', code: 'WELDER', description: 'Welding specialist' },
-    { name: 'Electrician', code: 'ELEC-TECH', description: 'Electrical technician' },
-    { name: 'Plumber', code: 'PLUMBER', description: 'Plumbing specialist' },
-    { name: 'Crane Operator', code: 'CRANE-OP', description: 'Crane operation specialist' },
-    { name: 'Safety Officer', code: 'SAFETY', description: 'Safety and health officer' },
-    { name: 'Supervisor', code: 'SUPER', description: 'Work supervisor' },
-  ];
-
-  for (const profession of professions) {
-    await prisma.profession.upsert({
-      where: { code: profession.code },
-      update: profession,
-      create: profession,
-    });
-  }
-  console.log(`✅ Created ${professions.length} professions`);
+  await seedPreProfessions(prisma);
 
   // Seed Areas (need to get office first)
   const offices = await prisma.office.findMany({ take: 1 });
@@ -347,32 +348,35 @@ export async function seedWorkPermits(prisma: PrismaClient) {
     return;
   }
 
-  // Workers are now Users with role Guest (not t_guests)
-  const guestRole = await prisma.role.findFirst({ where: { code: 'GUEST' } });
-  if (!guestRole) {
-    console.log('⚠️ Guest role not found. Please run roles seed first.');
+  // Work-permit demo workers: CONTRACTOR role, each tied to a company (spread across seeded companies)
+  const contractorRole = await prisma.role.findFirst({ where: { code: 'CONTRACTOR' } });
+  if (!contractorRole) {
+    console.log('⚠️ CONTRACTOR role not found. Please run roles seed first.');
     return;
   }
-  let workerUsers = await prisma.user.findMany({
-    where: { roleId: guestRole.id },
-    take: 5,
-  });
   const officeId = creator.officeId;
-  while (workerUsers.length < 5) {
-    const i = workerUsers.length + 1;
+  const companiesForWorkers = masters.companies;
+  const workerUsers: User[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const companyForWorker = companiesForWorkers[(i - 1) % companiesForWorkers.length]!;
     const u = await prisma.user.upsert({
       where: { email: `wp.worker${i}@seed.test` },
-      update: {},
+      update: {
+        roleId: contractorRole.id,
+        companyId: companyForWorker.id,
+        officeId,
+      },
       create: {
         email: `wp.worker${i}@seed.test`,
         firstName: `Worker`,
         lastName: `${i}`,
         isActive: true,
-        roleId: guestRole.id,
+        roleId: contractorRole.id,
         officeId,
+        companyId: companyForWorker.id,
       },
     });
-    workerUsers = [...workerUsers, u];
+    workerUsers.push(u);
   }
   const worker1 = workerUsers[0]!;
   const worker2 = workerUsers[1]!;

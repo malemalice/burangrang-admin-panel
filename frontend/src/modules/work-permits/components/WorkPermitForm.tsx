@@ -59,6 +59,7 @@ import workPermitWorkerService from '../services/workPermitWorkerService';
 import { userService, type User } from '@/modules/users';
 import AddWorkerModal from './AddWorkerModal';
 import AddCompanyModal from './AddCompanyModal';
+import AddApplicantWithCompanyModal from './AddApplicantWithCompanyModal';
 import { WORK_PERMIT_WORKER_ROLE_CODE } from '../services/workPermitWorkerService';
 import { useAuth } from '@/core/lib/auth';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -584,6 +585,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [addCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
   const [addCompanyInitialName, setAddCompanyInitialName] = useState('');
   const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [applicantSearchQuery, setApplicantSearchQuery] = useState('');
+  const [addApplicantModalOpen, setAddApplicantModalOpen] = useState(false);
+  const [addApplicantInitialName, setAddApplicantInitialName] = useState('');
   const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
 
   const [toolSearchQueries, setToolSearchQueries] = useState<Record<number, string>>({});
@@ -626,6 +630,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       })),
     [applicants],
   );
+  const applicantOptionsFiltered = useMemo(() => {
+    const q = applicantSearchQuery.trim();
+    if (q === '') {
+      return applicantOptions;
+    }
+    const lower = q.toLowerCase();
+    return applicantOptions.filter((o) => o.label.toLowerCase().includes(lower));
+  }, [applicantOptions, applicantSearchQuery]);
 
   const heavyEquipmentOptions = useMemo(
     () => heavyEquipment.map((e) => ({ value: e.id, label: `${e.name} (${e.code})` })),
@@ -1350,11 +1362,17 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     </FormLabel>
                     <FormControl>
                       <SearchableSelect
-                        options={applicantOptions}
+                        options={applicantOptionsFiltered}
                         value={field.value ?? ''}
                         onValueChange={field.onChange}
                         placeholder="Select applicant"
                         searchPlaceholder="Search contractor..."
+                        onSearch={(q) => setApplicantSearchQuery(q)}
+                        onCreateNew={(query) => {
+                          setAddApplicantInitialName(query);
+                          setAddApplicantModalOpen(true);
+                        }}
+                        createNewText="Add new applicant"
                       />
                     </FormControl>
                     <FormMessage />
@@ -2643,6 +2661,47 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           }
           setAddWorkerForIndex(null);
           setAddWorkerInitialName('');
+        }}
+      />
+
+      <AddApplicantWithCompanyModal
+        open={addApplicantModalOpen}
+        onOpenChange={(open) => {
+          setAddApplicantModalOpen(open);
+          if (!open) {
+            setAddApplicantInitialName('');
+          }
+        }}
+        initialName={addApplicantInitialName}
+        isSuperAdmin={isSuperAdmin}
+        companies={companies}
+        permitCompanyId={watchedCompanyId ?? ''}
+        canCreateCompany={hasPermission('company:create')}
+        professions={professions}
+        onProfessionCreated={(p) => setProfessions((prev) => [p, ...prev])}
+        onCompanyCreated={(company: CompanyDTO) => {
+          const row: CompanyOption = {
+            id: company.id,
+            name: company.name,
+            code: company.code,
+            phone: company.phone ?? null,
+          };
+          setCompanies((prev) => (prev.some((c) => c.id === row.id) ? prev : [...prev, row]));
+        }}
+        onSuccess={(user: User) => {
+          setApplicants((prev) => [
+            ...prev,
+            {
+              id: user.id,
+              firstName: user.firstName ?? '',
+              lastName: user.lastName ?? '',
+              email: user.email ?? '',
+              companyId: user.companyId ?? null,
+            },
+          ]);
+          form.setValue('applicantUserId', user.id);
+          void form.trigger('applicantUserId');
+          setAddApplicantInitialName('');
         }}
       />
     </Form>
