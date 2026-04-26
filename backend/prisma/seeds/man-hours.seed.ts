@@ -1,4 +1,5 @@
 import { ManHourGroupEnum, MonthEnum } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
@@ -58,36 +59,43 @@ export async function seedManHours(): Promise<void> {
           const total = totalWorkingDays - lostHour;
 
           try {
-            await prisma.manHour.upsert({
+            const createData = {
+              name: classData.name,
+              group: classData.group,
+              qty: classData.qty,
+              manHourPerDay: classData.manHourPerDay,
+              month: month,
+              year: year,
+              totalWorkingDays,
+              lostHour,
+              total,
+              notes: `Man hour data for ${classData.name} - ${month} ${year}`,
+              createdBy: user.id,
+            };
+            const updateData = {
+              qty: classData.qty,
+              manHourPerDay: classData.manHourPerDay,
+              totalWorkingDays,
+              lostHour,
+              total,
+            };
+            const existing = await prisma.manHour.findFirst({
               where: {
-                name_group_month_year: {
-                  name: classData.name,
-                  group: classData.group,
-                  month: month,
-                  year: year,
-                },
-              },
-              update: {
-                qty: classData.qty,
-                manHourPerDay: classData.manHourPerDay,
-                totalWorkingDays,
-                lostHour,
-                total,
-              },
-              create: {
                 name: classData.name,
                 group: classData.group,
-                qty: classData.qty,
-                manHourPerDay: classData.manHourPerDay,
                 month: month,
                 year: year,
-                totalWorkingDays,
-                lostHour,
-                total,
-                notes: `Man hour data for ${classData.name} - ${month} ${year}`,
-                createdBy: user.id,
+                ...notDeleted,
               },
             });
+            if (existing) {
+              await prisma.manHour.update({
+                where: { id: existing.id },
+                data: updateData,
+              });
+            } else {
+              await prisma.manHour.create({ data: createData });
+            }
             createdCount++;
           } catch (error: any) {
             if (error.code !== 'P2002') {

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 /** Must match `WORK_CLASSIFICATION_OTHER_CODE` in frontend workClassification constants */
 export const SEED_WORK_CLASSIFICATION_OTHER_CODE = 'OTHERS';
@@ -103,8 +104,8 @@ export async function seedWorkClassificationRiskMitigations(prisma: PrismaClient
   }
 
   for (const [workClassificationCode, templateRows] of byWc.entries()) {
-    const wc = await prisma.workClassification.findUnique({
-      where: { code: workClassificationCode },
+    const wc = await prisma.workClassification.findFirst({
+      where: { code: workClassificationCode, ...notDeleted },
       select: { id: true },
     });
     if (!wc) continue;
@@ -116,12 +117,12 @@ export async function seedWorkClassificationRiskMitigations(prisma: PrismaClient
     for (let i = 0; i < templateRows.length; i++) {
       const row = templateRows[i]!;
 
-      const risk = await prisma.risk.findUnique({
-        where: { code: row.riskCode },
+      const risk = await prisma.risk.findFirst({
+        where: { code: row.riskCode, ...notDeleted },
         select: { id: true },
       });
-      const se = await prisma.safetyEquipment.findUnique({
-        where: { code: row.safetyEquipmentCode },
+      const se = await prisma.safetyEquipment.findFirst({
+        where: { code: row.safetyEquipmentCode, ...notDeleted },
         select: { id: true },
       });
 
@@ -200,11 +201,17 @@ export async function seedWorkClassifications(prisma: PrismaClient) {
   ];
 
   for (const classification of rows) {
-    await prisma.workClassification.upsert({
-      where: { code: classification.code },
-      update: classification,
-      create: classification,
+    const existing = await prisma.workClassification.findFirst({
+      where: { code: classification.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.workClassification.update({
+        where: { id: existing.id },
+        data: classification,
+      });
+    } else {
+      await prisma.workClassification.create({ data: classification });
+    }
   }
 
   console.log(`✅ Upserted ${rows.length} work classifications`);

@@ -1,4 +1,5 @@
 import { PrismaClient, Setting } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 export const defaultSettings = [
   // Theme Settings
@@ -69,8 +70,8 @@ export async function seedSettings(prisma: PrismaClient): Promise<Setting[]> {
 
   for (const setting of defaultSettings) {
     // Check if setting already exists
-    const existingSetting = await prisma.setting.findUnique({
-      where: { key: setting.key }
+    const existingSetting = await prisma.setting.findFirst({
+      where: { key: setting.key, ...notDeleted },
     });
 
     if (!existingSetting) {

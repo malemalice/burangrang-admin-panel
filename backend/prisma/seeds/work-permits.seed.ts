@@ -1,5 +1,6 @@
 import type { User } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 import { seedWorkClassifications } from './work-classifications.seed';
 import { seedPreProfessions } from './seed-pre.seed';
 
@@ -63,19 +64,27 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
     console.log('⚠️ No users found. Skipping Heavy Equipment seed (createdBy required).');
   } else {
     for (const equipment of heavyEquipment) {
-      await prisma.heavyEquipment.upsert({
-        where: { code: equipment.code },
-        update: {
-          name: equipment.name,
-          description: equipment.description,
-        },
-        create: {
-          name: equipment.name,
-          code: equipment.code,
-          description: equipment.description,
-          createdBy: heavyEquipmentCreatedBy.id,
-        },
+      const existing = await prisma.heavyEquipment.findFirst({
+        where: { code: equipment.code, ...notDeleted },
       });
+      if (existing) {
+        await prisma.heavyEquipment.update({
+          where: { id: existing.id },
+          data: {
+            name: equipment.name,
+            description: equipment.description,
+          },
+        });
+      } else {
+        await prisma.heavyEquipment.create({
+          data: {
+            name: equipment.name,
+            code: equipment.code,
+            description: equipment.description,
+            createdBy: heavyEquipmentCreatedBy.id,
+          },
+        });
+      }
     }
     console.log(`✅ Created ${heavyEquipment.length} heavy equipment`);
   }
@@ -90,11 +99,14 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
   ];
 
   for (const tool of tools) {
-    await prisma.tool.upsert({
-      where: { code: tool.code },
-      update: tool,
-      create: tool,
+    const existing = await prisma.tool.findFirst({
+      where: { code: tool.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.tool.update({ where: { id: existing.id }, data: tool });
+    } else {
+      await prisma.tool.create({ data: tool });
+    }
   }
   console.log(`✅ Created ${tools.length} tools`);
 
@@ -108,11 +120,14 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
   ];
 
   for (const material of materials) {
-    await prisma.material.upsert({
-      where: { code: material.code },
-      update: material,
-      create: material,
+    const existing = await prisma.material.findFirst({
+      where: { code: material.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.material.update({ where: { id: existing.id }, data: material });
+    } else {
+      await prisma.material.create({ data: material });
+    }
   }
   console.log(`✅ Created ${materials.length} materials`);
 
@@ -125,11 +140,14 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
   ];
 
   for (const machine of machines) {
-    await prisma.machine.upsert({
-      where: { code: machine.code },
-      update: machine,
-      create: machine,
+    const existing = await prisma.machine.findFirst({
+      where: { code: machine.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.machine.update({ where: { id: existing.id }, data: machine });
+    } else {
+      await prisma.machine.create({ data: machine });
+    }
   }
   console.log(`✅ Created ${machines.length} machines`);
 
@@ -178,11 +196,14 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
   ];
 
   for (const company of companies) {
-    await prisma.company.upsert({
-      where: { code: company.code },
-      update: company,
-      create: company,
+    const existing = await prisma.company.findFirst({
+      where: { code: company.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.company.update({ where: { id: existing.id }, data: company });
+    } else {
+      await prisma.company.create({ data: company });
+    }
   }
   console.log(`✅ Created ${companies.length} companies`);
 
@@ -201,11 +222,14 @@ export async function seedWorkPermitMasters(prisma: PrismaClient) {
   ];
 
   for (const area of areas) {
-    await prisma.area.upsert({
-      where: { code: area.code },
-      update: area,
-      create: area,
+    const existing = await prisma.area.findFirst({
+      where: { code: area.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.area.update({ where: { id: existing.id }, data: area });
+    } else {
+      await prisma.area.create({ data: area });
+    }
   }
   console.log(`✅ Created ${areas.length} areas`);
 
@@ -359,23 +383,30 @@ export async function seedWorkPermits(prisma: PrismaClient) {
   const workerUsers: User[] = [];
   for (let i = 1; i <= 5; i++) {
     const companyForWorker = companiesForWorkers[(i - 1) % companiesForWorkers.length]!;
-    const u = await prisma.user.upsert({
-      where: { email: `wp.worker${i}@seed.test` },
-      update: {
-        roleId: contractorRole.id,
-        companyId: companyForWorker.id,
-        officeId,
-      },
-      create: {
-        email: `wp.worker${i}@seed.test`,
-        firstName: `Worker`,
-        lastName: `${i}`,
-        isActive: true,
-        roleId: contractorRole.id,
-        officeId,
-        companyId: companyForWorker.id,
-      },
+    const email = `wp.worker${i}@seed.test`;
+    const existingU = await prisma.user.findFirst({
+      where: { email, ...notDeleted },
     });
+    const u = existingU
+      ? await prisma.user.update({
+          where: { id: existingU.id },
+          data: {
+            roleId: contractorRole.id,
+            companyId: companyForWorker.id,
+            officeId,
+          },
+        })
+      : await prisma.user.create({
+          data: {
+            email,
+            firstName: `Worker`,
+            lastName: `${i}`,
+            isActive: true,
+            roleId: contractorRole.id,
+            officeId,
+            companyId: companyForWorker.id,
+          },
+        });
     workerUsers.push(u);
   }
   const worker1 = workerUsers[0]!;

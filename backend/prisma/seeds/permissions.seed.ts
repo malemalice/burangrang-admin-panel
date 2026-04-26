@@ -1,4 +1,5 @@
 import { PrismaClient, type Permission } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 export const permissions = [
   // User Management
@@ -379,11 +380,15 @@ export async function seedPermissions(prisma: PrismaClient) {
   console.log('Creating permissions...');
   const createdPermissions: Permission[] = [];
   for (const permission of permissions) {
-    const result = await prisma.permission.upsert({
-      where: { name: permission.name },
-      update: permission,
-      create: permission,
+    const existing = await prisma.permission.findFirst({
+      where: { name: permission.name, ...notDeleted },
     });
+    const result = existing
+      ? await prisma.permission.update({
+          where: { id: existing.id },
+          data: permission,
+        })
+      : await prisma.permission.create({ data: permission });
     createdPermissions.push(result);
   }
   console.log(`Created/Updated ${createdPermissions.length} permissions`);

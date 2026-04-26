@@ -3,6 +3,7 @@
  * Following TRD.md patterns for seed data
  */
 import { Course, EnrollmentStatusEnum } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 import { seedPrisma as prisma } from './prisma-seed-client';
 
 /** Shared demo LMS assets (HSE playlist link is text-only — app embeds single video IDs only). */
@@ -719,8 +720,8 @@ export const seedCourses = async () => {
 
     for (const courseData of courses) {
       // Check if course already exists
-      const existingCourse = await prisma.course.findUnique({
-        where: { slug: courseData.slug },
+      const existingCourse = await prisma.course.findFirst({
+        where: { slug: courseData.slug, ...notDeleted },
       });
 
       if (existingCourse) {

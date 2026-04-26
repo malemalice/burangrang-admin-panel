@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 /**
  * Legacy reference data formerly in `backend/seed-pre.md`.
@@ -44,15 +45,23 @@ export async function seedPreProfessions(prisma: PrismaClient) {
   console.log('🌱 Seeding professions (legacy seed-pre list + work-permit samples)...');
 
   for (const row of PROFESSION_ROWS) {
-    await prisma.profession.upsert({
-      where: { code: row.code },
-      update: { name: row.name, description: row.description ?? null },
-      create: {
-        code: row.code,
-        name: row.name,
-        description: row.description ?? null,
-      },
+    const existing = await prisma.profession.findFirst({
+      where: { code: row.code, ...notDeleted },
     });
+    if (existing) {
+      await prisma.profession.update({
+        where: { id: existing.id },
+        data: { name: row.name, description: row.description ?? null },
+      });
+    } else {
+      await prisma.profession.create({
+        data: {
+          code: row.code,
+          name: row.name,
+          description: row.description ?? null,
+        },
+      });
+    }
   }
 
   console.log(`✅ Upserted ${PROFESSION_ROWS.length} professions`);

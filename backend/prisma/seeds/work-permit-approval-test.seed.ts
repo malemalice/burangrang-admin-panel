@@ -1,16 +1,43 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { notDeleted } from './not-deleted';
 import { copySafetyGuidanceFromTemplatesForSeed } from './work-permits.seed';
+
+async function seedUpsertUserByEmail(
+  prisma: PrismaClient,
+  email: string,
+  create: Prisma.UserUncheckedCreateInput,
+  update: Prisma.UserUncheckedUpdateInput = {},
+) {
+  const existing = await prisma.user.findFirst({ where: { email, ...notDeleted } });
+  if (existing) {
+    return prisma.user.update({ where: { id: existing.id }, data: update });
+  }
+  return prisma.user.create({ data: create });
+}
+
+async function seedUpsertWorkPermitByCode(
+  prisma: PrismaClient,
+  code: string,
+  update: Prisma.WorkPermitUncheckedUpdateInput,
+  create: Prisma.WorkPermitUncheckedCreateInput,
+) {
+  const existing = await prisma.workPermit.findFirst({ where: { code, ...notDeleted } });
+  if (existing) {
+    return prisma.workPermit.update({ where: { id: existing.id }, data: update });
+  }
+  return prisma.workPermit.create({ data: create });
+}
 
 /** Ensure each approval-test permit has at least one classification and Section G snapshot/rows (Hot Work template). */
 async function ensureWorkPermitApprovalTestSafetyGuidance(prisma: PrismaClient, code: string) {
-  const wc = await prisma.workClassification.findFirst({ where: { code: 'HW' } });
+  const wc = await prisma.workClassification.findFirst({ where: { code: 'HW', ...notDeleted } });
   if (!wc) {
     console.log(`   ⚠️  Work classification HW not found; skip Section G seed for ${code}`);
     return;
   }
-  const wp = await prisma.workPermit.findUnique({
-    where: { code },
+  const wp = await prisma.workPermit.findFirst({
+    where: { code, ...notDeleted },
     include: { classifications: true },
   });
   if (!wp) return;
@@ -64,31 +91,24 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
   console.log('👥 Creating test users for approval flow...');
 
   // Requester User (Staff in Administration)
-  const requester = await prisma.user.upsert({
-    where: { email: 'wp.requester@test.com' },
-    update: {},
-    create: {
-      email: 'wp.requester@test.com',
-      password: hashedPassword,
-      firstName: 'Work Permit',
-      lastName: 'Requester',
-      isActive: true,
-      roleId: userRole.id,
-      officeId: office.id,
-      departmentId: adminDepartment.id,
-      jobPositionId: staffPosition?.id,
-    },
+  const requester = await seedUpsertUserByEmail(prisma, 'wp.requester@test.com', {
+    email: 'wp.requester@test.com',
+    password: hashedPassword,
+    firstName: 'Work Permit',
+    lastName: 'Requester',
+    isActive: true,
+    roleId: userRole.id,
+    officeId: office.id,
+    departmentId: adminDepartment.id,
+    jobPositionId: staffPosition?.id,
   });
   console.log(`   ✅ Created Requester: ${requester.email}`);
 
   // HSE Approver (Manager in Health Services - Step 1)
-  const hseApprover = await prisma.user.upsert({
-    where: { email: 'wp.hse.approver@test.com' },
-    update: {
-      departmentId: hseDepartment.id,
-      jobPositionId: managerPosition?.id,
-    },
-    create: {
+  const hseApprover = await seedUpsertUserByEmail(
+    prisma,
+    'wp.hse.approver@test.com',
+    {
       email: 'wp.hse.approver@test.com',
       password: hashedPassword,
       firstName: 'HSE',
@@ -99,17 +119,18 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       departmentId: hseDepartment.id,
       jobPositionId: managerPosition?.id,
     },
-  });
+    {
+      departmentId: hseDepartment.id,
+      jobPositionId: managerPosition?.id,
+    },
+  );
   console.log(`   ✅ Created HSE Approver: ${hseApprover.email} (Dept: ${hseDepartment.name}, Job: ${managerPosition?.name})`);
 
   // Security Approver (Head in Security - Step 2)
-  const securityApprover = await prisma.user.upsert({
-    where: { email: 'wp.security.approver@test.com' },
-    update: {
-      departmentId: securityDepartment.id,
-      jobPositionId: headPosition?.id,
-    },
-    create: {
+  const securityApprover = await seedUpsertUserByEmail(
+    prisma,
+    'wp.security.approver@test.com',
+    {
       email: 'wp.security.approver@test.com',
       password: hashedPassword,
       firstName: 'Security',
@@ -120,24 +141,24 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       departmentId: securityDepartment.id,
       jobPositionId: headPosition?.id,
     },
-  });
+    {
+      departmentId: securityDepartment.id,
+      jobPositionId: headPosition?.id,
+    },
+  );
   console.log(`   ✅ Created Security Approver: ${securityApprover.email} (Dept: ${securityDepartment.name}, Job: ${headPosition?.name})`);
 
   // Random User (should NOT have approval rights)
-  const randomUser = await prisma.user.upsert({
-    where: { email: 'wp.random.user@test.com' },
-    update: {},
-    create: {
-      email: 'wp.random.user@test.com',
-      password: hashedPassword,
-      firstName: 'Random',
-      lastName: 'User',
-      isActive: true,
-      roleId: userRole.id,
-      officeId: office.id,
-      departmentId: adminDepartment.id,
-      jobPositionId: staffPosition?.id,
-    },
+  const randomUser = await seedUpsertUserByEmail(prisma, 'wp.random.user@test.com', {
+    email: 'wp.random.user@test.com',
+    password: hashedPassword,
+    firstName: 'Random',
+    lastName: 'User',
+    isActive: true,
+    roleId: userRole.id,
+    officeId: office.id,
+    departmentId: adminDepartment.id,
+    jobPositionId: staffPosition?.id,
   });
   console.log(`   ✅ Created Random User: ${randomUser.email} (No approval rights)`);
 
@@ -196,19 +217,18 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
     ? await prisma.user.findFirst({ where: { roleId: guestRole.id } })
     : null;
   if (!workerUser && guestRole) {
-    workerUser = await prisma.user.create({
-      data: {
-        email: 'wp.worker@test.com',
-        password: hashedPassword,
-        firstName: 'Work Permit',
-        lastName: 'Worker',
-        isActive: true,
-        roleId: guestRole.id,
-        officeId: office.id,
-        departmentId: adminDepartment.id,
-        jobPositionId: staffPosition?.id,
-      },
-    });
+    const workerUserData: Prisma.UserUncheckedCreateInput = {
+      email: 'wp.worker@test.com',
+      password: hashedPassword,
+      firstName: 'Work Permit',
+      lastName: 'Worker',
+      isActive: true,
+      roleId: guestRole.id,
+      officeId: office.id,
+      departmentId: adminDepartment.id,
+      jobPositionId: staffPosition?.id,
+    };
+    workerUser = await prisma.user.create({ data: workerUserData });
     console.log(`   ✅ Created worker user (Guest role): ${workerUser.email}`);
   }
 
@@ -245,10 +265,11 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   // WP-TEST-001: DRAFT (Ready to submit)
-  const wpDraft = await prisma.workPermit.upsert({
-    where: { code: 'WP-TEST-001' },
-    update: { status: 'DRAFT' },
-    create: {
+  const wpDraft = await seedUpsertWorkPermitByCode(
+    prisma,
+    'WP-TEST-001',
+    { status: 'DRAFT' },
+    {
       code: 'WP-TEST-001',
       projectName: 'Test Approval Flow - DRAFT',
       areaId: area.id,
@@ -266,14 +287,15 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
         }],
       },
     },
-  });
+  );
   console.log(`   ✅ Created ${wpDraft.code} (DRAFT) - Ready to submit`);
 
   // WP-TEST-002: IN_REVIEW_HSE (Waiting for HSE approval)
-  const wpHseReview = await prisma.workPermit.upsert({
-    where: { code: 'WP-TEST-002' },
-    update: { status: 'IN_REVIEW_HSE' },
-    create: {
+  const wpHseReview = await seedUpsertWorkPermitByCode(
+    prisma,
+    'WP-TEST-002',
+    { status: 'IN_REVIEW_HSE' },
+    {
       code: 'WP-TEST-002',
       projectName: 'Test Approval Flow - IN_REVIEW_HSE',
       areaId: area.id,
@@ -291,14 +313,15 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
         }],
       },
     },
-  });
+  );
   console.log(`   ✅ Created ${wpHseReview.code} (IN_REVIEW_HSE) - Waiting for HSE Approver`);
 
   // WP-TEST-003: IN_REVIEW_SECURITY (HSE approved, waiting for Security)
-  const wpSecurityReview = await prisma.workPermit.upsert({
-    where: { code: 'WP-TEST-003' },
-    update: { status: 'IN_REVIEW_SECURITY' },
-    create: {
+  const wpSecurityReview = await seedUpsertWorkPermitByCode(
+    prisma,
+    'WP-TEST-003',
+    { status: 'IN_REVIEW_SECURITY' },
+    {
       code: 'WP-TEST-003',
       projectName: 'Test Approval Flow - IN_REVIEW_SECURITY',
       areaId: area.id,
@@ -316,7 +339,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
         }],
       },
     },
-  });
+  );
 
   // Add approval record from HSE (only if creating new)
   const existingApproval = await prisma.approval.findFirst({ where: { entityId: wpSecurityReview.id } });
@@ -336,10 +359,11 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
   console.log(`   ✅ Created ${wpSecurityReview.code} (IN_REVIEW_SECURITY) - Waiting for Security Approver`);
 
   // WP-TEST-004: APPROVED (Fully approved, can be closed)
-  const wpApproved = await prisma.workPermit.upsert({
-    where: { code: 'WP-TEST-004' },
-    update: { status: 'APPROVED' },
-    create: {
+  const wpApproved = await seedUpsertWorkPermitByCode(
+    prisma,
+    'WP-TEST-004',
+    { status: 'APPROVED' },
+    {
       code: 'WP-TEST-004',
       projectName: 'Test Approval Flow - APPROVED',
       areaId: area.id,
@@ -357,7 +381,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
         }],
       },
     },
-  });
+  );
 
   // Add both approval records (only if not existing)
   const approvedRecords = await prisma.approval.count({ where: { entityId: wpApproved.id } });
@@ -388,10 +412,11 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
   console.log(`   ✅ Created ${wpApproved.code} (APPROVED) - Ready to close`);
 
   // WP-TEST-005: CLOSED (Completed)
-  const wpClosed = await prisma.workPermit.upsert({
-    where: { code: 'WP-TEST-005' },
-    update: { status: 'CLOSED' },
-    create: {
+  const wpClosed = await seedUpsertWorkPermitByCode(
+    prisma,
+    'WP-TEST-005',
+    { status: 'CLOSED' },
+    {
       code: 'WP-TEST-005',
       projectName: 'Test Approval Flow - CLOSED',
       areaId: area.id,
@@ -409,7 +434,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
         }],
       },
     },
-  });
+  );
   console.log(`   ✅ Created ${wpClosed.code} (CLOSED) - Completed`);
 
   for (const code of ['WP-TEST-001', 'WP-TEST-002', 'WP-TEST-003', 'WP-TEST-004', 'WP-TEST-005']) {

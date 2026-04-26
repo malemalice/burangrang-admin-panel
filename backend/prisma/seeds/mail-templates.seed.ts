@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 /**
  * Email HTML uses inline hex aligned with BurangrangDesign (`frontend/src/core/lib/theme/colors.ts`).
@@ -902,28 +903,25 @@ const defaultMailTemplates = [
 ];
 
 export async function seedMailTemplates(prisma: PrismaClient): Promise<void> {
-  const client = prisma as unknown as {
-    emailTemplate: {
-      upsert: (args: any) => Promise<any>;
-    };
-  };
-
   for (const tpl of defaultMailTemplates) {
-    await client.emailTemplate.upsert({
-      where: { code: tpl.code },
-      update: {
-        name: tpl.name,
-        subjectTemplate: tpl.subjectTemplate,
-        bodyTemplate: tpl.bodyTemplate,
-        isActive: true,
-      },
-      create: {
-        code: tpl.code,
-        name: tpl.name,
-        subjectTemplate: tpl.subjectTemplate,
-        bodyTemplate: tpl.bodyTemplate,
-        isActive: true,
-      },
+    const existing = await prisma.emailTemplate.findFirst({
+      where: { code: tpl.code, ...notDeleted },
     });
+    const data = {
+      name: tpl.name,
+      subjectTemplate: tpl.subjectTemplate,
+      bodyTemplate: tpl.bodyTemplate,
+      isActive: true,
+    };
+    if (existing) {
+      await prisma.emailTemplate.update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      await prisma.emailTemplate.create({
+        data: { code: tpl.code, ...data },
+      });
+    }
   }
 }

@@ -3,6 +3,7 @@
  * Following TRD.md patterns for seed data
  */
 import { QuizAttemptStatusEnum } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 import { seedPrisma as prisma } from './prisma-seed-client';
 
 export const seedQuizzes = async () => {
@@ -41,14 +42,14 @@ export const seedQuizzes = async () => {
 
     console.log(`📝 Using creator: ${creator.firstName} ${creator.lastName}`);
 
-    const courseBasicSafety = await prisma.course.findUnique({
-      where: { slug: 'basic-safety-training' },
+    const courseBasicSafety = await prisma.course.findFirst({
+      where: { slug: 'basic-safety-training', ...notDeleted },
     });
-    const courseFireSafety = await prisma.course.findUnique({
-      where: { slug: 'fire-safety-prevention' },
+    const courseFireSafety = await prisma.course.findFirst({
+      where: { slug: 'fire-safety-prevention', ...notDeleted },
     });
-    const courseErgonomics = await prisma.course.findUnique({
-      where: { slug: 'workplace-ergonomics' },
+    const courseErgonomics = await prisma.course.findFirst({
+      where: { slug: 'workplace-ergonomics', ...notDeleted },
     });
     const chapterFirstAidIntro = await prisma.chapter.findFirst({
       where: {

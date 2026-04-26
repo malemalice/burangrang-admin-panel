@@ -1,4 +1,5 @@
-import { PrismaClient, Permission, DataLevelEnum } from '@prisma/client';
+import { PrismaClient, Permission, Role, DataLevelEnum } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 /** Health screening permissions for Guest (worker) role — must match permissions.seed names. */
 const GUEST_HEALTH_SCREENING_PERMISSION_NAMES = [
@@ -254,32 +255,40 @@ export const roles = [
 
 export async function seedRoles(prisma: PrismaClient, permissions: Permission[]) {
   console.log('Creating roles...');
-  const createdRoles = await Promise.all(
-    roles.map((role) =>
-      prisma.role.upsert({
-        where: { name: role.name },
-        update: {
-          code: role.code,
-          description: role.description,
-          isActive: true,
-          dataLevel: role.dataLevel,
-          permissions: {
-            set: role.permissions(permissions).map((id) => ({ id })),
+  const createdRoles: Role[] = [];
+  for (const role of roles) {
+    const existing = await prisma.role.findFirst({
+      where: { name: role.name, ...notDeleted },
+    });
+    const permIds = role.permissions(permissions).map((id) => ({ id }));
+    if (existing) {
+      createdRoles.push(
+        await prisma.role.update({
+          where: { id: existing.id },
+          data: {
+            code: role.code,
+            description: role.description,
+            isActive: true,
+            dataLevel: role.dataLevel,
+            permissions: { set: permIds },
           },
-        },
-        create: {
-          name: role.name,
-          code: role.code,
-          description: role.description,
-          isActive: true,
-          dataLevel: role.dataLevel,
-          permissions: {
-            connect: role.permissions(permissions).map((id) => ({ id })),
+        }),
+      );
+    } else {
+      createdRoles.push(
+        await prisma.role.create({
+          data: {
+            name: role.name,
+            code: role.code,
+            description: role.description,
+            isActive: true,
+            dataLevel: role.dataLevel,
+            permissions: { connect: permIds },
           },
-        },
-      })
-    )
-  );
+        }),
+      );
+    }
+  }
   console.log('Created/Updated roles:', createdRoles.map((r) => r.name));
   return createdRoles;
 } 
