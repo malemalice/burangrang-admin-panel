@@ -8,7 +8,9 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RiskCategoriesService } from './risk-categories.service';
 import { CreateRiskCategoryDto } from './dto/create-risk-category.dto';
 import { UpdateRiskCategoryDto } from './dto/update-risk-category.dto';
@@ -19,6 +21,10 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('Types of hazard')
 @Controller('risk-categories')
@@ -93,7 +99,7 @@ export class RiskCategoriesController {
   @ApiOperation({ summary: 'Delete a type of hazard' })
   @ApiResponse({ status: 200, description: 'The type of hazard has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Type of hazard not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.riskCategoriesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.riskCategoriesService.remove(id, req.user.id);
   }
 } 

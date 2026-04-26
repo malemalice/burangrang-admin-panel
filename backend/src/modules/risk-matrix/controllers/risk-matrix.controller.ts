@@ -8,7 +8,9 @@ import {
   Param,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -30,6 +32,10 @@ import { RiskRating } from '../interfaces/risk-matrix.interface';
 import { RiskMatrixDto } from '../dto/risk-matrix.dto';
 import { CreateRiskMatrixDto } from '../dto/create-risk-matrix.dto';
 import { UpdateRiskMatrixDto } from '../dto/update-risk-matrix.dto';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('risk-matrix')
 @ApiBearerAuth()
@@ -154,7 +160,7 @@ export class RiskMatrixController {
   })
   @ApiResponse({ status: 404, description: 'Risk matrix entry not found.' })
   @Permissions('risk-matrix:delete')
-  removeRiskMatrix(@Param('id') id: string): Promise<void> {
-    return this.riskMatrixService.removeRiskMatrix(id);
+  removeRiskMatrix(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.riskMatrixService.removeRiskMatrix(id, req.user.id);
   }
 }

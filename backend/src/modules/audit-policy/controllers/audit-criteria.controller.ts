@@ -8,7 +8,9 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuditCriteriaService } from '../services/audit-criteria.service';
 import { CreateAuditCriteriaDto } from '../dto/create-audit-criteria.dto';
 import { UpdateAuditCriteriaDto } from '../dto/update-audit-criteria.dto';
@@ -20,6 +22,10 @@ import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { AuditCriteriaDto } from '../dto/audit-criteria.dto';
 import { TransitionTypeEnum } from '@prisma/client';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('audit-criteria')
 @ApiBearerAuth()
@@ -139,8 +145,8 @@ export class AuditCriteriaController {
     description: 'The audit criteria has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Audit criteria not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.auditCriteriaService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.auditCriteriaService.remove(id, req.user.id);
   }
 
   @Get('code/:code')

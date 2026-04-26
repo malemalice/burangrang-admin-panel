@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock, HeartPulse, Send } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -17,6 +17,11 @@ import type { HealthScreeningDetailView } from '../types/healthScreening.types';
 import type { SubmitAnswerDTO } from '@/modules/quizzes/types/quiz.types';
 import type { QuizQuestion } from '@/modules/quizzes/types/quiz.types';
 import { HEALTH_DECLARATION_TERMS } from '../constants/declarationTerms';
+import { PublicAppModuleHeader } from '@/core/components/layout/PublicAppModuleHeader';
+
+const PUBLIC_HEALTH_MODULE_TITLE = 'Health declaration';
+const PUBLIC_HEALTH_MODULE_DESC =
+  'Complete this health declaration using the secure link from your organization. You do not need to sign in.';
 
 function getErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -158,54 +163,82 @@ const PublicHealthScreeningFillPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-24">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-      </div>
+      <>
+        <PublicAppModuleHeader
+          moduleIcon={HeartPulse}
+          moduleTitle={PUBLIC_HEALTH_MODULE_TITLE}
+          moduleDescription={PUBLIC_HEALTH_MODULE_DESC}
+        />
+        <div className="flex justify-center py-24">
+          <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        </div>
+      </>
     );
   }
 
   if (loadError || !screening || !displayQuiz) {
     return (
-      <div className="container mx-auto max-w-lg py-16 px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Link unavailable</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            {loadError ||
-              'This link is invalid or has expired. Please contact your supervisor for a new link.'}
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <PublicAppModuleHeader
+          moduleIcon={HeartPulse}
+          moduleTitle={PUBLIC_HEALTH_MODULE_TITLE}
+          moduleDescription={PUBLIC_HEALTH_MODULE_DESC}
+        />
+        <div className="container mx-auto max-w-lg py-16 px-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Link unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground text-sm">
+              {loadError ||
+                'This link is invalid or has expired. Please contact your supervisor for a new link.'}
+            </CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
   if (submittedDone) {
     return (
-      <div className="container mx-auto max-w-lg py-16 px-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-              <CardTitle>Thank you</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm space-y-2">
-            <p>Your health declaration has been submitted successfully.</p>
-            <p>You can close this page.</p>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <PublicAppModuleHeader
+          moduleIcon={HeartPulse}
+          moduleTitle={PUBLIC_HEALTH_MODULE_TITLE}
+          moduleDescription={PUBLIC_HEALTH_MODULE_DESC}
+        />
+        <div className="container mx-auto max-w-lg py-16 px-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <CardTitle>Thank you</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="text-muted-foreground text-sm space-y-2">
+              <p>Your health declaration has been submitted successfully.</p>
+              <p>You can close this page.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
   if (!displayQuiz.questions?.length) {
     return (
-      <div className="container max-w-4xl py-8">
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">No questions in this template.</CardContent>
-        </Card>
-      </div>
+      <>
+        <PublicAppModuleHeader
+          moduleIcon={HeartPulse}
+          moduleTitle={PUBLIC_HEALTH_MODULE_TITLE}
+          moduleDescription={PUBLIC_HEALTH_MODULE_DESC}
+        />
+        <div className="container max-w-4xl py-8">
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">No questions in this template.</CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
@@ -223,8 +256,14 @@ const PublicHealthScreeningFillPage = () => {
   const emDash = '—';
 
   return (
-    <div className="container mx-auto py-6 max-w-4xl px-4">
-      <Card className="mb-6">
+    <>
+      <PublicAppModuleHeader
+        moduleIcon={HeartPulse}
+        moduleTitle={PUBLIC_HEALTH_MODULE_TITLE}
+        moduleDescription={PUBLIC_HEALTH_MODULE_DESC}
+      />
+      <div className="container mx-auto py-6 max-w-4xl px-4">
+        <Card className="mb-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Confirm who this declaration is for</CardTitle>
           <p className="text-sm text-muted-foreground font-normal mt-1">
@@ -445,7 +484,8 @@ const PublicHealthScreeningFillPage = () => {
         description="You have confirmed the statements above. You will not be able to change answers after submission."
         confirmText="Submit"
       />
-    </div>
+      </div>
+    </>
   );
 };
 

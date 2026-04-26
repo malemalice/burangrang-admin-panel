@@ -18,6 +18,7 @@ import * as nodemailer from 'nodemailer';
 import { SettingsHelperService } from '../../shared/services/settings.service';
 import { ConfigService } from '@nestjs/config';
 import { MAIL_PROVIDERS } from './constants/mail-providers';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class MailService {
@@ -218,8 +219,8 @@ export class MailService {
     const context = payload.context ?? {};
     const subjectOverride = payload.subject;
 
-    const tpl = await this.prisma.emailTemplate.findUnique({
-      where: { code },
+    const tpl = await this.prisma.emailTemplate.findFirst({
+      where: { code, ...isNotDeleted },
     });
     if (!tpl || !tpl.isActive) {
       throw new Error(
@@ -254,8 +255,8 @@ export class MailService {
     attachments?: NonNullable<nodemailer.SendMailOptions['attachments']>,
   ): Promise<void> {
     try {
-      const tpl = await this.prisma.emailTemplate.findUnique({
-        where: { code },
+      const tpl = await this.prisma.emailTemplate.findFirst({
+        where: { code, ...isNotDeleted },
       });
       if (!tpl || !tpl.isActive) {
         this.logger.warn(
@@ -323,6 +324,7 @@ export class MailService {
 
     const where: Prisma.EmailTemplateWhereInput = {
       AND: [
+        { ...isNotDeleted },
         params.isActive === undefined ? {} : { isActive: params.isActive },
         params.search
           ? {
@@ -383,7 +385,7 @@ export class MailService {
   }
 
   async findOneTemplate(id: string): Promise<EmailTemplateDto> {
-    const tpl = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    const tpl = await this.prisma.emailTemplate.findFirst({ where: { id, ...isNotDeleted } });
     if (!tpl) {
       throw new Error('Email template not found');
     }
@@ -392,8 +394,8 @@ export class MailService {
 
   async createTemplate(dto: CreateEmailTemplateDto): Promise<EmailTemplateDto> {
     // Ensure code is unique
-    const existing = await this.prisma.emailTemplate.findUnique({
-      where: { code: dto.code },
+    const existing = await this.prisma.emailTemplate.findFirst({
+      where: { code: dto.code, ...isNotDeleted },
     });
     if (existing) {
       throw new ConflictException('Code already exists');
@@ -414,8 +416,8 @@ export class MailService {
     id: string,
     dto: UpdateEmailTemplateDto,
   ): Promise<EmailTemplateDto> {
-    const existing = await this.prisma.emailTemplate.findUnique({
-      where: { id },
+    const existing = await this.prisma.emailTemplate.findFirst({
+      where: { id, ...isNotDeleted },
     });
     if (!existing) {
       throw new Error('Email template not found');
@@ -433,8 +435,8 @@ export class MailService {
   }
 
   async toggleTemplate(id: string): Promise<EmailTemplateDto> {
-    const existing = await this.prisma.emailTemplate.findUnique({
-      where: { id },
+    const existing = await this.prisma.emailTemplate.findFirst({
+      where: { id, ...isNotDeleted },
     });
     if (!existing) {
       throw new Error('Email template not found');
@@ -446,13 +448,16 @@ export class MailService {
     return new EmailTemplateDto(updated);
   }
 
-  async removeTemplate(id: string): Promise<void> {
-    const existing = await this.prisma.emailTemplate.findUnique({
-      where: { id },
+  async removeTemplate(id: string, deletedBy?: string): Promise<void> {
+    const existing = await this.prisma.emailTemplate.findFirst({
+      where: { id, ...isNotDeleted },
     });
     if (!existing) {
       return;
     }
-    await this.prisma.emailTemplate.delete({ where: { id } });
+    await this.prisma.emailTemplate.update({
+      where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
+    });
   }
 }

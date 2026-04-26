@@ -12,7 +12,7 @@ export class ApproveWorkPermitDto {
 
   @ApiProperty({
     description:
-      'HSE only: set during IN_REVIEW_HSE when approving — require course verification for workers',
+      'HSE only: set during IN_REVIEW_HSE when approving — require the applicant to complete required courses (LMS) before SK sign',
     required: false,
   })
   @IsOptional()

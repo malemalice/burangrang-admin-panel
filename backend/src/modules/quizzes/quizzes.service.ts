@@ -13,6 +13,7 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class QuizzesService {
@@ -113,8 +114,8 @@ export class QuizzesService {
 
     // Validate entity exists if provided
     if (createQuizDto.entity === 'COURSE' && createQuizDto.entityId) {
-      const course = await this.prisma.course.findUnique({
-        where: { id: createQuizDto.entityId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: createQuizDto.entityId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Course', createQuizDto.entityId, course);
     }
@@ -239,8 +240,8 @@ export class QuizzesService {
     // Load course/chapter if entity is set
     let quizWithRelations: any = quiz;
     if (createQuizDto.entity === 'COURSE' && createQuizDto.entityId) {
-      const course = await this.prisma.course.findUnique({
-        where: { id: createQuizDto.entityId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: createQuizDto.entityId, ...isNotDeleted },
         select: {
           id: true,
           title: true,
@@ -465,15 +466,15 @@ export class QuizzesService {
 
       // Validate entity exists if provided
       if (updateQuizDto.entity === 'COURSE' && updateQuizDto.entityId) {
-        const course = await this.prisma.course.findUnique({
-          where: { id: updateQuizDto.entityId },
+        const course = await this.prisma.course.findFirst({
+          where: { id: updateQuizDto.entityId, ...isNotDeleted },
         });
         this.errorHandler.throwIfNotFoundById('Course', updateQuizDto.entityId, course);
       }
 
       if (updateQuizDto.entity === 'CHAPTER' && updateQuizDto.entityId) {
-        const chapter = await this.prisma.chapter.findUnique({
-          where: { id: updateQuizDto.entityId },
+        const chapter = await this.prisma.chapter.findFirst({
+          where: { id: updateQuizDto.entityId, ...isNotDeleted },
         });
         this.errorHandler.throwIfNotFoundById('Chapter', updateQuizDto.entityId, chapter);
       }
@@ -732,13 +733,13 @@ export class QuizzesService {
 
     // Validate entity exists
     if (linkData.entity === 'COURSE') {
-      const course = await this.prisma.course.findUnique({
-        where: { id: linkData.entityId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: linkData.entityId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Course', linkData.entityId, course);
     } else if (linkData.entity === 'CHAPTER') {
-      const chapter = await this.prisma.chapter.findUnique({
-        where: { id: linkData.entityId },
+      const chapter = await this.prisma.chapter.findFirst({
+        where: { id: linkData.entityId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Chapter', linkData.entityId, chapter);
     }

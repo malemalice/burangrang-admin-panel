@@ -6,9 +6,11 @@ import {
   Patch,
   Param,
   Delete,
+  Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -161,7 +163,10 @@ export class OfficesController {
   })
   @ApiResponse({ status: 404, description: 'Office not found.' })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.officesService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.officesService.remove(id, req.user.id);
   }
 }

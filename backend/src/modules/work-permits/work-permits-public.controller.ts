@@ -25,6 +25,8 @@ import { GenerateWorkPermitPublicLinkDto } from './dto/generate-work-permit-publ
 import { PublicWorkPermitLinkResponseDto } from './dto/public-work-permit-link-response.dto';
 import { UpdateWorkPermitDto } from './dto/update-work-permit.dto';
 import { SubmitWorkPermitDto } from './dto/submit-work-permit.dto';
+import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
+import { PublicWorkPermitByTokenResponseDto } from './dto/public-work-permit-by-token-response.dto';
 
 interface RequestWithUser extends Request {
   user: { id: string; email: string; role: string };
@@ -60,7 +62,9 @@ export class WorkPermitsPublicController {
   @ApiOperation({
     summary: 'Get work permit detail for anonymous applicant flow (valid token, no login)',
   })
-  async getPublicByToken(@Param('token') token: string) {
+  async getPublicByToken(
+    @Param('token') token: string,
+  ): Promise<PublicWorkPermitByTokenResponseDto> {
     return this.workPermitsService.getPublicWorkPermitByToken(
       decodeURIComponent(token),
     );
@@ -93,6 +97,23 @@ export class WorkPermitsPublicController {
     @Body() dto: SubmitWorkPermitDto,
   ) {
     return this.workPermitsService.submitPublicWorkPermitByToken(
+      decodeURIComponent(token),
+      dto,
+    );
+  }
+
+  @Post('public/:token/sign-sk')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Sign safety guideline (applicant) in anonymous flow — only WAITING_APPLICANT_SIGN (token)',
+  })
+  @ApiBody({ type: SignSkWorkPermitDto })
+  async signSkPublicByToken(
+    @Param('token') token: string,
+    @Body() dto: SignSkWorkPermitDto,
+  ) {
+    return this.workPermitsService.signSkPublicWorkPermitByToken(
       decodeURIComponent(token),
       dto,
     );

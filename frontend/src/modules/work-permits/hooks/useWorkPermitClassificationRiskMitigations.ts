@@ -6,9 +6,11 @@ import type { WorkPermitClassification } from '../types/work-permit.types';
 
 /**
  * Loads master risk mitigations for every distinct risk referenced on permit classification safety guidance rows.
+ * When `prefetchedMitigationsByRiskId` includes every current risk id (e.g. public token GET), skips JWT `/risk-mitigations` calls.
  */
 export function useWorkPermitClassificationRiskMitigations(
   classifications: WorkPermitClassification[] | undefined,
+  prefetchedMitigationsByRiskId?: Record<string, RiskMitigation[] | null | undefined> | null,
 ) {
   const [mitigationsByRiskId, setMitigationsByRiskId] = useState<Record<string, RiskMitigation[]>>(
     {},
@@ -50,6 +52,20 @@ export function useWorkPermitClassificationRiskMitigations(
   useEffect(() => {
     if (distinctRiskIds.length === 0) return;
 
+    const pref = prefetchedMitigationsByRiskId;
+    if (
+      pref != null &&
+      distinctRiskIds.every((id) => Object.prototype.hasOwnProperty.call(pref, id))
+    ) {
+      if (!isMountedRef.current) return;
+      setMitigationsByRiskId(
+        Object.fromEntries(distinctRiskIds.map((id) => [id, pref[id] ?? []] as const)),
+      );
+      setMitigationsLoadingByRiskId({});
+      setMitigationsErrorByRiskId({});
+      return;
+    }
+
     const loadMitigations = async (riskId: string) => {
       mitigationsInFlightRef.current.add(riskId);
       try {
@@ -79,7 +95,7 @@ export function useWorkPermitClassificationRiskMitigations(
       if (mitigationsInFlightRef.current.has(riskId)) return;
       void loadMitigations(riskId);
     });
-  }, [distinctRiskIds, mitigationsByRiskId]);
+  }, [distinctRiskIds, mitigationsByRiskId, prefetchedMitigationsByRiskId]);
 
   const mitigationsPending =
     distinctRiskIds.length > 0 &&

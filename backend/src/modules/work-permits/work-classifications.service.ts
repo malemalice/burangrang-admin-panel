@@ -8,6 +8,7 @@ import { UpdateWorkClassificationDto } from './dto/update-work-classification.dt
 import { WorkClassificationAttachmentItemDto } from './dto/work-classification-attachment.dto';
 import { WorkClassificationDto } from './dto/work-classification.dto';
 import { WorkClassificationRiskEquipmentItemDto } from './dto/work-classification-risk-equipment.dto';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -121,7 +122,9 @@ export class WorkClassificationsService {
       search,
     } = options || {};
 
-    const where: Prisma.WorkClassificationWhereInput = {};
+    const where: Prisma.WorkClassificationWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -156,8 +159,8 @@ export class WorkClassificationsService {
   }
 
   async findOne(id: string): Promise<WorkClassificationDto> {
-    const row = await this.prisma.workClassification.findUnique({
-      where: { id },
+    const row = await this.prisma.workClassification.findFirst({
+      where: { id, deletedAt: null },
       include: classificationInclude,
     });
 
@@ -167,8 +170,8 @@ export class WorkClassificationsService {
   }
 
   async update(id: string, updateDto: UpdateWorkClassificationDto): Promise<WorkClassificationDto> {
-    const existing = await this.prisma.workClassification.findUnique({
-      where: { id },
+    const existing = await this.prisma.workClassification.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('WorkClassification', id, existing);
@@ -227,11 +230,14 @@ export class WorkClassificationsService {
     return this.classificationMapper(row);
   }
 
-  async remove(id: string): Promise<void> {
-    const row = await this.prisma.workClassification.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const row = await this.prisma.workClassification.findFirst({
+      where: { id, deletedAt: null },
       include: {
         workPermits: {
+          where: {
+            workPermit: { deletedAt: null },
+          },
           select: { id: true },
           take: 1,
         },
@@ -246,8 +252,9 @@ export class WorkClassificationsService {
       );
     }
 
-    await this.prisma.workClassification.delete({
+    await this.prisma.workClassification.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

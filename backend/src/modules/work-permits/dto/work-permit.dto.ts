@@ -102,6 +102,17 @@ export class WorkPermitDto {
   @IsBoolean()
   isActive: boolean;
 
+  @ApiProperty({ description: 'Soft delete timestamp', required: false, nullable: true })
+  @Expose()
+  @IsOptional()
+  deletedAt?: Date | null;
+
+  @ApiProperty({ description: 'User id of actor for soft delete', required: false, nullable: true })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  deletedBy?: string | null;
+
   @ApiProperty({ description: 'When applicant acknowledged HSE safety guideline', required: false })
   @Expose()
   @IsOptional()

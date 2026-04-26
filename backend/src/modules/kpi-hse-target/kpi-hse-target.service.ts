@@ -5,6 +5,7 @@ import { CreateHseTargetDto } from './dto/create-hse-target.dto';
 import { UpdateHseTargetDto } from './dto/update-hse-target.dto';
 import { HseTargetDto } from './dto/hse-target.dto';
 import { HseTargetTypeEnum, MonthEnum } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -60,6 +61,7 @@ export class KpiHseTargetService {
         code: createDto.code,
         month: createDto.month ?? null,
         year: createDto.year,
+        ...isNotDeleted,
       },
     });
 
@@ -102,7 +104,7 @@ export class KpiHseTargetService {
       year,
     } = options || {};
 
-    const where: any = {};
+    const where: any = { ...isNotDeleted };
 
     if (search) {
       where.OR = [
@@ -155,8 +157,8 @@ export class KpiHseTargetService {
   }
 
   async findOne(id: string): Promise<HseTargetDto> {
-    const hseTarget = await this.prisma.hseTarget.findUnique({
-      where: { id },
+    const hseTarget = await this.prisma.hseTarget.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         creator: true,
       },
@@ -168,8 +170,8 @@ export class KpiHseTargetService {
   }
 
   async update(id: string, updateDto: UpdateHseTargetDto): Promise<HseTargetDto> {
-    const existing = await this.prisma.hseTarget.findUnique({
-      where: { id },
+    const existing = await this.prisma.hseTarget.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('HSE target', id, existing);
@@ -185,15 +187,16 @@ export class KpiHseTargetService {
     return this.hseTargetMapper(updated);
   }
 
-  async remove(id: string): Promise<void> {
-    const hseTarget = await this.prisma.hseTarget.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const hseTarget = await this.prisma.hseTarget.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('HSE target', id, hseTarget);
 
-    await this.prisma.hseTarget.delete({
+    await this.prisma.hseTarget.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

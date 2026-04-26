@@ -6,6 +6,7 @@ import { OfficeDto } from './dto/office.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -101,7 +102,9 @@ export class OfficesService {
       isActive,
     } = options || {};
 
-    const where: Prisma.OfficeWhereInput = {};
+    const where: Prisma.OfficeWhereInput = {
+      deletedAt: null,
+    };
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -129,8 +132,8 @@ export class OfficesService {
   }
 
   async findOne(id: string): Promise<OfficeDto> {
-    const office = await this.prisma.office.findUnique({
-      where: { id },
+    const office = await this.prisma.office.findFirst({
+      where: { id, deletedAt: null },
       include: {
         children: true,
         parent: true,
@@ -146,8 +149,8 @@ export class OfficesService {
     id: string,
     updateOfficeDto: UpdateOfficeDto,
   ): Promise<OfficeDto> {
-    const existingOffice = await this.prisma.office.findUnique({
-      where: { id },
+    const existingOffice = await this.prisma.office.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Office', id, existingOffice);
@@ -172,15 +175,16 @@ export class OfficesService {
     return this.officeMapper(office);
   }
 
-  async remove(id: string): Promise<void> {
-    const office = await this.prisma.office.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const office = await this.prisma.office.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Office', id, office);
 
-    await this.prisma.office.delete({
+    await this.prisma.office.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -188,6 +192,7 @@ export class OfficesService {
     const offices = await this.prisma.office.findMany({
       where: {
         parentId: null,
+        deletedAt: null,
       },
       include: {
         children: {

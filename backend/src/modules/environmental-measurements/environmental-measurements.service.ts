@@ -14,6 +14,7 @@ import { UpdateEnvironmentalMeasurementDto } from './dto/update-environmental-me
 import { EnvironmentalMeasurementDto } from './dto/environmental-measurement.dto';
 import { RegulatoryLimitsResponseDto } from './dto/regulatory-limits.dto';
 import { SubmitApprovalDecisionDto } from './dto/submit-approval-decision.dto';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 /** Must match frontend regulatoryLimitComparison.ts */
 const REGULATORY_LIMIT_MODES = {
@@ -110,8 +111,8 @@ export class EnvironmentalMeasurementsService {
   }
 
   async create(createDto: CreateEnvironmentalMeasurementDto, userId: string): Promise<EnvironmentalMeasurementDto> {
-    const room = await this.prisma.room.findUnique({
-      where: { id: createDto.roomId },
+    const room = await this.prisma.room.findFirst({
+      where: { id: createDto.roomId, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Room', createDto.roomId, room);
@@ -146,7 +147,7 @@ export class EnvironmentalMeasurementsService {
       status,
     } = options || {};
 
-    const where: any = {};
+    const where: any = { ...isNotDeleted };
 
     if (search) {
       where.OR = [
@@ -201,8 +202,8 @@ export class EnvironmentalMeasurementsService {
   }
 
   async findOne(id: string): Promise<EnvironmentalMeasurementDto> {
-    const measurement = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+    const measurement = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         room: true,
         creator: true,
@@ -215,15 +216,15 @@ export class EnvironmentalMeasurementsService {
   }
 
   async update(id: string, updateDto: UpdateEnvironmentalMeasurementDto): Promise<EnvironmentalMeasurementDto> {
-    const existing = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+    const existing = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, existing);
 
     if (updateDto.roomId && updateDto.roomId !== existing!.roomId) {
-      const room = await this.prisma.room.findUnique({
-        where: { id: updateDto.roomId },
+      const room = await this.prisma.room.findFirst({
+        where: { id: updateDto.roomId, ...isNotDeleted },
       });
 
       this.errorHandler.throwIfNotFoundById('Room', updateDto.roomId, room);
@@ -246,21 +247,22 @@ export class EnvironmentalMeasurementsService {
     return this.measurementMapper(updated);
   }
 
-  async remove(id: string): Promise<void> {
-    const measurement = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const measurement = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, measurement);
 
-    await this.prisma.environmentalMeasurement.delete({
+    await this.prisma.environmentalMeasurement.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async submit(id: string): Promise<EnvironmentalMeasurementDto> {
-    const measurement = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+    const measurement = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, measurement);
@@ -284,8 +286,8 @@ export class EnvironmentalMeasurementsService {
   }
 
   async requestApproval(id: string): Promise<EnvironmentalMeasurementDto> {
-    const measurement = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+    const measurement = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, measurement);
@@ -304,8 +306,8 @@ export class EnvironmentalMeasurementsService {
   }
 
   async getApprovalStatus(id: string) {
-    const measurement = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+    const measurement = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, measurement);
@@ -345,8 +347,8 @@ export class EnvironmentalMeasurementsService {
     dto: SubmitApprovalDecisionDto,
     userId: string,
   ) {
-    const measurement = await this.prisma.environmentalMeasurement.findUnique({
-      where: { id },
+    const measurement = await this.prisma.environmentalMeasurement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Environmental measurement', id, measurement);

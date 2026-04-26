@@ -13,6 +13,7 @@ import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import { FindEnrollmentsDto } from './dto/find-enrollments.dto';
 import { EnrollmentDto } from './dto/enrollment.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
+import { isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -157,8 +158,8 @@ export class EnrollmentsService {
       const { courseId } = createEnrollmentDto;
 
       // Check if course exists
-      const course = await this.prisma.course.findUnique({
-        where: { id: courseId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: courseId, ...isNotDeleted },
       });
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);
@@ -234,8 +235,8 @@ export class EnrollmentsService {
         sendEmail = true,
       } = assignDto;
 
-      const course = await this.prisma.course.findUnique({
-        where: { id: courseId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: courseId, ...isNotDeleted },
       });
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);

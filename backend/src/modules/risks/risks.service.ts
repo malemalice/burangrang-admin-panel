@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
 import { RiskDto } from './dto/risk.dto';
@@ -22,8 +23,8 @@ export class RisksService {
 
   async create(createRiskDto: CreateRiskDto): Promise<RiskDto> {
     // Verify the type of hazard exists first
-    const riskCategory = await (this.prisma as any).riskCategory.findUnique({
-      where: { id: createRiskDto.riskCategoryId }
+    const riskCategory = await (this.prisma as any).riskCategory.findFirst({
+      where: { id: createRiskDto.riskCategoryId, ...isNotDeleted },
     });
 
     if (!riskCategory) {
@@ -55,7 +56,7 @@ export class RisksService {
     } = options || {};
 
     // Using 'any' as a workaround until the Prisma client is regenerated
-    const where: any = {};
+    const where: any = { ...isNotDeleted };
     
     // MDR-013: Search name field only. Filter 'name' takes precedence over search bar for name.
     if (name) {
@@ -98,8 +99,8 @@ export class RisksService {
   }
 
   async findOne(id: string): Promise<RiskDto> {
-    const risk = await (this.prisma as any).risk.findUnique({
-      where: { id },
+    const risk = await (this.prisma as any).risk.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         riskCategory: true,
         mitigations: true,
@@ -114,8 +115,8 @@ export class RisksService {
   }
 
   async update(id: string, updateRiskDto: UpdateRiskDto): Promise<RiskDto> {
-    const existingRisk = await (this.prisma as any).risk.findUnique({
-      where: { id },
+    const existingRisk = await (this.prisma as any).risk.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     if (!existingRisk) {
@@ -124,8 +125,8 @@ export class RisksService {
 
     // If updating type of hazard ID, verify it exists
     if (updateRiskDto.riskCategoryId) {
-      const riskCategory = await (this.prisma as any).riskCategory.findUnique({
-        where: { id: updateRiskDto.riskCategoryId }
+      const riskCategory = await (this.prisma as any).riskCategory.findFirst({
+        where: { id: updateRiskDto.riskCategoryId, ...isNotDeleted },
       });
 
       if (!riskCategory) {
@@ -145,11 +146,11 @@ export class RisksService {
     return this.mapToDto(updatedRisk);
   }
 
-  async remove(id: string): Promise<void> {
-    const risk = await (this.prisma as any).risk.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const risk = await (this.prisma as any).risk.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
-        mitigations: true,
+        mitigations: { where: { ...isNotDeleted } },
       },
     });
 
@@ -162,8 +163,9 @@ export class RisksService {
       throw new NotFoundException(`Cannot delete risk with ID ${id} because it has associated mitigations`);
     }
 
-    await (this.prisma as any).risk.delete({
+    await (this.prisma as any).risk.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 

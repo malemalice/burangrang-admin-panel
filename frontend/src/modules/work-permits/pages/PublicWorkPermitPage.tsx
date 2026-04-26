@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { ClipboardList, PenLine } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -10,28 +11,33 @@ import { Label } from '@/core/components/ui/label';
 import { Separator } from '@/core/components/ui/separator';
 import { Textarea } from '@/core/components/ui/textarea';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/core/components/ui/table';
-import { format } from 'date-fns';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
 import workPermitService from '../services/workPermitService';
 import type { UpdateWorkPermitDTO, WorkPermit } from '../types/work-permit.types';
+import { PublicWorkPermitReadOnlyDetail } from '../components/PublicWorkPermitReadOnlyDetail';
 import { WorkPermitSafetyGuidelineDisplay } from '../components/WorkPermitSafetyGuidelineDisplay';
 import { WorkPermitSection, WorkPermitSubsectionTitle } from '../components/WorkPermitSection';
-import {
-  WORK_PERMIT_SECTIONS,
-  WORK_PERMIT_SECTION_A_SUB,
-  WORK_PERMIT_SECTION_B_SUB,
-  WORK_PERMIT_SECTION_C_SUB,
-  WORK_PERMIT_SECTION_D_SUB,
-  WORK_PERMIT_SECTION_E_SUB,
-  WORK_PERMIT_SECTION_F_SUB,
-  WORK_PERMIT_SECTION_G_SUB,
-} from '../constants/workPermitSections';
+import { WORK_PERMIT_SECTION_G_SUB } from '../constants/workPermitSections';
+import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
+import { PublicAppModuleHeader } from '@/core/components/layout/PublicAppModuleHeader';
+import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
+import type {
+  PublicWorkPermitCourseAssignee,
+  PublicWorkPermitCourseVerification,
+  WorkPermitPublicApplicantPhase,
+} from '../types/work-permit.types';
+
+const PUBLIC_WORK_PERMIT_MODULE_TITLE = 'Work permit (public)';
+const PUBLIC_WORK_PERMIT_MODULE_DESC =
+  'Complete or view this work permit using the secure link from your organization. You do not need to sign in.';
 
 function getErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -49,6 +55,12 @@ const displayField = (v: string | number | boolean | null | undefined) => {
   const s = String(v).trim();
   return s !== '' ? s : '—';
 };
+
+function assigneeSourceLabel(source: PublicWorkPermitCourseAssignee['source']): string {
+  if (source === 'applicant') return 'Applicant';
+  if (source === 'worker') return 'Worker';
+  return 'Employee';
+}
 
 type HazardDraft = {
   hazardId?: string;
@@ -69,11 +81,31 @@ const PublicWorkPermitPage = () => {
   const token = tokenParam ? decodeURIComponent(tokenParam) : '';
 
   const [workPermit, setWorkPermit] = useState<WorkPermit | null>(null);
-  const [isEditable, setIsEditable] = useState(false);
+  const [applicantPhase, setApplicantPhase] = useState<WorkPermitPublicApplicantPhase | null>(null);
+  const [canEditDraft, setCanEditDraft] = useState(false);
+  const [canSignSk, setCanSignSk] = useState(false);
+  const [canSignSkAction, setCanSignSkAction] = useState(false);
+  const [courseVerification, setCourseVerification] = useState<PublicWorkPermitCourseVerification | null>(null);
+  const [mitigationsByRiskIdPrefetch, setMitigationsByRiskIdPrefetch] = useState<
+    Record<string, RiskMitigation[]> | undefined
+  >(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [signSkDialogOpen, setSignSkDialogOpen] = useState(false);
+  const [applicantSignature, setApplicantSignature] = useState('');
+  const [signingSk, setSigningSk] = useState(false);
+
+  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
+  const {
+    mitigationsByRiskId,
+    mitigationsLoadingByRiskId,
+    mitigationsErrorByRiskId,
+  } = useWorkPermitClassificationRiskMitigations(
+    workPermit?.classifications,
+    mitigationsByRiskIdPrefetch,
+  );
 
   // Minimal editable fields (avoid depending on authenticated master-data endpoints).
   const [projectName, setProjectName] = useState('');
@@ -86,7 +118,26 @@ const PublicWorkPermitPage = () => {
   const [hazards, setHazards] = useState<HazardDraft[]>([]);
   const [attachments, setAttachments] = useState<AttachmentDraft[]>([]);
 
-  const canEdit = isEditable;
+  const isApplicantActionPhase = canEditDraft || canSignSk;
+
+  const hasSafetyGuidanceRows = useMemo(
+    () => (workPermit?.classifications ?? []).some((c) => (c.safetyGuidanceRows?.length ?? 0) > 0),
+    [workPermit?.classifications],
+  );
+  const hasWorkClassificationDescription = useMemo(
+    () =>
+      (workPermit?.classifications ?? []).some((c) => Boolean(c.workClassification?.description?.trim())),
+    [workPermit?.classifications],
+  );
+  const hasGuidelineNarrativePublic = useMemo(
+    () =>
+      classificationContentEnabled &&
+      (workPermit?.classifications ?? []).some((c) => {
+        const h = c.safetyGuidelineSnapshot?.trim() || c.workClassification?.safetyGuideline?.trim();
+        return Boolean(h);
+      }),
+    [workPermit?.classifications, classificationContentEnabled],
+  );
 
   const hydrateEditableState = useCallback((wp: WorkPermit) => {
     setProjectName(wp.projectName ?? '');
@@ -125,7 +176,12 @@ const PublicWorkPermitPage = () => {
     try {
       const res = await workPermitService.getPublicByToken(token);
       setWorkPermit(res.workPermit);
-      setIsEditable(res.isEditable === true);
+      setApplicantPhase(res.applicantPhase);
+      setCanEditDraft(res.canEditDraft);
+      setCanSignSk(res.canSignSk);
+      setCanSignSkAction(res.canSignSkAction);
+      setCourseVerification(res.courseVerification);
+      setMitigationsByRiskIdPrefetch(res.mitigationsByRiskId);
       hydrateEditableState(res.workPermit);
     } catch (e) {
       const msg = getErrorMessage(e);
@@ -145,20 +201,6 @@ const PublicWorkPermitPage = () => {
     if (!s) return null;
     return <Badge variant="secondary">{s.replace(/_/g, ' ')}</Badge>;
   }, [workPermit?.status]);
-
-  const showSectionG = useMemo(() => {
-    const cls = workPermit?.classifications ?? [];
-    const hasRows = cls.some((c) => (c.safetyGuidanceRows?.length ?? 0) > 0);
-    const hasNarrative = cls.some((c) => {
-      const h =
-        c.safetyGuidelineSnapshot?.trim() ||
-        c.workClassification?.safetyGuideline?.trim() ||
-        '';
-      return Boolean(h);
-    });
-    const hasDesc = cls.some((c) => Boolean(c.workClassification?.description?.trim()));
-    return hasRows || hasNarrative || hasDesc;
-  }, [workPermit?.classifications]);
 
   const buildUpdatePayload = (): UpdateWorkPermitDTO => {
     return {
@@ -193,7 +235,7 @@ const PublicWorkPermitPage = () => {
   };
 
   const handleSave = async () => {
-    if (!token || !canEdit) return;
+    if (!token || !canEditDraft) return;
     setSaving(true);
     try {
       const updated = await workPermitService.updatePublicByToken(
@@ -211,7 +253,7 @@ const PublicWorkPermitPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!token || !canEdit) return;
+    if (!token || !canEditDraft) return;
     setSubmitting(true);
     try {
       await workPermitService.submitPublicByToken(token);
@@ -224,33 +266,73 @@ const PublicWorkPermitPage = () => {
     }
   };
 
+  const handleSignSk = async () => {
+    if (!token || !canSignSkAction) return;
+    setSigningSk(true);
+    try {
+      const updated = await workPermitService.signSkPublicByToken(
+        token,
+        applicantSignature.trim() || undefined,
+      );
+      setWorkPermit(updated);
+      hydrateEditableState(updated);
+      setSignSkDialogOpen(false);
+      setApplicantSignature('');
+      toast.success('Signed — permit sent for security review');
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    } finally {
+      setSigningSk(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center py-24">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-      </div>
+      <>
+        <PublicAppModuleHeader
+          moduleIcon={ClipboardList}
+          moduleTitle={PUBLIC_WORK_PERMIT_MODULE_TITLE}
+          moduleDescription={PUBLIC_WORK_PERMIT_MODULE_DESC}
+        />
+        <div className="flex justify-center py-24">
+          <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        </div>
+      </>
     );
   }
 
   if (loadError || !workPermit) {
     return (
-      <div className="container mx-auto max-w-lg py-16 px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Link unavailable</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            {loadError ||
-              'This link is invalid or has expired. Please contact your supervisor for a new link.'}
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <PublicAppModuleHeader
+          moduleIcon={ClipboardList}
+          moduleTitle={PUBLIC_WORK_PERMIT_MODULE_TITLE}
+          moduleDescription={PUBLIC_WORK_PERMIT_MODULE_DESC}
+        />
+        <div className="container mx-auto max-w-lg py-16 px-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Link unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground text-sm">
+              {loadError ||
+                'This link is invalid or has expired. Please contact your supervisor for a new link.'}
+            </CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl px-4 space-y-6">
-      <Card>
+    <>
+      <PublicAppModuleHeader
+        moduleIcon={ClipboardList}
+        moduleTitle={PUBLIC_WORK_PERMIT_MODULE_TITLE}
+        moduleDescription={PUBLIC_WORK_PERMIT_MODULE_DESC}
+      />
+      <div className="container mx-auto py-8 max-w-4xl px-4 space-y-6">
+        <Card>
         <CardHeader className="space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
@@ -259,13 +341,22 @@ const PublicWorkPermitPage = () => {
                 {displayField(workPermit.projectName)}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               {statusBadge}
-              {canEdit ? (
-                <Badge className="bg-primary text-primary-foreground">Editable</Badge>
-              ) : (
-                <Badge variant="outline">Read-only</Badge>
-              )}
+              {applicantPhase ? (
+                <Badge variant="outline" className="text-xs">
+                  {applicantPhase === 'draft' && 'Phase: fill & submit'}
+                  {applicantPhase === 'sign_sk' && 'Phase: sign-off'}
+                  {applicantPhase === 'view' && 'Phase: view only'}
+                </Badge>
+              ) : null}
+              {canEditDraft ? (
+                <Badge className="bg-primary text-primary-foreground">You can edit & submit</Badge>
+              ) : null}
+              {canSignSk ? (
+                <Badge className="bg-amber-600 text-white hover:bg-amber-600">Action: sign safety guideline</Badge>
+              ) : null}
+              {!isApplicantActionPhase ? <Badge variant="outline">View only</Badge> : null}
             </div>
           </div>
         </CardHeader>
@@ -299,10 +390,10 @@ const PublicWorkPermitPage = () => {
         </CardContent>
       </Card>
 
-      {canEdit ? (
+      {canEditDraft ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Fill work permit</CardTitle>
+            <CardTitle className="text-base">Fill work permit (draft)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -577,533 +668,179 @@ const PublicWorkPermitPage = () => {
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-6">
-          <WorkPermitSection id="public-work-permit-section-a" title={WORK_PERMIT_SECTIONS.A}>
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_A_SUB.classifications}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.classifications?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No classifications selected.</p>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {workPermit.classifications!.map((c) => (
-                        <Badge key={c.id} variant="secondary">
-                          {c.workClassification
-                            ? `${c.workClassification.name ?? ''}${c.workClassification.code ? ` (${c.workClassification.code})` : ''}`.trim() ||
-                              '—'
-                            : '—'}
-                        </Badge>
-                      ))}
-                    </div>
-                    {workPermit.workClassificationOtherDetail?.trim() ? (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Others (detail)</p>
-                        <p className="text-sm whitespace-pre-wrap">{workPermit.workClassificationOtherDetail}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </WorkPermitSection>
+      ) : null}
 
-          <WorkPermitSection id="public-work-permit-section-b" title={WORK_PERMIT_SECTIONS.B}>
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.projectSchedule}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <Label className="text-muted-foreground">Status</Label>
-                      <div className="mt-1">{statusBadge}</div>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Created by</Label>
-                      <p className="mt-1">
-                        {displayField(
-                          workPermit.creator
-                            ? `${workPermit.creator.firstName ?? ''} ${workPermit.creator.lastName ?? ''}`.trim() ||
-                                workPermit.creator.email
-                            : workPermit.createdBy,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Applicant (Contractor)</Label>
-                      <p className="mt-1">
-                        {displayField(
-                          workPermit.applicant
-                            ? `${workPermit.applicant.firstName ?? ''} ${workPermit.applicant.lastName ?? ''}`.trim() ||
-                                workPermit.applicant.email
-                            : workPermit.applicantUserId,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Project name</Label>
-                      <p className="mt-1">{displayField(workPermit.projectName)}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Area</Label>
-                      <p className="mt-1">{displayField(workPermit.area?.name)}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Company</Label>
-                      <p className="mt-1">
-                        {displayField(workPermit.company?.name)}
-                        {workPermit.company?.phone ? ` · ${workPermit.company.phone}` : ''}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Proposed start date</Label>
-                      <p className="mt-1">
-                        {workPermit.proposedStartDate
-                          ? format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')
-                          : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Proposed end date</Label>
-                      <p className="mt-1">
-                        {workPermit.proposedEndDate
-                          ? format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')
-                          : '—'}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workDescription}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm">
-                  <div>
-                    <Label className="text-muted-foreground">Work stages description</Label>
-                    <p className="mt-1 whitespace-pre-wrap">
-                      {displayField(workPermit.workStagesDescription)}
-                    </p>
-                  </div>
-                  {workPermit.jobSafetyAnalysis?.trim() ? (
-                    <div>
-                      <Label className="text-muted-foreground">Job safety analysis</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{workPermit.jobSafetyAnalysis}</p>
-                    </div>
-                  ) : null}
-                  {workPermit.workRequirements?.trim() ? (
-                    <div>
-                      <Label className="text-muted-foreground">Work requirements</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{workPermit.workRequirements}</p>
-                    </div>
-                  ) : null}
-                  <div>
-                    <Label className="text-muted-foreground">Applicant sign-off (HSE safety guideline)</Label>
-                    <p className="mt-1">
-                      {workPermit.applicantSignedAt
-                        ? format(new Date(workPermit.applicantSignedAt), 'MMM dd, yyyy HH:mm')
-                        : 'Not signed yet'}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.workers?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No workers listed.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {workPermit.workers!.map((w) => (
-                        <div key={w.id} className="flex items-center justify-between p-2 border rounded-md text-sm">
-                          <div>
-                            <p className="font-medium">
-                              {w.user
-                                ? `${w.user.firstName ?? ''} ${w.user.lastName ?? ''}`.trim() ||
-                                  w.user.email ||
-                                  'Unknown'
-                                : 'Unknown'}
-                            </p>
-                            {w.profession ? (
-                              <p className="text-muted-foreground">
-                                {w.profession.name} ({w.profession.code})
-                              </p>
-                            ) : null}
-                            {w.idNumber ? (
-                              <p className="text-muted-foreground">ID: {w.idNumber}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.employees}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.employees?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No employees listed.</p>
-                  ) : (
-                    <ul className="space-y-2 text-sm">
-                      {workPermit.employees!.map((e) => (
-                        <li key={e.id} className="border rounded-md p-2">
-                          {e.user
-                            ? `${e.user.firstName ?? ''} ${e.user.lastName ?? ''}`.trim() ||
-                              e.user.email ||
-                              '—'
-                            : displayField(e.employeeName)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.supervisors}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.supervisors?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No supervisors listed.</p>
-                  ) : (
-                    <ul className="space-y-2 text-sm">
-                      {workPermit.supervisors!.map((s) => (
-                        <li key={s.id} className="border rounded-md p-2">
-                          {s.guest?.phone
-                            ? `${displayField(s.guest?.name)} · ${s.guest.phone}`
-                            : displayField(s.guest?.name)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.hseOfficers}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.hseOfficers?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No HSE officers listed.</p>
-                  ) : (
-                    <ul className="space-y-2 text-sm">
-                      {workPermit.hseOfficers!.map((h) => (
-                        <li key={h.id} className="border rounded-md p-2">
-                          {h.user
-                            ? `${h.user.firstName ?? ''} ${h.user.lastName ?? ''}`.trim() ||
-                              h.user.email ||
-                              '—'
-                            : '—'}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </WorkPermitSection>
-
-          <WorkPermitSection id="public-work-permit-section-c" title={WORK_PERMIT_SECTIONS.C}>
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.tools}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.tools?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No items.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Code</TableHead>
-                          <TableHead className="w-24 text-right">Qty</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workPermit.tools!.map((t) => (
-                          <TableRow key={t.id}>
-                            <TableCell>{displayField(t.tool?.name)}</TableCell>
-                            <TableCell>{displayField(t.tool?.code)}</TableCell>
-                            <TableCell className="text-right">{t.quantity}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.machines}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.machines?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No items.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Code</TableHead>
-                          <TableHead className="w-24 text-right">Qty</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workPermit.machines!.map((m) => (
-                          <TableRow key={m.id}>
-                            <TableCell>{displayField(m.machine?.name)}</TableCell>
-                            <TableCell>{displayField(m.machine?.code)}</TableCell>
-                            <TableCell className="text-right">{m.quantity}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.materials}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.materials?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No items.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Code</TableHead>
-                          <TableHead className="w-24 text-right">Qty</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workPermit.materials!.map((m) => (
-                          <TableRow key={m.id}>
-                            <TableCell>{displayField(m.material?.name)}</TableCell>
-                            <TableCell>{displayField(m.material?.code)}</TableCell>
-                            <TableCell className="text-right">{m.quantity}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_C_SUB.heavyEquipment}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.heavyEquipment?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No items.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Code</TableHead>
-                          <TableHead className="w-24 text-right">Qty</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workPermit.heavyEquipment!.map((e) => (
-                          <TableRow key={e.id}>
-                            <TableCell>{displayField(e.heavyEquipment?.name)}</TableCell>
-                            <TableCell>{displayField(e.heavyEquipment?.code)}</TableCell>
-                            <TableCell className="text-right">{e.quantity}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </WorkPermitSection>
-
-          <WorkPermitSection id="public-work-permit-section-d" title={WORK_PERMIT_SECTIONS.D}>
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_D_SUB.hazards}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.hazards?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No hazard rows.</p>
-                ) : (
-                  <Table className="table-fixed w-full">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">No</TableHead>
-                        <TableHead className="w-[22%] min-w-0">Hazard name</TableHead>
-                        <TableHead className="min-w-0">Activity</TableHead>
-                        <TableHead className="min-w-0">Mitigation</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workPermit.hazards!.map((h, i) => (
-                        <TableRow key={h.id}>
-                          <TableCell className="align-top text-muted-foreground">{i + 1}</TableCell>
-                          <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
-                            {displayField(h.hazardName)}
-                          </TableCell>
-                          <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
-                            {displayField(h.activity)}
-                          </TableCell>
-                          <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
-                            {displayField(h.mitigation)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </WorkPermitSection>
-
-          <WorkPermitSection id="public-work-permit-section-e" title={WORK_PERMIT_SECTIONS.E}>
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_E_SUB.selectedEquipment}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.safetyEquipment?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No safety equipment selected.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {workPermit.safetyEquipment!.map((s) => (
-                      <Badge key={s.id} variant="secondary">
-                        {s.safetyEquipment
-                          ? `${s.safetyEquipment.name ?? ''}${s.safetyEquipment.code ? ` (${s.safetyEquipment.code})` : ''}`.trim() ||
-                            '—'
-                          : '—'}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </WorkPermitSection>
-
-          {showSectionG ? (
-            <WorkPermitSection id="public-work-permit-section-g" title={WORK_PERMIT_SECTIONS.G}>
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  <WorkPermitSafetyGuidelineDisplay classifications={workPermit.classifications} />
-                </CardContent>
-              </Card>
-            </WorkPermitSection>
-          ) : null}
-
-          <WorkPermitSection id="public-work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.courseVerification}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm">
-                    Require course verification:{' '}
-                    <span className="font-medium">{workPermit.requireCourseVerification ? 'Yes' : 'No'}</span>
+      {canSignSk ? (
+        <WorkPermitSection
+          id="public-work-permit-section-sk-ack"
+          title="Safety Guideline Acknowledgment"
+        >
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {courseVerification?.enabled && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Course verification (HSE / LMS)</p>
+                  <p className="text-xs text-muted-foreground">
+                    The applicant must complete the required course(s) in the HSE app (signed in) before
+                    you can sign. Completion is stored on the user profile.
                   </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.requiredCourses}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.requiredCourses?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No required courses.</p>
+                  {courseVerification.assignees.length > 0 ? (
+                    <ul className="text-sm list-disc pl-4 space-y-1">
+                      {courseVerification.assignees.map((a) => (
+                        <li key={a.userId}>
+                          {a.displayName} ({assigneeSourceLabel(a.source)})
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Course</TableHead>
-                          <TableHead className="w-28">Required</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workPermit.requiredCourses!.map((c) => (
-                          <TableRow key={c.id}>
-                            <TableCell>{displayField(c.course?.title)}</TableCell>
-                            <TableCell>{c.isRequired ? 'Yes' : 'No'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    <p className="text-sm text-muted-foreground">
+                      Applicant is not linked to a user for course checks. Contact HSE if this is unexpected.
+                    </p>
                   )}
-                </CardContent>
-              </Card>
+                  {courseVerification.requiredCourses.length > 0 && courseVerification.assignees.length > 0 && (
+                    <div className="border rounded-md overflow-x-auto text-sm">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            <th className="p-2 font-medium">Course</th>
+                            {courseVerification.assignees.map((a) => (
+                              <th key={a.userId} className="p-2 font-medium min-w-[7rem]">
+                                {a.displayName}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {courseVerification.requiredCourses
+                            .filter((rc) => rc.isRequired)
+                            .map((rc) => (
+                              <tr key={rc.courseId} className="border-b last:border-0">
+                                <td className="p-2 align-top">
+                                  {rc.courseTitle || rc.courseId}
+                                </td>
+                                {courseVerification.assignees.map((a) => {
+                                  const done = rc.userCompletions[a.userId] === true;
+                                  return (
+                                    <td key={a.userId} className="p-2 align-top">
+                                      <span className={done ? 'text-primary font-medium' : 'text-destructive font-medium'}>
+                                        {done ? 'Complete' : 'Not complete'}
+                                      </span>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {!canSignSkAction && (courseVerification.unmetMessages.length > 0 || !courseVerification.allRequiredCompleted) ? (
+                    <Alert variant="destructive">
+                      <p className="text-sm font-semibold">Sign-off blocked</p>
+                      <AlertDescription>
+                        <ul className="list-disc pl-4 space-y-1">
+                          {courseVerification.unmetMessages.length > 0
+                            ? courseVerification.unmetMessages.map((m, i) => <li key={i}>{m}</li>)
+                            : <li>Complete all required course assignments before signing.</li>}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              )}
 
-              <Card>
-                <CardHeader>
-                  <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.attachments}</WorkPermitSubsectionTitle>
-                </CardHeader>
-                <CardContent>
-                  {(workPermit.attachments?.length ?? 0) === 0 ? (
-                    <p className="text-sm text-muted-foreground">No attachments.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>File</TableHead>
-                          <TableHead>Description</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workPermit.attachments!.map((a) => (
-                          <TableRow key={a.id}>
-                            <TableCell>
-                              <a
-                                href={a.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline underline-offset-2"
-                              >
-                                {displayField(a.fileName)}
-                              </a>
-                            </TableCell>
-                            <TableCell className="whitespace-pre-wrap">
-                              {displayField(a.description)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              {hasSafetyGuidanceRows || hasGuidelineNarrativePublic || hasWorkClassificationDescription ? (
+                <WorkPermitSafetyGuidelineDisplay
+                  classifications={workPermit.classifications}
+                  showGuidelineNarrative={classificationContentEnabled}
+                  mitigationsByRiskId={mitigationsByRiskId}
+                  mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                  mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  When Section G is present below, read the full safety content there, then use Open sign-off to
+                  complete your acknowledgment.
+                </p>
+              )}
+              <Button
+                type="button"
+                onClick={() => setSignSkDialogOpen(true)}
+                className="w-full sm:w-auto"
+                disabled={!canSignSkAction}
+              >
+                <PenLine className="mr-2 h-4 w-4" />
+                Open sign-off
+              </Button>
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+      ) : null}
+
+      <PublicWorkPermitReadOnlyDetail
+        workPermit={workPermit}
+        hideSectionG={canSignSk}
+        mitigationsByRiskIdPrefetched={mitigationsByRiskIdPrefetch}
+        courseVerificationNote={
+          workPermit.requireCourseVerification
+            ? 'When course verification is required, the applicant completes the listed courses in the HSE app (signed in). Completion is recorded on the user profile. This public page does not run course quizzes here.'
+            : undefined
+        }
+      />
+
+      <Dialog open={signSkDialogOpen} onOpenChange={setSignSkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign Safety Guideline (SK)</DialogTitle>
+            <DialogDescription>
+              Confirm that you have reviewed and accepted the safety guideline from HSE.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Safety Guideline</Label>
+              {hasSafetyGuidanceRows || hasGuidelineNarrativePublic || hasWorkClassificationDescription ? (
+                <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto mt-2">
+                  <WorkPermitSafetyGuidelineDisplay
+                    classifications={workPermit.classifications}
+                    showGuidelineNarrative={classificationContentEnabled}
+                    mitigationsByRiskId={mitigationsByRiskId}
+                    mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+                    mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Guideline text may appear in Section G on this page. You can still confirm and submit your
+                  sign-off below.
+                </p>
+              )}
             </div>
-          </WorkPermitSection>
-        </div>
-      )}
-    </div>
+            <div>
+              <Label>Signature / Acknowledgment (optional)</Label>
+              <Input
+                value={applicantSignature}
+                onChange={(e) => setApplicantSignature(e.target.value)}
+                placeholder="Type your name or signature token"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignSkDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSignSk} disabled={signingSk || !canSignSkAction}>
+              {signingSk ? 'Signing...' : 'Sign & continue'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </div>
+    </>
   );
 };
 

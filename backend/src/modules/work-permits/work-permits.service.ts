@@ -24,7 +24,15 @@ import { WorkPermitStatusEnum } from './dto/work-permit.dto';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, EnrollmentStatusEnum } from '@prisma/client';
+import type {
+  PublicWorkPermitByTokenResponseDto,
+  PublicWorkPermitCourseAssigneeDto,
+  PublicWorkPermitCourseVerificationDto,
+  PublicWorkPermitRequiredCourseStatusDto,
+  PublicWorkPermitRiskMitigationItemDto,
+  WorkPermitPublicApplicantPhase,
+} from './dto/public-work-permit-by-token-response.dto';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
 import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
@@ -35,6 +43,7 @@ import { SettingsHelperService } from '../../shared/services/settings.service';
 import { WorkPermitPublicLinkService } from './services/work-permit-public-link.service';
 import { GenerateWorkPermitPublicLinkDto } from './dto/generate-work-permit-public-link.dto';
 import { PublicWorkPermitLinkResponseDto } from './dto/public-work-permit-link-response.dto';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -390,6 +399,9 @@ export class WorkPermitsService {
       include: { creator: true },
     });
     this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
+    if (workPermit.deletedAt) {
+      this.errorHandler.throwIfNotFoundById('WorkPermit', id, null);
+    }
     const recordForCheck = {
       createdBy: workPermit.createdBy,
       applicantUserId: (workPermit as any).applicantUserId,
@@ -488,8 +500,8 @@ export class WorkPermitsService {
   ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
       // Resolve creator role (for contractor vs internal branching)
-      const creatorUser = await this.prisma.user.findUnique({
-        where: { id: createdBy },
+      const creatorUser = await this.prisma.user.findFirst({
+        where: { id: createdBy, deletedAt: null },
         include: { role: true },
       });
       this.errorHandler.throwIfNotFoundById('User', createdBy, creatorUser);
@@ -513,8 +525,8 @@ export class WorkPermitsService {
           this.errorHandler.throwBadRequest('applicantUserId is required when creating a work permit on behalf');
         }
 
-        const applicant = await this.prisma.user.findUnique({
-          where: { id: requestedApplicantId },
+        const applicant = await this.prisma.user.findFirst({
+          where: { id: requestedApplicantId, deletedAt: null },
           include: { role: true },
         });
         this.errorHandler.throwIfNotFoundById('Applicant user', requestedApplicantId, applicant);
@@ -537,15 +549,15 @@ export class WorkPermitsService {
         applicantUserId = requestedApplicantId;
       }
 
-      // Validate area exists
-      const area = await this.prisma.area.findUnique({
-        where: { id: createDto.areaId },
+      // Validate area exists and is not soft-deleted
+      const area = await this.prisma.area.findFirst({
+        where: { id: createDto.areaId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Area', createDto.areaId, area);
 
-      // Validate company exists
-      const company = await this.prisma.company.findUnique({
-        where: { id: createDto.companyId },
+      // Validate company exists and is not soft-deleted
+      const company = await this.prisma.company.findFirst({
+        where: { id: createDto.companyId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Company', createDto.companyId, company);
 
@@ -916,8 +928,8 @@ export class WorkPermitsService {
     const riskIds = [...new Set(input.rows.map((r) => r.riskId))];
     const equipmentIds = [...new Set(input.rows.map((r) => r.safetyEquipmentId))];
     const [risks, equipments] = await Promise.all([
-      this.prisma.risk.findMany({ where: { id: { in: riskIds } } }),
-      this.prisma.safetyEquipment.findMany({ where: { id: { in: equipmentIds } } }),
+      this.prisma.risk.findMany({ where: { id: { in: riskIds }, ...isNotDeleted } }),
+      this.prisma.safetyEquipment.findMany({ where: { id: { in: equipmentIds }, ...isNotDeleted } }),
     ]);
     const riskMap = new Map(risks.map((r) => [r.id, r]));
     const eqMap = new Map(equipments.map((e) => [e.id, e]));
@@ -1251,7 +1263,9 @@ export class WorkPermitsService {
       const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
       const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));
 
-      const where: Prisma.WorkPermitWhereInput = {};
+      const where: Prisma.WorkPermitWhereInput = {
+        deletedAt: null,
+      };
 
       // WP-046: Default to active records only (hide soft-deleted)
       if (isActive === false) {
@@ -1416,16 +1430,16 @@ export class WorkPermitsService {
   ): Promise<WorkPermitDto> {
     // Validate area if provided
     if (updateDto.areaId) {
-      const area = await this.prisma.area.findUnique({
-        where: { id: updateDto.areaId },
+      const area = await this.prisma.area.findFirst({
+        where: { id: updateDto.areaId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Area', updateDto.areaId, area);
     }
 
     // Validate company if provided
     if (updateDto.companyId) {
-      const company = await this.prisma.company.findUnique({
-        where: { id: updateDto.companyId },
+      const company = await this.prisma.company.findFirst({
+        where: { id: updateDto.companyId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Company', updateDto.companyId, company);
     }
@@ -1760,7 +1774,7 @@ export class WorkPermitsService {
       // Soft delete
       await this.prisma.workPermit.update({
         where: { id },
-        data: { isActive: false },
+        data: buildSoftDeleteDataWithInactive(userContext?.userId),
       });
     }, 'Deleting work permit');
   }
@@ -2059,6 +2073,8 @@ export class WorkPermitsService {
       if (!(await this.permitHasSafetyGuidelineContent(id))) {
         this.errorHandler.throwBadRequest('Safety guideline is not available yet. Please wait for HSE to provide it.');
       }
+
+      await this.assertCourseVerificationAllowsSignSk(id);
 
       const updated = await this.prisma.workPermit.update({
         where: { id },
@@ -2642,17 +2658,17 @@ export class WorkPermitsService {
       async () => {
         const [areas, companies, workClassifications, guests, heavyEquipment, tools, materials, machines, professions, applicants] = await Promise.all([
           this.prisma.area.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.company.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true, phone: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.workClassification.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: {
               id: true,
               name: true,
@@ -2686,38 +2702,39 @@ export class WorkPermitsService {
             orderBy: { name: 'asc' },
           }),
           this.prisma.guest.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, email: true, phone: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.heavyEquipment.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.tool.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.material.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.machine.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.profession.findMany({
-            where: { isActive: true },
+            where: { isActive: true, ...isNotDeleted },
             select: { id: true, name: true, code: true },
             orderBy: { name: 'asc' },
           }),
           this.prisma.user.findMany({
             where: {
               isActive: true,
+              ...isNotDeleted,
               role: { code: 'CONTRACTOR' },
             },
             select: {
@@ -2763,6 +2780,7 @@ export class WorkPermitsService {
         const latest = await this.prisma.workPermit.findFirst({
           where: {
             isActive: true,
+            deletedAt: null,
             applicantUserId: dto.userId,
           } as any,
           orderBy: { updatedAt: 'desc' },
@@ -2809,6 +2827,217 @@ export class WorkPermitsService {
     }, 'Generate work permit public link');
   }
 
+  private static formatUserLabel(user: { firstName?: string; lastName?: string; email?: string } | null | undefined): string {
+    if (!user) return '—';
+    const n = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+    if (n) return n;
+    return user.email?.trim() || '—';
+  }
+
+  /**
+   * The permit applicant (same user as public link) must complete required courses when
+   * `requireCourseVerification` is on (HSE-gated; LMS = Enrollment COMPLETED).
+   * Resolves user id as `applicantUserId ?? createdBy` to match the public link contract.
+   */
+  private async buildPublicCourseVerification(
+    workPermit: {
+      id: string;
+      requireCourseVerification: boolean;
+      createdBy: string;
+      applicantUserId?: string | null;
+      requiredCourses: Array<{
+        courseId: string;
+        isRequired: boolean;
+        course?: { title?: string | null } | null;
+      }>;
+      applicant?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+      } | null;
+    },
+  ): Promise<PublicWorkPermitCourseVerificationDto> {
+    if (!workPermit.requireCourseVerification) {
+      return {
+        enabled: false,
+        assignees: [],
+        requiredCourses: [],
+        allRequiredCompleted: true,
+        unmetMessages: [],
+      };
+    }
+
+    const resolvedApplicantId =
+      workPermit.applicantUserId ?? workPermit.createdBy;
+
+    const requiredOnly = (workPermit.requiredCourses ?? []).filter((c) => c.isRequired);
+    if (requiredOnly.length === 0) {
+      return {
+        enabled: true,
+        assignees: [],
+        requiredCourses: [],
+        allRequiredCompleted: false,
+        unmetMessages: [
+          'Course verification is required, but no required courses are set on this permit. Ask HSE to add required courses before you can sign.',
+        ],
+      };
+    }
+
+    if (!resolvedApplicantId) {
+      return {
+        enabled: true,
+        assignees: [],
+        requiredCourses: [],
+        allRequiredCompleted: false,
+        unmetMessages: [
+          'Course verification is required, but the applicant is not linked to a user account. Ask HSE to correct the work permit, then try again.',
+        ],
+      };
+    }
+
+    const displayName = WorkPermitsService.formatUserLabel(
+      workPermit.applicant ?? null,
+    );
+    const assignees: PublicWorkPermitCourseAssigneeDto[] = [
+      {
+        userId: resolvedApplicantId,
+        displayName,
+        source: 'applicant',
+      },
+    ];
+
+    const userIds = [resolvedApplicantId];
+    const courseIds = requiredOnly.map((c) => c.courseId);
+    const completed = await this.prisma.enrollment.findMany({
+      where: {
+        userId: { in: userIds },
+        courseId: { in: courseIds },
+        status: EnrollmentStatusEnum.COMPLETED,
+      },
+      select: { userId: true, courseId: true },
+    });
+    const completedSet = new Set(
+      completed.map((r) => `${r.userId}::${r.courseId}`),
+    );
+
+    const requiredCourses: PublicWorkPermitRequiredCourseStatusDto[] = [];
+    const unmetMessages: string[] = [];
+    for (const rc of requiredOnly) {
+      const userCompletions: Record<string, boolean> = {};
+      for (const a of assignees) {
+        const key = `${a.userId}::${rc.courseId}`;
+        const done = completedSet.has(key);
+        userCompletions[a.userId] = done;
+        if (!done) {
+          unmetMessages.push(
+            `${a.displayName} has not completed required course: ${rc.course?.title?.trim() || rc.courseId}.`,
+          );
+        }
+      }
+      requiredCourses.push({
+        courseId: rc.courseId,
+        courseTitle: rc.course?.title?.trim() || undefined,
+        isRequired: true,
+        userCompletions,
+      });
+    }
+    return {
+      enabled: true,
+      assignees,
+      requiredCourses,
+      allRequiredCompleted: unmetMessages.length === 0,
+      unmetMessages,
+    };
+  }
+
+  /**
+   * Batch master mitigations for risks referenced on permit safety-guidance rows (public token view; no JWT).
+   */
+  private async loadPublicMitigationsByRiskIds(
+    workPermit: {
+      classifications?: Array<{
+        safetyGuidanceRows?: Array<{
+          riskId?: string | null;
+          risk?: { id?: string } | null;
+        }>;
+      }>;
+    },
+  ): Promise<Record<string, PublicWorkPermitRiskMitigationItemDto[]>> {
+    const riskIds = new Set<string>();
+    for (const c of workPermit.classifications ?? []) {
+      for (const row of c.safetyGuidanceRows ?? []) {
+        const id = row.riskId ?? row.risk?.id;
+        if (typeof id === 'string' && id.length > 0) {
+          riskIds.add(id);
+        }
+      }
+    }
+    if (riskIds.size === 0) {
+      return {};
+    }
+    const idList = [...riskIds];
+    const rows = await (this.prisma as any).riskMitigation.findMany({
+      where: {
+        riskId: { in: idList },
+        isActive: true,
+        ...isNotDeleted,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const out: Record<string, PublicWorkPermitRiskMitigationItemDto[]> = {};
+    for (const id of idList) {
+      out[id] = [];
+    }
+    for (const m of rows) {
+      const item: PublicWorkPermitRiskMitigationItemDto = {
+        id: m.id,
+        eliminate: m.eliminate ?? undefined,
+        transfer: m.transfer ?? undefined,
+        reduce: m.reduce ?? undefined,
+        accept: m.accept ?? undefined,
+        isActive: m.isActive,
+        riskId: m.riskId,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      };
+      if (out[m.riskId]) {
+        out[m.riskId].push(item);
+      }
+    }
+    return out;
+  }
+
+  private static resolvePublicApplicantPhase(
+    status: string,
+  ): WorkPermitPublicApplicantPhase {
+    if (status === WorkPermitStatusEnum.DRAFT || status === WorkPermitStatusEnum.REJECTED) {
+      return 'draft';
+    }
+    if (status === WorkPermitStatusEnum.WAITING_APPLICANT_SIGN) {
+      return 'sign_sk';
+    }
+    return 'view';
+  }
+
+  private async assertCourseVerificationAllowsSignSk(workPermitId: string): Promise<void> {
+    const wp = await this.prisma.workPermit.findUnique({
+      where: { id: workPermitId },
+      include: {
+        requiredCourses: { include: { course: true }, orderBy: { order: 'asc' } },
+        applicant: true,
+      },
+    });
+    this.errorHandler.throwIfNotFoundById('WorkPermit', workPermitId, wp);
+    const summary = await this.buildPublicCourseVerification(wp!);
+    if (summary.enabled && !summary.allRequiredCompleted) {
+      this.errorHandler.throwBadRequest(
+        summary.unmetMessages.length > 0
+          ? summary.unmetMessages.join(' ')
+          : 'Required course completion is not satisfied for the applicant.',
+      );
+    }
+  }
+
   private async loadWorkPermitForPublicToken(token: string): Promise<{
     workPermit: any;
     isEditable: boolean;
@@ -2840,14 +3069,36 @@ export class WorkPermitsService {
     return { workPermit, isEditable };
   }
 
-  async getPublicWorkPermitByToken(token: string) {
+  async getPublicWorkPermitByToken(
+    token: string,
+  ): Promise<PublicWorkPermitByTokenResponseDto> {
     const { workPermit, isEditable } =
       await this.loadWorkPermitForPublicToken(token);
     const dto = await this.mapWorkPermitWithRelations(workPermit);
+    const status = workPermit!.status as string;
+    const applicantPhase = WorkPermitsService.resolvePublicApplicantPhase(
+      status,
+    );
+    const canSignSk = status === WorkPermitStatusEnum.WAITING_APPLICANT_SIGN;
+    const canEditDraft = isEditable;
+    const courseVerification = await this.buildPublicCourseVerification(
+      workPermit,
+    );
+    const canSignSkAction =
+      canSignSk &&
+      (!courseVerification.enabled || courseVerification.allRequiredCompleted);
+    const mitigationsByRiskId =
+      await this.loadPublicMitigationsByRiskIds(workPermit);
     return {
       workPermit: dto,
       isEditable,
-      mode: isEditable ? 'editable' : 'readonly',
+      mode: (isEditable ? 'editable' : 'readonly') as 'editable' | 'readonly',
+      applicantPhase,
+      canEditDraft,
+      canSignSk,
+      canSignSkAction,
+      courseVerification,
+      mitigationsByRiskId,
     };
   }
 
@@ -2917,5 +3168,47 @@ export class WorkPermitsService {
       await this.sendNotificationToHse(workPermit.id, updated);
       return this.mapWorkPermitToDto(updated);
     }, 'Submitting work permit (public link)');
+  }
+
+  /**
+   * Applicant signs/acknowledges HSE safety guideline via public link (no JWT; token binds applicant).
+   */
+  async signSkPublicWorkPermitByToken(
+    token: string,
+    signSkDto: SignSkWorkPermitDto,
+  ): Promise<WorkPermitDto> {
+    return this.errorHandler.safeExecute(async () => {
+      const { workPermit: wp } = await this.loadWorkPermitForPublicToken(token);
+      if (wp.status !== WorkPermitStatusEnum.WAITING_APPLICANT_SIGN) {
+        this.errorHandler.throwBadRequest(
+          `Cannot sign SK for work permit with status ${wp.status}. Only WAITING_APPLICANT_SIGN permits can be signed.`,
+        );
+      }
+      if (!(await this.permitHasSafetyGuidelineContent(wp.id))) {
+        this.errorHandler.throwBadRequest(
+          'Safety guideline is not available yet. Please wait for HSE to provide it.',
+        );
+      }
+
+      await this.assertCourseVerificationAllowsSignSk(wp.id);
+
+      await this.prisma.workPermit.update({
+        where: { id: wp.id },
+        data: {
+          applicantSignedAt: new Date(),
+          applicantSignature: signSkDto.signature,
+          status: WorkPermitStatusEnum.IN_REVIEW_SECURITY,
+        } as any,
+      });
+
+      const refreshed = await this.prisma.workPermit.findUnique({
+        where: { id: wp.id },
+        include: this.getWorkPermitFullInclude(),
+      });
+      this.errorHandler.throwIfNotFoundById('WorkPermit', wp.id, refreshed);
+
+      await this.sendNotificationToSecurityReview(wp.id, refreshed!);
+      return this.mapWorkPermitWithRelations(refreshed!);
+    }, 'Signing safety guideline acknowledgement (public link)');
   }
 }

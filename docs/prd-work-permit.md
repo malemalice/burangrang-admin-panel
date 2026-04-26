@@ -1,8 +1,8 @@
 # PRD: Digital Work Permit Management System
 
 **Document Type:** Product Requirements Document  
-**Version:** 1.1  
-**Date:** April 19, 2026  
+**Version:** 1.3  
+**Date:** April 26, 2026  
 **Author:** Senior PM  
 **Source policy (intent):** BSJ/F.5/H&S Policy 05/Rev 02 — Ijin Bekerja / Permit to Work  
 **Status:** Draft — **aligned with current codebase (types + DTO + service behaviour)**
@@ -24,6 +24,10 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 | Frontend types | `frontend/src/modules/work-permits/types/work-permit.types.ts` | `WorkPermit`, `WorkPermitStatus`, nested relation types, `CreateWorkPermitDTO` / `UpdateWorkPermitDTO` |
 | Backend API shape | `backend/src/modules/work-permits/dto/work-permit.dto.ts` | `WorkPermitDto`, `WorkPermitStatusEnum` |
 | Workflow behaviour | `backend/src/modules/work-permits/work-permits.service.ts` | Submit, approve, reject, sign SK, extend, close |
+| Public link (signed token) | `backend/src/modules/work-permits/services/work-permit-public-link.service.ts` | HMAC-signed token, ~24h TTL; payload binds `workPermitId` + `applicantUserId` |
+| Public HTTP API | `backend/src/modules/work-permits/work-permits-public.controller.ts` | `@Public()` routes for token-based get / patch / submit; `POST /work-permits/public-links` for staff to generate links (separate from `DataScopeGuard` on main controller) |
+| Public UI | `frontend/src/modules/work-permits/pages/PublicWorkPermitPage.tsx` | No-login page: **applicant action** when status allows (see §6.5); **read-only** detail when the permit is not in an applicant-obligation phase for this token (aligned with detail page sections) |
+| Link generation (staff) | `frontend/src/modules/work-permits/pages/WorkPermitsPage.tsx` | Per permit: “Public applicant link” (requires `work-permit:update`) |
 | Approval configuration | `backend/src/modules/work-permits/WORK_PERMIT_SETUP.md` | Master Approval setup for `WORK_PERMIT` |
 
 **Rule:** `WorkPermitStatus` in the frontend and `WorkPermitStatusEnum` in the backend **must stay in sync** (same string literals).
@@ -50,6 +54,7 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 - Capture permit data using **master-data-backed** fields (classifications, equipment lists, hazards, etc.)
 - Support **Master Approval**-driven review (not a hard-coded list of six signatories in code)
 - Support **applicant safety-guideline acknowledgement** (`applicantSignedAt` / `applicantSignature`) before security review when workflow requires it
+- Allow the **business applicant** (`applicantUserId`) to **view** the permit and **complete applicant obligations** **without an app password**, via a **time-limited signed link** that **binds the permit and applicant** (capability URL — same family as health screening public fill; not a general JWT “login as user” session). The contractor opens the link to act **as the applicant** for permit-bound steps only
 - Track **status** and **approval timeline** (`GET /work-permits/:id/timeline`)
 - Allow **extension** and **closure** for completed work
 
@@ -165,15 +170,44 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 ### 6.4 Workflow rules (service-level, current behaviour)
 
 - **Create:** Status `DRAFT`; **at least one worker** required; workers must be **Guest** users; “Others” classification requires `workClassificationOtherDetail`.
-- **Update:** Only `DRAFT` or `REJECTED`.
-- **Submit:** Only from **`DRAFT`** or **`REJECTED`** → **`IN_REVIEW_PROJECT_OWNER`**; notifies HSE (implementation).
+- **Update (authenticated):** Only `DRAFT` or `REJECTED`.
+- **Submit (authenticated):** Only from **`DRAFT` or `REJECTED`** → **`IN_REVIEW_PROJECT_OWNER`**; notifies HSE (implementation).
 - **Approve / reject:** Driven by **Master Approval** rights (`checkApprovalRights`). Reject sets `REJECTED`.
 - **Next status after approve:** Computed from Master Approval completion and **department name** of the current and next approver (e.g. HSE, SECURITY, PROJECT/OWNER). Can move to `IN_REVIEW_HSE`, `IN_REVIEW_SECURITY`, `IN_REVIEW_PROJECT_OWNER`, `WAITING_APPLICANT_SIGN`, `OPEN`, or **`APPROVED`** when the final approval is Security and the chain completes (see `approve()` in `work-permits.service.ts`).
-- **Applicant sign SK (`signSk`):** Only when status is **`WAITING_APPLICANT_SIGN`**, only **`createdBy`** user, safety guideline content must exist → then **`IN_REVIEW_SECURITY`** and notify security.
+- **Applicant sign SK (`signSk`):** Only when status is **`WAITING_APPLICANT_SIGN`**, only the **applicant** (`applicantUserId`, fallback `createdBy` for legacy), safety guideline content must exist → then **`IN_REVIEW_SECURITY`** and notify security.
 - **Extend:** Only **`APPROVED`** → updates end date, status **`EXTENDED`**.
 - **Close:** Only **`APPROVED`** or **`EXTENDED`** → **`CLOSED`**.
 
-### 6.6 Planned enhancement — Applicant identity & “create on behalf of contractor”
+### 6.5 Public applicant link (no password) — v1.3
+
+**Purpose:** Let the **contractor applicant** (the user bound to `applicantUserId` in the token) use the work permit in the browser **without** a username/password, so they can complete **applicant-phase** work and otherwise **view** the permit, without staff sharing internal accounts.
+
+**Definition — public “applicant phase” (when this link is for *acting*, not just viewing):** Any status where the **business applicant** is expected to perform an obligation that the product exposes on the anonymous flow. Today that is:
+- **Drafting / resubmission:** `DRAFT` or `REJECTED` — fill or adjust permit data, then **save** and **submit** (same business rules as authenticated applicant/creator for edit/submit).
+- **Applicant acknowledgement:** `WAITING_APPLICANT_SIGN` — read safety guideline content, satisfy **course verification** when the permit requires it (see below), then **acknowledge / sign** the safety guideline (`signSk`) so the workflow can continue.
+
+**Out of the public applicant phase (view-only for this user):** All other statuses (e.g. in Master Approval review, `APPROVED`, `CLOSED`, …) — the link may still open for **status visibility** and a **read-only** presentation aligned with the in-app **Work permit detail** (sections, tables, attachments, safety blocks — per data returned by public `GET`). No PATCH/submit/sign-sk in those states.
+
+**How it works (product behaviour):**
+1. An authorized staff user (permission **`work-permit:update`**) generates a link from the **Work Permits** list (`WorkPermitsPage`) for a **specific permit** (API: `POST /work-permits/public-links` with `workPermitId`).
+2. The backend issues a **signed URL token** (short TTL) that binds:
+   - the target **`workPermitId`**, and  
+   - the permit’s **applicant user id** (`applicantUserId`, or `createdBy` when applicant is not set on older rows).  
+3. The applicant opens `GET /work-permits/public/:token` (frontend route `/work-permits/public/:token`, auth-exempt). The response includes the full **`WorkPermitDto`** payload plus **applicant-phase controls** (maintain backward-compatible **`isEditable` / `mode`** for drafting): **`applicantPhase`** (`draft` \| `sign_sk` \| `view`), **`canEditDraft`**, **`canSignSk`**, **`canSignSkAction`** (sign allowed only when course rules pass or verification is off), and **`courseVerification`** (assignees, required course rows with per-user completion from LMS enrollments, `allRequiredCompleted`, `unmetMessages`).
+4. **Edit / save (drafting):** `PATCH /work-permits/public/:token` is allowed only when status is **`DRAFT` or `REJECTED`** (same edit gate as authenticated update). Authorization is **only** via token + applicant binding (no JWT).
+5. **Submit for approval:** `POST /work-permits/public/:token/submit` is allowed from **`DRAFT` or `REJECTED`** (same as authenticated submit).
+6. **Sign / acknowledge (applicant):** `POST /work-permits/public/:token/sign-sk` is allowed only when status is **`WAITING_APPLICANT_SIGN`**, with the same business rules as authenticated `POST /work-permits/:id/sign-sk` (applicant identity; safety guideline content present). This is **not** “read-only” — it is the second major applicant action on the public page.
+7. **Course verification:** When **`requireCourseVerification`** is set and **required courses** are listed, workers (and any scoped internal employees on the permit) are expected to **complete the required courses in the authenticated HSE app**; completion is determined from **`t_enrollments` with `status = COMPLETED`** (same model as the main `WorkPermitForm`). The public `GET` surfaces progress; **Sign SK** is **hard-blocked** in the API until all required (per-assignee) completions exist (same check as authenticated `sign-sk` when verification is on). The public page does not run LMS quizzes.
+
+**Out of scope for the public page:** Master Approval actions, PDF export, timeline/history fetches that require logged-in `approval` APIs, and creating new master-data rows (those remain in the authenticated app).
+
+**Security / abuse notes (product):** Treat the link like a **capability URL** — do not post in public channels; expires automatically; token must match the permit and applicant in the database.
+
+### 6.6 Policy form (paper) vs product
+
+Sections A–F in **§11** remain the **original paper** reference. The **implemented** app uses normalized lists, master data IDs, and digital attachments instead of a single flat “worker qty table” only.
+
+### 6.7 Planned enhancement — Applicant identity & “create on behalf of contractor”
 
 **Background:** A new requirement allows an **authorized internal user** to create a Work Permit **on behalf of a contractor**. Using `createdBy` as the “applicant” becomes confusing in master approval and applicant-sign flows.
 
@@ -199,10 +233,6 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 **Form visibility requirement (functional):**
 - If current user role **is** `CONTRACTOR`: hide/lock “Applicant” (auto = self).
 - If current user role **is not** `CONTRACTOR`: show “Applicant (Contractor)” field and make it **required**.
-
-### 6.5 Policy form (paper) vs product
-
-Sections A–F in **§11** remain the **original paper** reference. The **implemented** app uses normalized lists, master data IDs, and digital attachments instead of a single flat “worker qty table” only.
 
 ---
 
@@ -245,7 +275,7 @@ System -> Applicant: status REJECTED
 ```text
 title: Work Permit — Applicant SK sign, security, closure
 
-Applicant -> System: POST /work-permits/:id/sign-sk (only WAITING_APPLICANT_SIGN, only creator)
+Applicant -> System: POST /work-permits/:id/sign-sk or POST /work-permits/public/:token/sign-sk (only WAITING_APPLICANT_SIGN, applicant per applicantUserId / token binding)
 System -> Security: notify, status IN_REVIEW_SECURITY
 Security -> System: POST /work-permits/:id/approve
 System -> Applicant: status APPROVED (when chain rules say so)
@@ -439,8 +469,9 @@ Catatan (Note): ___________
 |------|----------|
 | Status | All UI and API use the enum values in §6.3 consistently |
 | Create | Enforces workers present, Guest role workers, classifications + Others detail when needed |
-| Submit | Only from `DRAFT`; result `IN_REVIEW_PROJECT_OWNER` |
-| Edit | Only `DRAFT` / `REJECTED` |
+| Submit | Only from `DRAFT` or `REJECTED`; result `IN_REVIEW_PROJECT_OWNER` |
+| Edit (authenticated + public PATCH) | Only `DRAFT` / `REJECTED` |
+| Public applicant link | Staff with `work-permit:update` can generate from Work Permits list; token binds `workPermitId` + applicant; ~24h TTL; anonymous GET full detail; **applicant actions:** `PATCH`/`submit` in `DRAFT`/`REJECTED`, **`POST .../public/:token/sign-sk` in `WAITING_APPLICANT_SIGN`**; **read-only** in all other statuses; course verification requirements visible and consistent with main form / backend gates |
 | Approvals | Master Approval configuration determines who can approve; service sets next status |
 | Sign SK | Only applicant, only in `WAITING_APPLICANT_SIGN`, requires guideline content |
 | Extend / close | Rules in §6.4 |

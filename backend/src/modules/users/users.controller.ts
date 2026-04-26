@@ -450,7 +450,7 @@ export class UsersController {
     description: 'Forbidden - insufficient permissions.',
   })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @Req() req: Request & { user: { id: string } }): Promise<void> {
+    return this.usersService.remove(id, req.user.id);
   }
 }

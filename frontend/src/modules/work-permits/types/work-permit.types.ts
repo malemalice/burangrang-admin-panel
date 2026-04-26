@@ -1,4 +1,5 @@
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
+import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 export type { PaginatedResponse };
 
 // Master data types for work permit form
@@ -517,6 +518,29 @@ export interface ApprovalTimelineItem {
 
 export type WorkPermitPublicMode = 'editable' | 'readonly';
 
+export type WorkPermitPublicApplicantPhase = 'draft' | 'sign_sk' | 'view';
+
+export interface PublicWorkPermitCourseAssignee {
+  userId: string;
+  displayName: string;
+  source: 'applicant' | 'worker' | 'employee';
+}
+
+export interface PublicWorkPermitRequiredCourseStatus {
+  courseId: string;
+  courseTitle?: string;
+  isRequired: boolean;
+  userCompletions: Record<string, boolean>;
+}
+
+export interface PublicWorkPermitCourseVerification {
+  enabled: boolean;
+  assignees: PublicWorkPermitCourseAssignee[];
+  requiredCourses: PublicWorkPermitRequiredCourseStatus[];
+  allRequiredCompleted: boolean;
+  unmetMessages: string[];
+}
+
 export interface WorkPermitPublicLinkResponse {
   linkUrl: string;
   expiresAt: string;
@@ -527,6 +551,14 @@ export interface PublicWorkPermitByTokenResponse {
   workPermit: WorkPermit;
   isEditable: boolean;
   mode: WorkPermitPublicMode;
+  applicantPhase: WorkPermitPublicApplicantPhase;
+  canEditDraft: boolean;
+  canSignSk: boolean;
+  /** Backend: sign allowed only when course rules pass (or verification off) */
+  canSignSkAction: boolean;
+  courseVerification: PublicWorkPermitCourseVerification;
+  /** Master risk mitigations for safety-guidance row risks (avoids unauthenticated /risk-mitigations calls) */
+  mitigationsByRiskId: Record<string, RiskMitigation[]>;
 }
 
 // Data transformation functions

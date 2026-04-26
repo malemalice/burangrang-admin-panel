@@ -6,9 +6,11 @@ import {
   Patch,
   Param,
   Delete,
+  Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
@@ -98,7 +100,10 @@ export class RoomsController {
   @ApiOperation({ summary: 'Delete a room' })
   @ApiResponse({ status: 200, description: 'The room has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Room not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.roomsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.roomsService.remove(id, req.user.id);
   }
 }

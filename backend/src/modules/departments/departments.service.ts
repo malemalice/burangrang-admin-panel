@@ -6,6 +6,7 @@ import { DepartmentDto } from './dto/department.dto';
 import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -70,7 +71,9 @@ export class DepartmentsService {
     } = options || {};
 
     // Build where clause
-    const where: Prisma.DepartmentWhereInput = {};
+    const where: Prisma.DepartmentWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -110,8 +113,8 @@ export class DepartmentsService {
   }
 
   async findOne(id: string): Promise<DepartmentDto> {
-    const department = await this.prisma.department.findUnique({
-      where: { id },
+    const department = await this.prisma.department.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Department', id, department);
@@ -123,8 +126,8 @@ export class DepartmentsService {
     id: string,
     updateDepartmentDto: UpdateDepartmentDto,
   ): Promise<DepartmentDto> {
-    const existingDepartment = await this.prisma.department.findUnique({
-      where: { id },
+    const existingDepartment = await this.prisma.department.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
@@ -158,21 +161,22 @@ export class DepartmentsService {
     return this.departmentMapper(department);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingDepartment = await this.prisma.department.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existingDepartment = await this.prisma.department.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
-    await this.prisma.department.delete({
+    await this.prisma.department.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByCode(code: string): Promise<DepartmentDto> {
-    const department = await this.prisma.department.findUnique({
-      where: { code },
+    const department = await this.prisma.department.findFirst({
+      where: { code, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundByField('Department', 'code', code, department);

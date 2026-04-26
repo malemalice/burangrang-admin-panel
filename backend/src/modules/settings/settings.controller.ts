@@ -9,7 +9,9 @@ import {
   UseGuards,
   Query,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -30,6 +32,10 @@ import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Public } from 'src/shared/decorators/public.decorator';
 import { SETTINGS_KEYS } from './constants/settings-keys';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('settings')
 @ApiBearerAuth()
@@ -342,13 +348,13 @@ export class SettingsController {
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.settingsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.settingsService.remove(id, req.user.id);
   }
 
   @Delete('by-key/:key')
   @Permissions('setting:delete')
-  removeByKey(@Param('key') key: string): Promise<void> {
-    return this.settingsService.removeByKey(key);
+  removeByKey(@Param('key') key: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.settingsService.removeByKey(key, req.user.id);
   }
 }

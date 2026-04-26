@@ -6,6 +6,7 @@ import { AreaDto } from './dto/area.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -82,7 +83,9 @@ export class AreasService {
       hasRoom,
     } = options || {};
 
-    const where: Prisma.AreaWhereInput = {};
+    const where: Prisma.AreaWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -127,8 +130,8 @@ export class AreasService {
   }
 
   async findOne(id: string): Promise<AreaDto> {
-    const area = await this.prisma.area.findUnique({
-      where: { id },
+    const area = await this.prisma.area.findFirst({
+      where: { id, deletedAt: null },
       include: {
         office: true,
       },
@@ -140,8 +143,8 @@ export class AreasService {
   }
 
   async update(id: string, updateAreaDto: UpdateAreaDto): Promise<AreaDto> {
-    const existingArea = await this.prisma.area.findUnique({
-      where: { id },
+    const existingArea = await this.prisma.area.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Area', id, existingArea);
@@ -157,11 +160,11 @@ export class AreasService {
     return this.areaMapper(area);
   }
 
-  async remove(id: string): Promise<void> {
-    const area = await this.prisma.area.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const area = await this.prisma.area.findFirst({
+      where: { id, deletedAt: null },
       include: {
-        rooms: true,
+        rooms: { where: { deletedAt: null } },
       },
     });
 
@@ -171,8 +174,9 @@ export class AreasService {
       this.errorHandler.throwConflictCustom(`Cannot delete area with ID ${id} because it has associated rooms`);
     }
 
-    await this.prisma.area.delete({
+    await this.prisma.area.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

@@ -13,6 +13,7 @@ const mockPrisma = {
   user: { findUnique: jest.fn(), findMany: jest.fn() },
   area: { findUnique: jest.fn(), findMany: jest.fn() },
   company: { findUnique: jest.fn(), findMany: jest.fn() },
+  enrollment: { findMany: jest.fn() },
   workPermit: {
     count: jest.fn(),
     create: jest.fn(),
@@ -212,6 +213,15 @@ describe('WorkPermitsService (applicant on behalf)', () => {
       createdBy: 'creator-1',
       applicantUserId: 'applicant-1',
     });
+    // Third: assertCourseVerificationAllowsSignSk()
+    (mockPrisma.workPermit.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'wp-1',
+      createdBy: 'creator-1',
+      applicantUserId: 'applicant-1',
+      requireCourseVerification: false,
+      requiredCourses: [],
+      applicant: { firstName: 'A', lastName: 'B', email: 'a@b.com' },
+    });
     (mockPrisma.workPermit.update as jest.Mock).mockResolvedValue({
       id: 'wp-1',
       applicantSignedAt: new Date(),
@@ -231,6 +241,157 @@ describe('WorkPermitsService (applicant on behalf)', () => {
 
     const res = await service.signSk('wp-1', { signature: 'sig' } as any, 'applicant-1', ctx);
     expect(res.status).toBe('IN_REVIEW_SECURITY');
+  });
+
+  it('signSk blocks when requireCourseVerification is on and a required course is not completed', async () => {
+    const ctx: UserContext = {
+      userId: 'applicant-1',
+      roleId: 'r1',
+      roleName: 'Contractor',
+      dataLevel: 'SELF',
+      departmentId: null,
+      jobPositionId: null,
+      companyId: null,
+    };
+    (mockPrisma.workPermit.findUnique as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        status: 'WAITING_APPLICANT_SIGN',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+        creator: { departmentId: null },
+      })
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        status: 'WAITING_APPLICANT_SIGN',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+      })
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+        applicant: { firstName: 'A', lastName: 'B', email: 'a@b.com' },
+        requireCourseVerification: true,
+        requiredCourses: [
+          {
+            courseId: 'course-1',
+            isRequired: true,
+            course: { title: 'Safety 101' },
+          },
+        ],
+      });
+    (mockPrisma.enrollment.findMany as jest.Mock).mockResolvedValue([]);
+    jest.spyOn<any, any>(service as any, 'permitHasSafetyGuidelineContent').mockResolvedValue(true);
+    await expect(
+      service.signSk('wp-1', { signature: 'sig' } as any, 'applicant-1', ctx),
+    ).rejects.toThrow(/has not completed required course/);
+  });
+
+  it('signSk allows when requireCourseVerification is on and required enrollments are COMPLETED', async () => {
+    const ctx: UserContext = {
+      userId: 'applicant-1',
+      roleId: 'r1',
+      roleName: 'Contractor',
+      dataLevel: 'SELF',
+      departmentId: null,
+      jobPositionId: null,
+      companyId: null,
+    };
+    (mockPrisma.workPermit.findUnique as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        status: 'WAITING_APPLICANT_SIGN',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+        creator: { departmentId: null },
+      })
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        status: 'WAITING_APPLICANT_SIGN',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+      })
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+        applicant: { firstName: 'A', lastName: 'B', email: 'a@b.com' },
+        requireCourseVerification: true,
+        requiredCourses: [
+          {
+            courseId: 'course-1',
+            isRequired: true,
+            course: { title: 'Safety 101' },
+          },
+        ],
+      });
+    (mockPrisma.enrollment.findMany as jest.Mock).mockResolvedValue([
+      { userId: 'applicant-1', courseId: 'course-1' },
+    ]);
+    jest.spyOn<any, any>(service as any, 'permitHasSafetyGuidelineContent').mockResolvedValue(true);
+    jest.spyOn<any, any>(service as any, 'sendNotificationToSecurityReview').mockResolvedValue(undefined);
+    (mockPrisma.workPermit.update as jest.Mock).mockResolvedValue({
+      id: 'wp-1',
+      applicantSignedAt: new Date(),
+      applicantSignature: 'sig',
+      status: 'IN_REVIEW_SECURITY',
+      createdBy: 'creator-1',
+      applicantUserId: 'applicant-1',
+      area: { id: 'area-1', name: 'A', code: 'A' },
+      company: { id: 'co-1', name: 'C', code: 'C', phone: null },
+      creator: { id: 'creator-1', firstName: 'X', lastName: 'Y', email: 'x@y.com' },
+      applicant: { id: 'applicant-1', firstName: 'A', lastName: 'B', email: 'a@b.com' },
+    });
+    const res = await service.signSk('wp-1', { signature: 'sig' } as any, 'applicant-1', ctx);
+    expect(res.status).toBe('IN_REVIEW_SECURITY');
+  });
+
+  it('signSk blocks when only workers would satisfy LMS but applicant is not complete', async () => {
+    const ctx: UserContext = {
+      userId: 'applicant-1',
+      roleId: 'r1',
+      roleName: 'Contractor',
+      dataLevel: 'SELF',
+      departmentId: null,
+      jobPositionId: null,
+      companyId: null,
+    };
+    (mockPrisma.workPermit.findUnique as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        status: 'WAITING_APPLICANT_SIGN',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+        creator: { departmentId: null },
+      })
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        status: 'WAITING_APPLICANT_SIGN',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+      })
+      .mockResolvedValueOnce({
+        id: 'wp-1',
+        createdBy: 'creator-1',
+        applicantUserId: 'applicant-1',
+        applicant: { firstName: 'A', lastName: 'B', email: 'a@b.com' },
+        requireCourseVerification: true,
+        requiredCourses: [
+          {
+            courseId: 'course-1',
+            isRequired: true,
+            course: { title: 'Safety 101' },
+          },
+        ],
+      });
+    (mockPrisma.enrollment.findMany as jest.Mock).mockResolvedValue([
+      { userId: 'w1', courseId: 'course-1' },
+    ]);
+    jest.spyOn<any, any>(service as any, 'permitHasSafetyGuidelineContent').mockResolvedValue(true);
+    await expect(
+      service.signSk('wp-1', { signature: 'sig' } as any, 'applicant-1', ctx),
+    ).rejects.toThrow(/has not completed required course/);
   });
 });
 

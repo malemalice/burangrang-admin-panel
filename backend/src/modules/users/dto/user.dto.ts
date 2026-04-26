@@ -70,6 +70,14 @@ export class UserDto {
   @Expose()
   lastLoginAt?: Date | null;
 
+  @ApiProperty({ required: false, nullable: true, description: 'Set when user is soft-deleted' })
+  @Expose()
+  deletedAt?: Date | null;
+
+  @ApiProperty({ required: false, nullable: true, description: 'User id of actor for soft delete' })
+  @Expose()
+  deletedBy?: string | null;
+
   // Include the role object
   @ApiProperty({ required: false })
   @Expose()

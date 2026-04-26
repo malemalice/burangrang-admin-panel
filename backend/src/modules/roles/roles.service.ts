@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { Prisma, DataLevelEnum } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindRolesOptions {
   page?: number;
@@ -81,6 +82,7 @@ export class RolesService {
         name: {
           in: defaultPermissionNames,
         },
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -127,7 +129,9 @@ export class RolesService {
       search,
     } = options || {};
 
-    const where: Prisma.RoleWhereInput = {};
+    const where: Prisma.RoleWhereInput = {
+      deletedAt: null,
+    };
 
     // Handle search - only search if search term is not empty after trimming
     if (search) {
@@ -173,8 +177,8 @@ export class RolesService {
   }
 
   async findOne(id: string): Promise<RoleDto> {
-    const role = await this.prisma.role.findUnique({
-      where: { id },
+    const role = await this.prisma.role.findFirst({
+      where: { id, deletedAt: null },
       include: {
         permissions: true,
       },
@@ -195,6 +199,7 @@ export class RolesService {
         name: {
           in: defaultPermissionNames,
         },
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -212,8 +217,8 @@ export class RolesService {
     ];
 
     // 4. Check if role exists
-    const existingRole = await this.prisma.role.findUnique({
-      where: { id },
+    const existingRole = await this.prisma.role.findFirst({
+      where: { id, deletedAt: null },
       include: {
         permissions: true,
       },
@@ -245,21 +250,22 @@ export class RolesService {
     return this.roleMapper(role);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingRole = await this.prisma.role.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existingRole = await this.prisma.role.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
 
-    await this.prisma.role.delete({
+    await this.prisma.role.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByName(name: string): Promise<RoleDto | null> {
-    const role = await this.prisma.role.findUnique({
-      where: { name },
+    const role = await this.prisma.role.findFirst({
+      where: { name, deletedAt: null },
       include: {
         permissions: true,
       },
@@ -269,8 +275,8 @@ export class RolesService {
   }
 
   async findByNameOrThrow(name: string): Promise<RoleDto> {
-    const role = await this.prisma.role.findUnique({
-      where: { name },
+    const role = await this.prisma.role.findFirst({
+      where: { name, deletedAt: null },
       include: {
         permissions: true,
       },
@@ -282,8 +288,8 @@ export class RolesService {
   }
 
   async duplicate(id: string): Promise<RoleDto> {
-    const existingRole = await this.prisma.role.findUnique({
-      where: { id },
+    const existingRole = await this.prisma.role.findFirst({
+      where: { id, deletedAt: null },
       include: {
         permissions: true,
       },
@@ -300,7 +306,13 @@ export class RolesService {
     // Ensure unique name and code
     while (true) {
       const existing = await this.prisma.role.findFirst({
-        where: { OR: [{ name }, { code }] },
+        where: {
+          deletedAt: null,
+          OR: [
+            { name, deletedAt: null },
+            { code, deletedAt: null },
+          ],
+        },
       });
       if (!existing) break;
       suffix += 1;

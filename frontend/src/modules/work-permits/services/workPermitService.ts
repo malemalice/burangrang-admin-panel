@@ -12,6 +12,7 @@ import {
   ClassificationSafetyGuidanceUpdate,
   mapWorkPermitDtoToWorkPermit,
   mapWorkPermitToUpdateDto,
+  type PublicWorkPermitByTokenResponse,
 } from '../types/work-permit.types';
 
 const workPermitService = {
@@ -251,22 +252,20 @@ const workPermitService = {
   /**
    * Public (no-login) token-based detail.
    */
-  getPublicByToken: async (token: string): Promise<{
-    workPermit: WorkPermit;
-    isEditable: boolean;
-    mode: 'editable' | 'readonly';
-  }> => {
+  getPublicByToken: async (token: string): Promise<PublicWorkPermitByTokenResponse> => {
     const enc = encodeURIComponent(token);
     const res = await publicApi.get(`/work-permits/public/${enc}`);
-    const raw = res.data as {
-      workPermit: WorkPermitDTO;
-      isEditable: boolean;
-      mode: 'editable' | 'readonly';
-    };
+    const raw = res.data as PublicWorkPermitByTokenResponse & { workPermit: WorkPermitDTO };
     return {
       workPermit: mapWorkPermitDtoToWorkPermit(raw.workPermit),
       isEditable: raw.isEditable,
       mode: raw.mode,
+      applicantPhase: raw.applicantPhase,
+      canEditDraft: raw.canEditDraft,
+      canSignSk: raw.canSignSk,
+      canSignSkAction: raw.canSignSkAction,
+      courseVerification: raw.courseVerification,
+      mitigationsByRiskId: raw.mitigationsByRiskId ?? {},
     };
   },
 
@@ -288,6 +287,15 @@ const workPermitService = {
   submitPublicByToken: async (token: string, notes?: string): Promise<WorkPermit> => {
     const enc = encodeURIComponent(token);
     const res = await publicApi.post(`/work-permits/public/${enc}/submit`, { notes });
+    return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
+  },
+
+  /**
+   * Public (no-login) applicant sign-off for HSE safety guideline (WAITING_APPLICANT_SIGN only).
+   */
+  signSkPublicByToken: async (token: string, signature?: string): Promise<WorkPermit> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(`/work-permits/public/${enc}/sign-sk`, { signature });
     return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
   },
 };

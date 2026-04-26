@@ -42,6 +42,14 @@ export class CompanyDto {
   @Expose()
   updatedAt: Date;
 
+  @ApiPropertyOptional({ description: 'Soft delete timestamp' })
+  @Expose()
+  deletedAt?: Date | null;
+
+  @ApiPropertyOptional({ description: 'User id of actor for soft delete' })
+  @Expose()
+  deletedBy?: string | null;
+
   constructor(partial: Partial<CompanyDto>) {
     Object.assign(this, partial);
   }

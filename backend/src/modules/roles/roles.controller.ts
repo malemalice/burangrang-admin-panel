@@ -6,9 +6,11 @@ import {
   Patch,
   Param,
   Delete,
+  Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -143,7 +145,10 @@ export class RolesController {
   })
   @ApiResponse({ status: 404, description: 'Role not found.' })
   
-  remove(@Param('id') id: string) {
-    return this.rolesService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string } },
+  ) {
+    return this.rolesService.remove(id, req.user.id);
   }
 }

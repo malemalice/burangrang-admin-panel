@@ -6,6 +6,7 @@ import { JobPositionDto } from './dto/job-position.dto';
 import { Prisma } from '@prisma/client';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -56,7 +57,9 @@ export class JobPositionsService {
       search,
     } = options || {};
 
-    const where: Prisma.JobPositionWhereInput = {};
+    const where: Prisma.JobPositionWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -88,8 +91,8 @@ export class JobPositionsService {
   }
 
   async findOne(id: string): Promise<JobPositionDto> {
-    const jobPosition = await this.prisma.jobPosition.findUnique({
-      where: { id },
+    const jobPosition = await this.prisma.jobPosition.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Job position', id, jobPosition);
@@ -101,6 +104,10 @@ export class JobPositionsService {
     id: string,
     updateJobPositionDto: UpdateJobPositionDto,
   ): Promise<JobPositionDto> {
+    const existing = await this.prisma.jobPosition.findFirst({
+      where: { id, deletedAt: null },
+    });
+    this.errorHandler.throwIfNotFoundById('Job position', id, existing);
     const jobPosition = await this.prisma.jobPosition.update({
       where: { id },
       data: updateJobPositionDto,
@@ -109,9 +116,14 @@ export class JobPositionsService {
     return this.jobPositionMapper(jobPosition);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.prisma.jobPosition.delete({
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existing = await this.prisma.jobPosition.findFirst({
+      where: { id, deletedAt: null },
+    });
+    this.errorHandler.throwIfNotFoundById('Job position', id, existing);
+    await this.prisma.jobPosition.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 

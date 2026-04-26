@@ -27,6 +27,7 @@ import { Role } from '../../shared/types/role.enum';
 import { ROLE_CODES } from '../../shared/constants/role-codes';
 import { WorkPermitWorkerProfileResponseDto } from './dto/work-permit-worker-profile.dto';
 import { UpdateWorkerDocumentsDto } from './dto/update-worker-documents.dto';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class UsersService {
@@ -117,13 +118,13 @@ export class UsersService {
     createdBy: string,
   ): Promise<UserDto> {
     const guestRole = await this.prisma.role.findFirst({
-      where: { code: 'GUEST' },
+      where: { code: 'GUEST', deletedAt: null },
     });
     if (!guestRole) {
       throw new BadRequestException('Guest role not found');
     }
     const defaultOffice = await this.prisma.office.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
     });
     if (!defaultOffice) {
       throw new BadRequestException('No active office found');
@@ -184,13 +185,13 @@ export class UsersService {
     requester: { role: string; companyId: string | null },
   ): Promise<UserDto> {
     const contractorRole = await this.prisma.role.findFirst({
-      where: { code: ROLE_CODES.CONTRACTOR },
+      where: { code: ROLE_CODES.CONTRACTOR, deletedAt: null },
     });
     if (!contractorRole) {
       throw new BadRequestException('Contractor role not found');
     }
     const defaultOffice = await this.prisma.office.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
     });
     if (!defaultOffice) {
       throw new BadRequestException('No active office found');
@@ -314,7 +315,9 @@ export class UsersService {
       }
     }
 
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       // Use contains for full keyword search (matches anywhere in the text)
@@ -383,8 +386,8 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<UserDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
       include: {
         role: { include: { permissions: { select: { name: true } } } },
         office: true,
@@ -689,21 +692,22 @@ export class UsersService {
     return this.userMapper(updatedUser);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existingUser = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('User', id, existingUser);
 
-    await this.prisma.user.delete({
+    await this.prisma.user.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByEmail(email: string): Promise<UserDto | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
       include: {
         role: true,
         office: true,
@@ -716,8 +720,8 @@ export class UsersService {
   }
 
   async findByEmailOrThrow(email: string): Promise<UserDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
       include: {
         role: true,
         office: true,

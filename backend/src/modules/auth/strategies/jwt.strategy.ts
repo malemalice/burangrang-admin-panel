@@ -51,6 +51,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found');
     }
 
+    if ((user as { deletedAt?: Date | null }).deletedAt) {
+      throw new UnauthorizedException('User account is no longer available');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is inactive. Please contact administrator.');
+    }
+
     if (!user.role) {
       throw new UnauthorizedException('User role not found');
     }
