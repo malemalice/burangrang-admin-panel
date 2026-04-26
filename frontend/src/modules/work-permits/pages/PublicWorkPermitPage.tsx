@@ -2,22 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ClipboardList, FileSignature, PenLine } from 'lucide-react';
+import { ClipboardList, FileSignature, Info, PenLine } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Input } from '@/core/components/ui/input';
 import { Label } from '@/core/components/ui/label';
 import { Separator } from '@/core/components/ui/separator';
 import { Textarea } from '@/core/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/core/components/ui/dialog';
 import workPermitService from '../services/workPermitService';
 import type { UpdateWorkPermitDTO, WorkPermit } from '../types/work-permit.types';
 import { PublicWorkPermitReadOnlyDetail } from '../components/PublicWorkPermitReadOnlyDetail';
@@ -94,8 +87,9 @@ const PublicWorkPermitPage = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [signSkDialogOpen, setSignSkDialogOpen] = useState(false);
-  const [applicantSignature, setApplicantSignature] = useState('');
+  const [ackSafetyGuideline, setAckSafetyGuideline] = useState(false);
+  const [ackTraining, setAckTraining] = useState(false);
+  const [ackDataAccurate, setAckDataAccurate] = useState(false);
   const [signingSk, setSigningSk] = useState(false);
 
   const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
@@ -143,6 +137,17 @@ const PublicWorkPermitPage = () => {
   const requiredCourseRows = useMemo(
     () => (courseVerification?.requiredCourses ?? []).filter((r) => r.isRequired),
     [courseVerification?.requiredCourses],
+  );
+  const trainingApplies = useMemo(
+    () => Boolean(courseVerification?.enabled && requiredCourseRows.length > 0),
+    [courseVerification?.enabled, requiredCourseRows.length],
+  );
+  const signOffAckComplete = useMemo(
+    () =>
+      ackSafetyGuideline &&
+      ackDataAccurate &&
+      (trainingApplies ? ackTraining : true),
+    [ackSafetyGuideline, ackDataAccurate, ackTraining, trainingApplies],
   );
   const inlineApplicantUserId = courseVerification?.assignees[0]?.userId;
   const [inlineCourseId, setInlineCourseId] = useState<string>('');
@@ -288,16 +293,29 @@ const PublicWorkPermitPage = () => {
     }
   };
 
+  const resetSignOffAckState = useCallback(() => {
+    setAckSafetyGuideline(false);
+    setAckTraining(false);
+    setAckDataAccurate(false);
+  }, []);
+
+  const buildPublicSkSignature = useCallback((): string => {
+    return JSON.stringify({
+      v: 1,
+      t: 'public-sk',
+      at: new Date().toISOString(),
+      safetyGuideline: true,
+      training: trainingApplies ? 'acknowledged' : 'na',
+      dataAccurate: true,
+    });
+  }, [trainingApplies]);
+
   const handleSignSk = async () => {
-    if (!token || !canSignSkAction) return;
+    if (!token || !canSignSkAction || !signOffAckComplete) return;
     setSigningSk(true);
     try {
-      await workPermitService.signSkPublicByToken(
-        token,
-        applicantSignature.trim() || undefined,
-      );
-      setSignSkDialogOpen(false);
-      setApplicantSignature('');
+      await workPermitService.signSkPublicByToken(token, buildPublicSkSignature());
+      resetSignOffAckState();
       toast.success('Signed — permit sent for security review');
       await load();
     } catch (e) {
@@ -360,6 +378,30 @@ const PublicWorkPermitPage = () => {
         moduleDescription={PUBLIC_WORK_PERMIT_MODULE_DESC}
       />
       <div className="container mx-auto py-8 max-w-4xl px-4 space-y-6">
+        <Alert className="border-primary/20 bg-muted/30">
+          <Info className="h-4 w-4" aria-hidden />
+          <AlertDescription>
+            <p className="font-medium text-foreground">Before you continue</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+              <li>
+                Read this work permit in full, from the top of the page through the sections below, before you
+                sign or submit anything.
+              </li>
+              <li>
+                Confirm that the information shown is complete and accurate for the work to be performed.
+              </li>
+              <li>
+                Where required training applies, complete that training and ensure you are qualified before
+                you acknowledge the safety guideline and terms.
+              </li>
+              <li>
+                Use the acknowledgment step only when you have reviewed the safety guideline, accepted the
+                applicable terms, and agree that the data you confirm is true and complete.
+              </li>
+            </ul>
+          </AlertDescription>
+        </Alert>
+
         <Card>
         <CardHeader className="space-y-2">
           <div className="flex items-start justify-between gap-3">
@@ -731,7 +773,7 @@ const PublicWorkPermitPage = () => {
                     <p className="text-xs text-muted-foreground font-normal">
                       Complete the required course content below. Progress is saved while this link is valid;
                       you can close the page and resume. When all required courses show complete, use
-                      Refresh permit status then Open sign-off.
+                      Refresh permit status, then complete the acknowledgment below.
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -847,19 +889,75 @@ const PublicWorkPermitPage = () => {
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  When the full safety guideline appears in this section, read it here, then use Open sign-off to
-                  complete your acknowledgment.
+                  When the full safety guideline appears in this section, read it here, then complete the
+                  checkboxes and submit your acknowledgment below.
                 </p>
               )}
-              <Button
-                type="button"
-                onClick={() => setSignSkDialogOpen(true)}
-                className="w-full sm:w-auto"
-                disabled={!canSignSkAction}
-              >
-                <PenLine className="mr-2 h-4 w-4" />
-                Open sign-off
-              </Button>
+
+              <div className="space-y-3 rounded-md border p-3 bg-muted/20">
+                <p className="text-sm font-medium">Confirm the following to submit</p>
+                <p className="text-xs text-muted-foreground">
+                  Review the safety guideline in this section above, then mark each item to continue.
+                </p>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="public-sk-ack-safety"
+                    checked={ackSafetyGuideline}
+                    onCheckedChange={(c) => setAckSafetyGuideline(c === true)}
+                  />
+                  <label
+                    htmlFor="public-sk-ack-safety"
+                    className="text-sm leading-snug text-foreground cursor-pointer"
+                  >
+                    I acknowledge the safety guideline and understand my obligations for safe work.
+                  </label>
+                </div>
+                {trainingApplies ? (
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="public-sk-ack-training"
+                      checked={ackTraining}
+                      onCheckedChange={(c) => setAckTraining(c === true)}
+                    />
+                    <label
+                      htmlFor="public-sk-ack-training"
+                      className="text-sm leading-snug text-foreground cursor-pointer"
+                    >
+                      I confirm I have read and completed the required training for this work permit, where
+                      applicable.
+                    </label>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground pl-0.5">
+                    Required training: not applicable for this permit.
+                  </p>
+                )}
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="public-sk-ack-data"
+                    checked={ackDataAccurate}
+                    onCheckedChange={(c) => setAckDataAccurate(c === true)}
+                  />
+                  <label
+                    htmlFor="public-sk-ack-data"
+                    className="text-sm leading-snug text-foreground cursor-pointer"
+                  >
+                    I have verified the information on this permit; it is complete and correct to the best of my
+                    knowledge.
+                  </label>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={handleSignSk}
+                  className="w-full sm:w-auto"
+                  disabled={signingSk || !canSignSkAction || !signOffAckComplete}
+                >
+                  <PenLine className="mr-2 h-4 w-4" />
+                  {signingSk ? 'Signing...' : 'Sign & continue'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </WorkPermitSection>
@@ -879,54 +977,6 @@ const PublicWorkPermitPage = () => {
         </Button>
       ) : null}
 
-      <Dialog open={signSkDialogOpen} onOpenChange={setSignSkDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Sign Safety Guideline (SK)</DialogTitle>
-            <DialogDescription>
-              Confirm that you have reviewed and accepted the safety guideline from HSE.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Safety Guideline</Label>
-              {hasSafetyGuidanceRows || hasGuidelineNarrativePublic || hasWorkClassificationDescription ? (
-                <div className="rounded-md border p-3 text-sm bg-muted/30 max-h-[320px] overflow-y-auto mt-2">
-                  <WorkPermitSafetyGuidelineDisplay
-                    classifications={workPermit.classifications}
-                    showGuidelineNarrative={classificationContentEnabled}
-                    mitigationsByRiskId={mitigationsByRiskId}
-                    mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
-                    mitigationsErrorByRiskId={mitigationsErrorByRiskId}
-                  />
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Guideline text may also appear in the Safety Guideline Acknowledgment section on this page. You
-                  can still confirm and submit your sign-off below.
-                </p>
-              )}
-            </div>
-            <div>
-              <Label>Signature / Acknowledgment (optional)</Label>
-              <Input
-                value={applicantSignature}
-                onChange={(e) => setApplicantSignature(e.target.value)}
-                placeholder="Type your name or signature token"
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSignSkDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSignSk} disabled={signingSk || !canSignSkAction}>
-              {signingSk ? 'Signing...' : 'Sign & continue'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       </div>
     </>
   );
