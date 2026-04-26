@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class CoursesService {
@@ -72,8 +73,8 @@ export class CoursesService {
     }
 
     // Ensure slug is unique
-    const existingCourse = await this.prisma.course.findUnique({
-      where: { slug: createCourseDto.slug },
+    const existingCourse = await this.prisma.course.findFirst({
+      where: { ...isNotDeleted, slug: createCourseDto.slug },
     });
 
     if (existingCourse) {
@@ -106,7 +107,8 @@ export class CoursesService {
         instructor: true,
         categories: true,
         chapters: {
-          orderBy: { order: 'asc' }
+          where: { ...isNotDeleted },
+          orderBy: { order: 'asc' },
         },
       },
     });
@@ -139,7 +141,7 @@ export class CoursesService {
       title,
     } = options || {};
 
-    const where: Prisma.CourseWhereInput = {};
+    const where: Prisma.CourseWhereInput = { ...isNotDeleted };
 
     // Apply filters
     if (title) {
@@ -180,7 +182,8 @@ export class CoursesService {
           instructor: true,
           categories: true,
           chapters: {
-            orderBy: { order: 'asc' }
+            where: { ...isNotDeleted },
+            orderBy: { order: 'asc' },
           },
         },
         orderBy: {
@@ -201,13 +204,14 @@ export class CoursesService {
   }
 
   async findOne(id: string): Promise<CourseDto> {
-    const course = await this.prisma.course.findUnique({
-      where: { id },
+    const course = await this.prisma.course.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         instructor: true,
         categories: true,
         chapters: {
-          orderBy: { order: 'asc' }
+          where: { ...isNotDeleted },
+          orderBy: { order: 'asc' },
         },
         _count: {
           select: {
@@ -223,13 +227,14 @@ export class CoursesService {
   }
 
   async findBySlug(slug: string): Promise<CourseDto> {
-    const course = await this.prisma.course.findUnique({
-      where: { slug },
+    const course = await this.prisma.course.findFirst({
+      where: { slug, ...isNotDeleted },
       include: {
         instructor: true,
         categories: true,
         chapters: {
-          orderBy: { order: 'asc' }
+          where: { ...isNotDeleted },
+          orderBy: { order: 'asc' },
         },
       },
     });
@@ -241,16 +246,16 @@ export class CoursesService {
 
   async update(id: string, updateCourseDto: UpdateCourseDto, updatedBy: string): Promise<CourseDto> {
     // Check if course exists
-    const existingCourse = await this.prisma.course.findUnique({
-      where: { id },
+    const existingCourse = await this.prisma.course.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Course', id, existingCourse);
 
     // Handle slug update
     if (updateCourseDto.slug && updateCourseDto.slug !== existingCourse.slug) {
-      const slugExists = await this.prisma.course.findUnique({
-        where: { slug: updateCourseDto.slug },
+      const slugExists = await this.prisma.course.findFirst({
+        where: { ...isNotDeleted, slug: updateCourseDto.slug },
       });
 
       if (slugExists) {
@@ -303,7 +308,8 @@ export class CoursesService {
         instructor: true,
         categories: true,
         chapters: {
-          orderBy: { order: 'asc' }
+          where: { ...isNotDeleted },
+          orderBy: { order: 'asc' },
         },
       },
     });
@@ -321,15 +327,16 @@ export class CoursesService {
   }
 
   async remove(id: string, deletedBy: string): Promise<void> {
-    const course = await this.prisma.course.findUnique({
-      where: { id },
+    const course = await this.prisma.course.findFirst({
+      where: { id, ...isNotDeleted },
       select: { id: true, title: true },
     });
 
     this.errorHandler.throwIfNotFoundById('Course', id, course);
 
-    await this.prisma.course.delete({
+    await this.prisma.course.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
 
     // Log activity
@@ -343,7 +350,9 @@ export class CoursesService {
   }
 
   async getStats(): Promise<{ total: number }> {
-    const total = await this.prisma.course.count({ where: { isActive: true } });
+    const total = await this.prisma.course.count({
+      where: { isActive: true, ...isNotDeleted },
+    });
 
     return {
       total,
@@ -363,7 +372,7 @@ export class CoursesService {
     let counter = 1;
     let uniqueSlug = `${baseSlug}-${counter}`;
 
-    while (await this.prisma.course.findUnique({ where: { slug: uniqueSlug } })) {
+    while (await this.prisma.course.findFirst({ where: { ...isNotDeleted, slug: uniqueSlug } })) {
       counter++;
       uniqueSlug = `${baseSlug}-${counter}`;
     }

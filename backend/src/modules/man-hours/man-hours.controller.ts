@@ -129,7 +129,7 @@ export class ManHoursController {
   @ApiOperation({ summary: 'Delete a man hour' })
   @ApiResponse({ status: 200, description: 'The man hour has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Man hour not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.manHoursService.remove(id);
+  remove(@Param('id') id: string, @Request() req: { user: { id: string } }): Promise<void> {
+    return this.manHoursService.remove(id, req.user.id);
   }
 }

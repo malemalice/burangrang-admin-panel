@@ -1,4 +1,5 @@
 import { PrismaClient, type Permission } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 export const permissions = [
   // User Management
@@ -139,6 +140,19 @@ export const permissions = [
   { name: 'quiz:grade', description: 'Grade essay questions in quizzes' },
   { name: 'quiz:adjust-score', description: 'Manually adjust quiz attempt scores' },
   { name: 'quiz:view-attempts', description: 'View all quiz attempts for grading' },
+
+  // Health questionnaire (master) — distinct from LMS quizzes
+  { name: 'health-quiz:create', description: 'Create health declaration questionnaires' },
+  { name: 'health-quiz:read', description: 'View health questionnaire templates' },
+  { name: 'health-quiz:update', description: 'Update health questionnaire templates' },
+  { name: 'health-quiz:delete', description: 'Deactivate health questionnaire templates' },
+  { name: 'health-quiz:list', description: 'List health questionnaire templates' },
+
+  // Health screening (worker filling)
+  { name: 'health-screening:start', description: 'Start a health screening / declaration' },
+  { name: 'health-screening:list', description: 'List health screenings (scoped)' },
+  { name: 'health-screening:read', description: 'View health screening details' },
+  { name: 'health-screening:submit', description: 'Submit answers and complete health screening' },
 
   // Incident Management
   { name: 'incident:create', description: 'Create new incidents' },
@@ -366,11 +380,15 @@ export async function seedPermissions(prisma: PrismaClient) {
   console.log('Creating permissions...');
   const createdPermissions: Permission[] = [];
   for (const permission of permissions) {
-    const result = await prisma.permission.upsert({
-      where: { name: permission.name },
-      update: permission,
-      create: permission,
+    const existing = await prisma.permission.findFirst({
+      where: { name: permission.name, ...notDeleted },
     });
+    const result = existing
+      ? await prisma.permission.update({
+          where: { id: existing.id },
+          data: permission,
+        })
+      : await prisma.permission.create({ data: permission });
     createdPermissions.push(result);
   }
   console.log(`Created/Updated ${createdPermissions.length} permissions`);

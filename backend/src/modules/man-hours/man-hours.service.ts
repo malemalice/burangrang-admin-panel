@@ -6,6 +6,7 @@ import { CreateManHourDto } from './dto/create-man-hour.dto';
 import { UpdateManHourDto } from './dto/update-man-hour.dto';
 import { ManHourDto, ManHourReportDto, ManHourReportRowDto } from './dto/man-hour.dto';
 import { ManHourGroupEnum, MonthEnum } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -145,7 +146,7 @@ export class ManHoursService {
       group,
     } = options || {};
 
-    const where: any = {};
+    const where: any = { ...isNotDeleted };
 
     if (search) {
       where.OR = [
@@ -193,8 +194,8 @@ export class ManHoursService {
   }
 
   async findOne(id: string): Promise<ManHourDto> {
-    const manHour = await this.prisma.manHour.findUnique({
-      where: { id },
+    const manHour = await this.prisma.manHour.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         creator: true,
       },
@@ -206,8 +207,8 @@ export class ManHoursService {
   }
 
   async update(id: string, updateDto: UpdateManHourDto): Promise<ManHourDto> {
-    const existing = await this.prisma.manHour.findUnique({
-      where: { id },
+    const existing = await this.prisma.manHour.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Man hour', id, existing);
@@ -249,15 +250,16 @@ export class ManHoursService {
     return this.manHourMapper(updated);
   }
 
-  async remove(id: string): Promise<void> {
-    const manHour = await this.prisma.manHour.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const manHour = await this.prisma.manHour.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Man hour', id, manHour);
 
-    await this.prisma.manHour.delete({
+    await this.prisma.manHour.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -273,6 +275,7 @@ export class ManHoursService {
         lte: endYear,
       },
       isActive: true,
+      ...isNotDeleted,
     };
 
     if (group) {

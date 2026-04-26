@@ -1009,7 +1009,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Work Permit',
         icon: 'FileText',
-        order: 15,
+        order: 17,
         isActive: true,
         roles: {
           connect: [
@@ -1043,11 +1043,68 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
+        name: 'Workers',
+        path: '/work-permits/workers',
+        icon: 'Users',
+        parentId: workPermitMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
         name: 'Work Classifications',
         path: '/master/work-classifications',
         icon: 'Tag',
         parentId: workPermitMenu.id,
-        order: 2,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Health Quiz',
+        path: '/health-quizzes',
+        icon: 'ClipboardList',
+        parentId: workPermitMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Health Screenings',
+        path: '/health-screenings',
+        icon: 'Activity',
+        parentId: workPermitMenu.id,
+        order: 5,
         isActive: true,
         roles: {
           connect: [
@@ -1353,7 +1410,7 @@ export const seedMenus = async () => {
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
     console.log(`   - Dashboard submenus: 6`);
-    console.log(`   - Top-level menus: 16 (including Incident Securities)`);
+    console.log(`   - Top-level menus: 14 (including Incident Securities)`);
     console.log(`   - Risk Assessment submenus: 5`);
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
@@ -1361,7 +1418,7 @@ export const seedMenus = async () => {
     console.log(`   - Inspection submenus: 2`);
     console.log(`   - PPE Management submenus: 2`);
     console.log(`   - Certificate Management submenus: 2`);
-    console.log(`   - Work Permit submenus: 2`);
+    console.log(`   - Work Permit submenus: 5`);
     console.log(`   - Man Hour submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);

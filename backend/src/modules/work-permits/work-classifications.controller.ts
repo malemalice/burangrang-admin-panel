@@ -8,8 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -104,7 +106,10 @@ export class WorkClassificationsController {
   @ApiResponse({ status: 200, description: 'Deleted' })
   @ApiResponse({ status: 404, description: 'Not found' })
   @ApiResponse({ status: 409, description: 'In use by work permits' })
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.workClassificationsService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.workClassificationsService.remove(id, req.user.id);
   }
 }

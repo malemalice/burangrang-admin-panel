@@ -38,6 +38,26 @@ export class UserDto {
   @Expose()
   jobPositionId?: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  companyId?: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  professionId?: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  idNumber?: string | null;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  company?: { id: string; name: string; code: string };
+
+  @ApiProperty({ required: false })
+  @Expose()
+  profession?: { id: string; name: string; code: string };
+
   @ApiProperty()
   @Expose()
   createdAt: Date;
@@ -49,6 +69,14 @@ export class UserDto {
   @ApiProperty({ required: false, nullable: true })
   @Expose()
   lastLoginAt?: Date | null;
+
+  @ApiProperty({ required: false, nullable: true, description: 'Set when user is soft-deleted' })
+  @Expose()
+  deletedAt?: Date | null;
+
+  @ApiProperty({ required: false, nullable: true, description: 'User id of actor for soft delete' })
+  @Expose()
+  deletedBy?: string | null;
 
   // Include the role object
   @ApiProperty({ required: false })

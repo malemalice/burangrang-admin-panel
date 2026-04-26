@@ -83,9 +83,17 @@ export class PermissionsGuard implements CanActivate {
       return false;
     }
 
+    if ((userWithRole as { deletedAt?: Date | null }).deletedAt) {
+      return false;
+    }
+
     // Check if user has all required permissions (from role OR direct assignment)
-    const rolePermissions = userWithRole.role.permissions.map((p) => p.name);
-    const directPermissions = userWithRole.permissions.map((p) => p.name);
+    const rolePermissions = userWithRole.role.permissions
+      .filter((p) => p.isActive && (p as { deletedAt?: Date | null }).deletedAt == null)
+      .map((p) => p.name);
+    const directPermissions = userWithRole.permissions
+      .filter((p) => p.isActive && (p as { deletedAt?: Date | null }).deletedAt == null)
+      .map((p) => p.name);
     
     // Merge and deduplicate permissions
     const allPermissions = new Set([...rolePermissions, ...directPermissions]);

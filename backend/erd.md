@@ -336,6 +336,39 @@ Enum EquipmentEntityEnum {
   SAFETY_EQUIPMENT [note: 'Safety equipment entity']
 }
 
+Enum ZohoOutboundJobStatusEnum {
+  PENDING [note: 'Outbound job pending']
+  PROCESSING [note: 'Outbound job processing']
+  SUCCESS [note: 'Outbound job succeeded']
+  FAILED_RETRY [note: 'Outbound job failed (will retry)']
+  FAILED_DEAD_LETTER [note: 'Outbound job failed (dead letter)']
+}
+
+Enum WeightReportStatusEnum {
+  SCHEDULED [note: 'Weight report scheduled']
+  DRAFT [note: 'Weight report draft']
+  OPEN [note: 'Weight report open']
+  WAITING_APPROVAL [note: 'Weight report waiting approval']
+  DONE [note: 'Weight report completed']
+  REJECTED [note: 'Weight report rejected']
+}
+
+Enum WaterQualityLabReportStatusEnum {
+  SCHEDULED [note: 'Lab report scheduled']
+  DRAFT [note: 'Lab report draft']
+  OPEN [note: 'Lab report open']
+  WAITING_APPROVAL [note: 'Lab report waiting approval']
+  DONE [note: 'Lab report completed']
+  REJECTED [note: 'Lab report rejected']
+}
+
+Enum WaterQualityLabReportCategoryEnum {
+  WASTEWATER [note: 'Wastewater']
+  CLEAN_WATER [note: 'Clean water']
+  SWIMMING_POOL_WATER [note: 'Swimming pool water']
+  DRINKING_WATER [note: 'Drinking water']
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -352,8 +385,10 @@ Table t_users {
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   lastLoginAt timestamp [null]
+  deletedAt timestamp [null, note: 'Soft delete; auth rejects non-null']
+  deletedBy varchar [null, note: 'Actor user id when deleted']
   
-  Note: 'Central user management table with organizational relationships'
+  Note: 'Central user management table with organizational relationships. Email unique among non-deleted rows (partial index).'
   indexes {
     email [unique]
     roleId
@@ -370,10 +405,12 @@ Table m_roles {
   description varchar [null]
   isActive boolean [not null, default: true]
   dataLevel DataLevelEnum [not null, default: 'SUPER']
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'User roles for RBAC'
+  Note: 'User roles for RBAC; name/code unique among non-deleted (partial index)'
   indexes {
     name [unique]
     code [unique]
@@ -385,6 +422,8 @@ Table m_permissions {
   name varchar [unique, not null]
   description varchar [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -436,6 +475,8 @@ Table m_offices {
   email varchar [null]
   parentId varchar [null, ref: > m_offices.id, note: 'Self-referencing for hierarchy']
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -453,6 +494,8 @@ Table m_departments {
   description text [null]
   emails json [null, note: 'Array of email addresses for the department']
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -469,6 +512,8 @@ Table m_job_positions {
   level int [not null, note: 'Hierarchy level']
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -508,6 +553,8 @@ Table m_menus {
   parentId varchar [null, ref: > m_menus.id, note: 'Self-referencing for hierarchy']
   order int [not null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -638,7 +685,7 @@ Table t_risk_control {
 
 Table t_risk_mitigation {
   id varchar [pk, default: `uuid()`]
-  code varchar [unique, not null, note: 'Auto-generated code with prefix RSK{datetime}, not user-updatable']
+  code varchar [not null, note: 'Auto-generated RSK{datetime}; unique among non-deleted rows (partial index)']
   eliminate text [null]
   transfer text [null]
   reduce text [null]
@@ -649,6 +696,8 @@ Table t_risk_mitigation {
   entityId varchar [not null, note: 'Entity ID - references t_risk_assessment_item.id or t_inspection_items.id']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  deletedAt timestamp [null]
+  deletedBy varchar [null, ref: > t_users.id]
   
   Note: 'Risk mitigation strategies with control measures - polymorphic relation to risk assessment items and inspection items'
   indexes {
@@ -700,7 +749,7 @@ Table m_risk_matrix {
 
 Table t_risk_assessment {
   id varchar [pk, default: `uuid()`]
-  code varchar [unique, not null]
+  code varchar [not null, note: 'Unique among non-deleted rows (partial index)']
   description text [null]
   departmentId varchar [not null, ref: > m_departments.id]
   assessmentDate timestamp [not null, default: `now()`]
@@ -711,10 +760,12 @@ Table t_risk_assessment {
   actionPlan text [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  deletedAt timestamp [null]
+  deletedBy varchar [null, ref: > t_users.id]
   
   Note: 'Risk assessment records'
   indexes {
-    code [unique]
+    code
     departmentId
     assigneeId
     status
@@ -734,8 +785,10 @@ Table t_risk_assessment_item {
   postConsequenceLevel int [not null]
   postRiskMatrixRating varchar [not null, note: 'String type to match Schema']
   postInterpretation RiskRatingEnum [not null]
+  deletedAt timestamp [null]
+  deletedBy varchar [null, ref: > t_users.id]
   
-  Note: 'Individual risk assessment entries - has 1-to-1 polymorphic relation with t_risk_mitigation (entity='RISK_ASSESSMENT_ITEM', entityId=id). Note: riskDescription field removed to match Schema.'
+  Note: 'Individual risk assessment entries - has 1-to-1 polymorphic relation with t_risk_mitigation (entity=RISK_ASSESSMENT_ITEM, entityId=id). riskDescription field removed to match Schema.'
   indexes {
     riskAssessmentId
     mRiskId
@@ -743,7 +796,8 @@ Table t_risk_assessment_item {
   }
 }
 
-Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade, note: 'Polymorphic relation: when entity='RISK_ASSESSMENT_ITEM'']
+// Polymorphic relation when entity=RISK_ASSESSMENT_ITEM
+Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade]
 
 Table t_risk_assessment_item_images {
   id varchar [pk, default: `uuid()`]
@@ -798,7 +852,7 @@ Table t_inspection_items {
   updatedAt timestamp [not null, default: `now()`]
   dueDateAt timestamp [null]
   
-  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
+  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity=INSPECTION_ITEM, entityId=id)'
   indexes {
     inspectionId
     areaId
@@ -810,7 +864,8 @@ Table t_inspection_items {
   }
 }
 
-Ref: t_risk_mitigation.entityId > t_inspection_items.id [delete: cascade, note: 'Polymorphic relation: when entity='INSPECTION_ITEM'']
+// Polymorphic relation when entity=INSPECTION_ITEM
+Ref: t_risk_mitigation.entityId > t_inspection_items.id [delete: cascade]
 
 Table t_inspection_images {
   id varchar [pk, default: `uuid()`]
@@ -848,32 +903,36 @@ Table t_inspection_inspectors {
 Table m_audit_element {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
-  code varchar [unique, not null]
+  code varchar [not null]
   description text [null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  deletedAt timestamp [null]
+  deletedBy varchar [null, ref: > t_users.id]
   
-  Note: 'Top-level audit elements (e.g., Safety Standards, Quality Control)'
+  Note: 'Top-level audit elements (e.g., Safety Standards, Quality Control). code unique among non-deleted rows (partial unique index).'
   indexes {
-    code [unique]
+    code
   }
 }
 
 Table m_audit_clause {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
-  code varchar [unique, not null]
+  code varchar [not null]
   description text [null]
   auditElementId varchar [not null, ref: > m_audit_element.id]
   order int [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  deletedAt timestamp [null]
+  deletedBy varchar [null, ref: > t_users.id]
   
-  Note: 'Audit clauses within elements (e.g., PPE, Emergency Equipment, Work Procedures)'
+  Note: 'Audit clauses within elements (e.g., PPE, Emergency Equipment, Work Procedures). code unique among non-deleted rows (partial unique index).'
   indexes {
-    code [unique]
+    code
     auditElementId
     order
   }
@@ -882,7 +941,7 @@ Table m_audit_clause {
 Table m_audit_criteria {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
-  code varchar [unique, not null]
+  code varchar [not null]
   description text [null]
   auditClauseId varchar [not null, ref: > m_audit_clause.id]
   transitionType TransitionTypeEnum [not null]
@@ -890,10 +949,12 @@ Table m_audit_criteria {
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  deletedAt timestamp [null]
+  deletedBy varchar [null, ref: > t_users.id]
   
-  Note: 'Specific audit criteria within clauses (e.g., Hard hat condition, Fire extinguisher location)'
+  Note: 'Specific audit criteria within clauses (e.g., Hard hat condition, Fire extinguisher location). code unique among non-deleted rows (partial unique index).'
   indexes {
-    code [unique]
+    code
     auditClauseId
     order
   }
@@ -1417,6 +1478,47 @@ Table t_zoho_webhook_logs {
   }
 }
 
+Table t_zoho_ticket_risk_assessment_map {
+  id varchar [pk, default: `uuid()`]
+  zohoTicketId varchar [unique, not null]
+  zohoTicketNumber varchar [null]
+  hseTaskId varchar [unique, not null, ref: > t_risk_assessment.id]
+  lastZohoStatus varchar [null, note: 'Raw Zoho status string']
+  lastHseStatus GeneralStatusEnum [null]
+  rawPayload json [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Mapping table between Zoho tickets and HSE risk assessments'
+  indexes {
+    hseTaskId
+  }
+}
+
+Table t_zoho_outbound_jobs {
+  id varchar [pk, default: `uuid()`]
+  mappingId varchar [not null, ref: > t_zoho_ticket_risk_assessment_map.id, note: 'onDelete: Cascade']
+  ticketId varchar [not null]
+  targetStatus varchar [not null]
+  requestPayload json [not null]
+  responsePayload json [null]
+  status ZohoOutboundJobStatusEnum [not null, default: 'PENDING']
+  attemptCount int [not null, default: 0]
+  maxAttempts int [not null, default: 6]
+  nextRetryAt timestamp [not null, default: `now()`]
+  lastError text [null]
+  correlationId varchar [null]
+  processedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Outbound job processing queue for updating Zoho tickets'
+  indexes {
+    (status, nextRetryAt)
+    ticketId
+  }
+}
+
 //// -- PPE MANAGEMENT SYSTEM --
 
 Table m_safety_equipment_type {
@@ -1936,6 +2038,8 @@ Table m_work_classification {
   code varchar [unique, not null]
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -1951,6 +2055,8 @@ Table m_heavy_equipment {
   code varchar [unique, not null]
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -1982,6 +2088,8 @@ Table m_tools {
   code varchar [unique, not null]
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -1997,6 +2105,8 @@ Table m_materials {
   code varchar [unique, not null]
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -2012,6 +2122,8 @@ Table m_machines {
   code varchar [unique, not null]
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -2030,10 +2142,12 @@ Table m_companies {
   phone varchar [null]
   email varchar [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Company/contractor details for work permits'
+  Note: 'Company/contractor details for work permits; code unique among non-deleted (partial index)'
   indexes {
     code [unique]
   }
@@ -2045,6 +2159,8 @@ Table m_professions {
   code varchar [unique, not null]
   description text [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -2061,6 +2177,8 @@ Table m_areas {
   description text [null]
   officeId varchar [null, ref: > m_offices.id]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -2078,10 +2196,12 @@ Table m_rooms {
   description text [null]
   areaId varchar [unique, not null, ref: > m_areas.id, note: 'One-to-one with area']
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Rooms within areas - one-to-one relationship with area'
+  Note: 'Rooms within areas - one-to-one with area; areaId and code unique among non-deleted (partial index)'
   indexes {
     code [unique]
     areaId [unique]
@@ -2117,6 +2237,8 @@ Table t_guests {
   phone varchar [null]
   photoUrl varchar [null]
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
@@ -2142,6 +2264,8 @@ Table t_work_permits {
   requireCourseVerification boolean [not null, default: false]
   status varchar [not null, note: 'DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_HSE, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED']
   isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  deletedBy varchar [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   createdBy varchar [not null, ref: > t_users.id]
@@ -2245,37 +2369,35 @@ Table t_work_permit_machines {
   }
 }
 
-Table t_work_permit_workers {
+Table t_worker {
   id varchar [pk, default: `uuid()`]
-  workPermitId varchar [not null, ref: > t_work_permits.id, note: 'onDelete: Cascade']
-  guestId varchar [not null, ref: > t_guests.id]
-  idNumber varchar [null]
+  userId varchar [not null, unique, ref: > t_users.id, note: 'onDelete: Cascade']
   certificateUrl varchar [null]
-  healthDeclarationUrl varchar [not null]
-  order int [not null]
+  healthDeclarationUrl varchar [null]
   createdAt timestamp [not null, default: `now()`]
-  
-  Note: 'Workers assigned to work permit with ID, certificates, and health declaration'
+  updatedAt timestamp [not null, default: `now()`]
+
+  Note: 'Contractor / work-permit worker profile (URLs); identity and profession are on t_users'
   indexes {
-    workPermitId
-    guestId
+    userId [unique]
   }
 }
 
-Table t_work_permit_professions {
+Table t_work_permit_workers {
   id varchar [pk, default: `uuid()`]
   workPermitId varchar [not null, ref: > t_work_permits.id, note: 'onDelete: Cascade']
-  professionId varchar [not null, ref: > m_professions.id]
-  quantity int [not null]
+  workerId varchar [not null, ref: > t_worker.id, note: 'onDelete: Cascade']
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
-  
-  Note: 'Professions required for work permit with quantities'
+
+  Note: 'Join: work permit ↔ worker profile (order on permit only)'
   indexes {
     workPermitId
-    professionId
+    workerId
   }
 }
+
+// Legacy aggregate table t_work_permit_professions was removed; profession is per worker user profile.
 
 Table t_work_permit_required_courses {
   id varchar [pk, default: `uuid()`]
@@ -2458,6 +2580,7 @@ Table t_water_quality_lab_reports {
   id varchar [pk, default: `uuid()`]
   reportCode varchar [unique, not null]
   treatmentPlantId varchar [not null, ref: > m_treatment_plants.id]
+  category WaterQualityLabReportCategoryEnum [not null, default: 'WASTEWATER']
   reportDate timestamp [not null]
   preparedBy varchar [not null, ref: > t_users.id]
   reportDocumentUrl varchar [null]
@@ -2468,7 +2591,7 @@ Table t_water_quality_lab_reports {
   submittedAt timestamp [not null]
   receivedBy varchar [null, ref: > t_users.id]
   receivedAt timestamp [null]
-  status ReportStatusEnum [not null, default: 'SUBMITTED']
+  status WaterQualityLabReportStatusEnum [not null, default: 'DRAFT']
   reviewedBy varchar [null, ref: > t_users.id]
   reviewedAt timestamp [null]
   reviewNotes text [null]
@@ -2483,6 +2606,7 @@ Table t_water_quality_lab_reports {
     (treatmentPlantId, reportDate)
     reportDate
     status
+    category
     receivedAt
   }
 }
@@ -2503,6 +2627,21 @@ Table t_water_quality_lab_report_results {
     (labReportId, parameterId) [unique]
     labReportId
     parameterId
+  }
+}
+
+Table t_water_quality_lab_report_attachments {
+  id varchar [pk, default: `uuid()`]
+  labReportId varchar [not null, ref: > t_water_quality_lab_reports.id, note: 'onDelete: Cascade']
+  fileUrl varchar [not null]
+  fileName varchar [null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'File attachments for water quality lab reports'
+  indexes {
+    labReportId
+    order
   }
 }
 
@@ -2568,14 +2707,14 @@ Table t_weight_reports {
   sourceId varchar [not null, ref: > m_waste_sources.id]
   storageLocationId varchar [not null, ref: > m_storage_locations.id]
   reportDate timestamp [not null]
-  reportMonth MonthEnum [not null]
-  reportYear int [not null]
+  reportMonth MonthEnum [null]
+  reportYear int [null]
   reportDocumentUrl varchar [null]
   submittedBy varchar [not null, ref: > t_users.id]
   submittedAt timestamp [not null]
   receivedBy varchar [null, ref: > t_users.id]
   receivedAt timestamp [null]
-  status ReportStatusEnum [not null, default: 'SUBMITTED']
+  status WeightReportStatusEnum [not null, default: 'DRAFT']
   reviewedBy varchar [null, ref: > t_users.id]
   reviewedAt timestamp [null]
   reviewNotes text [null]
@@ -2587,8 +2726,9 @@ Table t_weight_reports {
   Note: 'Weight reports submitted by waste sources'
   indexes {
     reportCode [unique]
-    (sourceId, reportMonth, reportYear) [unique]
+    (sourceId, reportDate) [unique]
     (reportMonth, reportYear)
+    reportDate
     status
     receivedAt
   }
@@ -2687,16 +2827,6 @@ Table _CourseToCategory {
   B varchar [ref: > m_course_categories.id]
   
   Note: 'Many-to-many: Courses and Course Categories'
-  indexes {
-    (A, B) [pk]
-  }
-}
-
-Table _AuditToUser {
-  A varchar [ref: > t_audits.id]
-  B varchar [ref: > t_users.id]
-  
-  Note: 'Many-to-many: Audits and Auditors (Users)'
   indexes {
     (A, B) [pk]
   }
@@ -2820,9 +2950,10 @@ TableGroup file_upload_system {
 }
 
 TableGroup system_configuration {
-  m_email_templates
   m_settings
   t_zoho_webhook_logs
+  t_zoho_ticket_risk_assessment_map
+  t_zoho_outbound_jobs
   t_access_logs
 }
 
@@ -2868,9 +2999,6 @@ TableGroup work_permit_system {
   m_machines
   m_companies
   m_professions
-  m_areas
-  m_rooms
-  t_environmental_measurements
   t_guests
   t_work_permits
   t_work_permit_classifications
@@ -2879,8 +3007,8 @@ TableGroup work_permit_system {
   t_work_permit_tools
   t_work_permit_materials
   t_work_permit_machines
+  t_worker
   t_work_permit_workers
-  t_work_permit_professions
   t_work_permit_required_courses
   t_work_permit_hazards
   t_work_permit_attachments
@@ -2895,6 +3023,7 @@ TableGroup waste_management {
   t_monthly_flow_reports
   t_water_quality_lab_reports
   t_water_quality_lab_report_results
+  t_water_quality_lab_report_attachments
   m_waste_types
   m_waste_sources
   m_storage_locations

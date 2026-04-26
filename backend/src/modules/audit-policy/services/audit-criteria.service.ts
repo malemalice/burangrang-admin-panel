@@ -7,6 +7,7 @@ import { Prisma, TransitionTypeEnum } from '@prisma/client';
 import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -51,8 +52,8 @@ export class AuditCriteriaService {
    * Uses two-phase update to avoid unique constraint violations when reassigning codes.
    */
   async regenerateCriteriaCodes(auditClauseId: string): Promise<void> {
-    const auditClause = await this.prisma.auditClause.findUnique({
-      where: { id: auditClauseId },
+    const auditClause = await this.prisma.auditClause.findFirst({
+      where: { id: auditClauseId, ...isNotDeleted },
       include: {
         auditElement: true,
       },
@@ -61,7 +62,7 @@ export class AuditCriteriaService {
     this.errorHandler.throwIfNotFoundById('AuditClause', auditClauseId, auditClause);
 
     const criteria = await this.prisma.auditCriteria.findMany({
-      where: { auditClauseId },
+      where: { auditClauseId, ...isNotDeleted },
       orderBy: { order: 'asc' },
     });
 
@@ -88,8 +89,8 @@ export class AuditCriteriaService {
     createAuditCriteriaDto: CreateAuditCriteriaDto,
   ): Promise<AuditCriteriaDto> {
     // Verify audit clause exists
-    const auditClause = await this.prisma.auditClause.findUnique({
-      where: { id: createAuditCriteriaDto.auditClauseId },
+    const auditClause = await this.prisma.auditClause.findFirst({
+      where: { id: createAuditCriteriaDto.auditClauseId, ...isNotDeleted },
       include: {
         auditElement: true,
       },
@@ -106,6 +107,7 @@ export class AuditCriteriaService {
       where: {
         auditClauseId: createAuditCriteriaDto.auditClauseId,
         order: createAuditCriteriaDto.order,
+        ...isNotDeleted,
       },
     });
     if (existingWithOrder) {
@@ -146,8 +148,8 @@ export class AuditCriteriaService {
     await this.regenerateCriteriaCodes(auditClause.id);
 
     // Return the updated criteria
-    const updatedCriteria = await this.prisma.auditCriteria.findUnique({
-      where: { id: criteria.id },
+    const updatedCriteria = await this.prisma.auditCriteria.findFirst({
+      where: { id: criteria.id, ...isNotDeleted },
     });
 
     return this.auditCriteriaMapper(updatedCriteria);
@@ -169,7 +171,7 @@ export class AuditCriteriaService {
       transitionType,
     } = options || {};
 
-    const where: Prisma.AuditCriteriaWhereInput = {};
+    const where: Prisma.AuditCriteriaWhereInput = { ...isNotDeleted };
 
     if (search) {
       where.OR = [
@@ -189,7 +191,7 @@ export class AuditCriteriaService {
 
     if (auditElementId) {
       where.auditClause = {
-        auditElementId: auditElementId,
+        is: { auditElementId, ...isNotDeleted },
       };
     }
 
@@ -227,8 +229,8 @@ export class AuditCriteriaService {
   }
 
   async findOne(id: string): Promise<AuditCriteriaDto> {
-    const criteria = await this.prisma.auditCriteria.findUnique({
-      where: { id },
+    const criteria = await this.prisma.auditCriteria.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         auditClause: {
           include: {
@@ -247,8 +249,8 @@ export class AuditCriteriaService {
     id: string,
     updateAuditCriteriaDto: UpdateAuditCriteriaDto,
   ): Promise<AuditCriteriaDto> {
-    const existingCriteria = await this.prisma.auditCriteria.findUnique({
-      where: { id },
+    const existingCriteria = await this.prisma.auditCriteria.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         auditClause: {
           include: {
@@ -263,8 +265,8 @@ export class AuditCriteriaService {
     // If auditClauseId is being updated, verify it exists
     let auditClauseId = existingCriteria.auditClauseId;
     if (updateAuditCriteriaDto.auditClauseId !== undefined) {
-      const auditClause = await this.prisma.auditClause.findUnique({
-        where: { id: updateAuditCriteriaDto.auditClauseId },
+      const auditClause = await this.prisma.auditClause.findFirst({
+        where: { id: updateAuditCriteriaDto.auditClauseId, ...isNotDeleted },
         include: {
           auditElement: true,
         },
@@ -297,6 +299,7 @@ export class AuditCriteriaService {
           auditClauseId,
           order: updateAuditCriteriaDto.order,
           id: { not: id },
+          ...isNotDeleted,
         },
       });
       if (existingWithOrder) {
@@ -322,8 +325,8 @@ export class AuditCriteriaService {
     if (updateAuditCriteriaDto.order !== undefined || updateAuditCriteriaDto.auditClauseId !== undefined) {
       await this.regenerateCriteriaCodes(auditClauseId);
       // Return updated criteria
-      const updatedCriteria = await this.prisma.auditCriteria.findUnique({
-        where: { id },
+      const updatedCriteria = await this.prisma.auditCriteria.findFirst({
+        where: { id, ...isNotDeleted },
       });
       return this.auditCriteriaMapper(updatedCriteria);
     }
@@ -331,21 +334,31 @@ export class AuditCriteriaService {
     return this.auditCriteriaMapper(criteria);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingCriteria = await this.prisma.auditCriteria.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const existingCriteria = await this.prisma.auditCriteria.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditCriteria', id, existingCriteria);
 
-    await this.prisma.auditCriteria.delete({
+    const refCount = await this.prisma.auditItem.count({
+      where: { auditCriteriaId: id },
+    });
+    if (refCount > 0) {
+      this.errorHandler.throwConflictCustom(
+        'Cannot delete audit criteria that are referenced by audit items.',
+      );
+    }
+
+    await this.prisma.auditCriteria.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByCode(code: string): Promise<AuditCriteriaDto> {
-    const criteria = await this.prisma.auditCriteria.findUnique({
-      where: { code },
+    const criteria = await this.prisma.auditCriteria.findFirst({
+      where: { code, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundByField('AuditCriteria', 'code', code, criteria);
@@ -359,8 +372,8 @@ export class AuditCriteriaService {
    */
   async reorder(auditClauseId: string, criterionIds: string[]): Promise<void> {
     if (!criterionIds?.length) return;
-    const auditClause = await this.prisma.auditClause.findUnique({
-      where: { id: auditClauseId },
+    const auditClause = await this.prisma.auditClause.findFirst({
+      where: { id: auditClauseId, ...isNotDeleted },
     });
     this.errorHandler.throwIfNotFoundById('AuditClause', auditClauseId, auditClause);
 
@@ -370,6 +383,7 @@ export class AuditCriteriaService {
           where: {
             id: criterionIds[i],
             auditClauseId,
+            deletedAt: null,
           },
           data: { order: i },
         });

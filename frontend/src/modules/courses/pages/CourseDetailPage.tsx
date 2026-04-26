@@ -7,14 +7,12 @@ import {
   Plus,
   BookOpen,
   Clock,
-  Star,
   Play,
   FileText,
   Youtube,
   Calendar,
   Eye,
   EyeOff,
-  MoreHorizontal,
   ArrowLeft,
   FileQuestion
 } from 'lucide-react';
@@ -24,13 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
 import { Separator } from '@/core/components/ui/separator';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/core/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { formatDate } from '@/core/utils/date';
 import { useCourse } from '../hooks/useCourses';
@@ -245,15 +237,6 @@ const CourseDetailPage = () => {
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
                 <span>{course.totalChapters} chapters</span>
-                {Number(course.rating) > 0 && (
-                  <>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -344,17 +327,6 @@ const CourseDetailPage = () => {
                     </div>
                     <span className="font-medium">{formatDuration(course.totalDuration)}</span>
                   </div>
-                  {Number(course.rating) > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-400" />
-                        <span className="text-sm">Rating</span>
-                      </div>
-                      <span className="font-medium">
-                        {Number(course.rating).toFixed(1)} ({course.reviewCount})
-                      </span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>
@@ -431,32 +403,65 @@ const CourseDetailPage = () => {
                           </div>
                         </div>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigate(`/courses/${course.id}/quizzes/manage?entity=CHAPTER&entityId=${chapter.id}`)
-                            }
-                          >
-                            <FileQuestion className="mr-2 h-4 w-4" /> Add Quiz
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteChapter(chapter)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label="View chapter"
+                              onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label="Edit chapter"
+                              onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}/edit`)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label="Add quiz"
+                              onClick={() =>
+                                navigate(`/courses/${course.id}/quizzes/manage?entity=CHAPTER&entityId=${chapter.id}`)
+                              }
+                            >
+                              <FileQuestion className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Add Quiz</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              aria-label="Delete chapter"
+                              onClick={() => handleDeleteChapter(chapter)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

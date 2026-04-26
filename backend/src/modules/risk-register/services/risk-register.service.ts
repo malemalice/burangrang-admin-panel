@@ -11,6 +11,7 @@ import {
 } from '../dto/risk-register-source.dto';
 import { Prisma, GeneralStatusEnum } from '@prisma/client';
 import { endOfDay } from 'date-fns';
+import { isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
 const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
 const INSPECTION_ITEM_ENTITY = 'INSPECTION_ITEM';
@@ -59,20 +60,47 @@ export class RiskRegisterService {
 
       if (shouldIncludeRiskAssessment) {
         const riskAssessmentWhere: Prisma.RiskAssessmentItemWhereInput = {
+          ...isNotDeleted,
           ...(riskId && { mRiskId: riskId }),
           ...(riskCategoryId && { mRiskCategoryId: riskCategoryId }),
-          ...(status && {
-            riskAssessment: { status: status as GeneralStatusEnum },
-          }),
-          ...(departmentId && {
-            riskAssessment: { departmentId },
-          }),
-          ...(search && {
-            OR: [
-              { riskAssessment: { code: { contains: search, mode: 'insensitive' } } },
-              { mRisk: { name: { contains: search, mode: 'insensitive' } } },
-            ],
-          }),
+          AND: [
+            {
+              riskAssessment: {
+                is: {
+                  ...isNotDeleted,
+                  ...(status && { status: status as GeneralStatusEnum }),
+                  ...(departmentId && { departmentId }),
+                },
+              },
+            },
+            ...(search?.trim()
+              ? [
+                  {
+                    OR: [
+                      {
+                        riskAssessment: {
+                          is: {
+                            ...isNotDeleted,
+                            code: {
+                              contains: search.trim(),
+                              mode: 'insensitive' as const,
+                            },
+                          },
+                        },
+                      },
+                      {
+                        mRisk: {
+                          name: {
+                            contains: search.trim(),
+                            mode: 'insensitive' as const,
+                          },
+                        },
+                      },
+                    ],
+                  },
+                ]
+              : []),
+          ],
         };
         const items = await this.prisma.riskAssessmentItem.findMany({
           where: riskAssessmentWhere,
@@ -103,7 +131,7 @@ export class RiskRegisterService {
     }
 
     // Build where clause for RiskMitigationRecord
-    const where: Prisma.RiskMitigationRecordWhereInput = {};
+    const where: Prisma.RiskMitigationRecordWhereInput = { ...isNotDeleted };
 
     if (entityType) {
       where.entity = entityType;
@@ -221,6 +249,7 @@ export class RiskRegisterService {
               risk: true,
               assignedDepartment: true,
               assignee: true,
+              images: { orderBy: { order: 'asc' } },
             },
           })
         : [];
@@ -265,7 +294,7 @@ export class RiskRegisterService {
               department: item.riskAssessment.department,
               creator: item.riskAssessment.creator || undefined,
               assignee: item.riskAssessment.assignee || undefined,
-            } as RiskRegisterSourceRiskAssessmentDto;
+            } as unknown as RiskRegisterSourceRiskAssessmentDto;
           }
         } else if (record.entity === INSPECTION_ITEM_ENTITY) {
           const item = inspectionItemMap.get(record.entityId);
@@ -281,12 +310,20 @@ export class RiskRegisterService {
                 riskCategory: item.riskCategory,
                 findings: item.findings || undefined,
                 description: item.description || undefined,
+                followUpNotes: item.followUpNotes || undefined,
                 status: item.status,
+                images: (item.images || []).map((img) => ({
+                  id: img.id,
+                  imageUrl: img.imageUrl,
+                  caption: img.caption || undefined,
+                  type: img.type,
+                  order: img.order,
+                })),
               },
               area: item.area,
               department: item.assignedDepartment,
               assignee: item.assignee || undefined,
-            } as RiskRegisterSourceInspectionDto;
+            } as unknown as RiskRegisterSourceInspectionDto;
           }
         }
 
@@ -369,7 +406,7 @@ export class RiskRegisterService {
           department: item.riskAssessment.department,
           creator: item.riskAssessment.creator || undefined,
           assignee: item.riskAssessment.assignee || undefined,
-        } as RiskRegisterSourceRiskAssessmentDto;
+        } as unknown as RiskRegisterSourceRiskAssessmentDto;
       }
     } else if (record.entity === INSPECTION_ITEM_ENTITY) {
       const item = await this.prisma.inspectionItem.findUnique({
@@ -414,7 +451,7 @@ export class RiskRegisterService {
           area: item.area,
           department: item.assignedDepartment,
           assignee: item.assignee || undefined,
-        } as RiskRegisterSourceInspectionDto;
+        } as unknown as RiskRegisterSourceInspectionDto;
       }
     }
 

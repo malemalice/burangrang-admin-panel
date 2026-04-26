@@ -15,12 +15,16 @@ import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { MailService } from '../../mail/mail.service';
+import { mergeRoleAndDirectPermissionNames } from '../../../shared/utils/merge-user-permission-names';
 
 interface AuthenticatedUser {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  companyId?: string | null;
+  /** Direct permissions (PermissionToUser); merged with role.permissions for API parity */
+  permissions?: { name: string }[];
   role: {
     id: string;
     name: string;
@@ -42,9 +46,12 @@ export class AuthService {
     email: string,
     plainPassword: string,
   ): Promise<AuthenticatedUser> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { role: { include: { permissions: { select: { name: true } } } } },
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+      include: {
+        permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } },
+        role: { include: { permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } } } },
+      },
     });
 
     if (!user) {
@@ -89,9 +96,12 @@ export class AuthService {
    */
   async getEmbedViewerUser(): Promise<AuthenticatedUser> {
     const EMBED_VIEWER_EMAIL = 'embed-viewer@system';
-    const user = await this.prisma.user.findUnique({
-      where: { email: EMBED_VIEWER_EMAIL },
-      include: { role: { include: { permissions: { select: { name: true } } } } },
+    const user = await this.prisma.user.findFirst({
+      where: { email: EMBED_VIEWER_EMAIL, deletedAt: null },
+      include: {
+        permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } },
+        role: { include: { permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } } } },
+      },
     });
 
     if (!user) {
@@ -113,8 +123,10 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour in seconds
     const refreshToken = await this.createRefreshToken(user.id);
 
-    const permissionNames =
-      user.role.permissions?.map((p) => p.name) ?? [];
+    const permissionNames = mergeRoleAndDirectPermissionNames(
+      user.role.permissions,
+      user.permissions,
+    );
 
     return {
       accessToken,
@@ -124,6 +136,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        companyId: user.companyId ?? null,
         role: user.role.name,
         permissions: permissionNames,
       },
@@ -203,7 +216,8 @@ export class AuthService {
       include: {
         user: {
           include: {
-            role: { include: { permissions: { select: { name: true } } } },
+            permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } },
+            role: { include: { permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } } } },
           },
         },
       },
@@ -211,6 +225,10 @@ export class AuthService {
 
     if (!refreshToken || refreshToken.expiresAt < new Date()) {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (refreshToken.user.deletedAt != null) {
+      throw new UnauthorizedException('Account is no longer available');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -231,8 +249,10 @@ export class AuthService {
     // Create new refresh token
     const newRefreshToken = await this.createRefreshToken(user.id);
 
-    const permissionNames =
-      user.role.permissions?.map((p) => p.name) ?? [];
+    const permissionNames = mergeRoleAndDirectPermissionNames(
+      user.role.permissions,
+      user.permissions,
+    );
 
     return {
       accessToken,
@@ -242,6 +262,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        companyId: user.companyId ?? null,
         role: user.role.name,
         permissions: permissionNames,
       },
@@ -271,9 +292,9 @@ export class AuthService {
   }
 
   async signup(signupDto: SignupDto) {
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: signupDto.email },
+    // Check if user already exists (active row only; soft-deleted may release email for reuse)
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: signupDto.email, deletedAt: null },
     });
 
     if (existingUser) {
@@ -283,7 +304,7 @@ export class AuthService {
 
     // Get default role (User role)
     const defaultRole = await this.prisma.role.findFirst({
-      where: { name: 'User' },
+      where: { name: 'User', deletedAt: null },
     });
 
     if (!defaultRole) {
@@ -293,7 +314,7 @@ export class AuthService {
 
     // Get default office
     const defaultOffice = await this.prisma.office.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
     });
 
     if (!defaultOffice) {
@@ -339,9 +360,9 @@ export class AuthService {
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const { email } = forgotPasswordDto;
 
-    // Check if user exists
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    // Check if user exists (not soft-deleted)
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
     });
 
     if (!user) {

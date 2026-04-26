@@ -10,7 +10,9 @@ import {
   Param,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -31,6 +33,10 @@ import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { EmailTemplateDto } from './dto/email-template.dto';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('mail')
 @ApiBearerAuth()
@@ -227,8 +233,11 @@ export class MailController {
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Template deleted successfully' })
   
-  async removeTemplate(@Param('id') id: string): Promise<{ ok: boolean }> {
-    await this.mailService.removeTemplate(id);
+  async removeTemplate(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ): Promise<{ ok: boolean }> {
+    await this.mailService.removeTemplate(id, req.user.id);
     return { ok: true };
   }
 }

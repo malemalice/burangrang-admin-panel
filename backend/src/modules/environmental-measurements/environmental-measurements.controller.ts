@@ -126,8 +126,11 @@ export class EnvironmentalMeasurementsController {
   @ApiOperation({ summary: 'Delete an environmental measurement' })
   @ApiResponse({ status: 200, description: 'The measurement has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Environmental measurement not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.measurementsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ): Promise<void> {
+    return this.measurementsService.remove(id, req.user.id);
   }
 
   @Patch(':id/submit')

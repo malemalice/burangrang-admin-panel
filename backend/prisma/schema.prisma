@@ -11,20 +11,23 @@ datasource db {
 // Email Templates - Master Data
 model EmailTemplate {
   id               String   @id @default(uuid())
-  code             String   @unique         // unique code, e.g. "verification"
+  code             String // unique among non-deleted rows (partial index)
   name             String                      // Human readable name
   subjectTemplate  String                      // Handlebars template for subject
   bodyTemplate     String   @db.Text           // Handlebars template for HTML body
   isActive         Boolean  @default(true)
+  deletedAt        DateTime?
+  deletedBy        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  @@index([code])
   @@map("m_email_templates")
 }
 
 model User {
   id                           String                     @id @default(uuid())
-  email                        String                     @unique
+  email                        String
   password                     String?
   firstName                    String
   lastName                     String
@@ -33,12 +36,21 @@ model User {
   officeId                     String
   departmentId                 String?
   jobPositionId                String?
+  companyId                    String?
+  /// Default profession for contractor / work-permit workers (optional).
+  professionId                 String?
+  /// Worker ID number (e.g. national ID) for contractor profile; optional.
+  idNumber                     String?
   createdAt                    DateTime                   @default(now())
   updatedAt                    DateTime                   @updatedAt
   lastLoginAt                  DateTime?
+  deletedAt                    DateTime?
+  deletedBy                    String?
   refreshTokens                RefreshToken[]
   passwordResetTokens          PasswordResetToken[]
   office                       Office                     @relation(fields: [officeId], references: [id])
+  company                      Company?                   @relation(fields: [companyId], references: [id])
+  profession                   Profession?                @relation(fields: [professionId], references: [id])
   role                         Role                       @relation(fields: [roleId], references: [id])
   department                   Department?                @relation(fields: [departmentId], references: [id])
   jobPosition                  JobPosition?               @relation(fields: [jobPositionId], references: [id])
@@ -66,6 +78,7 @@ model User {
   quizAssignments              QuizAssignment[]           @relation("QuizAssignmentUser")
   quizAssignmentsAssigned      QuizAssignment[]           @relation("QuizAssignmentAssigner")
   quizAttempts                 QuizAttempt[]              @relation("QuizAttemptUser")
+  healthScreenings             HealthScreening[]
   quizAnswersGraded            QuizAnswer[]               @relation("QuizAnswerGrader")
   certificatesAsPersonnel      Certificate[]              @relation("CertificatePersonnel")
   certificatesCreated          Certificate[]              @relation("CertificateCreator")
@@ -73,9 +86,12 @@ model User {
   certificateRenewalsProcessed CertificateRenewal[]       @relation("CertificateRenewalProcessor")
   certificateReminders         CertificateReminder[]      @relation("CertificateReminderRecipient")
   workPermitsCreated           WorkPermit[]               @relation("WorkPermitCreator")
+  /// Business applicant for work permits created on behalf.
+  workPermitsApplied           WorkPermit[]               @relation("WorkPermitApplicant")
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
-  workPermitWorkers           WorkPermitWorker[]         @relation("WorkPermitWorker")
+  /// One-to-one worker profile (contractor / work-permit worker details).
+  worker                      Worker?
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
   inspectionsCreated           Inspection[]               @relation("InspectionCreator")
   inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
@@ -114,6 +130,7 @@ model User {
   permissions                     Permission[]             @relation("PermissionToUser")
   hseTargetsCreated               HseTarget[]              @relation("HseTargetCreator")
 
+  @@index([email])
   @@map("t_users")
 }
 
@@ -149,11 +166,13 @@ enum DataLevelEnum {
 
 model Role {
   id                     String                  @id @default(uuid())
-  name                   String                  @unique
-  code                   String                  @unique
+  name                   String
+  code                   String
   description            String?
   isActive               Boolean                 @default(true)
   dataLevel              DataLevelEnum           @default(SUPER)
+  deletedAt              DateTime?
+  deletedBy              String?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   users                  User[]
@@ -161,19 +180,24 @@ model Role {
   permissions            Permission[]            @relation("PermissionToRole")
   notificationRecipients NotificationRecipient[]
 
+  @@index([name])
+  @@index([code])
   @@map("m_roles")
 }
 
 model Permission {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
   users       User[]   @relation("PermissionToUser")
 
+  @@index([name])
   @@map("m_permissions")
 }
 
@@ -185,6 +209,8 @@ model Menu {
   parentId  String?
   order     Int
   isActive  Boolean  @default(true)
+  deletedAt DateTime?
+  deletedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   parent    Menu?    @relation("MenuHierarchy", fields: [parentId], references: [id])
@@ -197,13 +223,15 @@ model Menu {
 model Office {
   id              String           @id @default(uuid())
   name            String
-  code            String           @unique
+  code            String
   description     String?
   address         String?
   phone           String?
   email           String?
   parentId        String?
   isActive        Boolean          @default(true)
+  deletedAt       DateTime?
+  deletedBy       String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   parent          Office?          @relation("OfficeHierarchy", fields: [parentId], references: [id])
@@ -212,16 +240,19 @@ model Office {
   areas           Area[]
   treatmentPlants TreatmentPlant[]
 
+  @@index([code])
   @@map("m_offices")
 }
 
 model Department {
   id                   String                 @id @default(uuid())
   name                 String
-  code                 String                 @unique
+  code                 String
   description          String?                @db.Text
   emails               Json?                  // Array of email addresses for the department
   isActive             Boolean                @default(true)
+  deletedAt            DateTime?
+  deletedBy            String?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @default(now())
   users                User[]
@@ -237,16 +268,19 @@ model Department {
   incidentWitnesses    IncidentWitness[] @relation("IncidentWitnessDepartment")
   certificateCategoryResponsibilities CertificateCategory[] @relation("CertificateCategoryResponsibleDepartments")
 
+  @@index([code])
   @@map("m_departments")
 }
 
 model JobPosition {
   id                   String                 @id @default(uuid())
   name                 String
-  code                 String                 @unique
+  code                 String
   level                Int
   description          String?                @db.Text
   isActive             Boolean                @default(true)
+  deletedAt            DateTime?
+  deletedBy            String?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @default(now())
   users                User[]
@@ -254,15 +288,18 @@ model JobPosition {
   ppeWithdrawals       PPEWithdrawal[]
   notificationRecipients NotificationRecipient[]
 
+  @@index([code])
   @@map("m_job_positions")
 }
 
 model RiskCategory {
   id                  String               @id @default(uuid())
   name                String
-  code                String               @unique
+  code                String
   description         String?              @db.Text
   isActive            Boolean              @default(true)
+  deletedAt           DateTime?
+  deletedBy           String?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   risks               Risk[]
@@ -270,15 +307,18 @@ model RiskCategory {
   inspectionItems     InspectionItem[]
   incidents           Incident[]
 
+  @@index([code])
   @@map("m_risk_categories")
 }
 
 model Risk {
   id                  String               @id @default(uuid())
   name                String
-  code                String               @unique
+  code                String
   description         String?              @db.Text
   isActive            Boolean              @default(true)
+  deletedAt           DateTime?
+  deletedBy           String?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   riskCategoryId      String
@@ -290,20 +330,23 @@ model Risk {
   workPermitHazards   WorkPermitHazard[]
   inspectionItems     InspectionItem[]
 
+  @@index([code])
   @@map("m_risk")
 }
 
 model RiskMitigation {
-  id        String   @id @default(uuid())
-  eliminate String?  @db.Text
-  transfer  String?  @db.Text
-  reduce    String?  @db.Text
-  accept    String?  @db.Text
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  riskId    String
-  risk      Risk     @relation(fields: [riskId], references: [id])
+  id         String   @id @default(uuid())
+  eliminate  String?  @db.Text
+  transfer   String?  @db.Text
+  reduce     String?  @db.Text
+  accept     String?  @db.Text
+  isActive   Boolean  @default(true)
+  deletedAt  DateTime?
+  deletedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  riskId     String
+  risk       Risk     @relation(fields: [riskId], references: [id])
 
   @@map("m_risk_mitigations")
 }
@@ -332,7 +375,7 @@ model RiskControl {
 // 1-to-1 relationship: Each RiskAssessmentItem or InspectionItem can have one RiskMitigationRecord
 model RiskMitigationRecord {
   id           String   @id @default(uuid())
-  code         String   @unique // Auto-generated code with prefix RSK{datetime}, not user-updatable
+  code         String // Auto-generated code with prefix RSK{datetime}, not user-updatable; unique for non-deleted rows (partial index)
   eliminate    String?  @db.Text
   transfer     String?  @db.Text
   reduce       String?  @db.Text
@@ -343,8 +386,11 @@ model RiskMitigationRecord {
   entityId     String   // Entity ID - references t_risk_assessment_item.id or t_inspection_items.id
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
 
   @@map("t_risk_mitigation")
+  @@index([code])
   @@index([entity, entityId])
   @@index([isActive])
 }
@@ -366,6 +412,8 @@ model RiskMatrix {
   consequenceDesc  String         @default("") @db.Text
   interpretation   RiskRatingEnum
   isActive         Boolean        @default(true)
+  deletedAt        DateTime?
+  deletedBy        String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -374,7 +422,7 @@ model RiskMatrix {
 
 model RiskAssessment {
   id                String                        @id @default(uuid())
-  code              String                        @unique
+  code              String // Unique for non-deleted rows (partial index)
   description       String?                       @db.Text
   departmentId      String
   department        Department                    @relation(fields: [departmentId], references: [id])
@@ -390,8 +438,11 @@ model RiskAssessment {
   assignee          User?                         @relation(fields: [assigneeId], references: [id])
   actionPlan        String?                       @db.Text
   zohoTicketMapping ZohoTicketRiskAssessmentMap?
+  deletedAt         DateTime?
+  deletedBy         String?
 
   @@map("t_risk_assessment")
+  @@index([code])
 }
 
 model RiskAssessmentItem {
@@ -411,6 +462,8 @@ model RiskAssessmentItem {
   postRiskMatrixRating String
   postInterpretation   RiskRatingEnum
   images              RiskAssessmentItemImage[]
+  deletedAt            DateTime?
+  deletedBy            String?
 
   @@map("t_risk_assessment_item")
 }
@@ -435,10 +488,12 @@ model RiskAssessmentItemImage {
 }
 
 model MasterApproval {
-  id       String               @id @default(uuid())
-  entity   String
-  isActive Boolean              @default(true)
-  items    MasterApprovalItem[]
+  id        String               @id @default(uuid())
+  entity    String
+  isActive  Boolean              @default(true)
+  deletedAt DateTime?
+  deletedBy String?
+  items     MasterApprovalItem[]
 
   @@map("m_approval")
 }
@@ -479,12 +534,15 @@ model Approval {
 
 model Setting {
   id        String   @id @default(uuid())
-  key       String   @unique
+  key       String // unique among non-deleted rows (partial index)
   value     String
   isActive  Boolean  @default(true)
+  deletedAt DateTime?
+  deletedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([key])
   @@map("m_settings")
 }
 
@@ -1022,6 +1080,8 @@ model Chapter {
   isPublished    Boolean   @default(false)
   publishedAt    DateTime?
   isActive       Boolean   @default(true)
+  deletedAt      DateTime?
+  deletedBy      String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -1036,7 +1096,7 @@ model Chapter {
 model Course {
   id               String    @id @default(uuid())
   title            String
-  slug             String    @unique
+  slug             String
   description      String?   @db.Text
   shortDescription String?
   thumbnailUrl     String?
@@ -1048,6 +1108,8 @@ model Course {
   instructorId     String?
   publishedAt      DateTime?
   isActive         Boolean   @default(true)
+  deletedAt        DateTime?
+  deletedBy        String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -1058,6 +1120,7 @@ model Course {
   enrollments               Enrollment[]
   workPermitRequiredCourses WorkPermitRequiredCourse[]
 
+  @@index([slug])
   @@map("t_courses")
 }
 
@@ -1136,6 +1199,19 @@ enum QuizEntityEnum {
   CHAPTER
 }
 
+/// Distinguishes LMS quizzes from health declaration questionnaires (no grading expectation for health).
+enum QuizKindEnum {
+  LMS_QUIZ
+  HEALTH_DECLARATION
+}
+
+/// IN_PROGRESS = filling not finalized. DONE = submitted. EXPIRED = scheduler when createdAt is outside validity window.
+enum HealthScreeningStatusEnum {
+  IN_PROGRESS
+  DONE
+  EXPIRED
+}
+
 enum QuizAttemptStatusEnum {
   INVITING
   INVITED
@@ -1144,9 +1220,10 @@ enum QuizAttemptStatusEnum {
   ABANDONED
 }
 
-// Quiz - Transactional Data (LMS)
+// Quiz - Transactional Data (LMS + health declaration questionnaires)
 model Quiz {
   id                String          @id @default(uuid())
+  kind              QuizKindEnum    @default(LMS_QUIZ)
   entity            QuizEntityEnum? // COURSE, CHAPTER, or null (standalone)
   entityId          String? // courseId or chapterId, or null
   title             String
@@ -1161,6 +1238,8 @@ model Quiz {
   isPublished       Boolean         @default(false)
   publishedAt       DateTime?
   isActive          Boolean         @default(true)
+  /// Globally at most one quiz may be true; used when starting a health screening without quizId.
+  isDefaultForHealthScreening Boolean @default(false)
   createdBy         String
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -1170,8 +1249,10 @@ model Quiz {
   questions   QuizQuestion[]
   assignments QuizAssignment[]
   attempts    QuizAttempt[]
+  healthScreenings HealthScreening[]
 
   @@index([entity, entityId])
+  @@index([kind])
   @@map("t_quizzes")
 }
 
@@ -1267,6 +1348,7 @@ model QuizAttempt {
   enrollment Enrollment?  @relation(fields: [enrollmentId], references: [id])
   user       User?        @relation("QuizAttemptUser", fields: [userId], references: [id])
   answers    QuizAnswer[]
+  healthScreening HealthScreening?
 
   @@index([enrollmentId, quizId])
   @@index([userId, quizId])
@@ -1297,6 +1379,34 @@ model QuizAnswer {
 
   @@unique([attemptId, questionId])
   @@map("t_quiz_answers")
+}
+
+/// Structured health declaration submission linked to a quiz template and quiz attempt (answers).
+model HealthScreening {
+  id                 String                     @id @default(uuid())
+  userId             String
+  companyId          String?
+  quizId             String
+  quizAttemptId      String                     @unique
+  /// Links structured declaration to worker profile (not to a specific permit assignment).
+  workerId           String?
+  status             HealthScreeningStatusEnum  @default(IN_PROGRESS)
+  /// Set when the user submits with both declaration acknowledgements (audit).
+  declarationTermsAcceptedAt DateTime?          @map("declaration_terms_accepted_at")
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company            Company?                   @relation(fields: [companyId], references: [id])
+  quiz               Quiz                       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizAttempt        QuizAttempt                @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  worker             Worker?                    @relation(fields: [workerId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([quizId])
+  @@index([workerId])
+  @@map("t_health_screenings")
 }
 
 // Certificate Management System
@@ -1413,16 +1523,19 @@ model CertificateReminder {
 model WorkClassification {
   id               String                     @id @default(uuid())
   name             String
-  code             String                     @unique
+  code             String
   description      String?                    @db.Text
   safetyGuideline  String?                    @db.Text @map("safety_guideline")
   isActive         Boolean                    @default(true)
+  deletedAt        DateTime?
+  deletedBy        String?
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                           @updatedAt
   workPermits      WorkPermitClassification[]
   attachments      WorkClassificationAttachment[]
   riskEquipmentRows WorkClassificationRiskEquipment[]
 
+  @@index([code])
   @@map("m_work_classification")
 }
 
@@ -1464,14 +1577,20 @@ model WorkClassificationRiskEquipment {
 model HeavyEquipment {
   id          String                     @id @default(uuid())
   name        String
-  code        String                     @unique
+  code        String
   description String?                    @db.Text
   isActive    Boolean                    @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
+  createdBy   String
+  // Note: create on the fly, when not listed
+  isFallbackCreated Boolean              @default(false)
   workPermits WorkPermitHeavyEquipment[]
   // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
+  @@index([code])
   @@map("m_heavy_equipment")
 }
 
@@ -1493,78 +1612,97 @@ model Asset {
 model Tool {
   id          String           @id @default(uuid())
   name        String
-  code        String           @unique
+  code        String
   description String?          @db.Text
   isActive    Boolean          @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   workPermits WorkPermitTool[]
 
+  @@index([code])
   @@map("m_tools")
 }
 
 model Material {
   id          String               @id @default(uuid())
   name        String
-  code        String               @unique
+  code        String
   description String?              @db.Text
   isActive    Boolean              @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   workPermits WorkPermitMaterial[]
 
+  @@index([code])
   @@map("m_materials")
 }
 
 model Machine {
   id          String              @id @default(uuid())
   name        String
-  code        String              @unique
+  code        String
   description String?             @db.Text
   isActive    Boolean             @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   workPermits WorkPermitMachine[]
 
+  @@index([code])
   @@map("m_machines")
 }
 
 model Company {
   id            String       @id @default(uuid())
   name          String
-  code          String       @unique
+  code          String
   address       String?      @db.Text
   contactPerson String?
   phone         String?
   email         String?
   isActive      Boolean      @default(true)
+  deletedAt     DateTime?
+  deletedBy     String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   workPermits   WorkPermit[]
+  users         User[]
+  healthScreenings HealthScreening[]
 
+  @@index([code])
   @@map("m_companies")
 }
 
 model Profession {
-  id          String                 @id @default(uuid())
-  name        String
-  code        String                 @unique
-  description String?                @db.Text
-  isActive    Boolean                @default(true)
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  workPermits WorkPermitProfession[]
+  id                 String             @id @default(uuid())
+  name               String
+  code               String
+  description        String?            @db.Text
+  isActive           Boolean            @default(true)
+  deletedAt         DateTime?
+  deletedBy         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  users              User[]
 
+  @@index([code])
   @@map("m_professions")
 }
 
 model Area {
   id               String            @id @default(uuid())
   name             String
-  code             String            @unique
+  code             String
   description      String?           @db.Text
   officeId         String?
   isActive         Boolean           @default(true)
+  deletedAt        DateTime?
+  deletedBy        String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   office           Office?           @relation(fields: [officeId], references: [id])
@@ -1576,6 +1714,7 @@ model Area {
   audits           AuditToArea[]
   incidents        Incident[]
 
+  @@index([code])
   @@map("m_areas")
 }
 
@@ -1699,16 +1838,20 @@ model InspectionToArea {
 model Room {
   id                        String                     @id @default(uuid())
   name                      String
-  code                      String                     @unique
+  code                      String
   description               String?                    @db.Text
-  areaId                    String                     @unique
+  areaId                    String
   isActive                  Boolean                    @default(true)
+  deletedAt                 DateTime?
+  deletedBy                 String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
   incidents                 Incident[]
 
+  @@index([code])
+  @@index([areaId])
   @@map("m_rooms")
 }
 
@@ -1724,6 +1867,8 @@ model EnvironmentalMeasurement {
   date        DateTime
   status      GeneralStatusEnum @default(DRAFT)
   isActive    Boolean           @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   createdBy   String
@@ -1741,6 +1886,8 @@ model Guest {
   phone                 String?
   photoUrl              String?
   isActive              Boolean                       @default(true)
+  deletedAt             DateTime?
+  deletedBy             String?
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
   workPermitSupervisors WorkPermitSupervisorToGuest[]
@@ -1751,7 +1898,7 @@ model Guest {
 // Work Permit System - Transactional Data
 model WorkPermit {
   id                        String   @id @default(uuid())
-  code                      String   @unique
+  code                      String
   projectName               String
   areaId                    String
   companyId                 String
@@ -1765,16 +1912,22 @@ model WorkPermit {
   applicantSignature        String?
   workClassificationOtherDetail String? @db.Text @map("work_classification_other_detail")
   requireCourseVerification Boolean  @default(false)
-  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_PROJECT_OWNER, IN_REVIEW_HSE, WAITING_APPLICANT_SIGN, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED
+  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_PROJECT_OWNER, IN_REVIEW_HSE, WAITING_APPLICANT_SIGN, IN_REVIEW_SECURITY, APPROVED, REJECTED, CLOSED, EXTENDED
   isActive                  Boolean  @default(true)
+  deletedAt                 DateTime?
+  deletedBy                 String?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   createdBy                 String
+  /// Business applicant (contractor user) who must perform applicant-only actions (e.g. sign SK).
+  /// Nullable for legacy rows created before this enhancement.
+  applicantUserId           String?
 
   // Relations
   area            Area                          @relation(fields: [areaId], references: [id])
   company         Company                       @relation(fields: [companyId], references: [id])
   creator         User                          @relation("WorkPermitCreator", fields: [createdBy], references: [id])
+  applicant       User?                         @relation("WorkPermitApplicant", fields: [applicantUserId], references: [id])
   classifications WorkPermitClassification[]
   employees       WorkPermitEmployee[]
   heavyEquipment  WorkPermitHeavyEquipment[]
@@ -1782,7 +1935,6 @@ model WorkPermit {
   materials       WorkPermitMaterial[]
   machines        WorkPermitMachine[]
   workers         WorkPermitWorker[]
-  professions     WorkPermitProfession[]
   requiredCourses WorkPermitRequiredCourse[]
   hazards         WorkPermitHazard[]
   attachments     WorkPermitAttachment[]
@@ -1790,6 +1942,7 @@ model WorkPermit {
   hseOfficers     WorkPermitToUser[]
   safetyEquipment WorkPermitToSafetyEquipment[]
 
+  @@index([code])
   @@map("t_work_permits")
 }
 
@@ -1903,36 +2056,37 @@ model WorkPermitMachine {
   @@map("t_work_permit_machines")
 }
 
-model WorkPermitWorker {
+/// Contractor / work-permit worker profile: URLs and link to auth user.
+/// Assignment to a permit is `WorkPermitWorker` (join).
+model Worker {
   id                   String   @id @default(uuid())
-  workPermitId         String
-  userId               String
-  idNumber             String?
+  userId               String   @unique
   certificateUrl       String?
-  healthDeclarationUrl String
-  order                Int
+  /// Legacy file URL; optional when structured health screening is used.
+  healthDeclarationUrl String?
   createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  // Relations
-  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  user       User      @relation("WorkPermitWorker", fields: [userId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workPermitWorkers   WorkPermitWorker[]
+  healthScreenings    HealthScreening[]
 
-  @@map("t_work_permit_workers")
+  @@map("t_worker")
 }
 
-model WorkPermitProfession {
+/// Join: work permit ↔ worker profile (order on permit only).
+model WorkPermitWorker {
   id           String   @id @default(uuid())
   workPermitId String
-  professionId String
-  quantity     Int
+  workerId     String
   order        Int
   createdAt    DateTime @default(now())
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  profession Profession @relation(fields: [professionId], references: [id])
+  worker     Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
-  @@map("t_work_permit_professions")
+  @@map("t_work_permit_workers")
 }
 
 model WorkPermitRequiredCourse {
@@ -1956,9 +2110,9 @@ model WorkPermitHazard {
   id             String   @id @default(uuid())
   workPermitId   String
   hazardId       String? // Reference to m_risks if exists
-  hazardName     String // Free text hazard name
-  description    String?  @db.Text
-  controlMeasure String?  @db.Text
+  hazardName String // Free text hazard name
+  activity   String?  @db.Text
+  mitigation String?  @db.Text
   order          Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -2457,9 +2611,11 @@ model IncidentAttachment {
 model AuditElement {
   id          String        @id @default(uuid())
   name        String
-  code        String        @unique
+  code        String
   description String?      @db.Text
   isActive    Boolean      @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -2467,6 +2623,7 @@ model AuditElement {
   clauses AuditClause[]
   audits  Audit[]
 
+  @@index([code])
   @@map("m_audit_element")
 }
 
@@ -2474,11 +2631,13 @@ model AuditElement {
 model AuditClause {
   id             String        @id @default(uuid())
   name           String
-  code           String        @unique
+  code           String
   description    String?      @db.Text
   auditElementId String
   order          Int
   isActive       Boolean      @default(true)
+  deletedAt      DateTime?
+  deletedBy      String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -2486,6 +2645,7 @@ model AuditClause {
   auditElement AuditElement  @relation(fields: [auditElementId], references: [id])
   criteria     AuditCriteria[]
 
+  @@index([code])
   @@index([auditElementId])
   @@index([order])
   @@map("m_audit_clause")
@@ -2495,12 +2655,14 @@ model AuditClause {
 model AuditCriteria {
   id             String            @id @default(uuid())
   name           String
-  code           String            @unique
+  code           String
   description    String?           @db.Text
   auditClauseId  String
   transitionType TransitionTypeEnum
   order          Int
   isActive       Boolean            @default(true)
+  deletedAt      DateTime?
+  deletedBy      String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -2508,6 +2670,7 @@ model AuditCriteria {
   auditClause AuditClause @relation(fields: [auditClauseId], references: [id])
   auditItems  AuditItem[]
 
+  @@index([code])
   @@index([auditClauseId])
   @@index([order])
   @@map("m_audit_criteria")
@@ -3023,6 +3186,8 @@ model ManHour {
   total            Decimal        @db.Decimal(10, 2)
   notes         String?          @db.Text
   isActive      Boolean          @default(true)
+  deletedAt     DateTime?
+  deletedBy     String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   createdBy     String
@@ -3030,7 +3195,6 @@ model ManHour {
   // Relations
   creator User @relation("ManHourCreator", fields: [createdBy], references: [id])
 
-  @@unique([name, group, month, year])
   @@index([month, year])
   @@index([group])
   @@map("t_man_hours")
@@ -3051,6 +3215,8 @@ model HseTarget {
   year      Int
   target    Decimal          @db.Decimal(10, 2)
   isActive  Boolean          @default(true)
+  deletedAt DateTime?
+  deletedBy String?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   createdBy String
@@ -3058,7 +3224,6 @@ model HseTarget {
   // Relations
   creator User @relation("HseTargetCreator", fields: [createdBy], references: [id])
 
-  @@unique([type, code, month, year])
   @@index([type, year])
   @@map("t_hse_targets")
 }

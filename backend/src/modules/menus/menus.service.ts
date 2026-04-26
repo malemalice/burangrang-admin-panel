@@ -5,10 +5,12 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenuDto } from './dto/menu.dto';
 import { RoleDto } from '../roles/dto/role.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
 import { ROLE_CODES } from '../../shared/constants/role-codes';
 import { pathToRequiredPermission } from './utils/path-to-permission';
+import { mergeRoleAndDirectPermissionNames } from '../../shared/utils/merge-user-permission-names';
 
 // Define options for findAll method
 export interface FindMenusOptions {
@@ -96,7 +98,9 @@ export class MenusService {
     } = options || {};
 
     // Build where clause
-    const where: Prisma.MenuWhereInput = {};
+    const where: Prisma.MenuWhereInput = {
+      deletedAt: null,
+    };
 
     if (isActive !== undefined) {
       where.isActive = isActive;
@@ -149,8 +153,8 @@ export class MenusService {
   }
 
   async findOne(id: string): Promise<MenuDto> {
-    const menu = await this.prisma.menu.findUnique({
-      where: { id },
+    const menu = await this.prisma.menu.findFirst({
+      where: { id, deletedAt: null },
       include: {
         parent: true,
         children: true,
@@ -164,8 +168,8 @@ export class MenusService {
   }
 
   async update(id: string, updateMenuDto: UpdateMenuDto): Promise<MenuDto> {
-    const existingMenu = await this.prisma.menu.findUnique({
-      where: { id },
+    const existingMenu = await this.prisma.menu.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Menu', id, existingMenu);
@@ -192,21 +196,23 @@ export class MenusService {
     return this.menuMapper(menu);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingMenu = await this.prisma.menu.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existingMenu = await this.prisma.menu.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Menu', id, existingMenu);
 
-    await this.prisma.menu.delete({
+    await this.prisma.menu.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByRole(roleId: string): Promise<MenuDto[]> {
     const menus = await this.prisma.menu.findMany({
       where: {
+        deletedAt: null,
         roles: {
           some: {
             id: roleId,
@@ -234,6 +240,7 @@ export class MenusService {
     const menus = await this.prisma.menu.findMany({
       where: {
         parentId: null,
+        deletedAt: null,
       },
       include: {
         children: {
@@ -268,12 +275,13 @@ export class MenusService {
       this.prisma.user.findUnique({
         where: { id: userId },
         include: {
+          permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } },
           role: {
-            include: { permissions: { where: { isActive: true }, select: { name: true } } },
+            include: { permissions: { where: { isActive: true, deletedAt: null }, select: { name: true } } },
           },
         },
       }),
-      this.prisma.permission.findMany({ where: { isActive: true }, select: { name: true } }),
+      this.prisma.permission.findMany({ where: { isActive: true, deletedAt: null }, select: { name: true } }),
       this.loadFullMenuTree(),
     ]);
 
@@ -283,7 +291,10 @@ export class MenusService {
     }
 
     const userPermissions = new Set(
-      userWithRole?.role?.permissions?.map((p) => p.name) ?? [],
+      mergeRoleAndDirectPermissionNames(
+        userWithRole?.role?.permissions,
+        userWithRole?.permissions,
+      ),
     );
     const allowedPermissionNames = new Set(permissionNames.map((p) => p.name));
 
@@ -303,7 +314,7 @@ export class MenusService {
       depth <= 0
         ? {}
         : {
-            where: { isActive: true },
+            where: { isActive: true, deletedAt: null },
             orderBy: { order: 'asc' as const },
             include: {
               children: childrenInclude(depth - 1),
@@ -312,7 +323,7 @@ export class MenusService {
           };
 
     return this.prisma.menu.findMany({
-      where: { isActive: true, parentId: null },
+      where: { isActive: true, parentId: null, deletedAt: null },
       include: {
         children: childrenInclude(5),
         roles: true,

@@ -1,4 +1,5 @@
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
+import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 export type { PaginatedResponse };
 
 // Master data types for work permit form
@@ -51,6 +52,13 @@ export interface WorkPermitMasterData {
   materials: MasterDataOption[];
   machines: MasterDataOption[];
   professions: MasterDataOption[];
+  applicants: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    companyId?: string | null;
+  }>;
 }
 
 export interface WorkPermit {
@@ -71,6 +79,7 @@ export interface WorkPermit {
   acknowledgedSafetyGuideline: boolean;
   applicantSignedAt?: string;
   applicantSignature?: string;
+  applicantUserId?: string;
   status: WorkPermitStatus;
   isActive: boolean;
   createdBy: string;
@@ -94,6 +103,12 @@ export interface WorkPermit {
     lastName: string;
     email: string;
   };
+  applicant?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
   classifications?: WorkPermitClassification[];
   employees?: WorkPermitEmployee[];
   workers?: WorkPermitWorker[];
@@ -101,7 +116,6 @@ export interface WorkPermit {
   tools?: WorkPermitTool[];
   materials?: WorkPermitMaterial[];
   machines?: WorkPermitMachine[];
-  professions?: WorkPermitProfession[];
   requiredCourses?: WorkPermitRequiredCourse[];
   hazards?: WorkPermitHazard[];
   attachments?: WorkPermitAttachment[];
@@ -118,7 +132,6 @@ export type WorkPermitStatus =
   | 'IN_REVIEW_HSE'
   | 'WAITING_APPLICANT_SIGN'
   | 'IN_REVIEW_SECURITY'
-  | 'NEED_INFO'
   | 'APPROVED'
   | 'REJECTED'
   | 'CLOSED'
@@ -192,15 +205,31 @@ export interface WorkPermitEmployee {
 
 export interface WorkPermitWorker {
   id: string;
+  /** Worker profile id (`t_worker`) */
+  workerId: string;
   userId: string;
-  idNumber?: string;
+  /** From linked user profile (API may omit if user has no profession). */
+  professionId?: string | null;
+  /** From linked user profile. */
+  idNumber?: string | null;
   certificateUrl?: string;
-  healthDeclarationUrl: string;
+  healthDeclarationUrl?: string;
+  healthScreening?: {
+    id: string;
+    status: string;
+    validUntil?: string | null;
+    quizId: string;
+  };
   user?: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
+  };
+  profession?: {
+    id: string;
+    name: string;
+    code: string;
   };
   order: number;
 }
@@ -253,18 +282,6 @@ export interface WorkPermitMachine {
   order: number;
 }
 
-export interface WorkPermitProfession {
-  id: string;
-  professionId: string;
-  quantity: number;
-  profession?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-  order: number;
-}
-
 export interface WorkPermitRequiredCourse {
   id: string;
   courseId: string;
@@ -281,8 +298,8 @@ export interface WorkPermitHazard {
   id: string;
   hazardId?: string;
   hazardName: string;
-  description?: string;
-  controlMeasure?: string;
+  activity?: string;
+  mitigation?: string;
   order: number;
 }
 
@@ -343,6 +360,7 @@ export interface WorkPermitDTO {
   acknowledgedSafetyGuideline?: boolean;
   applicantSignedAt?: string;
   applicantSignature?: string;
+  applicantUserId?: string;
   status: string;
   isActive: boolean;
   createdBy: string;
@@ -365,6 +383,12 @@ export interface WorkPermitDTO {
     lastName: string;
     email: string;
   };
+  applicant?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
   classifications?: WorkPermitClassification[];
   employees?: WorkPermitEmployee[];
   workers?: WorkPermitWorker[];
@@ -372,7 +396,6 @@ export interface WorkPermitDTO {
   tools?: WorkPermitTool[];
   materials?: WorkPermitMaterial[];
   machines?: WorkPermitMachine[];
-  professions?: WorkPermitProfession[];
   requiredCourses?: WorkPermitRequiredCourse[];
   hazards?: WorkPermitHazard[];
   attachments?: WorkPermitAttachment[];
@@ -382,6 +405,7 @@ export interface WorkPermitDTO {
 }
 
 export interface CreateWorkPermitDTO {
+  applicantUserId?: string;
   projectName: string;
   areaId: string;
   companyId: string;
@@ -404,9 +428,9 @@ export interface CreateWorkPermitDTO {
   }>;
   workers: Array<{
     userId: string;
-    idNumber?: string;
     certificateUrl?: string;
-    healthDeclarationUrl: string;
+    healthDeclarationUrl?: string;
+    healthScreeningId?: string;
     order: number;
   }>;
   heavyEquipment?: Array<{
@@ -429,11 +453,6 @@ export interface CreateWorkPermitDTO {
     quantity: number;
     order: number;
   }>;
-  professions?: Array<{
-    professionId: string;
-    quantity: number;
-    order: number;
-  }>;
   requiredCourses?: Array<{
     courseId: string;
     isRequired?: boolean;
@@ -442,8 +461,8 @@ export interface CreateWorkPermitDTO {
   hazards?: Array<{
     hazardId?: string;
     hazardName: string;
-    description?: string;
-    controlMeasure?: string;
+    activity?: string;
+    mitigation?: string;
     order: number;
   }>;
   attachments?: Array<{
@@ -497,6 +516,53 @@ export interface ApprovalTimelineItem {
   };
 }
 
+export type WorkPermitPublicMode = 'editable' | 'readonly';
+
+export type WorkPermitPublicApplicantPhase = 'draft' | 'sign_sk' | 'view';
+
+export interface PublicWorkPermitCourseAssignee {
+  userId: string;
+  displayName: string;
+  source: 'applicant' | 'worker' | 'employee';
+}
+
+export interface PublicWorkPermitRequiredCourseStatus {
+  courseId: string;
+  courseTitle?: string;
+  isRequired: boolean;
+  userCompletions: Record<string, boolean>;
+}
+
+export interface PublicWorkPermitCourseVerification {
+  enabled: boolean;
+  assignees: PublicWorkPermitCourseAssignee[];
+  requiredCourses: PublicWorkPermitRequiredCourseStatus[];
+  allRequiredCompleted: boolean;
+  unmetMessages: string[];
+}
+
+export interface WorkPermitPublicLinkResponse {
+  linkUrl: string;
+  expiresAt: string;
+  workPermitId: string;
+}
+
+export interface PublicWorkPermitByTokenResponse {
+  workPermit: WorkPermit;
+  isEditable: boolean;
+  mode: WorkPermitPublicMode;
+  applicantPhase: WorkPermitPublicApplicantPhase;
+  canEditDraft: boolean;
+  canSignSk: boolean;
+  /** Backend: sign allowed only when course rules pass (or verification off) */
+  canSignSkAction: boolean;
+  courseVerification: PublicWorkPermitCourseVerification;
+  /** Master risk mitigations for safety-guidance row risks (avoids unauthenticated /risk-mitigations calls) */
+  mitigationsByRiskId: Record<string, RiskMitigation[]>;
+  /** From server settings; avoids unauthenticated /settings/value on public pages */
+  classificationContentEnabled: boolean;
+}
+
 // Data transformation functions
 export const mapWorkPermitDtoToWorkPermit = (dto: WorkPermitDTO): WorkPermit => ({
   ...dto,
@@ -505,6 +571,7 @@ export const mapWorkPermitDtoToWorkPermit = (dto: WorkPermitDTO): WorkPermit => 
 });
 
 export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): UpdateWorkPermitDTO => ({
+  applicantUserId: workPermit.applicantUserId,
   projectName: workPermit.projectName,
   areaId: workPermit.areaId,
   companyId: workPermit.companyId,
@@ -526,9 +593,9 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   })),
   workers: workPermit.workers?.map((w) => ({
     userId: w.userId,
-    idNumber: w.idNumber,
     certificateUrl: w.certificateUrl,
     healthDeclarationUrl: w.healthDeclarationUrl,
+    healthScreeningId: w.healthScreening?.id,
     order: w.order,
   })),
   heavyEquipment: workPermit.heavyEquipment?.map((e) => ({
@@ -551,11 +618,6 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
     quantity: m.quantity,
     order: m.order,
   })),
-  professions: workPermit.professions?.map((p) => ({
-    professionId: p.professionId,
-    quantity: p.quantity,
-    order: p.order,
-  })),
   requiredCourses: workPermit.requiredCourses?.map((c) => ({
     courseId: c.courseId,
     isRequired: c.isRequired,
@@ -564,8 +626,8 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
   hazards: workPermit.hazards?.map((h) => ({
     hazardId: h.hazardId,
     hazardName: h.hazardName,
-    description: h.description,
-    controlMeasure: h.controlMeasure,
+    activity: h.activity,
+    mitigation: h.mitigation,
     order: h.order,
   })),
   attachments: workPermit.attachments?.map((a) => ({

@@ -6,6 +6,7 @@ import {
   UserDTO,
   CreateUserDTO,
   CreateGuestWorkerDTO,
+  CreateWorkPermitWorkerDTO,
   UpdateUserDTO 
 } from '../types/user.types';
 
@@ -21,6 +22,11 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     officeId: userDto.officeId,
     departmentId: userDto.departmentId,
     jobPositionId: userDto.jobPositionId,
+    companyId: userDto.companyId ?? undefined,
+    company: userDto.company?.name,
+    professionId: userDto.professionId ?? undefined,
+    idNumber: userDto.idNumber ?? undefined,
+    profession: userDto.profession?.name,
     role: userDto.role?.name,
     office: userDto.office?.name,
     department: userDto.department?.name,
@@ -135,6 +141,17 @@ const userService = {
       return mapUserDtoToUser(response.data);
     } catch (error: any) {
       console.error('Error creating guest worker:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create worker';
+      throw new Error(errorMessage);
+    }
+  },
+
+  createWorkPermitWorker: async (data: CreateWorkPermitWorkerDTO): Promise<User> => {
+    try {
+      const response = await api.post('/users/work-permit-worker', data);
+      return mapUserDtoToUser(response.data);
+    } catch (error: any) {
+      console.error('Error creating work permit worker:', error);
       const errorMessage = error.response?.data?.message || 'Failed to create worker';
       throw new Error(errorMessage);
     }

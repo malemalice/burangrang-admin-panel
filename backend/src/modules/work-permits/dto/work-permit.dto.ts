@@ -10,7 +10,6 @@ export enum WorkPermitStatusEnum {
   IN_REVIEW_HSE = 'IN_REVIEW_HSE',
   WAITING_APPLICANT_SIGN = 'WAITING_APPLICANT_SIGN',
   IN_REVIEW_SECURITY = 'IN_REVIEW_SECURITY',
-  NEED_INFO = 'NEED_INFO',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   CLOSED = 'CLOSED',
@@ -103,6 +102,17 @@ export class WorkPermitDto {
   @IsBoolean()
   isActive: boolean;
 
+  @ApiProperty({ description: 'Soft delete timestamp', required: false, nullable: true })
+  @Expose()
+  @IsOptional()
+  deletedAt?: Date | null;
+
+  @ApiProperty({ description: 'User id of actor for soft delete', required: false, nullable: true })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  deletedBy?: string | null;
+
   @ApiProperty({ description: 'When applicant acknowledged HSE safety guideline', required: false })
   @Expose()
   @IsOptional()
@@ -119,6 +129,16 @@ export class WorkPermitDto {
   @Expose()
   @IsString()
   createdBy: string;
+
+  @ApiProperty({
+    description:
+      'Business applicant user ID (contractor) who must perform applicant-only actions (e.g. sign SK).',
+    required: false,
+  })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  applicantUserId?: string;
 
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()
@@ -154,6 +174,16 @@ export class WorkPermitDto {
   @Expose()
   @IsOptional()
   creator?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+
+  @ApiProperty({ description: 'Applicant user (contractor)', required: false })
+  @Expose()
+  @IsOptional()
+  applicant?: {
     id: string;
     firstName: string;
     lastName: string;
@@ -213,15 +243,35 @@ export class WorkPermitDto {
   @IsArray()
   workers?: Array<{
     id: string;
+    /** Join row id; profile data is on `worker`. */
+    workerId: string;
     userId: string;
-    idNumber?: string;
+    /** From linked user profile (not stored on permit worker row). */
+    professionId?: string | null;
+    /** From linked user profile (not stored on permit worker row). */
+    idNumber?: string | null;
+    /** From `t_worker` (worker profile). */
     certificateUrl?: string;
-    healthDeclarationUrl: string;
+    /** From `t_worker` (worker profile). */
+    healthDeclarationUrl?: string | null;
+    healthScreening?: {
+      id: string;
+      status: string;
+      validUntil?: string | null;
+      quizId: string;
+    };
     user?: {
       id: string;
       firstName: string;
       lastName: string;
       email: string;
+      professionId?: string | null;
+      idNumber?: string | null;
+    };
+    profession?: {
+      id: string;
+      name: string;
+      code: string;
     };
     order: number;
   }>;
@@ -290,22 +340,6 @@ export class WorkPermitDto {
     order: number;
   }>;
 
-  @ApiProperty({ description: 'Professions', required: false, type: [Object] })
-  @Expose()
-  @IsOptional()
-  @IsArray()
-  professions?: Array<{
-    id: string;
-    professionId: string;
-    quantity: number;
-    profession?: {
-      id: string;
-      name: string;
-      code: string;
-    };
-    order: number;
-  }>;
-
   @ApiProperty({ description: 'Required courses', required: false, type: [Object] })
   @Expose()
   @IsOptional()
@@ -330,8 +364,8 @@ export class WorkPermitDto {
     id: string;
     hazardId?: string;
     hazardName: string;
-    description?: string;
-    controlMeasure?: string;
+    activity?: string;
+    mitigation?: string;
     order: number;
   }>;
 

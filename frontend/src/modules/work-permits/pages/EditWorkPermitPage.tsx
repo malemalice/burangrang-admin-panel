@@ -58,12 +58,12 @@ const EditWorkPermitPage = () => {
   }
 
   // Check if can edit
-  if (workPermit.status !== 'DRAFT' && workPermit.status !== 'NEED_INFO') {
+  if (workPermit.status !== 'DRAFT' && workPermit.status !== 'REJECTED') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-muted-foreground">
-            This work permit cannot be edited. Only DRAFT or NEED_INFO permits can be edited.
+            This work permit cannot be edited. Only DRAFT or REJECTED permits can be edited.
           </p>
           <Button onClick={() => navigate(`/work-permits/${workPermit.id}`)} className="mt-4">
             View Details

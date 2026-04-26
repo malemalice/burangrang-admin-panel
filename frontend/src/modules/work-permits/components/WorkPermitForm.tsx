@@ -1,8 +1,17 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { Link } from 'react-router-dom';
+import {
+  useForm,
+  useFieldArray,
+  useWatch,
+  type Control,
+  type FieldError,
+  type FieldErrors,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -26,7 +35,6 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
-import { ModalCombobox } from '@/core/components/ui/modal-combobox';
 import {
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
@@ -38,14 +46,23 @@ import {
 } from '../types/work-permit.types';
 import { riskService } from '@/modules/master-data';
 import { WorkPermitSafetyGuidelineSection, type SafetyGuidanceBlock } from './WorkPermitSafetyGuidelineSection';
-import { createProfessionFromQuery } from '../utils/professionHelpers';
+import {
+  createHeavyEquipmentFromQuery,
+  createMachineFromQuery,
+  createMaterialFromQuery,
+  createToolFromQuery,
+} from '../utils/equipmentHelpers';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
-import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
+import workPermitWorkerService from '../services/workPermitWorkerService';
 import { userService, type User } from '@/modules/users';
-import { roleService } from '@/modules/roles';
 import AddWorkerModal from './AddWorkerModal';
+import AddCompanyModal from './AddCompanyModal';
+import AddApplicantWithCompanyModal from './AddApplicantWithCompanyModal';
+import { WORK_PERMIT_WORKER_ROLE_CODE } from '../services/workPermitWorkerService';
+import { useAuth } from '@/core/lib/auth';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import { WorkPermitSection, WorkPermitSubsectionTitle } from './WorkPermitSection';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
@@ -60,6 +77,16 @@ import {
 } from '../constants/workPermitSections';
 import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
+import healthScreeningService from '@/modules/health-screenings/services/healthScreeningService';
+import type { HealthScreeningListItem } from '@/modules/health-screenings/types/healthScreening.types';
+import { isHealthScreeningListItemEligible } from '../utils/healthScreeningEligibility';
+import type { CompanyDTO } from '@/modules/master-data/types/master-data.types';
+
+const workerRowSchema = z.object({
+  userId: z.string().min(1, 'Worker is required'),
+  healthScreeningId: z.string().optional(),
+  order: z.number().min(0),
+});
 
 function selectionIncludesOthers(
   classifications: { workClassificationId: string }[] | undefined,
@@ -71,6 +98,7 @@ function selectionIncludesOthers(
 
 // Form schema for validation
 const formSchema = z.object({
+  applicantUserId: z.string().optional(),
   projectName: z.string().min(1, 'Project name is required'),
   areaId: z.string().min(1, 'Area is required'),
   companyId: z.string().min(1, 'Company is required'),
@@ -96,17 +124,7 @@ const formSchema = z.object({
       }),
     )
     .optional(),
-  workers: z
-    .array(
-      z.object({
-        userId: z.string().min(1, 'Worker is required'),
-        idNumber: z.string().optional(),
-        certificateUrl: z.string().optional(),
-        healthDeclarationUrl: z.string().min(1, 'Health declaration is required'),
-        order: z.number().min(0),
-      }),
-    )
-    .min(1, 'At least one worker is required'),
+  workers: z.array(workerRowSchema).min(1, 'At least one worker is required'),
   heavyEquipment: z
     .array(
       z.object({
@@ -143,15 +161,6 @@ const formSchema = z.object({
       }),
     )
     .optional(),
-  professions: z
-    .array(
-      z.object({
-        professionId: z.string().min(1, 'Profession is required'),
-        quantity: z.number().min(1, 'Quantity must be at least 1'),
-        order: z.number().min(0),
-      }),
-    )
-    .optional(),
   requiredCourses: z
     .array(
       z.object({
@@ -166,8 +175,8 @@ const formSchema = z.object({
       z.object({
         hazardId: z.string().optional(),
         hazardName: z.string().min(1, 'Hazard name is required'),
-        description: z.string().optional(),
-        controlMeasure: z.string().optional(),
+        activity: z.string().optional(),
+        mitigation: z.string().optional(),
         order: z.number().min(0),
       }),
     )
@@ -189,6 +198,266 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+/** Profession and ID number are read-only from the selected worker user profile. */
+function WorkerProfileFromUser({
+  control,
+  index,
+  workerUsers,
+  permitWorkers,
+}: {
+  control: Control<FormValues>;
+  index: number;
+  workerUsers: User[];
+  permitWorkers?: WorkPermit['workers'];
+}) {
+  const userId = useWatch({ control, name: `workers.${index}.userId` });
+  const profile = workerUsers.find((u) => u.id === userId);
+  const permitRow = permitWorkers?.find((w) => w.userId === userId);
+
+  if (!userId) {
+    return (
+      <p className="text-sm text-muted-foreground">Select a worker to see profession and ID number.</p>
+    );
+  }
+
+  const professionLabel =
+    profile?.profession?.trim() ||
+    (permitRow?.profession
+      ? `${permitRow.profession.name} (${permitRow.profession.code})`
+      : '') ||
+    '—';
+
+  const idLabel =
+    profile?.idNumber?.trim() ||
+    permitRow?.idNumber?.trim() ||
+    '—';
+
+  const missingProfession =
+    !profile?.professionId &&
+    !profile?.profession?.trim() &&
+    !permitRow?.professionId &&
+    !permitRow?.profession;
+
+  return (
+    <div className="grid gap-2 rounded-md border bg-muted/30 p-3 text-sm">
+      <div>
+        <p className="text-muted-foreground">Profession</p>
+        <p className="font-medium">{professionLabel}</p>
+      </div>
+      <div>
+        <p className="text-muted-foreground">ID number</p>
+        <p className="font-medium">{idLabel}</p>
+      </div>
+      {missingProfession && (
+        <p className="text-xs text-destructive">
+          Set profession on the worker profile (Workers module) before submitting this permit.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Certificate URL is managed on the worker profile; this block is read-only. */
+function WorkerCertificateReadonly({
+  control,
+  index,
+}: {
+  control: Control<FormValues>;
+  index: number;
+}) {
+  const userId = useWatch({ control, name: `workers.${index}.userId` });
+  const [url, setUrl] = useState<string | null | undefined>(undefined);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!userId?.trim()) {
+      setUrl(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await workPermitWorkerService.getWorkPermitWorkerProfile(userId.trim());
+        const cert =
+          res.workerDocuments?.certificateUrl ??
+          res.assignments[0]?.certificateUrl ??
+          null;
+        if (!cancelled) setUrl(cert);
+      } catch {
+        if (!cancelled) setUrl(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (!userId?.trim()) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select a worker to show certificate (from worker profile).
+      </p>
+    );
+  }
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading certificate…
+      </div>
+    );
+  }
+  if (!url?.trim()) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No certificate on file. Upload it from the{' '}
+        <Link
+          to={`/work-permits/workers/${userId}`}
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          worker profile
+        </Link>
+        .
+      </p>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+    >
+      Open certificate
+    </a>
+  );
+}
+
+/** Resolves latest valid DONE screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
+function WorkerAutoLinkedHealthScreening({
+  control,
+  index,
+  setValue,
+}: {
+  control: Control<FormValues>;
+  index: number;
+  setValue: UseFormSetValue<FormValues>;
+}) {
+  const userId = useWatch({ control, name: `workers.${index}.userId` });
+  const linkedId = useWatch({ control, name: `workers.${index}.healthScreeningId` });
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<HealthScreeningListItem | null>(null);
+
+  useEffect(() => {
+    if (!linkedId) setPreview(null);
+  }, [linkedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!userId?.trim()) {
+        setValue(`workers.${index}.healthScreeningId`, '');
+        setPreview(null);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setValue(`workers.${index}.healthScreeningId`, '');
+      setPreview(null);
+      try {
+        const res = await healthScreeningService.list({
+          userId: userId.trim(),
+          page: 1,
+          limit: 20,
+        });
+        if (cancelled) return;
+        const pick = res.data.find(isHealthScreeningListItemEligible);
+        if (pick) {
+          setValue(`workers.${index}.healthScreeningId`, pick.id);
+          setPreview(pick);
+        } else {
+          setValue(`workers.${index}.healthScreeningId`, '');
+          setPreview(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setValue(`workers.${index}.healthScreeningId`, '');
+          setPreview(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, index, setValue]);
+
+  return (
+    <>
+      <div className="space-y-2">
+        <p className="text-sm font-medium leading-none">
+          Linked health screening{' '}
+          <span className="text-muted-foreground font-normal">(automatic from latest valid declaration)</span>
+        </p>
+        <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+          {!userId?.trim() ? (
+            <p className="text-muted-foreground">Select a worker to show the linked declaration.</p>
+          ) : loading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : preview ? (
+            <div className="space-y-1">
+              <p className="font-medium">
+                <Link
+                  to={`/health-screenings/${preview.id}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {preview.quiz?.title ?? 'Health screening'}
+                </Link>
+              </p>
+              <p className="text-xs text-muted-foreground">Status: {preview.status}</p>
+              {preview.validUntil && (
+                <p className="text-xs text-muted-foreground">
+                  Valid until: {new Date(preview.validUntil).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              No completed declaration in the validity window for this worker. If a declaration file is stored on the{' '}
+              <Link
+                to={userId?.trim() ? `/work-permits/workers/${userId}` : '/work-permits/workers'}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                worker profile
+              </Link>
+              , the permit can still be validated by the system. Otherwise complete a{' '}
+              <Link to="/health-screenings" className="text-primary underline" target="_blank" rel="noreferrer">
+                health declaration
+              </Link>{' '}
+              online first.
+            </p>
+          )}
+        </div>
+      </div>
+      <FormField
+        control={control}
+        name={`workers.${index}.healthScreeningId`}
+        render={({ field }) => <input type="hidden" {...field} />}
+      />
+    </>
+  );
+}
+
 type WizardStep = 1 | 2 | 3 | 4;
 
 const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }> = [
@@ -198,6 +467,62 @@ const WIZARD_STEPS: Array<{ id: WizardStep; title: string; description: string }
   { id: 4, title: 'Courses & Attachments', description: 'Section F and final review before submit' },
 ];
 
+function getFirstFieldErrorDetail(
+  errors: Record<string, unknown>,
+  pathPrefix: string[] = [],
+): { message: string; path: string[] } | undefined {
+  for (const [key, value] of Object.entries(errors)) {
+    if (value === null || value === undefined) continue;
+
+    if (typeof value === 'object' && value !== null && 'message' in value) {
+      const m = (value as FieldError).message;
+      if (typeof m === 'string' && m) {
+        return { message: m, path: [...pathPrefix, key] };
+      }
+    }
+
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i++) {
+        const item = value[i];
+        if (item && typeof item === 'object') {
+          const nested = getFirstFieldErrorDetail(item as Record<string, unknown>, [...pathPrefix, key, String(i)]);
+          if (nested) return nested;
+        }
+      }
+      continue;
+    }
+
+    if (value && typeof value === 'object') {
+      const nested = getFirstFieldErrorDetail(value as Record<string, unknown>, [...pathPrefix, key]);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
+
+function wizardStepForRootField(field: string): WizardStep | undefined {
+  const step1 = new Set([
+    'classifications',
+    'workClassificationOtherDetail',
+    'projectName',
+    'areaId',
+    'companyId',
+    'proposedStartDate',
+    'proposedEndDate',
+    'workStagesDescription',
+    'workers',
+    'employees',
+  ]);
+  const step2 = new Set(['tools', 'materials', 'machines', 'heavyEquipment']);
+  const step3 = new Set(['hazards']);
+  const step4 = new Set(['requiredCourses', 'attachments', 'requireCourseVerification']);
+  if (step1.has(field)) return 1;
+  if (step2.has(field)) return 2;
+  if (step3.has(field)) return 3;
+  if (step4.has(field)) return 4;
+  return undefined;
+}
+
 interface WorkPermitFormProps {
   workPermit?: WorkPermit;
   mode: 'create' | 'edit';
@@ -205,33 +530,63 @@ interface WorkPermitFormProps {
 }
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
+  const { hasPermission } = usePermissions();
+  const { user: authUser } = useAuth();
+  const currentRoleCode = useMemo(() => {
+    const r = authUser?.role as any;
+    const code = typeof r === 'object' && r ? r.code : undefined;
+    return String(code ?? '').toUpperCase();
+  }, [authUser?.role]);
+  const isContractor = currentRoleCode === 'CONTRACTOR';
+  const isSuperAdmin = useMemo(() => {
+    const r = authUser?.role;
+    const name = typeof r === 'string' ? r : r?.name;
+    return name === 'Super Admin';
+  }, [authUser?.role]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [areas, setAreas] = useState<MasterDataOption[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [professions, setProfessions] = useState<MasterDataOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<WorkClassificationMasterOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
   const [workerUsers, setWorkerUsers] = useState<User[]>([]);
+  const [applicants, setApplicants] = useState<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    companyId?: string | null;
+  }>>([]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [heavyEquipment, setHeavyEquipment] = useState<MasterDataOption[]>([]);
   const [tools, setTools] = useState<MasterDataOption[]>([]);
   const [materials, setMaterials] = useState<MasterDataOption[]>([]);
   const [machines, setMachines] = useState<MasterDataOption[]>([]);
-  const [professions, setProfessions] = useState<MasterDataOption[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
   const [risks, setRisks] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [guidanceBlocks, setGuidanceBlocks] = useState<SafetyGuidanceBlock[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
-  const [uploadedFileNames, setUploadedFileNames] = useState<Record<string, string>>({});
   const [addWorkerModalOpen, setAddWorkerModalOpen] = useState(false);
   const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
   const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
+  const [addCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
+  const [addCompanyInitialName, setAddCompanyInitialName] = useState('');
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [applicantSearchQuery, setApplicantSearchQuery] = useState('');
+  const [addApplicantModalOpen, setAddApplicantModalOpen] = useState(false);
+  const [addApplicantInitialName, setAddApplicantInitialName] = useState('');
   const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
+
+  const [toolSearchQueries, setToolSearchQueries] = useState<Record<number, string>>({});
+  const [materialSearchQueries, setMaterialSearchQueries] = useState<Record<number, string>>({});
+  const [machineSearchQueries, setMachineSearchQueries] = useState<Record<number, string>>({});
+  const [heavyEquipmentSearchQueries, setHeavyEquipmentSearchQueries] = useState<Record<number, string>>({});
 
   // Memoized options for SearchableSelect
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
@@ -243,6 +598,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       })),
     [companies],
   );
+  const companyOptionsFiltered = useMemo(() => {
+    const q = companySearchQuery.trim();
+    if (q === '') {
+      return companyOptions;
+    }
+    const lower = q.toLowerCase();
+    return companyOptions.filter((o) => o.label.toLowerCase().includes(lower));
+  }, [companyOptions, companySearchQuery]);
   const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
   const workerOptions = useMemo(
     () =>
@@ -252,6 +615,22 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       })),
     [workerUsers],
   );
+  const applicantOptions = useMemo(
+    () =>
+      applicants.map((u) => ({
+        value: u.id,
+        label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || u.id,
+      })),
+    [applicants],
+  );
+  const applicantOptionsFiltered = useMemo(() => {
+    const q = applicantSearchQuery.trim();
+    if (q === '') {
+      return applicantOptions;
+    }
+    const lower = q.toLowerCase();
+    return applicantOptions.filter((o) => o.label.toLowerCase().includes(lower));
+  }, [applicantOptions, applicantSearchQuery]);
 
   const heavyEquipmentOptions = useMemo(
     () => heavyEquipment.map((e) => ({ value: e.id, label: `${e.name} (${e.code})` })),
@@ -266,10 +645,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     () => machines.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` })),
     [machines],
   );
-  const professionOptions = useMemo(
-    () => professions.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
-    [professions],
-  );
   const courseOptions = useMemo(
     () => courses.map((c) => ({ value: c.id, label: c.title ?? c.slug ?? c.id })),
     [courses],
@@ -283,11 +658,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     [guests],
   );
 
-  const handleCreateProfession = useCallback(async (searchQuery: string) => {
-    return createProfessionFromQuery(searchQuery, (newProf) => {
-      setProfessions((prev) => [newProf, ...prev]);
-    });
-  }, []);
   const hseOfficerOptions = useMemo(
     () =>
       users.map((u) => ({
@@ -312,6 +682,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      applicantUserId: '',
       projectName: '',
       areaId: '',
       companyId: '',
@@ -325,9 +696,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workers: [
         {
           userId: '',
-          idNumber: '',
-          certificateUrl: '',
-          healthDeclarationUrl: '',
+          healthScreeningId: '',
           order: 0,
         },
       ],
@@ -335,7 +704,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       tools: [],
       materials: [],
       machines: [],
-      professions: [],
       requiredCourses: [],
       hazards: [],
       attachments: [],
@@ -344,6 +712,17 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       safetyEquipmentIds: [],
     },
   });
+
+  const watchedCompanyId = useWatch({ control: form.control, name: 'companyId' });
+  const requireCourseVerificationEnabled = useWatch({
+    control: form.control,
+    name: 'requireCourseVerification',
+  });
+
+  const isHseReviewPhase = useMemo(
+    () => workPermit?.status === 'IN_REVIEW_HSE',
+    [workPermit?.status],
+  );
 
   const {
     fields: workerFields,
@@ -406,15 +785,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   } = useFieldArray({
     control: form.control,
     name: 'machines',
-  });
-
-  const {
-    fields: professionFields,
-    append: appendProfession,
-    remove: removeProfession,
-  } = useFieldArray({
-    control: form.control,
-    name: 'professions',
   });
 
   const {
@@ -536,7 +906,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   }, [watchedClassifications, workClassifications, mode, workPermit, isLoadingData]);
 
   useEffect(() => {
-    if (!classificationContentEnabled) return;
+    // Workers uploads depend on this category; do not gate it behind the
+    // classification-content feature flag.
     const loadCategory = async () => {
       try {
         const category = await uploadService.getCategoryByName('work-permit-documents');
@@ -551,7 +922,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       }
     };
     void loadCategory();
-  }, [classificationContentEnabled]);
+  }, []);
 
   // Fetch reference data
   useEffect(() => {
@@ -579,23 +950,24 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 materials: [],
                 machines: [],
                 professions: [],
+                applicants: [],
               };
             }),
             userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
               console.error('Failed to fetch users:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
             }),
-            (async () => {
-              const roles = await roleService.getRoles({ page: 1, limit: 100, options: true }).catch(() => ({ data: [] }));
-              const guestRole = roles.data?.find((r) => r.code === 'GUEST');
-              if (!guestRole?.id) return { data: [] };
-              return userService
-                .getUsers({ page: 1, limit: 500, options: true, filters: { roleId: guestRole.id } })
-                .catch((error) => {
-                  console.error('Failed to fetch worker users (Guest role):', error);
-                  return { data: [], meta: { total: 0, page: 1, limit: 500, pageCount: 0 } };
-                });
-            })(),
+            userService
+              .getUsers({
+                page: 1,
+                limit: 500,
+                options: true,
+                filters: { roleCode: WORK_PERMIT_WORKER_ROLE_CODE },
+              })
+              .catch((error) => {
+                console.error('Failed to fetch contractor workers:', error);
+                return { data: [], meta: { total: 0, page: 1, limit: 500, pageCount: 0 } };
+              }),
             courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
               console.error('Failed to fetch courses:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
@@ -613,13 +985,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         // Set master data from work permit service
         setAreas(masterDataResponse.areas);
         setCompanies(masterDataResponse.companies);
+        setProfessions(masterDataResponse.professions ?? []);
         setWorkClassifications(masterDataResponse.workClassifications);
         setGuests(masterDataResponse.guests);
         setHeavyEquipment(masterDataResponse.heavyEquipment);
         setTools(masterDataResponse.tools);
         setMaterials(masterDataResponse.materials);
         setMachines(masterDataResponse.machines);
-        setProfessions(masterDataResponse.professions);
+        setApplicants(masterDataResponse.applicants ?? []);
 
         // Set data from other modules
         setUsers(usersResponse.data);
@@ -654,33 +1027,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const workersData =
         workPermit.workers?.map((w) => ({
           userId: str(w.userId),
-          idNumber: str(w.idNumber),
-          certificateUrl: str(w.certificateUrl),
-          healthDeclarationUrl: str(w.healthDeclarationUrl),
+          healthScreeningId: str(w.healthScreening?.id),
           order: w.order,
         })) || [
           {
             userId: '',
-            idNumber: '',
-            certificateUrl: '',
-            healthDeclarationUrl: '',
+            healthScreeningId: '',
             order: 0,
           },
         ];
 
-      // Set uploaded file names for display
-      const fileNames: Record<string, string> = {};
-      workPermit.workers?.forEach((w, index) => {
-        if (w.certificateUrl) {
-          fileNames[`certificateUrl-${index}`] = 'Certificate file';
-        }
-        if (w.healthDeclarationUrl) {
-          fileNames[`healthDeclarationUrl-${index}`] = 'Health declaration file';
-        }
-      });
-      setUploadedFileNames(fileNames);
-
       form.reset({
+        applicantUserId: str(workPermit.applicantUserId),
         projectName: str(workPermit.projectName),
         areaId: str(workPermit.areaId),
         companyId: str(workPermit.companyId),
@@ -727,12 +1085,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             quantity: qty(m.quantity),
             order: m.order,
           })) || [],
-        professions:
-          workPermit.professions?.map((p) => ({
-            professionId: str(p.professionId),
-            quantity: qty(p.quantity),
-            order: p.order,
-          })) || [],
         requiredCourses:
           workPermit.requiredCourses?.map((c) => ({
             courseId: str(c.courseId),
@@ -743,8 +1095,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           workPermit.hazards?.map((h) => ({
             hazardId: str(h.hazardId),
             hazardName: str(h.hazardName),
-            description: str(h.description),
-            controlMeasure: str(h.controlMeasure),
+            activity: str(h.activity),
+            mitigation: str(h.mitigation),
             order: h.order,
           })) || [],
         attachments:
@@ -768,85 +1120,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     }
   }, [workPermit, mode, form]);
 
-  const handleFileUpload = async (
-    file: File,
-    fieldName: 'certificateUrl' | 'healthDeclarationUrl',
-    workerIndex: number,
-  ) => {
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-    ];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      toast.error('File size exceeds 10MB limit.');
-      return;
-    }
-
-    if (!workPermitDocumentsCategoryId) {
-      toast.error('File category not found. Please refresh the page.');
-      return;
-    }
-
-    const uploadKey = `${fieldName}-${workerIndex}`;
-    setUploadingFiles((prev) => ({ ...prev, [uploadKey]: true }));
-
-    try {
-      const response = await uploadService.uploadFile(file, workPermitDocumentsCategoryId, false);
-
-      // Get the file URL from response
-      // Response from backend includes downloadUrl computed property
-      const fileUrl = response.downloadUrl ||
-        (response.isPublic
-          ? uploadService.getPublicFileUrl(response.id)
-          : uploadService.getPrivateFileUrl(response.accessToken || response.id));
-      form.setValue(`workers.${workerIndex}.${fieldName}`, fileUrl);
-      // Trigger validation to clear error message (WP-039)
-      form.trigger(`workers.${workerIndex}.${fieldName}`);
-      setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
-      toast.success('File uploaded successfully');
-    } catch (error: any) {
-      console.error('Error uploading file:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to upload file';
-      toast.error(errorMessage);
-    } finally {
-      setUploadingFiles((prev) => ({ ...prev, [uploadKey]: false }));
-    }
-  };
-
-  const handleFileRemove = (fieldName: 'certificateUrl' | 'healthDeclarationUrl', workerIndex: number) => {
-    const uploadKey = `${fieldName}-${workerIndex}`;
-    form.setValue(`workers.${workerIndex}.${fieldName}`, '');
-    setUploadedFileNames((prev) => {
-      const newState = { ...prev };
-      delete newState[uploadKey];
-      return newState;
-    });
-  };
-
-  const handleFileInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: 'certificateUrl' | 'healthDeclarationUrl',
-    workerIndex: number,
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file, fieldName, workerIndex);
-    }
-  };
-
   const handleAttachmentUpload = async (file: File) => {
     if (!workPermitDocumentsCategoryId) {
       toast.error('File category not found. Please refresh the page.');
@@ -867,9 +1140,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         order: attachmentFields.length,
       });
       toast.success('Attachment uploaded');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading attachment:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload file');
+      const maybeAxiosError = error as { response?: { data?: { message?: string } } };
+      toast.error(maybeAxiosError.response?.data?.message || 'Failed to upload file');
     }
   };
 
@@ -883,17 +1157,43 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         ...hazard,
         hazardId: hazard.hazardId?.trim() || undefined,
         hazardName: hazard.hazardName.trim(),
-        description: hazard.description?.trim() || undefined,
-        controlMeasure: hazard.controlMeasure?.trim() || undefined,
+        activity: hazard.activity?.trim() || undefined,
+        mitigation: hazard.mitigation?.trim() || undefined,
         order: index,
       }))
       .filter((hazard) => {
         const hasHazardName = hazard.hazardName.length > 0;
-        const hasOtherValues = Boolean(hazard.description || hazard.controlMeasure || hazard.hazardId);
+        const hasOtherValues = Boolean(hazard.activity || hazard.mitigation || hazard.hazardId);
 
         return hasHazardName || hasOtherValues;
       });
   };
+
+  const handleSubmitInvalid = useCallback(
+    (errors: FieldErrors<FormValues>) => {
+      const detail = getFirstFieldErrorDetail(errors as Record<string, unknown>);
+      const message = detail?.message ?? 'Please complete all required fields.';
+      const rootField = detail?.path[0];
+      const targetStep = rootField ? wizardStepForRootField(rootField) : undefined;
+
+      if (targetStep !== undefined && targetStep !== currentStep) {
+        setCurrentStep(targetStep);
+        const stepMeta = WIZARD_STEPS.find((s) => s.id === targetStep);
+        toast.error(message, {
+          description: `Switched to step ${targetStep}${stepMeta ? ` — ${stepMeta.title}` : ''}. Complete the fields there, then return to submit.`,
+        });
+        return;
+      }
+
+      toast.error(message, {
+        description:
+          targetStep === undefined
+            ? 'Check earlier steps for missing required fields.'
+            : 'Review the highlighted fields before submitting.',
+      });
+    },
+    [currentStep],
+  );
 
   const handleSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -950,9 +1250,43 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             })),
           );
 
+      const normalizeWorkers = (
+        workers: FormValues['workers'],
+      ): CreateWorkPermitDTO['workers'] =>
+        workers.map((w) => ({
+          userId: w.userId,
+          order: w.order,
+          healthScreeningId: w.healthScreeningId?.trim() || undefined,
+        }));
+
+      for (const w of dataForApi.workers) {
+        const profile = workerUsers.find((u) => u.id === w.userId);
+        const fromPermit =
+          mode === 'edit' ? workPermit?.workers?.find((x) => x.order === w.order) : undefined;
+        const hasProfession =
+          (profile?.professionId && String(profile.professionId).length > 0) ||
+          (profile?.profession && String(profile.profession).trim().length > 0) ||
+          (fromPermit?.professionId && String(fromPermit.professionId).length > 0) ||
+          !!fromPermit?.profession;
+        if (!hasProfession) {
+          toast.error(
+            'Each worker must have a profession on their profile. Update the worker in Workers or edit their user profile.',
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       if (mode === 'create') {
+        if (!isContractor && !String(dataForApi.applicantUserId ?? '').trim()) {
+          toast.error('Applicant (Contractor) is required.');
+          form.setError('applicantUserId', { type: 'manual', message: 'Applicant is required' });
+          setIsSubmitting(false);
+          return;
+        }
         await onSubmit({
           ...dataForApi,
+          workers: normalizeWorkers(dataForApi.workers),
           ...(classificationContentEnabled
             ? {
                 classificationSafetyGuidance: guidanceBlocks.map((b) => ({
@@ -967,6 +1301,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       } else {
         await onSubmit({
           ...dataForApi,
+          workers: normalizeWorkers(dataForApi.workers),
           ...(classificationContentEnabled && !classificationsChanged
             ? {
                 classificationSafetyGuidance: guidanceBlocks
@@ -980,8 +1315,11 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             : {}),
         } as UpdateWorkPermitDTO);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error submitting form:', error);
+      const maybeAxiosError = error as { response?: { data?: { message?: string } }; message?: string };
+      const apiMessage = maybeAxiosError.response?.data?.message ?? maybeAxiosError.message;
+      toast.error(apiMessage || 'Failed to save work permit');
     } finally {
       setIsSubmitting(false);
     }
@@ -1008,7 +1346,44 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleSubmitInvalid)} className="space-y-6">
+        {mode === 'create' && !isContractor && (
+          <Card>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>Applicant</WorkPermitSubsectionTitle>
+              <CardDescription>Select the contractor applicant for this permit</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="applicantUserId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Applicant (Contractor) <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        options={applicantOptionsFiltered}
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        placeholder="Select applicant"
+                        searchPlaceholder="Search contractor..."
+                        onSearch={(q) => setApplicantSearchQuery(q)}
+                        onCreateNew={(query) => {
+                          setAddApplicantInitialName(query);
+                          setAddApplicantModalOpen(true);
+                        }}
+                        createNewText="Add new applicant"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <WorkPermitSubsectionTitle>Form Progress</WorkPermitSubsectionTitle>
@@ -1195,11 +1570,21 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormLabel>Company <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <SearchableSelect
-                        options={companyOptions}
+                        options={companyOptionsFiltered}
                         value={field.value}
                         onValueChange={field.onChange}
                         placeholder="Select company"
                         searchPlaceholder="Search company..."
+                        onSearch={(q) => setCompanySearchQuery(q)}
+                        {...(hasPermission('company:create')
+                          ? {
+                              onCreateNew: (query: string) => {
+                                setAddCompanyInitialName(query);
+                                setAddCompanyModalOpen(true);
+                              },
+                              createNewText: 'Add new company',
+                            }
+                          : {})}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1265,7 +1650,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
-              <CardDescription>List of workers assigned to this permit</CardDescription>
+              <CardDescription>
+                Select each worker; profession and ID number come from their profile (Workers module).
+              </CardDescription>
             </div>
             <Button
               type="button"
@@ -1274,9 +1661,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               onClick={() =>
                 appendWorker({
                   userId: '',
-                  idNumber: '',
-                  certificateUrl: '',
-                  healthDeclarationUrl: '',
+                  healthScreeningId: '',
                   order: workerFields.length,
                 })
               }
@@ -1317,18 +1702,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         <FormItem>
                           <div className="flex items-center justify-between gap-2">
                             <FormLabel>Worker <span className="text-destructive">*</span></FormLabel>
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="h-auto p-0 text-sm"
-                              onClick={() => {
-                                setAddWorkerForIndex(index);
-                                setAddWorkerInitialName('');
-                                setAddWorkerModalOpen(true);
-                              }}
-                            >
-                              Add new worker
-                            </Button>
                           </div>
                           <FormControl>
                             <SearchableSelect
@@ -1353,176 +1726,31 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                       );
                     }}
                   />
-                  <FormField
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium leading-none">
+                      Profession &amp; ID number{' '}
+                      <span className="text-muted-foreground font-normal">(from worker profile)</span>
+                    </p>
+                    <WorkerProfileFromUser
+                      control={form.control}
+                      index={index}
+                      workerUsers={workerUsers}
+                      permitWorkers={workPermit?.workers}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium leading-none">
+                      Certificate{' '}
+                      <span className="text-muted-foreground font-normal">(from worker profile)</span>
+                    </p>
+                    <div className="rounded-md border bg-muted/30 p-3">
+                      <WorkerCertificateReadonly control={form.control} index={index} />
+                    </div>
+                  </div>
+                  <WorkerAutoLinkedHealthScreening
                     control={form.control}
-                    name={`workers.${index}.idNumber`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ID Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Worker ID number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`workers.${index}.certificateUrl`}
-                    render={({ field }) => {
-                      const uploadKey = `certificateUrl-${index}`;
-                      const isUploading = uploadingFiles[uploadKey] || false;
-                      const uploadedFileName = uploadedFileNames[uploadKey];
-                      const hasFile = uploadedFileName || field.value;
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Certificate</FormLabel>
-                          <FormControl>
-                            <div className="space-y-2">
-                              {hasFile ? (
-                                <div className="flex items-center justify-between p-3 border rounded-md bg-muted">
-                                  <div className="flex items-center gap-2">
-                                    <Upload className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">
-                                      {uploadedFileName || 'Certificate file uploaded'}
-                                    </span>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleFileRemove('certificateUrl', index)}
-                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/20"
-                                    disabled={isUploading}
-                                  >
-                                    <XIcon className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
-                                      input.onchange = (e) => {
-                                        handleFileInputChange(
-                                          e as any,
-                                          'certificateUrl',
-                                          index,
-                                        );
-                                      };
-                                      input.click();
-                                    }}
-                                    disabled={isUploading || !workPermitDocumentsCategoryId}
-                                    className="cursor-pointer"
-                                  >
-                                    {isUploading ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Uploading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Choose File
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              )}
-                              <input type="hidden" {...field} />
-                            </div>
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Upload PDF, DOC, DOCX, or image files (max 10MB)
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`workers.${index}.healthDeclarationUrl`}
-                    render={({ field }) => {
-                      const uploadKey = `healthDeclarationUrl-${index}`;
-                      const isUploading = uploadingFiles[uploadKey] || false;
-                      const uploadedFileName = uploadedFileNames[uploadKey];
-                      const hasFile = uploadedFileName || field.value;
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Health Declaration <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <div className="space-y-2">
-                              {hasFile ? (
-                                <div className="flex items-center justify-between p-3 border rounded-md bg-muted">
-                                  <div className="flex items-center gap-2">
-                                    <Upload className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">
-                                      {uploadedFileName || 'Health declaration file uploaded'}
-                                    </span>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleFileRemove('healthDeclarationUrl', index)}
-                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/20"
-                                    disabled={isUploading}
-                                  >
-                                    <XIcon className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
-                                      input.onchange = (e) => {
-                                        handleFileInputChange(
-                                          e as any,
-                                          'healthDeclarationUrl',
-                                          index,
-                                        );
-                                      };
-                                      input.click();
-                                    }}
-                                    disabled={isUploading || !workPermitDocumentsCategoryId}
-                                    className="cursor-pointer"
-                                  >
-                                    {isUploading ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Uploading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Choose File
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              )}
-                              <input type="hidden" {...field} />
-                            </div>
-                          </FormControl>
-                          <p className="text-sm text-muted-foreground">
-                            Upload PDF, DOC, DOCX, or image files (max 10MB)
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    index={index}
+                    setValue={form.setValue}
                   />
                 </CardContent>
               </Card>
@@ -1592,80 +1820,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   size="icon"
                   onClick={() => removeEmployee(index)}
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
-              <CardDescription>
-                For each line, choose the profession and enter how many workers you need in that role for this
-                permit.
-              </CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                appendProfession({
-                  professionId: '',
-                  quantity: 1,
-                  order: professionFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {professionFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name={`professions.${index}.professionId`}
-                  render={({ field: f }) => (
-                    <FormItem className="flex-1">
-                      <FormLabel>Profession</FormLabel>
-                      <FormControl>
-                        <ModalCombobox
-                          options={professionOptions}
-                          value={f.value}
-                          onValueChange={f.onChange}
-                          placeholder="Select profession"
-                          searchPlaceholder="Search..."
-                          onCreateNew={handleCreateProfession}
-                          createNewText="Create new profession"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`professions.${index}.quantity`}
-                  render={({ field: f }) => (
-                    <FormItem className="w-36 shrink-0">
-                      <FormLabel>Workers in this role</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...f}
-                          onChange={(e) => f.onChange(e.target.valueAsNumber || 1)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeProfession(index)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -1823,13 +1977,27 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Tool</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (toolSearchQueries[index] ?? '').toString();
+                          const options = q.trim() === '' ? toolOptions : toolOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={toolOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select tool"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setToolSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createToolFromQuery(query, (newTool) => {
+                              setTools((prev) => [newTool, ...prev]);
+                            })
+                          }
+                          createNewText="Create new tool"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1892,13 +2060,28 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Machine</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (machineSearchQueries[index] ?? '').toString();
+                          const options =
+                            q.trim() === '' ? machineOptions : machineOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={machineOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select machine"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setMachineSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createMachineFromQuery(query, (newMachine) => {
+                              setMachines((prev) => [newMachine, ...prev]);
+                            })
+                          }
+                          createNewText="Create new machine"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1961,13 +2144,28 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Material</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (materialSearchQueries[index] ?? '').toString();
+                          const options =
+                            q.trim() === '' ? materialOptions : materialOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={materialOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select material"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setMaterialSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createMaterialFromQuery(query, (newMaterial) => {
+                              setMaterials((prev) => [newMaterial, ...prev]);
+                            })
+                          }
+                          createNewText="Create new material"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -2030,13 +2228,30 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <FormItem className="flex-1">
                       <FormLabel>Heavy equipment</FormLabel>
                       <FormControl>
+                        {(() => {
+                          const q = (heavyEquipmentSearchQueries[index] ?? '').toString();
+                          const options =
+                            q.trim() === ''
+                              ? heavyEquipmentOptions
+                              : heavyEquipmentOptions.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
+                          return (
                         <SearchableSelect
-                          options={heavyEquipmentOptions}
+                          options={options}
                           value={f.value}
                           onValueChange={f.onChange}
                           placeholder="Select heavy equipment"
                           searchPlaceholder="Search..."
+                          debounceMs={0}
+                          onSearch={(query) => setHeavyEquipmentSearchQueries((prev) => ({ ...prev, [index]: query }))}
+                          onCreateNew={(query) =>
+                            createHeavyEquipmentFromQuery(query, (newHeavyEquipment) => {
+                              setHeavyEquipment((prev) => [newHeavyEquipment, ...prev]);
+                            })
+                          }
+                          createNewText="Create new heavy equipment"
                         />
+                          );
+                        })()}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -2090,8 +2305,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 appendHazard({
                   hazardId: '',
                   hazardName: '',
-                  description: '',
-                  controlMeasure: '',
+                  activity: '',
+                  mitigation: '',
                   order: hazardFields.length,
                 })
               }
@@ -2107,42 +2322,40 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name={`hazards.${index}.hazardName`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormLabel>Hazard Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Hazard name" {...f} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`hazards.${index}.description`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Description" {...f} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <FormField
                   control={form.control}
-                  name={`hazards.${index}.controlMeasure`}
+                  name={`hazards.${index}.hazardName`}
                   render={({ field: f }) => (
                     <FormItem>
-                      <FormLabel>Control Measure</FormLabel>
+                      <FormLabel>Hazard Name</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Control measure" rows={2} {...f} />
+                        <Input placeholder="Hazard name" {...f} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`hazards.${index}.activity`}
+                  render={({ field: f }) => (
+                    <FormItem>
+                      <FormLabel>Activity</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Activity" rows={4} className="min-h-[120px] resize-y" {...f} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`hazards.${index}.mitigation`}
+                  render={({ field: f }) => (
+                    <FormItem>
+                      <FormLabel>Mitigation</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Mitigation" rows={3} className="resize-y" {...f} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -2228,8 +2441,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           />
         )}
 
-        {/* Section F — PRD */}
-        {currentStep === 4 && (
+        {/* Section F — PRD (HSE review phase only) */}
+        {currentStep === 4 && isHseReviewPhase && (
         <WorkPermitSection id="work-permit-section-f" title={WORK_PERMIT_SECTIONS.F}>
             <Card>
               <CardHeader>
@@ -2257,6 +2470,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               </CardContent>
             </Card>
 
+            {requireCourseVerificationEnabled && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -2318,6 +2532,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 ))}
               </CardContent>
             </Card>
+            )}
 
             {classificationContentEnabled && (
               <Card>
@@ -2374,7 +2589,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         className="text-destructive hover:text-destructive"
                         onClick={() => removeAttachment(index)}
                       >
-                        <XIcon className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
@@ -2405,8 +2620,36 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         </div>
       </form>
 
+      <AddCompanyModal
+        open={addCompanyModalOpen}
+        onOpenChange={(open) => {
+          setAddCompanyModalOpen(open);
+          if (!open) {
+            setAddCompanyInitialName('');
+          }
+        }}
+        initialName={addCompanyInitialName}
+        onSuccess={(company: CompanyDTO) => {
+          const row: CompanyOption = {
+            id: company.id,
+            name: company.name,
+            code: company.code,
+            phone: company.phone ?? null,
+          };
+          setCompanies((prev) => (prev.some((c) => c.id === row.id) ? prev : [...prev, row]));
+          form.setValue('companyId', company.id);
+          void form.trigger('companyId');
+          setAddCompanyInitialName('');
+        }}
+      />
+
       <AddWorkerModal
         open={addWorkerModalOpen}
+        createMode="contractor"
+        permitCompanyId={watchedCompanyId}
+        isSuperAdmin={isSuperAdmin}
+        professions={professions}
+        onProfessionCreated={(p) => setProfessions((prev) => [p, ...prev])}
         onOpenChange={(open) => {
           setAddWorkerModalOpen(open);
           if (!open) {
@@ -2422,6 +2665,47 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           }
           setAddWorkerForIndex(null);
           setAddWorkerInitialName('');
+        }}
+      />
+
+      <AddApplicantWithCompanyModal
+        open={addApplicantModalOpen}
+        onOpenChange={(open) => {
+          setAddApplicantModalOpen(open);
+          if (!open) {
+            setAddApplicantInitialName('');
+          }
+        }}
+        initialName={addApplicantInitialName}
+        isSuperAdmin={isSuperAdmin}
+        companies={companies}
+        permitCompanyId={watchedCompanyId ?? ''}
+        canCreateCompany={hasPermission('company:create')}
+        professions={professions}
+        onProfessionCreated={(p) => setProfessions((prev) => [p, ...prev])}
+        onCompanyCreated={(company: CompanyDTO) => {
+          const row: CompanyOption = {
+            id: company.id,
+            name: company.name,
+            code: company.code,
+            phone: company.phone ?? null,
+          };
+          setCompanies((prev) => (prev.some((c) => c.id === row.id) ? prev : [...prev, row]));
+        }}
+        onSuccess={(user: User) => {
+          setApplicants((prev) => [
+            ...prev,
+            {
+              id: user.id,
+              firstName: user.firstName ?? '',
+              lastName: user.lastName ?? '',
+              email: user.email ?? '',
+              companyId: user.companyId ?? null,
+            },
+          ]);
+          form.setValue('applicantUserId', user.id);
+          void form.trigger('applicantUserId');
+          setAddApplicantInitialName('');
         }}
       />
     </Form>

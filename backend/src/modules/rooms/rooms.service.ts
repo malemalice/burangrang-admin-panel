@@ -5,6 +5,7 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomDto } from './dto/room.dto';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -51,15 +52,15 @@ export class RoomsService {
 
   async create(createRoomDto: CreateRoomDto): Promise<RoomDto> {
     // Check if area exists
-    const area = await this.prisma.area.findUnique({
-      where: { id: createRoomDto.areaId },
+    const area = await this.prisma.area.findFirst({
+      where: { id: createRoomDto.areaId, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Area', createRoomDto.areaId, area);
 
     // Check if area already has a room (one-to-one relationship)
-    const existingRoom = await this.prisma.room.findUnique({
-      where: { areaId: createRoomDto.areaId },
+    const existingRoom = await this.prisma.room.findFirst({
+      where: { areaId: createRoomDto.areaId, deletedAt: null },
     });
 
     if (existingRoom) {
@@ -87,7 +88,9 @@ export class RoomsService {
       areaId,
     } = options || {};
 
-    const where: any = {};
+    const where: any = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -127,8 +130,8 @@ export class RoomsService {
   }
 
   async findOne(id: string): Promise<RoomDto> {
-    const room = await this.prisma.room.findUnique({
-      where: { id },
+    const room = await this.prisma.room.findFirst({
+      where: { id, deletedAt: null },
       include: {
         area: true,
       },
@@ -140,22 +143,22 @@ export class RoomsService {
   }
 
   async update(id: string, updateRoomDto: UpdateRoomDto): Promise<RoomDto> {
-    const existingRoom = await this.prisma.room.findUnique({
-      where: { id },
+    const existingRoom = await this.prisma.room.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Room', id, existingRoom);
 
     // If areaId is being updated, check if new area exists and is not already assigned
     if (updateRoomDto.areaId && updateRoomDto.areaId !== existingRoom.areaId) {
-      const area = await this.prisma.area.findUnique({
-        where: { id: updateRoomDto.areaId },
+      const area = await this.prisma.area.findFirst({
+        where: { id: updateRoomDto.areaId, deletedAt: null },
       });
 
       this.errorHandler.throwIfNotFoundById('Area', updateRoomDto.areaId, area);
 
-      const roomWithArea = await this.prisma.room.findUnique({
-        where: { areaId: updateRoomDto.areaId },
+      const roomWithArea = await this.prisma.room.findFirst({
+        where: { areaId: updateRoomDto.areaId, deletedAt: null },
       });
 
       if (roomWithArea) {
@@ -174,9 +177,9 @@ export class RoomsService {
     return this.roomMapper(updatedRoom);
   }
 
-  async remove(id: string): Promise<void> {
-    const room = await this.prisma.room.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const room = await this.prisma.room.findFirst({
+      where: { id, deletedAt: null },
       include: {
         environmentalMeasurements: true,
       },
@@ -188,8 +191,9 @@ export class RoomsService {
       this.errorHandler.throwConflictCustom(`Cannot delete room with ID ${id} because it has associated environmental measurements`);
     }
 
-    await this.prisma.room.delete({
+    await this.prisma.room.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

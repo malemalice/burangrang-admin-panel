@@ -13,6 +13,7 @@ import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import { FindEnrollmentsDto } from './dto/find-enrollments.dto';
 import { EnrollmentDto } from './dto/enrollment.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
+import { isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -157,8 +158,8 @@ export class EnrollmentsService {
       const { courseId } = createEnrollmentDto;
 
       // Check if course exists
-      const course = await this.prisma.course.findUnique({
-        where: { id: courseId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: courseId, ...isNotDeleted },
       });
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);
@@ -234,8 +235,8 @@ export class EnrollmentsService {
         sendEmail = true,
       } = assignDto;
 
-      const course = await this.prisma.course.findUnique({
-        where: { id: courseId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: courseId, ...isNotDeleted },
       });
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);
@@ -742,6 +743,44 @@ export class EnrollmentsService {
     }, 'Finding enrollment');
   }
 
+  /**
+   * Learning context for a known enrollment owner, without JWT userContext (public work permit link).
+   * Only published quizzes; instructor draft quizzes are not exposed.
+   */
+  async getPublicLearningContextForUser(
+    enrollmentId: string,
+    applicantUserId: string,
+  ): Promise<any> {
+    return this.errorHandler.safeExecute(async () => {
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id: enrollmentId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              departmentId: true,
+            },
+          },
+          course: true,
+          progressRecords: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Enrollment', enrollmentId, enrollment);
+
+      if (enrollment.userId !== applicantUserId) {
+        this.errorHandler.throwForbidden(
+          'You do not have access to this record',
+        );
+      }
+
+      return this.buildLearningContextPayload(enrollment, false);
+    }, 'Getting public learning context');
+  }
+
   async getLearningContext(
     id: string,
     userContext: UserContext | undefined,
@@ -786,85 +825,98 @@ export class EnrollmentsService {
         );
       }
 
-      // Fetch chapters separately
-      // Based on feedback: if course is published, all active chapters should be visible.
-      // We rely on 'isActive' status and remove 'isPublished' filter for chapters.
-      const chapters = await this.prisma.chapter.findMany({
-        where: {
-          courseId: enrollment.courseId,
-          isActive: true,
-        },
-        orderBy: {
-          order: 'asc',
-        },
-      });
-
-      const { currentChapterId, chaptersWithLearningState } =
-        this.buildChapterLearningState(chapters, enrollment.progressRecords);
-
-      // Attach chapters to course object
-      const courseWithChapters = {
-        ...enrollment.course,
-        chapters: chaptersWithLearningState,
-      };
-
-      // Determine visibility for quizzes
       const canViewDrafts =
         userContext?.dataLevel === 'SUPER' ||
         enrollment.course.instructorId === userContext?.userId;
 
-      // Fetch quizzes (both course-level and chapter-level)
-      const chapterIds = courseWithChapters.chapters.map((ch) => ch.id);
-
-      const quizzes = await this.prisma.quiz.findMany({
-        where: {
-          OR: [
-            { entity: 'COURSE', entityId: enrollment.courseId },
-            { entity: 'CHAPTER', entityId: { in: chapterIds } },
-          ],
-          isActive: true,
-          ...(canViewDrafts ? {} : { isPublished: true }),
-        },
-        orderBy: {
-          createdAt: 'asc', // Or order if available
-        },
-      });
-
-      const quizAttempts = await this.prisma.quizAttempt.findMany({
-        where: {
-          enrollmentId: id,
-        },
-        orderBy: [
-          {
-            completedAt: 'desc',
-          },
-          {
-            startedAt: 'desc',
-          },
-        ],
-        select: {
-          id: true,
-          quizId: true,
-          attemptNumber: true,
-          status: true,
-          score: true,
-          totalPoints: true,
-          earnedPoints: true,
-          isPassed: true,
-          startedAt: true,
-          completedAt: true,
-          timeSpent: true,
-        },
-      });
-
-      return {
-        enrollment: this.enrollmentMapper(enrollment),
-        course: courseWithChapters,
-        quizzes,
-        progress: enrollment.progressRecords,
-        quizAttempts,
-        currentChapterId,
-      };
+      return this.buildLearningContextPayload(enrollment, canViewDrafts);
     }, 'Getting learning context');
+  }
+
+  private async buildLearningContextPayload(
+    enrollment: {
+      id: string;
+      courseId: string;
+      course: any;
+      progressRecords: any[];
+      user: any;
+    },
+    canViewDrafts: boolean,
+  ): Promise<any> {
+    const id = enrollment.id;
+    // Fetch chapters separately
+    // Based on feedback: if course is published, all active chapters should be visible.
+    // We rely on 'isActive' status and remove 'isPublished' filter for chapters.
+    const chapters = await this.prisma.chapter.findMany({
+      where: {
+        courseId: enrollment.courseId,
+        isActive: true,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    const { currentChapterId, chaptersWithLearningState } =
+      this.buildChapterLearningState(chapters, enrollment.progressRecords);
+
+    // Attach chapters to course object
+    const courseWithChapters = {
+      ...enrollment.course,
+      chapters: chaptersWithLearningState,
+    };
+
+    // Fetch quizzes (both course-level and chapter-level)
+    const chapterIds = courseWithChapters.chapters.map((ch) => ch.id);
+
+    const quizzes = await this.prisma.quiz.findMany({
+      where: {
+        OR: [
+          { entity: 'COURSE', entityId: enrollment.courseId },
+          { entity: 'CHAPTER', entityId: { in: chapterIds } },
+        ],
+        isActive: true,
+        ...(canViewDrafts ? {} : { isPublished: true }),
+      },
+      orderBy: {
+        createdAt: 'asc', // Or order if available
+      },
+    });
+
+    const quizAttempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId: id,
+      },
+      orderBy: [
+        {
+          completedAt: 'desc',
+        },
+        {
+          startedAt: 'desc',
+        },
+      ],
+      select: {
+        id: true,
+        quizId: true,
+        attemptNumber: true,
+        status: true,
+        score: true,
+        totalPoints: true,
+        earnedPoints: true,
+        isPassed: true,
+        startedAt: true,
+        completedAt: true,
+        timeSpent: true,
+      },
+    });
+
+    return {
+      enrollment: this.enrollmentMapper(enrollment as any),
+      course: courseWithChapters,
+      quizzes,
+      progress: enrollment.progressRecords,
+      quizAttempts,
+      currentChapterId,
+    };
   }
 }

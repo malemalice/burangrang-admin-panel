@@ -66,6 +66,11 @@ export class CreateQuizQuestionDto {
 }
 
 export class CreateQuizDto {
+  @ApiProperty({ required: false, enum: ['LMS_QUIZ', 'HEALTH_DECLARATION'], description: 'Defaults to LMS_QUIZ' })
+  @IsOptional()
+  @IsEnum(['LMS_QUIZ', 'HEALTH_DECLARATION'])
+  kind?: 'LMS_QUIZ' | 'HEALTH_DECLARATION';
+
   @ApiProperty({ description: 'Quiz title' })
   @IsString()
   @IsNotEmpty()
@@ -131,6 +136,15 @@ export class CreateQuizDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean = false;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'If true, set as the global default health screening template (HEALTH_DECLARATION only; published, active, standalone)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isDefaultForHealthScreening?: boolean;
 
   @ApiProperty({ description: 'Quiz questions', type: [CreateQuizQuestionDto] })
   @IsArray()

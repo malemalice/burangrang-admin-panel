@@ -284,8 +284,8 @@ export default function EnvironmentalMeasurementDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Environmental Measurement"
-        subtitle={format(new Date(measurement.date), 'PPP')}
+        title={`Environmental Measurement: ${measurement.room?.code ?? format(new Date(measurement.date), 'yyyy-MM-dd')}`}
+        subtitle={`Created on ${format(new Date(measurement.createdAt), 'dd MMM yyyy')}`}
         actions={
           <div className="flex gap-2 flex-wrap">
             {/* Workflow action buttons */}
@@ -337,25 +337,29 @@ export default function EnvironmentalMeasurementDetailPage() {
             )}
 
             {/* Standard actions */}
-            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to List
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <Button variant="outline" onClick={handleExportPDF}>
               <FileDown className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
             {status !== GeneralStatusEnum.DONE && status !== GeneralStatusEnum.WAITING_APPROVAL && (
-                <PermissionGuard permission="environmental-measurement:update">
-                  <Button size="sm" onClick={() => navigate(`/environmental-measurements/${id}/edit`)}>
-                    <FileEdit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                </PermissionGuard>
-              )}
+              <PermissionGuard permission="environmental-measurement:update">
+                <Button variant="outline" onClick={() => navigate(`/environmental-measurements/${id}/edit`)}>
+                  <FileEdit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </PermissionGuard>
+            )}
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to List
+            </Button>
           </div>
         }
-      />
+      >
+        <div className="flex items-center gap-3">
+          {getStatusBadge(status)}
+        </div>
+      </PageHeader>
 
       {/* PDF Template — hidden, used for export only */}
       <div
@@ -373,12 +377,9 @@ export default function EnvironmentalMeasurementDetailPage() {
       <div className="w-full max-w-none space-y-6">
         {/* Measurement Details */}
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <CardTitle>Measurement Details</CardTitle>
-              <CardDescription>Date, room, and measurement values</CardDescription>
-            </div>
-            <div className="flex-shrink-0 pt-0.5">{getStatusBadge(status)}</div>
+          <CardHeader>
+            <CardTitle>Measurement Details</CardTitle>
+            <CardDescription>Date, room, and measurement values</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

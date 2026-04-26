@@ -8,6 +8,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
+  companyId?: string | null;
   role: string | { name: string; [key: string]: unknown };
   permissions?: string[];
 }
@@ -28,11 +29,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper functions for last visited URL
 const LAST_VISITED_URL_KEY = 'last_visited_url';
+
+/** Paths that must not trigger login redirect when unauthenticated */
+export const isAuthExemptPath = (pathname: string) =>
+  ['/login', '/reset-password'].includes(pathname) ||
+  pathname.startsWith('/health-screenings/public/') ||
+  pathname.startsWith('/work-permits/public/');
+
 const saveLastVisitedUrl = (url: string) => {
-  // Only save if it's not a login or reset-password page
   // Extract pathname from URL (handle both pathname and pathname+search formats)
   const pathname = url.split('?')[0];
-  if (!['/login', '/reset-password'].includes(pathname)) {
+  if (!isAuthExemptPath(pathname)) {
     localStorage.setItem(LAST_VISITED_URL_KEY, url);
   }
 };
@@ -57,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Track route changes and save last visited URL for authenticated users
   useEffect(() => {
-    if (isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
+    if (isAuthenticated && !isAuthExemptPath(location.pathname)) {
       saveLastVisitedUrl(location.pathname + location.search);
     }
   }, [location.pathname, location.search, isAuthenticated]);
@@ -76,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!valid) {
             const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
             setEmbedUnauthorized(isInIframe);
-            if (!isInIframe) {
+            if (!isInIframe && !isAuthExemptPath(location.pathname)) {
               saveLastVisitedUrl(location.pathname + location.search);
               navigate('/login');
             }
@@ -88,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch {
           const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
           setEmbedUnauthorized(isInIframe);
-          if (!isInIframe) {
+          if (!isInIframe && !isAuthExemptPath(location.pathname)) {
             saveLastVisitedUrl(location.pathname + location.search);
             navigate('/login');
           }
@@ -123,7 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsAuthenticated(false);
             setUser(null);
 
-            if (location.pathname !== '/login') {
+            if (!isAuthExemptPath(location.pathname)) {
               saveLastVisitedUrl(location.pathname + location.search);
               navigate('/login');
             }
@@ -135,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsAuthenticated(false);
           setUser(null);
 
-          if (location.pathname !== '/login') {
+          if (!isAuthExemptPath(location.pathname)) {
             saveLastVisitedUrl(location.pathname + location.search);
             navigate('/login');
           }
@@ -150,12 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch {
             const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
             setEmbedUnauthorized(isInIframe);
-            if (!isInIframe) {
+            if (!isInIframe && !isAuthExemptPath(location.pathname)) {
               saveLastVisitedUrl(location.pathname + location.search);
               navigate('/login');
             }
           }
-        } else if (!['/login', '/reset-password'].includes(location.pathname)) {
+        } else if (!isAuthExemptPath(location.pathname)) {
           console.log('[Auth] No tokens found, redirecting to login');
           saveLastVisitedUrl(location.pathname + location.search);
           navigate('/login');
@@ -198,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       // Save current URL before logout
-      if (isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
+      if (isAuthenticated && !isAuthExemptPath(location.pathname)) {
         saveLastVisitedUrl(location.pathname + location.search);
       }
       
@@ -248,7 +255,7 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (embedUnauthorized) return;
-    if (!isLoading && !isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
+    if (!isLoading && !isAuthenticated && !isAuthExemptPath(location.pathname)) {
       console.log('[ProtectedRoute] Not authenticated, redirecting to login');
       saveLastVisitedUrl(location.pathname + location.search);
       const search = location.search ? `?${location.search}` : '';

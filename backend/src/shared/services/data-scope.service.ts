@@ -146,7 +146,9 @@ export class DataScopeService {
 
   private workPermitScopeWhere(ctx: UserContext): object {
     if (ctx.dataLevel === 'SELF') {
-      return { createdBy: ctx.userId };
+      return {
+        OR: [{ createdBy: ctx.userId }, { applicantUserId: ctx.userId }],
+      };
     }
     if (ctx.dataLevel === 'DEPARTMENT') {
       if (ctx.departmentId == null) {
@@ -159,7 +161,7 @@ export class DataScopeService {
 
   private workPermitCanAccess(ctx: UserContext, record: Record<string, unknown>): boolean {
     if (ctx.dataLevel === 'SELF') {
-      return record.createdBy === ctx.userId;
+      return record.createdBy === ctx.userId || record.applicantUserId === ctx.userId;
     }
     if (ctx.dataLevel === 'DEPARTMENT') {
       if (ctx.departmentId == null) return false;

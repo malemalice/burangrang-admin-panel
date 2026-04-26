@@ -71,8 +71,8 @@ export class UserPermissionsService {
 
     this.errorHandler.throwIfNotFoundById('User', userId, user);
 
-    const permission = await this.prisma.permission.findUnique({
-      where: { name: permissionName },
+    const permission = await this.prisma.permission.findFirst({
+      where: { name: permissionName, deletedAt: null },
     });
 
     if (!permission) {

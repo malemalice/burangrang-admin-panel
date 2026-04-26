@@ -1,4 +1,4 @@
-import api from '@/core/lib/api';
+import api, { publicApi } from '@/core/lib/api';
 import { PaginatedResponse } from '@/core/lib/types';
 import {
   WorkPermit,
@@ -8,9 +8,11 @@ import {
   WorkPermitSearchParams,
   ApprovalTimelineItem,
   WorkPermitMasterData,
+  MasterDataOption,
   ClassificationSafetyGuidanceUpdate,
   mapWorkPermitDtoToWorkPermit,
   mapWorkPermitToUpdateDto,
+  type PublicWorkPermitByTokenResponse,
 } from '../types/work-permit.types';
 
 const workPermitService = {
@@ -86,11 +88,18 @@ const workPermitService = {
    */
   approveWorkPermit: async (
     id: string,
-    payload?: { notes?: string; classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[] },
+    payload?: {
+      notes?: string;
+      classificationSafetyGuidance?: ClassificationSafetyGuidanceUpdate[];
+      requireCourseVerification?: boolean;
+      requiredCourses?: Array<{ courseId: string; isRequired?: boolean; order: number }>;
+    },
   ): Promise<WorkPermit> => {
     const response = await api.post(`/work-permits/${id}/approve`, {
       notes: payload?.notes,
       classificationSafetyGuidance: payload?.classificationSafetyGuidance,
+      requireCourseVerification: payload?.requireCourseVerification,
+      requiredCourses: payload?.requiredCourses,
     });
     return mapWorkPermitDtoToWorkPermit(response.data);
   },
@@ -108,18 +117,6 @@ const workPermitService = {
    */
   rejectWorkPermit: async (id: string, reason: string, notes?: string): Promise<WorkPermit> => {
     const response = await api.post(`/work-permits/${id}/reject`, { reason, notes });
-    return mapWorkPermitDtoToWorkPermit(response.data);
-  },
-
-  /**
-   * Request additional information
-   */
-  requestInfo: async (id: string, message: string, ccUserIds?: string[], notes?: string): Promise<WorkPermit> => {
-    const response = await api.post(`/work-permits/${id}/request-info`, {
-      message,
-      ccUserIds,
-      notes,
-    });
     return mapWorkPermitDtoToWorkPermit(response.data);
   },
 
@@ -186,6 +183,136 @@ const workPermitService = {
   }): Promise<{ id: string; name: string; code: string }> => {
     const response = await api.post('/work-permits/professions', data);
     return response.data;
+  },
+
+  /**
+   * Create tool master data (from work permit form when no match exists)
+   */
+  createTool: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/tools', data);
+    return response.data;
+  },
+
+  /**
+   * Create material master data (from work permit form when no match exists)
+   */
+  createMaterial: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/materials', data);
+    return response.data;
+  },
+
+  /**
+   * Create machine master data (from work permit form when no match exists)
+   */
+  createMachine: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/machines', data);
+    return response.data;
+  },
+
+  /**
+   * Create heavy equipment master data (from work permit form when no match exists)
+   * Note: backend sets `isFallbackCreated = true` for this route.
+   */
+  createHeavyEquipment: async (data: {
+    name: string;
+    code?: string;
+    description?: string;
+  }): Promise<MasterDataOption> => {
+    const response = await api.post('/work-permits/heavy-equipment', data);
+    return response.data;
+  },
+
+  /**
+   * Generate anonymous applicant link (staff-only, authenticated).
+   */
+  generatePublicLink: async (body: {
+    workPermitId?: string;
+    userId?: string;
+  }): Promise<{
+    linkUrl: string;
+    expiresAt: string;
+    workPermitId: string;
+  }> => {
+    const res = await api.post('/work-permits/public-links', body);
+    return res.data as { linkUrl: string; expiresAt: string; workPermitId: string };
+  },
+
+  /**
+   * Public (no-login) token-based detail.
+   */
+  getPublicByToken: async (token: string): Promise<PublicWorkPermitByTokenResponse> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.get(`/work-permits/public/${enc}`);
+    const raw = res.data as PublicWorkPermitByTokenResponse & { workPermit: WorkPermitDTO };
+    return {
+      workPermit: mapWorkPermitDtoToWorkPermit(raw.workPermit),
+      isEditable: raw.isEditable,
+      mode: raw.mode,
+      applicantPhase: raw.applicantPhase,
+      canEditDraft: raw.canEditDraft,
+      canSignSk: raw.canSignSk,
+      canSignSkAction: raw.canSignSkAction,
+      courseVerification: raw.courseVerification,
+      mitigationsByRiskId: raw.mitigationsByRiskId ?? {},
+      classificationContentEnabled: raw.classificationContentEnabled ?? false,
+    };
+  },
+
+  /**
+   * Public (no-login) token-based update.
+   */
+  updatePublicByToken: async (
+    token: string,
+    data: UpdateWorkPermitDTO,
+  ): Promise<WorkPermit> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.patch(`/work-permits/public/${enc}`, data);
+    return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
+  },
+
+  /**
+   * Public (no-login) token-based submit.
+   */
+  submitPublicByToken: async (token: string, notes?: string): Promise<WorkPermit> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(`/work-permits/public/${enc}/submit`, { notes });
+    return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
+  },
+
+  /**
+   * Public (no-login) applicant sign-off for HSE safety guideline (WAITING_APPLICANT_SIGN only).
+   */
+  signSkPublicByToken: async (token: string, signature?: string): Promise<WorkPermit> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(`/work-permits/public/${enc}/sign-sk`, { signature });
+    return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
+  },
+
+  /**
+   * Public (no-login) — mint health declaration fill URL for a worker on this permit.
+   */
+  postPublicWorkerHealthScreeningLink: async (
+    token: string,
+    body: { userId: string },
+  ): Promise<{ linkUrl: string; expiresAt: string; screeningId: string }> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(
+      `/work-permits/public/${enc}/worker-health-screening-link`,
+      body,
+    );
+    return res.data as { linkUrl: string; expiresAt: string; screeningId: string };
   },
 };
 

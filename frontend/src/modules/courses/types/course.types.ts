@@ -8,8 +8,6 @@ export interface Course {
   thumbnailUrl?: string;
   totalChapters: number;
   totalDuration: number;
-  rating: number;
-  reviewCount: number;
   studentCount: number;
   instructorId: string;
   publishedAt?: string;
@@ -69,8 +67,6 @@ export interface CourseDTO {
   thumbnailUrl?: string;
   totalChapters: number;
   totalDuration: number;
-  rating: number;
-  reviewCount: number;
   studentCount: number;
   instructorId: string;
   publishedAt?: string;
@@ -296,4 +292,6 @@ export interface LearningContext {
   quizzes: Quiz[];
   progress: Progress[];
   quizAttempts: QuizAttemptSummary[];
+  /** Suggested first incomplete chapter (from server learning context) */
+  currentChapterId?: string;
 }

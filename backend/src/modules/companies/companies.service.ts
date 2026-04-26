@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
@@ -51,7 +52,9 @@ export class CompaniesService {
       search,
     } = options || {};
 
-    const where: Prisma.CompanyWhereInput = {};
+    const where: Prisma.CompanyWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -87,8 +90,8 @@ export class CompaniesService {
   }
 
   async findOne(id: string): Promise<CompanyDto> {
-    const company = await this.prisma.company.findUnique({
-      where: { id },
+    const company = await this.prisma.company.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Company', id, company);
@@ -97,8 +100,8 @@ export class CompaniesService {
   }
 
   async update(id: string, updateCompanyDto: UpdateCompanyDto): Promise<CompanyDto> {
-    const existingCompany = await this.prisma.company.findUnique({
-      where: { id },
+    const existingCompany = await this.prisma.company.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Company', id, existingCompany);
@@ -111,11 +114,12 @@ export class CompaniesService {
     return this.companyMapper(company);
   }
 
-  async remove(id: string): Promise<void> {
-    const company = await this.prisma.company.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const company = await this.prisma.company.findFirst({
+      where: { id, deletedAt: null },
       include: {
         workPermits: {
+          where: { deletedAt: null },
           select: { id: true },
           take: 1,
         },
@@ -130,8 +134,9 @@ export class CompaniesService {
       );
     }
 
-    await this.prisma.company.delete({
+    await this.prisma.company.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

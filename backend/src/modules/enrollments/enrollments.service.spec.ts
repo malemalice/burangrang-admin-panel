@@ -37,6 +37,7 @@ const mockErrorHandler = {
   safeExecute: jest.fn(),
   throwIfNotFoundById: jest.fn(),
   throwConflictCustom: jest.fn(),
+  throwForbidden: jest.fn(),
 } as unknown as ErrorHandlingService;
 
 const mockDtoMapper = {
@@ -328,6 +329,31 @@ describe('EnrollmentsService', () => {
             }),
           }),
         ]),
+      );
+    });
+  });
+
+  describe('getPublicLearningContextForUser', () => {
+    it('forbids when enrollment belongs to a different user', async () => {
+      (mockPrismaService.enrollment.findUnique as jest.Mock).mockResolvedValue({
+        id: 'e1',
+        userId: 'u-other',
+        courseId: 'c1',
+        user: { id: 'u-other', departmentId: null, firstName: 'A', lastName: 'B', email: 'a@b.com' },
+        course: { id: 'c1', title: 'C', instructorId: 'inst' },
+        progressRecords: [],
+      });
+      (mockErrorHandler.throwIfNotFoundById as jest.Mock).mockImplementation(
+        (label, id, entity) => {
+          if (!entity) throw new Error('not found');
+        },
+      );
+      (mockErrorHandler.throwForbidden as jest.Mock).mockImplementation(() => {
+        throw new Error('forbidden');
+      });
+
+      await expect(service.getPublicLearningContextForUser('e1', 'u-expected')).rejects.toThrow(
+        'forbidden',
       );
     });
   });

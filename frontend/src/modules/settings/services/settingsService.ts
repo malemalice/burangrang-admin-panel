@@ -5,6 +5,31 @@ import { ThemeColor, ThemeMode } from '@/core/lib/theme';
  * Settings service for managing application settings via backend
  */
 const settingsService = {
+  getAppSettings: async (): Promise<{
+    name: string;
+    logoPortraitUrl: string | null;
+    logoLandscapeUrl: string | null;
+    loginTagline: string | null;
+  }> => {
+    try {
+      const response = await api.get('/settings/app');
+      return {
+        name: response.data?.name || 'HSE System',
+        logoPortraitUrl: response.data?.logoPortraitUrl || null,
+        logoLandscapeUrl: response.data?.logoLandscapeUrl || null,
+        loginTagline: response.data?.loginTagline || 'made by your company',
+      };
+    } catch (error: any) {
+      console.warn('Failed to get app settings, using defaults:', error);
+      return {
+        name: 'HSE System',
+        logoPortraitUrl: null,
+        logoLandscapeUrl: null,
+        loginTagline: 'made by your company',
+      };
+    }
+  },
+
   // Email settings helpers
   getMailSettings: async (): Promise<{
     provider: 'smtp' | 'gmail' | 'mailgun';
@@ -87,12 +112,9 @@ const settingsService = {
         console.warn(`403 Forbidden for setting ${key}, not retrying`);
         return null;
       }
-      // Handle 401 (unauthorized) - retry once if we haven't exceeded limit
-      if (error.response?.status === 401 && retryCount < MAX_RETRIES) {
-        console.log(`401 Unauthorized for setting ${key}, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-        // Wait a bit before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return settingsService.getSettingValue(key, retryCount + 1);
+      // 401: no valid session (e.g. public pages) — do not retry; same as missing value for feature flags
+      if (error.response?.status === 401) {
+        return null;
       }
 
       console.error(`Error fetching setting ${key}:`, error);
@@ -204,13 +226,8 @@ const settingsService = {
 
   // Get app name setting
   getAppName: async (): Promise<string> => {
-    try {
-      const response = await api.get('/settings/app');
-      return response.data.name;
-    } catch (error: any) {
-      console.warn('Failed to get app name, using default:', error);
-      return 'HSE System';
-    }
+    const app = await settingsService.getAppSettings();
+    return app.name;
   },
 
   // Set app name setting

@@ -109,6 +109,13 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
   if (!chapter) return null;
 
   const contentType = chapter.contentType?.toLowerCase();
+  const isEmptyRichText = (content: string) => {
+    const normalized = content.replace(/\s+/g, '').replace(/&nbsp;/g, '');
+    if (!normalized) return true;
+    if (normalized === '<p></p>') return true;
+    const textOnly = content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim();
+    return textOnly.length === 0 && /<p>\s*<\/p>/i.test(content);
+  };
 
   switch (contentType) {
     case 'video':
@@ -197,10 +204,14 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
 
     case 'text':
       return (
-        <div className="prose max-w-none dark:prose-invert">
+        <div className="prose max-w-none dark:prose-invert [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border">
           {chapter.content ? (
             containsHtmlTags(chapter.content) ? (
-              <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
+              isEmptyRichText(chapter.content) ? (
+                <p className="text-muted-foreground italic">No text content available.</p>
+              ) : (
+                <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
+              )
             ) : (
               <div className="whitespace-pre-wrap">{chapter.content}</div>
             )

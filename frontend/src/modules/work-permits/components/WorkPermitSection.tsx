@@ -7,6 +7,8 @@ export interface WorkPermitSectionProps {
   id: string;
   title: string;
   description?: string;
+  /** Applied to the section h2 (e.g. scroll-margin for anchor / FAB scroll). */
+  titleClassName?: string;
   children: ReactNode;
 }
 
@@ -14,11 +16,17 @@ export interface WorkPermitSectionProps {
  * Canonical PRD section shell (A–F): section title above nested cards; use
  * {@link WorkPermitSubsectionTitle} inside cards so hierarchy stays correct.
  */
-export function WorkPermitSection({ id, title, description, children }: WorkPermitSectionProps) {
+export function WorkPermitSection({ id, title, description, titleClassName, children }: WorkPermitSectionProps) {
   return (
     <section aria-labelledby={id} className="space-y-4">
       <div className="space-y-1.5">
-        <h2 id={id} className="text-xl font-semibold tracking-tight text-foreground break-words">
+        <h2
+          id={id}
+          className={cn(
+            'text-xl font-semibold tracking-tight text-foreground break-words',
+            titleClassName,
+          )}
+        >
           {title}
         </h2>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}

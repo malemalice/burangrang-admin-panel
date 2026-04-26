@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2, Copy } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
@@ -15,6 +15,7 @@ import { useAppName } from '../hooks/useSettings';
 import settingsService from '../services/settingsService';
 import api from '@/core/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/core/components/ui/dialog';
+import ImageUpload from '@/modules/uploads/components/ImageUpload';
 
 // Define theme options
 const themeOptions = Object.entries(themeColors).map(([id, colors]) => ({
@@ -29,6 +30,10 @@ const SettingsPage = () => {
   const { theme, setTheme, mode, toggleMode } = useTheme();
   const { appName, updateAppName, isUpdating: isUpdatingAppName } = useAppName();
   const [tempAppName, setTempAppName] = useState<string>('');
+  const loginTaglineKey = 'app.login.tagline';
+  const [loginTagline, setLoginTagline] = useState<string>('made by your company');
+  const [tempLoginTagline, setTempLoginTagline] = useState<string>('');
+  const [isSavingLoginTagline, setIsSavingLoginTagline] = useState<boolean>(false);
   // Email setup states
   const [mailProvider, setMailProvider] = useState<'smtp' | 'gmail' | 'mailgun'>('smtp');
   const [mailHost, setMailHost] = useState<string>('');
@@ -46,10 +51,77 @@ const SettingsPage = () => {
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [isGeneratingEmbed, setIsGeneratingEmbed] = useState<boolean>(false);
 
+  // App branding states (logos)
+  const [logoCacheBust, setLogoCacheBust] = useState<number>(() => Date.now());
+  const [logoPortraitUrl, setLogoPortraitUrl] = useState<string>('');
+  const [logoLandscapeUrl, setLogoLandscapeUrl] = useState<string>('');
+  const [isSavingLogos, setIsSavingLogos] = useState<boolean>(false);
+
+  const logoPortraitKey = 'app.logo.portraitUrl';
+  const logoLandscapeKey = 'app.logo.landscapeUrl';
+
+  const portraitUrlWithBust = useMemo(() => {
+    if (!logoPortraitUrl) return '';
+    const hasQuery = logoPortraitUrl.includes('?');
+    return `${logoPortraitUrl}${hasQuery ? '&' : '?'}v=${logoCacheBust}`;
+  }, [logoPortraitUrl, logoCacheBust]);
+
+  const landscapeUrlWithBust = useMemo(() => {
+    if (!logoLandscapeUrl) return '';
+    const hasQuery = logoLandscapeUrl.includes('?');
+    return `${logoLandscapeUrl}${hasQuery ? '&' : '?'}v=${logoCacheBust}`;
+  }, [logoLandscapeUrl, logoCacheBust]);
+
   // Update temp app name when app name loads
   useEffect(() => {
     setTempAppName(appName);
   }, [appName]);
+
+  // Load login tagline setting (non-blocking)
+  useEffect(() => {
+    const loadLoginTagline = async () => {
+      try {
+        const value = await settingsService.getSettingValue(loginTaglineKey);
+        const normalized = (value || '').trim() || 'made by your company';
+        setLoginTagline(normalized);
+        setTempLoginTagline(normalized);
+      } catch {
+        setLoginTagline('made by your company');
+        setTempLoginTagline('made by your company');
+      }
+    };
+    loadLoginTagline();
+  }, []);
+
+  // Load existing logo settings (non-blocking)
+  useEffect(() => {
+    const loadLogos = async () => {
+      try {
+        const [portrait, landscape] = await Promise.all([
+          settingsService.getSettingValue(logoPortraitKey),
+          settingsService.getSettingValue(logoLandscapeKey),
+        ]);
+        setLogoPortraitUrl(portrait || '');
+        setLogoLandscapeUrl(landscape || '');
+      } catch {
+        // ignore
+      }
+    };
+    loadLogos();
+  }, []);
+
+  const persistLogoSetting = async (key: string, value: string) => {
+    setIsSavingLogos(true);
+    try {
+      await settingsService.setSettingValue(key, value || '');
+      setLogoCacheBust(Date.now());
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save logo');
+      throw e;
+    } finally {
+      setIsSavingLogos(false);
+    }
+  };
 
   // Load email settings
   useEffect(() => {
@@ -100,6 +172,25 @@ const SettingsPage = () => {
       }
     } catch (error) {
       // Error is already handled in the hook
+    }
+  };
+
+  const handleSaveLoginTagline = async () => {
+    const next = (tempLoginTagline || '').trim();
+    if (!next) {
+      toast.error('Login footer text cannot be empty');
+      return;
+    }
+    setIsSavingLoginTagline(true);
+    try {
+      await settingsService.setSettingValue(loginTaglineKey, next);
+      setLoginTagline(next);
+      setTempLoginTagline(next);
+      toast.success('Login footer text updated');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update login footer text');
+    } finally {
+      setIsSavingLoginTagline(false);
     }
   };
   
@@ -226,6 +317,111 @@ const SettingsPage = () => {
                   >
                     {isUpdatingAppName ? 'Saving...' : 'Save'}
                   </ThemeButton>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Login Footer Text</CardTitle>
+              <CardDescription>
+                Text shown under the app name/logo on the login page
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="login-tagline" className="block text-sm font-medium mb-2">
+                    Footer text
+                  </Label>
+                  <Input
+                    id="login-tagline"
+                    value={tempLoginTagline}
+                    onChange={(e) => setTempLoginTagline(e.target.value)}
+                    placeholder="e.g. made by your company"
+                    className="w-full"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Current: {loginTagline}
+                  </p>
+                </div>
+                <div className="flex-shrink-0">
+                  <ThemeButton
+                    onClick={handleSaveLoginTagline}
+                    disabled={isSavingLoginTagline || tempLoginTagline.trim() === (loginTagline || '').trim()}
+                    className="w-24"
+                  >
+                    {isSavingLoginTagline ? 'Saving...' : 'Save'}
+                  </ThemeButton>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Application Logo</CardTitle>
+              <CardDescription>
+                Upload portrait (icon) and landscape (logo with title) assets. If not uploaded, the app will keep using the app name text.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="block text-sm font-medium">Portrait logo (icon)</Label>
+                  <ImageUpload
+                    id="app-logo-portrait"
+                    value={portraitUrlWithBust}
+                    onChange={async (value) => {
+                      // ImageUpload calls onChange('') on remove
+                      setLogoPortraitUrl(value || '');
+                      try {
+                        await persistLogoSetting(logoPortraitKey, value || '');
+                        toast.success(value ? 'Portrait logo updated' : 'Portrait logo removed');
+                      } catch {
+                        // revert to last known good value by reloading
+                        const portrait = await settingsService.getSettingValue(logoPortraitKey);
+                        setLogoPortraitUrl(portrait || '');
+                      }
+                    }}
+                    categoryName="system-assets"
+                    isPublic
+                    allowedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                    placeholder="Upload portrait logo"
+                    disabled={isSavingLogos}
+                    entityId="app-branding"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used in the sidebar as the icon (with app name text when expanded).
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="block text-sm font-medium">Landscape logo (logo + title)</Label>
+                  <ImageUpload
+                    id="app-logo-landscape"
+                    value={landscapeUrlWithBust}
+                    onChange={async (value) => {
+                      setLogoLandscapeUrl(value || '');
+                      try {
+                        await persistLogoSetting(logoLandscapeKey, value || '');
+                        toast.success(value ? 'Landscape logo updated' : 'Landscape logo removed');
+                      } catch {
+                        const landscape = await settingsService.getSettingValue(logoLandscapeKey);
+                        setLogoLandscapeUrl(landscape || '');
+                      }
+                    }}
+                    categoryName="system-assets"
+                    isPublic
+                    allowedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                    placeholder="Upload landscape logo"
+                    disabled={isSavingLogos}
+                    entityId="app-branding"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used on the login page and PDF export header.
+                  </p>
                 </div>
               </div>
             </CardContent>

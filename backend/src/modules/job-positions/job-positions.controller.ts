@@ -6,9 +6,11 @@ import {
   Patch,
   Param,
   Delete,
+  Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -152,7 +154,10 @@ export class JobPositionsController {
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.jobPositionsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.jobPositionsService.remove(id, req.user.id);
   }
 }

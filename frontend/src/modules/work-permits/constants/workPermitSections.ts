@@ -20,7 +20,6 @@ export const WORK_PERMIT_SECTION_B_SUB = {
   workDescription: 'Work description',
   workers: 'Workers',
   employees: 'Employees',
-  professions: 'Professions',
   supervisors: 'Supervisors',
   hseOfficers: 'HSE officers',
 } as const;

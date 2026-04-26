@@ -7,9 +7,11 @@ import {
   Param,
   Delete,
   Query,
+  Req,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -101,7 +103,10 @@ export class AreasController {
   @ApiOperation({ summary: 'Delete area' })
   @ApiResponse({ status: 200, description: 'Area deleted' })
   @ApiResponse({ status: 404, description: 'Area not found' })
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.areasService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.areasService.remove(id, req.user.id);
   }
 }

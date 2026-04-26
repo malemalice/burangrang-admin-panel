@@ -74,15 +74,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
     try {
       // Check if user exists
-      let user: UserWithRole | null = await this.prisma.user.findUnique({
-        where: { email },
+      let user: UserWithRole | null = await this.prisma.user.findFirst({
+        where: { email, deletedAt: null },
         include: { role: true },
       });
 
       if (!user) {
         // Get default role (USER role)
         const defaultRole = await this.prisma.role.findFirst({
-          where: { name: 'User' },
+          where: { name: 'User', deletedAt: null },
         });
 
         if (!defaultRole) {
@@ -91,7 +91,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
         // Get default office
         const defaultOffice = await this.prisma.office.findFirst({
-          where: { isActive: true },
+          where: { isActive: true, deletedAt: null },
         });
 
         if (!defaultOffice) {

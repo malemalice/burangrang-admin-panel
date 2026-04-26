@@ -12,6 +12,7 @@ import {
   WORK_PERMIT_SECTION_G_SUB,
 } from '../constants/workPermitSections';
 import { getCombinedMitigationText } from '../utils/riskMitigationDisplay';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 const na = (v: unknown) => (v != null && v !== '' ? String(v) : '—');
 
@@ -106,7 +107,6 @@ export function WorkPermitPDFTemplate({
   const tools = workPermit.tools ?? [];
   const materials = workPermit.materials ?? [];
   const machines = workPermit.machines ?? [];
-  const professions = workPermit.professions ?? [];
   const requiredCourses = workPermit.requiredCourses ?? [];
   const hazards = workPermit.hazards ?? [];
   const attachments = workPermit.attachments ?? [];
@@ -136,11 +136,18 @@ export function WorkPermitPDFTemplate({
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Work Permit: {na(workPermit.code)}
-        </h1>
-        <p className="text-sm text-gray-600 mb-1">{na(workPermit.projectName)}</p>
-        <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Work Permit: {na(workPermit.code)}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">{na(workPermit.projectName)}</p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* Section A — PRD */}
@@ -213,6 +220,7 @@ export function WorkPermitPDFTemplate({
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">User (Name / Email)</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Profession (Name / Code)</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">ID Number</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Certificate URL</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Health Declaration URL</th>
@@ -220,7 +228,7 @@ export function WorkPermitPDFTemplate({
           </thead>
           <tbody>
             {workers.length === 0 ? (
-              <tr><td colSpan={5} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
+              <tr><td colSpan={6} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
             ) : (
               workers.map((w, i) => (
                 <tr key={w.id}>
@@ -228,35 +236,22 @@ export function WorkPermitPDFTemplate({
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
                     {w.user ? `${na(w.user.firstName)} ${na(w.user.lastName)} / ${na(w.user.email)}` : '—'}
                   </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {w.profession ? `${na(w.profession.name)} / ${na(w.profession.code)}` : '—'}
+                  </td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.idNumber)}</td>
                   <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.certificateUrl)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(w.healthDeclarationUrl)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        <h3 className="text-base font-semibold text-gray-900 mb-2">{WORK_PERMIT_SECTION_B_SUB.professions}</h3>
-        <table data-pdf-table-splittable className="min-w-full border border-gray-300 mb-6" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Code</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {professions.length === 0 ? (
-              <tr><td colSpan={4} className="border border-gray-300 px-3 py-2 text-xs text-gray-500">—</td></tr>
-            ) : (
-              professions.map((p, i) => (
-                <tr key={p.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.name)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(p.profession?.code)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{na(p.quantity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {w.healthDeclarationUrl ?
+                      na(w.healthDeclarationUrl)
+                    : w.healthScreening ?
+                      `Screening ${na(w.healthScreening.status)}${
+                        w.healthScreening.validUntil ?
+                          ` · valid ${format(new Date(w.healthScreening.validUntil), 'dd MMM yyyy')}`
+                        : ''
+                      }`
+                    : '—'}
+                  </td>
                 </tr>
               ))
             )}
@@ -426,13 +421,23 @@ export function WorkPermitPDFTemplate({
       {/* Section D — PRD */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 mb-4 border-b border-gray-300 pb-2">{WORK_PERMIT_SECTIONS.D}</h2>
-        <table data-pdf-table-splittable className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+        <table
+          data-pdf-table-splittable
+          className="min-w-full border border-gray-300 table-fixed"
+          style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%' }}
+        >
+          <colgroup>
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '37%' }} />
+            <col style={{ width: '37%' }} />
+          </colgroup>
           <thead>
             <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Hazard Name</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
-              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Control Measure</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">No</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">Hazard name</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">Activity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700 align-top">Mitigation</th>
             </tr>
           </thead>
           <tbody>
@@ -441,10 +446,10 @@ export function WorkPermitPDFTemplate({
             ) : (
               hazards.map((h, i) => (
                 <tr key={h.id}>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{i + 1}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{na(h.hazardName)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(h.description)}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">{na(h.controlMeasure)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top">{i + 1}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top break-words whitespace-pre-wrap">{na(h.hazardName)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top break-words whitespace-pre-wrap">{na(h.activity)}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 align-top break-words whitespace-pre-wrap">{na(h.mitigation)}</td>
                 </tr>
               ))
             )}

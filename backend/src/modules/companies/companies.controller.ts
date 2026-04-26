@@ -8,8 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -98,7 +100,10 @@ export class CompaniesController {
   @ApiOperation({ summary: 'Delete company' })
   @ApiResponse({ status: 200, description: 'Company deleted' })
   @ApiResponse({ status: 404, description: 'Company not found' })
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.companiesService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.companiesService.remove(id, req.user.id);
   }
 }

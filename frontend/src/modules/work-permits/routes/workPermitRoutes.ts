@@ -7,6 +7,9 @@ import WorkClassificationsPage from '../pages/WorkClassificationsPage';
 import CreateWorkClassificationPage from '../pages/CreateWorkClassificationPage';
 import EditWorkClassificationPage from '../pages/EditWorkClassificationPage';
 import WorkClassificationDetailPage from '../pages/WorkClassificationDetailPage';
+import WorkPermitWorkersPage from '../pages/WorkPermitWorkersPage';
+import CreateWorkPermitWorkerPage from '../pages/CreateWorkPermitWorkerPage';
+import WorkPermitWorkerDetailPage from '../pages/WorkPermitWorkerDetailPage';
 
 /**
  * Work Permit module routes
@@ -15,6 +18,18 @@ const workPermitRoutes: RouteConfig[] = [
   {
     path: '/work-permits',
     component: WorkPermitsPage,
+  },
+  {
+    path: '/work-permits/workers/new',
+    component: CreateWorkPermitWorkerPage,
+  },
+  {
+    path: '/work-permits/workers/:userId',
+    component: WorkPermitWorkerDetailPage,
+  },
+  {
+    path: '/work-permits/workers',
+    component: WorkPermitWorkersPage,
   },
   {
     path: '/work-permits/new',

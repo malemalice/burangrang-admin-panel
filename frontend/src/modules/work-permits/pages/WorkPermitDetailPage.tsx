@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Clock, FileText, FileDown, PenLine } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Clock, FileText, FileDown, PenLine, AlertCircle } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
@@ -48,6 +48,7 @@ import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/Appro
 import { useAuth } from '@/core/lib/auth';
 import { ApprovalStatus } from '@/core/lib/types';
 import { WorkPermitApprovalDialog } from '../components/WorkPermitApprovalDialog';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
 
@@ -98,6 +99,12 @@ const WorkPermitDetailPage = () => {
     if (!creator) return displayField(workPermit?.createdBy);
     const fullName = `${creator.firstName ?? ''} ${creator.lastName ?? ''}`.trim();
     return displayField(fullName || creator.email || workPermit?.createdBy);
+  })();
+  const applicantLabel = (() => {
+    const applicant = workPermit?.applicant;
+    if (!applicant) return displayField(workPermit?.applicantUserId);
+    const fullName = `${applicant.firstName ?? ''} ${applicant.lastName ?? ''}`.trim();
+    return displayField(fullName || applicant.email || workPermit?.applicantUserId);
   })();
 
   const [approvalRights, setApprovalRights] = useState<{
@@ -283,14 +290,16 @@ const WorkPermitDetailPage = () => {
     }
   };
 
-  const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'NEED_INFO';
-  const canSubmit = workPermit?.status === 'DRAFT';
+  const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'REJECTED';
+  const canSubmit = workPermit?.status === 'DRAFT' || workPermit?.status === 'REJECTED';
   
   // Permission-based actions using checkApprovalRights result
   const canApprove = approvalRights?.canApprove ?? false;
   const canReject = approvalRights?.canReject ?? false;
   const canSignSk =
-    workPermit?.status === 'WAITING_APPLICANT_SIGN' && Boolean(currentUser?.id) && workPermit.createdBy === currentUser.id;
+    workPermit?.status === 'WAITING_APPLICANT_SIGN' &&
+    Boolean(currentUser?.id) &&
+    (workPermit.applicantUserId ?? workPermit.createdBy) === currentUser.id;
   
   const canExtend = workPermit?.status === 'APPROVED';
   const canClose = ['APPROVED', 'EXTENDED'].includes(workPermit?.status || '');
@@ -402,6 +411,77 @@ const WorkPermitDetailPage = () => {
       />
 
       <div className="max-w-4xl mx-auto space-y-6 mt-6">
+        {workPermit.status === 'IN_REVIEW_HSE' && (canApprove || canReject) && (
+          <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800/50 dark:bg-yellow-950/30">
+            <AlertCircle className="h-4 w-4 text-yellow-800 dark:text-yellow-200" />
+            <AlertDescription className="text-foreground">
+              <div className="space-y-3">
+                <div>
+                  <p className="font-semibold">Action required — HSE review</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Before you approve: set course verification and required courses (Section F), review or edit the safety
+                    guideline by work classification (Section G), then submit your decision in the approval dialog.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      setApprovalInitialStatus(ApprovalStatus.APPROVED);
+                      setApprovalDialogOpen(true);
+                    }}
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Open HSE review &amp; approve
+                  </Button>
+                  {canReject && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setApprovalInitialStatus(ApprovalStatus.REJECTED);
+                        setApprovalDialogOpen(true);
+                      }}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {workPermit.status !== 'IN_REVIEW_HSE' &&
+          ['IN_REVIEW_PROJECT_OWNER', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(
+            workPermit.status,
+          ) &&
+          (canApprove || canReject) && (
+            <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800/50 dark:bg-yellow-950/30">
+              <AlertCircle className="h-4 w-4 text-yellow-800 dark:text-yellow-200" />
+              <AlertDescription className="text-foreground">
+                <div className="space-y-2">
+                  <p className="font-semibold">Approval pending</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your decision is needed for this work permit. Use Approve or Reject below or in the header.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setApprovalInitialStatus(ApprovalStatus.APPROVED);
+                      setApprovalDialogOpen(true);
+                    }}
+                  >
+                    Open approval dialog
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
         <WorkPermitSection
           id="work-permit-detail-approval-timeline"
           title={WORK_PERMIT_SECTION_F_SUB.approvalTimeline}
@@ -511,6 +591,10 @@ const WorkPermitDetailPage = () => {
                     <p className="mt-1">{createdByLabel}</p>
                   </div>
                   <div>
+                    <Label className="text-muted-foreground">Applicant (Contractor)</Label>
+                    <p className="mt-1">{applicantLabel}</p>
+                  </div>
+                  <div>
                     <Label className="text-muted-foreground">Project Name</Label>
                     <p className="mt-1">{workPermit.projectName}</p>
                   </div>
@@ -586,6 +670,11 @@ const WorkPermitDetailPage = () => {
                               ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
                               : 'Unknown'}
                           </p>
+                          {worker.profession ? (
+                            <p className="text-sm text-muted-foreground">
+                              {worker.profession.name} ({worker.profession.code})
+                            </p>
+                          ) : null}
                           {worker.idNumber ? (
                             <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>
                           ) : null}
@@ -614,36 +703,6 @@ const WorkPermitDetailPage = () => {
                       </li>
                     ))}
                   </ul>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.professions}</WorkPermitSubsectionTitle>
-              </CardHeader>
-              <CardContent>
-                {(workPermit.professions?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-muted-foreground">No professions listed.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Profession</TableHead>
-                        <TableHead className="w-24 text-right">Qty</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workPermit.professions!.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell>
-                            {displayField(p.profession?.name)} ({displayField(p.profession?.code)})
-                          </TableCell>
-                          <TableCell className="text-right">{p.quantity}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
                 )}
               </CardContent>
             </Card>
@@ -823,22 +882,28 @@ const WorkPermitDetailPage = () => {
               {(workPermit.hazards?.length ?? 0) === 0 ? (
                 <p className="text-sm text-muted-foreground">No hazard rows.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">No</TableHead>
-                      <TableHead>Activity</TableHead>
-                      <TableHead>Potential risk</TableHead>
-                      <TableHead>Worksafe method</TableHead>
+                      <TableHead className="w-[22%] min-w-0">Hazard name</TableHead>
+                      <TableHead className="min-w-0">Activity</TableHead>
+                      <TableHead className="min-w-0">Mitigation</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {workPermit.hazards!.map((h, i) => (
                       <TableRow key={h.id}>
-                        <TableCell>{i + 1}</TableCell>
-                        <TableCell className="whitespace-pre-wrap">{displayField(h.hazardName)}</TableCell>
-                        <TableCell className="whitespace-pre-wrap">{displayField(h.description)}</TableCell>
-                        <TableCell className="whitespace-pre-wrap">{displayField(h.controlMeasure)}</TableCell>
+                        <TableCell className="align-top text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
+                          {displayField(h.hazardName)}
+                        </TableCell>
+                        <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
+                          {displayField(h.activity)}
+                        </TableCell>
+                        <TableCell className="align-top min-w-0 whitespace-pre-wrap break-words">
+                          {displayField(h.mitigation)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

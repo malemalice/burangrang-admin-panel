@@ -41,6 +41,7 @@ import {
   SecurityMonthlyIncidentsData,
   AdminOverviewData,
 } from '../types/dashboard.types';
+import { isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class DashboardService {
@@ -54,16 +55,20 @@ export class DashboardService {
     const [totalAssessments, riskItems, recentAssessments] = await Promise.all([
       // Get total assessments
       this.prisma.riskAssessment.count({
-        where: { isActive: true },
+        where: { isActive: true, ...isNotDeleted },
       }),
       // Get risk distribution
       this.prisma.riskAssessmentItem.groupBy({
         by: ['riskMatrixRating'],
         _count: true,
+        where: {
+          ...isNotDeleted,
+          riskAssessment: { is: { isActive: true, ...isNotDeleted } },
+        },
       }),
       // Get recent assessments
       this.prisma.riskAssessment.findMany({
-        where: { isActive: true },
+        where: { isActive: true, ...isNotDeleted },
         take: 5,
         orderBy: { assessmentDate: 'desc' },
         include: {
@@ -103,14 +108,14 @@ export class DashboardService {
       }),
       // Get department assessments
       this.prisma.riskAssessment.findMany({
-        where: { departmentId, isActive: true },
+        where: { departmentId, isActive: true, ...isNotDeleted },
       }),
       // Get risk distribution
       this.prisma.riskAssessmentItem.findMany({
         where: {
+          ...isNotDeleted,
           riskAssessment: {
-            departmentId,
-            isActive: true,
+            is: { departmentId, isActive: true, ...isNotDeleted },
           },
         },
       }),
@@ -141,7 +146,8 @@ export class DashboardService {
       include: {
         riskAssessmentItems: {
           where: {
-            riskAssessment: { isActive: true },
+            ...isNotDeleted,
+            riskAssessment: { is: { isActive: true, ...isNotDeleted } },
           },
         },
       },
@@ -169,12 +175,13 @@ export class DashboardService {
 
   async getRiskAnalysis(): Promise<RiskAnalysis[]> {
     const risks = await (this.prisma as any).risk.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...isNotDeleted },
       include: {
         riskCategory: true,
         riskAssessmentItems: {
           where: {
-            riskAssessment: { isActive: true },
+            ...isNotDeleted,
+            riskAssessment: { is: { isActive: true, ...isNotDeleted } },
           },
         },
       },
@@ -214,7 +221,7 @@ export class DashboardService {
     const [assessments, departments] = await Promise.all([
       // Get all assessments
       this.prisma.riskAssessment.findMany({
-        where: { isActive: true },
+        where: { isActive: true, ...isNotDeleted },
         include: {
           department: true,
         },
@@ -310,6 +317,7 @@ export class DashboardService {
           year: { in: years },
           month: null,
           isActive: true,
+          ...isNotDeleted,
         },
         select: { code: true, year: true, target: true },
       }),

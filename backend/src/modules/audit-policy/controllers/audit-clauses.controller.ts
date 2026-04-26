@@ -8,7 +8,9 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuditClausesService } from '../services/audit-clauses.service';
 import { CreateAuditClauseDto } from '../dto/create-audit-clause.dto';
 import { UpdateAuditClauseDto } from '../dto/update-audit-clause.dto';
@@ -19,6 +21,10 @@ import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { AuditClauseDto } from '../dto/audit-clause.dto';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('audit-clauses')
 @ApiBearerAuth()
@@ -131,8 +137,8 @@ export class AuditClausesController {
     description: 'The audit clause has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Audit clause not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.auditClausesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.auditClausesService.remove(id, req.user.id);
   }
 
   @Get('code/:code')

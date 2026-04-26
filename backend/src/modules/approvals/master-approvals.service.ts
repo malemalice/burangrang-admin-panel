@@ -29,6 +29,7 @@ import {
   APPROVAL_FIELD_MARKERS,
   isApprovalFieldMarker,
 } from './constants/approval-field-markers';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -113,7 +114,7 @@ export class MasterApprovalsService {
       search,
     } = options || {};
 
-    const where: Prisma.MasterApprovalWhereInput = {};
+    const where: Prisma.MasterApprovalWhereInput = { ...isNotDeleted };
 
     if (search) {
       where.entity = { contains: search, mode: 'insensitive' };
@@ -161,8 +162,8 @@ export class MasterApprovalsService {
   }
 
   async findOne(id: string): Promise<MasterApprovalDto> {
-    const masterApprovalRaw = await this.prisma.masterApproval.findUnique({
-      where: { id },
+    const masterApprovalRaw = await this.prisma.masterApproval.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         items: {
           // Don't include relations here - we'll load them separately to handle sentinel values
@@ -199,8 +200,8 @@ export class MasterApprovalsService {
     const { items, ...data } = updateMasterApprovalDto;
 
     // Verify approval exists
-    const existingApproval = await this.prisma.masterApproval.findUnique({
-      where: { id },
+    const existingApproval = await this.prisma.masterApproval.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById(
@@ -247,9 +248,9 @@ export class MasterApprovalsService {
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
-    const masterApproval = await this.prisma.masterApproval.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const masterApproval = await this.prisma.masterApproval.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById(
@@ -258,14 +259,9 @@ export class MasterApprovalsService {
       masterApproval,
     );
 
-    // Delete all related items first
-    await this.prisma.masterApprovalItem.deleteMany({
-      where: { mApprovalId: id },
-    });
-
-    // Then delete the master approval
-    await this.prisma.masterApproval.delete({
+    await this.prisma.masterApproval.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -695,7 +691,7 @@ export class MasterApprovalsService {
 
     // Get master approval to check if current step uses dynamic markers
     const masterApproval = await this.prisma.masterApproval.findFirst({
-      where: { entity: entityName, isActive: true },
+      where: { entity: entityName, isActive: true, ...isNotDeleted },
       include: {
         items: { orderBy: { order: 'asc' } },
       },
@@ -761,6 +757,7 @@ export class MasterApprovalsService {
       where: {
         entity: entityName,
         isActive: true,
+        ...isNotDeleted,
       },
       include: {
         items: {
@@ -1049,6 +1046,7 @@ export class MasterApprovalsService {
       where: {
         entity: submitApprovalDto.entity,
         isActive: true,
+        ...isNotDeleted,
       },
     });
 

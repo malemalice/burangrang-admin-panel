@@ -7,6 +7,7 @@ import { FindSettingsOptions } from './dto/find-settings.dto';
 import { Prisma } from '@prisma/client';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class SettingsService {
@@ -27,8 +28,8 @@ export class SettingsService {
 
   async create(createSettingDto: CreateSettingDto): Promise<SettingDto> {
     // Check if key already exists
-    const existingSetting = await this.prisma.setting.findUnique({
-      where: { key: createSettingDto.key },
+    const existingSetting = await this.prisma.setting.findFirst({
+      where: { key: createSettingDto.key, ...isNotDeleted },
     });
 
     if (existingSetting) {
@@ -55,7 +56,7 @@ export class SettingsService {
       search,
     } = options || {};
 
-    const where: Prisma.SettingWhereInput = {};
+    const where: Prisma.SettingWhereInput = { ...isNotDeleted };
 
     if (search) {
       const searchTerm = search.trim();
@@ -90,8 +91,8 @@ export class SettingsService {
   }
 
   async findOne(id: string): Promise<SettingDto> {
-    const setting = await this.prisma.setting.findUnique({
-      where: { id },
+    const setting = await this.prisma.setting.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Setting', id, setting);
@@ -100,8 +101,8 @@ export class SettingsService {
   }
 
   async findByKey(key: string): Promise<SettingDto | null> {
-    const setting = await this.prisma.setting.findUnique({
-      where: { key },
+    const setting = await this.prisma.setting.findFirst({
+      where: { key, ...isNotDeleted },
     });
 
     return setting ? this.settingMapper(setting) : null;
@@ -124,16 +125,16 @@ export class SettingsService {
     id: string,
     updateSettingDto: UpdateSettingDto,
   ): Promise<SettingDto> {
-    const existingSetting = await this.prisma.setting.findUnique({
-      where: { id },
+    const existingSetting = await this.prisma.setting.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Setting', id, existingSetting);
 
     // Check if key is being updated and if it conflicts with existing setting
     if (updateSettingDto.key && updateSettingDto.key !== existingSetting.key) {
-      const conflictingSetting = await this.prisma.setting.findUnique({
-        where: { key: updateSettingDto.key },
+      const conflictingSetting = await this.prisma.setting.findFirst({
+        where: { key: updateSettingDto.key, ...isNotDeleted },
       });
 
       if (conflictingSetting) {
@@ -153,8 +154,8 @@ export class SettingsService {
     key: string,
     updateSettingDto: UpdateSettingDto,
   ): Promise<SettingDto> {
-    const existingSetting = await this.prisma.setting.findUnique({
-      where: { key },
+    const existingSetting = await this.prisma.setting.findFirst({
+      where: { key, ...isNotDeleted },
     });
 
     if (!existingSetting) {
@@ -174,34 +175,36 @@ export class SettingsService {
     }
 
     const updatedSetting = await this.prisma.setting.update({
-      where: { key },
+      where: { id: existingSetting.id },
       data: updateSettingDto,
     });
 
     return this.settingMapper(updatedSetting);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingSetting = await this.prisma.setting.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const existingSetting = await this.prisma.setting.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('Setting', id, existingSetting);
 
-    await this.prisma.setting.delete({
+    await this.prisma.setting.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
-  async removeByKey(key: string): Promise<void> {
-    const existingSetting = await this.prisma.setting.findUnique({
-      where: { key },
+  async removeByKey(key: string, deletedBy?: string): Promise<void> {
+    const existingSetting = await this.prisma.setting.findFirst({
+      where: { key, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundByField('Setting', 'key', key, existingSetting);
 
-    await this.prisma.setting.delete({
-      where: { key },
+    await this.prisma.setting.update({
+      where: { id: existingSetting.id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

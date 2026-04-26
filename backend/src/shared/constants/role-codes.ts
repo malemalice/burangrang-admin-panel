@@ -8,6 +8,7 @@ export const ROLE_CODES = {
   MANAGER: 'MANAGER',
   USER: 'USER',
   GUEST: 'GUEST',
+  CONTRACTOR: 'CONTRACTOR',
 } as const;
 
 export type RoleCode = (typeof ROLE_CODES)[keyof typeof ROLE_CODES];

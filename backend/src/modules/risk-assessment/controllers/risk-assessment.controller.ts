@@ -87,17 +87,25 @@ export class RiskAssessmentController {
   @ApiResponse({ status: 200, type: RiskAssessmentDto })
   async update(
     @Param('id') id: string,
+    @Request() req: { user: { id: string } },
     @Body() updateRiskAssessmentDto: UpdateRiskAssessmentDto,
   ): Promise<RiskAssessmentDto> {
-    return this.riskAssessmentService.update(id, updateRiskAssessmentDto);
+    return this.riskAssessmentService.update(
+      id,
+      updateRiskAssessmentDto,
+      req.user.id,
+    );
   }
 
   @Delete(':id')
   @Permissions('risk-assessment:delete')
   @ApiOperation({ summary: 'Delete a risk assessment' })
   @ApiResponse({ status: 204 })
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.riskAssessmentService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ): Promise<void> {
+    return this.riskAssessmentService.remove(id, req.user.id);
   }
 
   // Risk Assessment Items endpoints
@@ -163,7 +171,8 @@ export class RiskAssessmentController {
   async removeItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
+    @Request() req: { user: { id: string } },
   ): Promise<void> {
-    return this.riskAssessmentService.removeItem(id, itemId);
+    return this.riskAssessmentService.removeItem(id, itemId, req.user.id);
   }
 }
