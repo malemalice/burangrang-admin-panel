@@ -64,15 +64,35 @@ export class SettingsController {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Application name' },
+        logoPortraitUrl: { type: 'string', nullable: true, description: 'Portrait logo URL (icon)' },
+        logoLandscapeUrl: { type: 'string', nullable: true, description: 'Landscape logo URL (logo + title)' },
+        loginTagline: { type: 'string', nullable: true, description: 'Login page footer tagline' },
       },
     },
   })
   @Public()
-  async getAppSettings(): Promise<{ name: string }> {
-    const name = await this.settingsService.getValueByKey('app.name');
+  async getAppSettings(): Promise<{
+    name: string;
+    logoPortraitUrl: string | null;
+    logoLandscapeUrl: string | null;
+    loginTagline: string | null;
+  }> {
+    const [name, logoPortraitUrlRaw, logoLandscapeUrlRaw, loginTaglineRaw] = await Promise.all([
+      this.settingsService.getValueByKey('app.name'),
+      this.settingsService.getValueByKey('app.logo.portraitUrl'),
+      this.settingsService.getValueByKey('app.logo.landscapeUrl'),
+      this.settingsService.getValueByKey(SETTINGS_KEYS.APP_LOGIN_TAGLINE),
+    ]);
+
+    const logoPortraitUrl = logoPortraitUrlRaw?.trim() ? logoPortraitUrlRaw.trim() : null;
+    const logoLandscapeUrl = logoLandscapeUrlRaw?.trim() ? logoLandscapeUrlRaw.trim() : null;
+    const loginTagline = loginTaglineRaw?.trim() ? loginTaglineRaw.trim() : null;
 
     return {
       name: name || 'HSE System',
+      logoPortraitUrl,
+      logoLandscapeUrl,
+      loginTagline: loginTagline || 'made by your company',
     };
   }
 

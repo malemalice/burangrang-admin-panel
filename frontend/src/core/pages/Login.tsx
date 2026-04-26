@@ -9,7 +9,7 @@ import { useAuth } from '@/core/lib/auth';
 import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { cn } from '@/core/lib/utils';
-import { useAppName } from '@/modules/settings/hooks/useSettings';
+import { useAppBranding } from '@/modules/settings/hooks/useSettings';
 import api from '@/core/lib/api';
 import { toast } from 'sonner';
 
@@ -18,7 +18,7 @@ const Login = () => {
   const location = useLocation();
   const { login, isAuthenticated, isLoading: authLoading, isEmbedContext } = useAuth();
   const { isDark, theme } = useTheme();
-  const { appName } = useAppName();
+  const { appName, logoLandscapeUrl, loginTagline } = useAppBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +26,7 @@ const Login = () => {
   const [isForgot, setIsForgot] = useState(false);
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [infoMessage, setInfoMessage] = useState('');
+  const [logoFailed, setLogoFailed] = useState(false);
 
   // Get theme colors for dynamic styling
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
@@ -148,14 +149,29 @@ const Login = () => {
       )}>
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h2 className={cn(
-              "text-3xl font-bold",
-              isDark ? "text-white" : "text-slate-900"
-            )}>{appName}</h2>
+            {logoLandscapeUrl && !logoFailed ? (
+              <div className="flex justify-center">
+                <img
+                  src={logoLandscapeUrl}
+                  alt={`${appName} logo`}
+                  className="max-h-12 w-auto object-contain"
+                  onError={() => setLogoFailed(true)}
+                />
+              </div>
+            ) : (
+              <h2
+                className={cn(
+                  "text-3xl font-bold",
+                  isDark ? "text-white" : "text-slate-900"
+                )}
+              >
+                {appName}
+              </h2>
+            )}
             <p className={cn(
               "text-sm mt-1",
               isDark ? "text-gray-400" : "text-slate-600"
-            )}>made by your company</p>
+            )}>{loginTagline || 'made by your company'}</p>
           </div>
 
 

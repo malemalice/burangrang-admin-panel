@@ -13,6 +13,9 @@ export const defaultSettings = [
   // App Settings
   { key: 'app.name', value: 'HSSE System' },
   { key: 'app.language', value: 'en' },
+  { key: 'app.logo.portraitUrl', value: '/images/logo-portrait.png' },
+  { key: 'app.logo.landscapeUrl', value: '/images/logo-landscape.png' },
+  { key: 'app.login.tagline', value: 'made by HSSE Team' },
 
   // Environmental measurement regulatory limits (global defaults)
   { key: 'environmental_measurements.regulatory_limit.lighting', value: '300' }, // lux

@@ -5,6 +5,31 @@ import { ThemeColor, ThemeMode } from '@/core/lib/theme';
  * Settings service for managing application settings via backend
  */
 const settingsService = {
+  getAppSettings: async (): Promise<{
+    name: string;
+    logoPortraitUrl: string | null;
+    logoLandscapeUrl: string | null;
+    loginTagline: string | null;
+  }> => {
+    try {
+      const response = await api.get('/settings/app');
+      return {
+        name: response.data?.name || 'HSE System',
+        logoPortraitUrl: response.data?.logoPortraitUrl || null,
+        logoLandscapeUrl: response.data?.logoLandscapeUrl || null,
+        loginTagline: response.data?.loginTagline || 'made by your company',
+      };
+    } catch (error: any) {
+      console.warn('Failed to get app settings, using defaults:', error);
+      return {
+        name: 'HSE System',
+        logoPortraitUrl: null,
+        logoLandscapeUrl: null,
+        loginTagline: 'made by your company',
+      };
+    }
+  },
+
   // Email settings helpers
   getMailSettings: async (): Promise<{
     provider: 'smtp' | 'gmail' | 'mailgun';
@@ -204,13 +229,8 @@ const settingsService = {
 
   // Get app name setting
   getAppName: async (): Promise<string> => {
-    try {
-      const response = await api.get('/settings/app');
-      return response.data.name;
-    } catch (error: any) {
-      console.warn('Failed to get app name, using default:', error);
-      return 'HSE System';
-    }
+    const app = await settingsService.getAppSettings();
+    return app.name;
   },
 
   // Set app name setting

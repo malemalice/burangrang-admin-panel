@@ -5,6 +5,7 @@ export const SETTINGS_KEYS = {
   THEME_COLOR: 'theme.color',
   THEME_MODE: 'theme.mode',
   APP_NAME: 'app.name',
+  APP_LOGIN_TAGLINE: 'app.login.tagline',
   ZOHO_SYNC_ENABLED: 'zoho.sync.enabled',
   ZOHO_WEBHOOK_ENABLED: 'zoho.webhook.enabled',
   ZOHO_WEBHOOK_AUTH_MODE: 'zoho.webhook.auth_mode',
