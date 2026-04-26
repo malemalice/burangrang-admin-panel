@@ -36,6 +36,8 @@ export interface CreateManHourDTO {
   manHourPerDay: number;
   month: Month;
   year: number;
+  /** NON_STUDENT: working day count in the month (default 22 on server if omitted). Ignored for STUDENT. */
+  totalWorkingDays?: number;
   lostHour?: number;
   total?: number;
   notes?: string;
@@ -48,6 +50,7 @@ export interface UpdateManHourDTO {
   manHourPerDay?: number;
   month?: Month;
   year?: number;
+  totalWorkingDays?: number;
   lostHour?: number;
   total?: number;
   notes?: string;

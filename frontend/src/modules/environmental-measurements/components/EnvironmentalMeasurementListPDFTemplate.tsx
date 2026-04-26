@@ -33,7 +33,7 @@ function MetricPdfCell({
   return (
     <div className="text-right">
       <div className="font-medium">{value ?? '—'}</div>
-      <div className="text-[10px] text-muted-foreground mt-0.5">Regulatory limit: {limitText}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">Quality Standard Value: {limitText}</div>
       {comparisonText && (
         <div className="text-[10px] text-foreground mt-0.5 font-medium">
           {comparisonText}
