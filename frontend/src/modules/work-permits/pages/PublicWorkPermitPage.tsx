@@ -23,11 +23,7 @@ import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { PublicAppModuleHeader } from '@/core/components/layout/PublicAppModuleHeader';
 import PublicWorkPermitInlineCoursePanel from '../components/PublicWorkPermitInlineCoursePanel';
 import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
-import type {
-  PublicWorkPermitCourseAssignee,
-  PublicWorkPermitCourseVerification,
-  WorkPermitPublicApplicantPhase,
-} from '../types/work-permit.types';
+import type { PublicWorkPermitCourseVerification, WorkPermitPublicApplicantPhase } from '../types/work-permit.types';
 
 const PUBLIC_WORK_PERMIT_MODULE_TITLE = 'Work permit (public)';
 const PUBLIC_WORK_PERMIT_MODULE_DESC =
@@ -49,12 +45,6 @@ const displayField = (v: string | number | boolean | null | undefined) => {
   const s = String(v).trim();
   return s !== '' ? s : '—';
 };
-
-function assigneeSourceLabel(source: PublicWorkPermitCourseAssignee['source']): string {
-  if (source === 'applicant') return 'Applicant';
-  if (source === 'worker') return 'Worker';
-  return 'Employee';
-}
 
 type HazardDraft = {
   hazardId?: string;
@@ -192,14 +182,17 @@ const PublicWorkPermitPage = () => {
     );
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     if (!token) {
       setLoadError('Invalid link');
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
-    setLoading(true);
-    setLoadError(null);
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const res = await workPermitService.getPublicByToken(token);
       setWorkPermit(res.workPermit);
@@ -212,10 +205,16 @@ const PublicWorkPermitPage = () => {
       hydrateEditableState(res.workPermit);
     } catch (e) {
       const msg = getErrorMessage(e);
-      setLoadError(msg);
-      toast.error(msg);
+      if (silent) {
+        toast.error(msg);
+      } else {
+        setLoadError(msg);
+        toast.error(msg);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [token, hydrateEditableState]);
 
@@ -751,6 +750,53 @@ const PublicWorkPermitPage = () => {
         }
       />
 
+      {canSignSk &&
+      courseVerification?.enabled &&
+      applicantPhase === 'sign_sk' &&
+      inlineCourseId &&
+      inlineApplicantUserId ? (
+        <WorkPermitSection
+          id="public-work-permit-section-required-training"
+          title="Required training"
+          titleClassName="scroll-mt-20"
+        >
+          <Card className="border-primary/25 bg-muted/30">
+            <CardContent className="pt-6 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Complete the required course content below. Progress is saved while this link is valid; you
+                can close the page and resume. When all required courses show complete, use Refresh permit
+                status, then review the safety guideline and complete the acknowledgment below.
+              </p>
+              {requiredCourseRows.length > 1 ? (
+                <div className="space-y-1.5 max-w-md">
+                  <Label className="text-xs">Course</Label>
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    value={inlineCourseId}
+                    onChange={(e) => setInlineCourseId(e.target.value)}
+                  >
+                    {requiredCourseRows.map((r) => (
+                      <option key={r.courseId} value={r.courseId}>
+                        {r.courseTitle || r.courseId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <PublicWorkPermitInlineCoursePanel
+                key={inlineCourseId}
+                permitToken={token}
+                courseId={inlineCourseId}
+                courseTitle={requiredCourseRows.find((r) => r.courseId === inlineCourseId)?.courseTitle}
+                onContextRefresh={() => {
+                  void load({ silent: true });
+                }}
+              />
+            </CardContent>
+          </Card>
+        </WorkPermitSection>
+      ) : null}
+
       {canSignSk ? (
         <WorkPermitSection
           id="public-work-permit-section-sk-ack"
@@ -762,123 +808,6 @@ const PublicWorkPermitPage = () => {
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {canSignSk &&
-              courseVerification?.enabled &&
-              applicantPhase === 'sign_sk' &&
-              inlineCourseId &&
-              inlineApplicantUserId ? (
-                <Card className="border-primary/25 bg-muted/30">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Required training</CardTitle>
-                    <p className="text-xs text-muted-foreground font-normal">
-                      Complete the required course content below. Progress is saved while this link is valid;
-                      you can close the page and resume. When all required courses show complete, use
-                      Refresh permit status, then complete the acknowledgment below.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {requiredCourseRows.length > 1 ? (
-                      <div className="space-y-1.5 max-w-md">
-                        <Label className="text-xs">Course</Label>
-                        <select
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                          value={inlineCourseId}
-                          onChange={(e) => setInlineCourseId(e.target.value)}
-                        >
-                          {requiredCourseRows.map((r) => (
-                            <option key={r.courseId} value={r.courseId}>
-                              {r.courseTitle || r.courseId}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : null}
-                    <PublicWorkPermitInlineCoursePanel
-                      key={inlineCourseId}
-                      permitToken={token}
-                      courseId={inlineCourseId}
-                      courseTitle={
-                        requiredCourseRows.find((r) => r.courseId === inlineCourseId)?.courseTitle
-                      }
-                      onContextRefresh={() => {
-                        void load();
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              ) : null}
-              {courseVerification?.enabled && (
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Course verification (HSE / LMS)</p>
-                  <p className="text-xs text-muted-foreground">
-                    The applicant must complete the required course(s) before you can sign. You can
-                    complete training on this page; completion is stored on the user account.
-                  </p>
-                  {courseVerification.assignees.length > 0 ? (
-                    <ul className="text-sm list-disc pl-4 space-y-1">
-                      {courseVerification.assignees.map((a) => (
-                        <li key={a.userId}>
-                          {a.displayName} ({assigneeSourceLabel(a.source)})
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Applicant is not linked to a user for course checks. Contact HSE if this is unexpected.
-                    </p>
-                  )}
-                  {courseVerification.requiredCourses.length > 0 && courseVerification.assignees.length > 0 && (
-                    <div className="border rounded-md overflow-x-auto text-sm">
-                      <table className="w-full text-left text-sm">
-                        <thead>
-                          <tr className="border-b bg-muted/30">
-                            <th className="p-2 font-medium">Course</th>
-                            {courseVerification.assignees.map((a) => (
-                              <th key={a.userId} className="p-2 font-medium min-w-[7rem]">
-                                {a.displayName}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {courseVerification.requiredCourses
-                            .filter((rc) => rc.isRequired)
-                            .map((rc) => (
-                              <tr key={rc.courseId} className="border-b last:border-0">
-                                <td className="p-2 align-top">
-                                  {rc.courseTitle || rc.courseId}
-                                </td>
-                                {courseVerification.assignees.map((a) => {
-                                  const done = rc.userCompletions[a.userId] === true;
-                                  return (
-                                    <td key={a.userId} className="p-2 align-top">
-                                      <span className={done ? 'text-primary font-medium' : 'text-destructive font-medium'}>
-                                        {done ? 'Complete' : 'Not complete'}
-                                      </span>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  {!canSignSkAction && (courseVerification.unmetMessages.length > 0 || !courseVerification.allRequiredCompleted) ? (
-                    <Alert variant="destructive">
-                      <p className="text-sm font-semibold">Sign-off blocked</p>
-                      <AlertDescription>
-                        <ul className="list-disc pl-4 space-y-1">
-                          {courseVerification.unmetMessages.length > 0
-                            ? courseVerification.unmetMessages.map((m, i) => <li key={i}>{m}</li>)
-                            : <li>Complete all required course assignments before signing.</li>}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                </div>
-              )}
-
               {hasSafetyGuidanceRows || hasGuidelineNarrativePublic || hasWorkClassificationDescription ? (
                 <WorkPermitSafetyGuidelineDisplay
                   classifications={workPermit.classifications}

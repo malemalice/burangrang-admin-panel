@@ -55,8 +55,11 @@ const PublicWorkPermitInlineCoursePanel = ({
   const [currentChapterId, setCurrentChapterId] = useState('');
   const [currentQuizId, setCurrentQuizId] = useState('');
 
-  const loadContext = useCallback(async () => {
-    setLoading(true);
+  const loadContext = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const data = await publicWorkPermitCourseService.getLearningContext(permitToken, courseId);
       setCtx(data);
@@ -81,7 +84,9 @@ const PublicWorkPermitInlineCoursePanel = ({
       console.error(e);
       toast.error('Failed to load course. Try refresh or return later.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [permitToken, courseId]);
 
@@ -106,7 +111,7 @@ const PublicWorkPermitInlineCoursePanel = ({
         courseId,
         currentChapterId,
       );
-      await loadContext();
+      await loadContext({ silent: true });
       onContextRefresh();
       toast.success('Chapter marked complete');
     } catch (e) {
@@ -123,7 +128,7 @@ const PublicWorkPermitInlineCoursePanel = ({
         await publicWorkPermitCourseService.updateProgress(permitToken, courseId, chapterId, {
           status: ProgressStatus.IN_PROGRESS,
         });
-        await loadContext();
+        await loadContext({ silent: true });
       }
     } catch (e) {
       console.error(e);
@@ -228,7 +233,7 @@ const PublicWorkPermitInlineCoursePanel = ({
               quizId={currentQuizId}
               quizMeta={currentQuiz as Quiz}
               onComplete={() => {
-                void loadContext();
+                void loadContext({ silent: true });
                 onContextRefresh();
               }}
             />
