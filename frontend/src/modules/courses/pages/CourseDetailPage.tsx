@@ -7,7 +7,6 @@ import {
   Plus,
   BookOpen,
   Clock,
-  Star,
   Play,
   FileText,
   Youtube,
@@ -238,15 +237,6 @@ const CourseDetailPage = () => {
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
                 <span>{course.totalChapters} chapters</span>
-                {Number(course.rating) > 0 && (
-                  <>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -337,17 +327,6 @@ const CourseDetailPage = () => {
                     </div>
                     <span className="font-medium">{formatDuration(course.totalDuration)}</span>
                   </div>
-                  {Number(course.rating) > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-400" />
-                        <span className="text-sm">Rating</span>
-                      </div>
-                      <span className="font-medium">
-                        {Number(course.rating).toFixed(1)} ({course.reviewCount})
-                      </span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>

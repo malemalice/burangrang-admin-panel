@@ -15,6 +15,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { RichEditor } from '@/core/components/ui/rich-editor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Play, FileText, Youtube, Clock, ArrowLeft, FileQuestion, Plus, ExternalLink, Image as ImageIcon, Music } from 'lucide-react';
@@ -472,10 +473,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Text Content</FormLabel>
                           <FormControl>
-                            <Textarea
-                              placeholder="Enter the text content for this chapter"
-                              rows={8}
-                              {...field}
+                            <RichEditor
+                              value={field.value || '<p></p>'}
+                              onChange={field.onChange}
+                              disabled={isSubmitting}
                             />
                           </FormControl>
                           <FormMessage />

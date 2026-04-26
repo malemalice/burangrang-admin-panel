@@ -18,8 +18,6 @@ const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
   thumbnailUrl: courseDto.thumbnailUrl,
   totalChapters: courseDto.totalChapters,
   totalDuration: courseDto.totalDuration,
-  rating: courseDto.rating,
-  reviewCount: courseDto.reviewCount,
   studentCount: courseDto.studentCount,
   instructorId: courseDto.instructorId,
   publishedAt: courseDto.publishedAt,
