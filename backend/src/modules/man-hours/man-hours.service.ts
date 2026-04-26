@@ -72,51 +72,96 @@ export class ManHoursService {
     };
   }
 
+  private static readonly WORKING_DAYS_PER_MONTH = 22;
   /**
-   * Calculate total working days based on qty and manHourPerDay
+   * Max day-count value we accept for NON_STUDENT; above this we treat as legacy (pre-day-count) capacity stored in the same column and normalize to default month length.
    */
-  private calculateWorkingDays(qty: number, manHourPerDay: number): number {
-    const workingDaysPerMonth = 22;
-    return qty * manHourPerDay * workingDaysPerMonth;
+  private static readonly NON_STUDENT_DAY_COUNT_SANITY_MAX = 31;
+
+  /**
+   * STUDENT: stored totalWorkingDays = capacity in man-hours (qty × mhpd × 22) — same as PRD.
+   * NON_STUDENT: stored totalWorkingDays = working day count (default 22); capacity = qty × mhpd × that day count.
+   */
+  private calculateStudentCapacityManHours(qty: number, manHourPerDay: number): number {
+    return qty * manHourPerDay * ManHoursService.WORKING_DAYS_PER_MONTH;
   }
 
   /**
-   * Resolve totalWorkingDays, lostHour, and total from inputs.
-   * Priority: if lostHour is provided → total = totalWorkingDays - lostHour
-   *           else if total is provided → lostHour = totalWorkingDays - total
-   *           else → lostHour = 0, total = totalWorkingDays
+   * Effective day count for non-student; default 22 when missing or invalid.
+   * Values > 31 are treated as legacy capacity numbers mistakenly stored in this column (normalize to 22).
+   */
+  private resolveNonStudentDayCount(totalWorkingDaysInput?: number): number {
+    let d: number;
+    if (totalWorkingDaysInput === undefined || totalWorkingDaysInput === null) {
+      d = ManHoursService.WORKING_DAYS_PER_MONTH;
+    } else {
+      d = totalWorkingDaysInput;
+    }
+    if (d <= 0) {
+      d = ManHoursService.WORKING_DAYS_PER_MONTH;
+    } else if (d > ManHoursService.NON_STUDENT_DAY_COUNT_SANITY_MAX) {
+      // Legacy rows stored old "capacity" in this column, or invalid day counts — treat as default month length
+      d = ManHoursService.WORKING_DAYS_PER_MONTH;
+    }
+    return d;
+  }
+
+  /**
+   * Resolve totalWorkingDays (per group semantics), manHourPerDay, lostHour, and total.
+   * Capacity in man-hours = for STUDENT: same as stored totalWorkingDays; for NON_STUDENT: qty × mhpd × dayCount.
+   * Priority: if lostHour is provided → total = capacity − lostHour
+   *           else if total is provided → lostHour = capacity − total
+   *           else → lostHour = 0, total = capacity
    */
   private resolveHourFields(
+    group: ManHourGroupEnum,
     qty: number,
     manHourPerDay: number,
     lostHour?: number,
     total?: number,
-  ): { totalWorkingDays: number; lostHour: number; total: number } {
-    const totalWorkingDays = this.calculateWorkingDays(qty, manHourPerDay);
+    totalWorkingDaysFromDto?: number,
+  ): { totalWorkingDays: number; manHourPerDay: number; lostHour: number; total: number } {
+    let storedTotalWorkingDays: number;
+    let capacity: number;
+    const resolvedMhpd = manHourPerDay;
+
+    if (group === ManHourGroupEnum.STUDENT) {
+      capacity = this.calculateStudentCapacityManHours(qty, manHourPerDay);
+      storedTotalWorkingDays = capacity;
+    } else {
+      const dayCount = this.resolveNonStudentDayCount(totalWorkingDaysFromDto);
+      capacity = qty * manHourPerDay * dayCount;
+      storedTotalWorkingDays = dayCount;
+    }
 
     if (lostHour !== undefined) {
-      return { totalWorkingDays, lostHour, total: totalWorkingDays - lostHour };
+      return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour, total: capacity - lostHour };
     }
     if (total !== undefined) {
-      return { totalWorkingDays, lostHour: totalWorkingDays - total, total };
+      return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour: capacity - total, total };
     }
-    return { totalWorkingDays, lostHour: 0, total: totalWorkingDays };
+    return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour: 0, total: capacity };
   }
 
   async create(createDto: CreateManHourDto, userId: string): Promise<ManHourDto> {
-    const { totalWorkingDays, lostHour, total } = this.resolveHourFields(
+    const twdInput =
+      createDto.group === ManHourGroupEnum.NON_STUDENT ? createDto.totalWorkingDays : undefined;
+    const resolved = this.resolveHourFields(
+      createDto.group,
       createDto.qty,
       createDto.manHourPerDay,
       createDto.lostHour,
       createDto.total,
+      twdInput,
     );
+    const { totalWorkingDays, manHourPerDay, lostHour, total } = resolved;
 
     const manHour = await this.prisma.manHour.create({
       data: {
         name: createDto.name,
         group: createDto.group,
         qty: createDto.qty,
-        manHourPerDay: createDto.manHourPerDay,
+        manHourPerDay,
         month: createDto.month,
         year: createDto.year,
         totalWorkingDays,
@@ -213,24 +258,39 @@ export class ManHoursService {
 
     this.errorHandler.throwIfNotFoundById('Man hour', id, existing);
 
+    const group = (updateDto.group ?? existing.group) as ManHourGroupEnum;
     const qty = updateDto.qty ?? existing.qty;
     const manHourPerDay = updateDto.manHourPerDay ?? Number(existing.manHourPerDay);
 
     // Only re-resolve hour fields when any relevant field changed
-    let resolvedFields: { totalWorkingDays: number; lostHour: number; total: number } | undefined;
+    let resolvedFields: { totalWorkingDays: number; manHourPerDay: number; lostHour: number; total: number } | undefined;
     if (
       updateDto.qty !== undefined ||
       updateDto.manHourPerDay !== undefined ||
       updateDto.lostHour !== undefined ||
-      updateDto.total !== undefined
+      updateDto.total !== undefined ||
+      updateDto.totalWorkingDays !== undefined ||
+      updateDto.group !== undefined
     ) {
       // Use incoming lostHour/total if explicitly set; otherwise preserve existing values
       const incomingLostHour = updateDto.lostHour ?? (updateDto.total !== undefined ? undefined : Number(existing.lostHour));
       const incomingTotal = updateDto.total;
-      resolvedFields = this.resolveHourFields(qty, manHourPerDay, incomingLostHour, incomingTotal);
+      const twdFromDto = group === ManHourGroupEnum.NON_STUDENT
+        ? (updateDto.totalWorkingDays !== undefined
+            ? updateDto.totalWorkingDays
+            : Number(existing.totalWorkingDays))
+        : undefined;
+      resolvedFields = this.resolveHourFields(
+        group,
+        qty,
+        manHourPerDay,
+        incomingLostHour,
+        incomingTotal,
+        twdFromDto,
+      );
     }
 
-    const { lostHour: _l, total: _t, ...restDto } = updateDto as any;
+    const { lostHour: _l, total: _t, totalWorkingDays: _twd, manHourPerDay: _m, ...restDto } = updateDto as any;
 
     const updated = await this.prisma.manHour.update({
       where: { id },
@@ -238,6 +298,7 @@ export class ManHoursService {
         ...restDto,
         ...(resolvedFields !== undefined && {
           totalWorkingDays: resolvedFields.totalWorkingDays,
+          manHourPerDay: resolvedFields.manHourPerDay,
           lostHour: resolvedFields.lostHour,
           total: resolvedFields.total,
         }),

@@ -250,7 +250,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                       />
                     </FormControl>
                     <FormDescription>
-                      Regulatory limit: {formatRegulatoryLimitReadOnly(regulatoryLimits?.lighting.limit)}
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.lighting.limit)}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -274,7 +274,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                       />
                     </FormControl>
                     <FormDescription>
-                      Regulatory limit: {formatRegulatoryLimitReadOnly(regulatoryLimits?.noise.limit)}
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.noise.limit)}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -298,7 +298,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                       />
                     </FormControl>
                     <FormDescription>
-                      Regulatory limit: {formatRegulatoryLimitReadOnly(regulatoryLimits?.humidity.limit)}
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.humidity.limit)}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -322,7 +322,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                       />
                     </FormControl>
                     <FormDescription>
-                      Regulatory limit: {formatRegulatoryLimitReadOnly(regulatoryLimits?.temperature.limit)}
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.temperature.limit)}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

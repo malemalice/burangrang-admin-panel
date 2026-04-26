@@ -42,8 +42,8 @@ export async function seedManHours(): Promise<void> {
     const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
     const allMonths: MonthEnum[] = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-    // Working days per month approximation
-    const workingDaysPerMonth = 22;
+    // Working day count per month (NON_STUDENT: stored in totalWorkingDays; capacity = qty × mhpd × this)
+    const defaultWorkingDayCount = 22;
 
     let createdCount = 0;
 
@@ -54,9 +54,15 @@ export async function seedManHours(): Promise<void> {
 
       for (const month of monthsToSeed) {
         for (const classData of classes) {
-          const totalWorkingDays = classData.qty * classData.manHourPerDay * workingDaysPerMonth;
+          const isStudent = classData.group === ManHourGroupEnum.STUDENT;
+          const workingDayCount = defaultWorkingDayCount;
+          // STUDENT: totalWorkingDays column stores capacity (man-hours) per PRD; NON_STUDENT: day count
+          const totalWorkingDays = isStudent
+            ? classData.qty * classData.manHourPerDay * workingDayCount
+            : workingDayCount;
           const lostHour = 0;
-          const total = totalWorkingDays - lostHour;
+          const capacityManHours = classData.qty * classData.manHourPerDay * workingDayCount;
+          const total = capacityManHours - lostHour;
 
           try {
             const createData = {

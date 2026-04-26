@@ -51,7 +51,7 @@ export function MetricValueWithRegulatoryLimit({
           compact ? 'text-[10px] leading-tight' : 'text-xs'
         )}
       >
-        Regulatory limit: {limitText}
+        Quality Standard Value: {limitText}
       </div>
       {comparisonText && (
         <div
