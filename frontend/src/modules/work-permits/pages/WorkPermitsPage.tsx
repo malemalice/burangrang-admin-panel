@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreHorizontal, Eye, Edit, Trash2, FileText } from 'lucide-react';
+import { Plus, MoreHorizontal, Eye, Edit, Trash2, Copy, Link2, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
@@ -15,6 +15,17 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { Label } from '@/core/components/ui/label';
+import { Input } from '@/core/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
+import { toast } from 'sonner';
 import { useWorkPermits } from '../hooks/useWorkPermits';
 import { WorkPermit, WorkPermitStatus, WorkPermitSearchParams } from '../types/work-permit.types';
 import { format } from 'date-fns';
@@ -44,6 +55,11 @@ const WorkPermitsPage = () => {
   const [areas, setAreas] = useState<Array<{ label: string; value: string }>>([]);
 
   const [activeTab, setActiveTab] = useState('all');
+
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [linkExpiresAt, setLinkExpiresAt] = useState('');
+  const [generatingWorkPermitId, setGeneratingWorkPermitId] = useState<string | null>(null);
 
   // Fetch master data for filter options
   useEffect(() => {
@@ -81,7 +97,6 @@ const WorkPermitsPage = () => {
         { label: 'Open', value: 'OPEN' },
         { label: 'In Review HSE', value: 'IN_REVIEW_HSE' },
         { label: 'In Review Security', value: 'IN_REVIEW_SECURITY' },
-        { label: 'Need Info', value: 'NEED_INFO' },
         { label: 'Approved', value: 'APPROVED' },
         { label: 'Rejected', value: 'REJECTED' },
         { label: 'Closed', value: 'CLOSED' },
@@ -218,8 +233,6 @@ const WorkPermitsPage = () => {
       case 'IN_REVIEW_HSE':
       case 'IN_REVIEW_SECURITY':
         return 'secondary';
-      case 'NEED_INFO':
-        return 'outline';
       default:
         return 'outline';
     }
@@ -230,6 +243,43 @@ const WorkPermitsPage = () => {
    * Uses semantic color utility function from design system for TRD compliance
    */
   const getStatusColor = getWorkPermitStatusColor;
+
+  const handleGenerateWorkPermitLink = useCallback(async (workPermit: WorkPermit) => {
+    setGeneratingWorkPermitId(workPermit.id);
+    try {
+      const res = await workPermitService.generatePublicLink({
+        workPermitId: workPermit.id,
+      });
+      setGeneratedLink(res.linkUrl);
+      setLinkExpiresAt(res.expiresAt);
+      setLinkDialogOpen(true);
+      try {
+        await navigator.clipboard.writeText(res.linkUrl);
+        toast.success('Link copied to clipboard');
+      } catch {
+        toast.success('Link generated — copy it from the dialog');
+      }
+    } catch (e: unknown) {
+      const msg =
+        e &&
+        typeof e === 'object' &&
+        'response' in e &&
+        e.response &&
+        typeof e.response === 'object' &&
+        'data' in e.response &&
+        e.response.data &&
+        typeof e.response.data === 'object' &&
+        'message' in e.response.data &&
+        typeof (e.response.data as { message: unknown }).message === 'string'
+          ? (e.response.data as { message: string }).message
+          : e instanceof Error
+            ? e.message
+            : 'Failed to generate link';
+      toast.error(msg);
+    } finally {
+      setGeneratingWorkPermitId(null);
+    }
+  }, []);
 
   const columns = useMemo(() => [
     {
@@ -307,9 +357,22 @@ const WorkPermitsPage = () => {
                 <Eye className="mr-2 h-4 w-4" /> View details
               </DropdownMenuItem>
             )}
-            {hasPermission('work-permit:update') && (workPermit.status === 'DRAFT' || workPermit.status === 'NEED_INFO') && (
+            {hasPermission('work-permit:update') && (workPermit.status === 'DRAFT' || workPermit.status === 'REJECTED') && (
               <DropdownMenuItem onClick={() => navigate(`/work-permits/${workPermit.id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('work-permit:update') && (
+              <DropdownMenuItem
+                disabled={generatingWorkPermitId === workPermit.id}
+                onClick={() => void handleGenerateWorkPermitLink(workPermit)}
+              >
+                {generatingWorkPermitId === workPermit.id ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="mr-2 h-4 w-4" />
+                )}
+                Public applicant link
               </DropdownMenuItem>
             )}
             {(hasPermission('work-permit:read') || hasPermission('work-permit:update')) && hasPermission('work-permit:delete') && (
@@ -331,7 +394,7 @@ const WorkPermitsPage = () => {
       ),
       isSortable: false,
     },
-  ], [navigate, getStatusColor, hasPermission]);
+  ], [navigate, getStatusColor, hasPermission, generatingWorkPermitId, handleGenerateWorkPermitLink]);
 
   return (
     <>
@@ -375,6 +438,55 @@ const WorkPermitsPage = () => {
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
       />
+
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Work permit link</DialogTitle>
+            <DialogDescription>
+              Share this link with the applicant. It works without login and expires after 24 hours.
+              {linkExpiresAt && (
+                <span className="mt-2 block text-foreground">
+                  Expires:{' '}
+                  {new Date(linkExpiresAt).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="work-permit-generated-url">URL</Label>
+            <div className="flex gap-2">
+              <Input
+                id="work-permit-generated-url"
+                readOnly
+                value={generatedLink}
+                className="font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  void navigator.clipboard.writeText(generatedLink).then(
+                    () => toast.success('Copied'),
+                    () => toast.error('Could not copy'),
+                  );
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={() => setLinkDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

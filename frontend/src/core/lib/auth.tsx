@@ -33,7 +33,8 @@ const LAST_VISITED_URL_KEY = 'last_visited_url';
 /** Paths that must not trigger login redirect when unauthenticated */
 export const isAuthExemptPath = (pathname: string) =>
   ['/login', '/reset-password'].includes(pathname) ||
-  pathname.startsWith('/health-screenings/public/');
+  pathname.startsWith('/health-screenings/public/') ||
+  pathname.startsWith('/work-permits/public/');
 
 const saveLastVisitedUrl = (url: string) => {
   // Extract pathname from URL (handle both pathname and pathname+search formats)

@@ -12,6 +12,7 @@ import {
   WORK_PERMIT_SECTION_G_SUB,
 } from '../constants/workPermitSections';
 import { getCombinedMitigationText } from '../utils/riskMitigationDisplay';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 const na = (v: unknown) => (v != null && v !== '' ? String(v) : '—');
 
@@ -135,11 +136,18 @@ export function WorkPermitPDFTemplate({
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Work Permit: {na(workPermit.code)}
-        </h1>
-        <p className="text-sm text-gray-600 mb-1">{na(workPermit.projectName)}</p>
-        <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Work Permit: {na(workPermit.code)}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">{na(workPermit.projectName)}</p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* Section A — PRD */}

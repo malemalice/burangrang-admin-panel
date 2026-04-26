@@ -131,7 +131,6 @@ export type WorkPermitStatus =
   | 'IN_REVIEW_HSE'
   | 'WAITING_APPLICANT_SIGN'
   | 'IN_REVIEW_SECURITY'
-  | 'NEED_INFO'
   | 'APPROVED'
   | 'REJECTED'
   | 'CLOSED'
@@ -514,6 +513,20 @@ export interface ApprovalTimelineItem {
     name: string;
     code: string;
   };
+}
+
+export type WorkPermitPublicMode = 'editable' | 'readonly';
+
+export interface WorkPermitPublicLinkResponse {
+  linkUrl: string;
+  expiresAt: string;
+  workPermitId: string;
+}
+
+export interface PublicWorkPermitByTokenResponse {
+  workPermit: WorkPermit;
+  isEditable: boolean;
+  mode: WorkPermitPublicMode;
 }
 
 // Data transformation functions

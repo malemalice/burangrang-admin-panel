@@ -23,7 +23,7 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 |------|------|--------|
 | Frontend types | `frontend/src/modules/work-permits/types/work-permit.types.ts` | `WorkPermit`, `WorkPermitStatus`, nested relation types, `CreateWorkPermitDTO` / `UpdateWorkPermitDTO` |
 | Backend API shape | `backend/src/modules/work-permits/dto/work-permit.dto.ts` | `WorkPermitDto`, `WorkPermitStatusEnum` |
-| Workflow behaviour | `backend/src/modules/work-permits/work-permits.service.ts` | Submit, approve, reject, request-info, sign SK, extend, close |
+| Workflow behaviour | `backend/src/modules/work-permits/work-permits.service.ts` | Submit, approve, reject, sign SK, extend, close |
 | Approval configuration | `backend/src/modules/work-permits/WORK_PERMIT_SETUP.md` | Master Approval setup for `WORK_PERMIT` |
 
 **Rule:** `WorkPermitStatus` in the frontend and `WorkPermitStatusEnum` in the backend **must stay in sync** (same string literals).
@@ -61,15 +61,48 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 
 ## 5. Target users and roles (implementation-aligned)
 
-| Actor | Who in the system | Primary need |
-|-------|-------------------|--------------|
-| **Applicant / creator** | **Current implementation:** `User` who creates the permit (`createdBy`) | Create/edit (when allowed), submit, sign SK when status is `WAITING_APPLICANT_SIGN`, extend/close when allowed |
-| **Workers** | `User` via **`Worker`** (`t_worker.userId`) joined to the permit by **`WorkPermitWorker`** (`workPermitId` + `workerId` + `order`) | Profession and optional ID number come from the **worker user profile** (`User.professionId`, `User.idNumber`). `certificateUrl`, legacy health declaration URL, and structured health screening linkage are on **`Worker`** / `HealthScreening.workerId`; the join row only carries `order`. |
-| **HSE officers** | `User`s linked via `hseOfficerIds` / `hseOfficers` | Named on the permit; notifications and operational context |
-| **Supervisors (vendor)** | `Guest` records via `supervisorIds` / `supervisors` | Contact/supervision data |
-| **Approvers** | Users allowed by **Master Approval** for `WORK_PERMIT` | Approve / reject / request info according to chain and department rules |
+### 5.1 Actors (who does what)
 
-**Implementation note (workers):** On create/update, the backend validates that each worker `userId` refers to a user whose **role code is `GUEST` or `CONTRACTOR`**, with an **active profession** on their user profile. Permit payloads do not send per-row `professionId` / `idNumber`; those fields are user-profile data only.
+| Actor | Who in the system | Primary responsibility |
+|-------|-------------------|------------------------|
+| **Applicant (business)** | `WorkPermit.applicantUserId` (fallback to `createdBy` for legacy rows) | Owns “applicant-only” actions: provide info when asked, and sign SK when required |
+| **Creator (audit actor)** | `WorkPermit.createdBy` | Performs create/update/submit actions from the UI; may be internal staff creating on behalf of a contractor |
+| **Workers** | `User` via **`Worker`** (`t_worker.userId`) joined by **`WorkPermitWorker`** | Provide worker identity + profession + optional ID number (on `User`); declaration/cert URLs and health screening linkage live on `Worker` / `HealthScreening.workerId` |
+| **HSE officers (named on permit)** | `WorkPermit.hseOfficers` (`WorkPermitToUser`) | Operational stakeholders; may overlap with approvers depending on Master Approval configuration |
+| **Supervisors (vendor contacts)** | `Guest` via `WorkPermitSupervisorToGuest` | Vendor supervision/contact rows (not users) |
+| **Approvers** | Users allowed by **Master Approval** for entity `WORK_PERMIT` | Approve / reject in sequence, by configured approval lines |
+
+**Implementation note (workers):** On create/update, the backend validates each worker `userId` has role code **`GUEST` or `CONTRACTOR`** and an **active profession** on their user profile. Profession and ID number are not per-permit fields.
+
+### 5.2 Status ↔ phase ↔ target user/role map (matches current implementation)
+
+**Status source of truth:** `WorkPermit.status` in Prisma is a string with allowed values: `DRAFT`, `OPEN`, `WAITING_APPROVAL`, `IN_REVIEW_PROJECT_OWNER`, `IN_REVIEW_HSE`, `WAITING_APPLICANT_SIGN`, `IN_REVIEW_SECURITY`, `APPROVED`, `REJECTED`, `CLOSED`, `EXTENDED`.
+
+**Important:** The approval chain is **Master Approval-driven**. The service maps “who is next” into one of the in-review statuses based on **the next approver’s department name** (HSE / SECURITY / PROJECT/OWNER); anything else falls back to `OPEN`.
+
+| Phase | Status | Target user/role (who acts next) | What action is expected |
+|------|--------|-----------------------------------|-------------------------|
+| **Drafting** | `DRAFT` | Applicant or creator (whoever has access) | Fill/edit data, then **submit** |
+| **Queued for approval (generic)** | `WAITING_APPROVAL` | Approver (Master Approval) | Approve / reject / request info (status must be approval-pending) |
+| **Review — Project Owner** | `IN_REVIEW_PROJECT_OWNER` | Approver whose dept name contains “PROJECT” or “OWNER” | Approve / reject / request info |
+| **Review — HSE** | `IN_REVIEW_HSE` | Approver whose dept name contains “HSE” / “HEALTH” | Approve / reject / request info; (during HSE approve) may set course verification fields and/or replace classification safety guidance |
+| **Applicant acknowledgement** | `WAITING_APPLICANT_SIGN` | **Applicant (business)** (`applicantUserId` fallback `createdBy`) | Applicant signs SK / acknowledges safety guideline (required before Security when chain rules apply) |
+| **Review — Security** | `IN_REVIEW_SECURITY` | Approver whose dept name contains “SECURITY” | Approve / reject / request info; Security completion can end chain into `APPROVED` |
+| **Approved (work can proceed)** | `APPROVED` | Applicant/creator (operational owner) | Work execution; may **extend** then **close** |
+| **Rejected** | `REJECTED` | Applicant/creator | No further workflow actions; create a new permit if needed |
+| **Post-approval — Extension** | `EXTENDED` | Applicant/creator | Extended end date; can still **close** |
+| **Post-approval — Closure** | `CLOSED` | (No further actions) | Final terminal state |
+| **Fallback / legacy in-review** | `OPEN` | Approver (Master Approval) | Used when next department does not match known patterns; treat as “in review” bucket in UI copy |
+
+### 5.3 Mapping to the “paper form” departments (master approval)
+
+The paper form mentions multiple signers (HSE, Environment Coordinator, PIC BSJ, Security manager). In the implementation, **any of these can be represented as Master Approval lines**, but the **status label shown in the app** only has dedicated buckets for:
+
+- `IN_REVIEW_PROJECT_OWNER` (Project/PIC/Owner-like departments)
+- `IN_REVIEW_HSE`
+- `WAITING_APPLICANT_SIGN` (applicant acknowledgement gate, typically after HSE and before Security)
+- `IN_REVIEW_SECURITY`
+- `OPEN` (everything else)
 
 ---
 
@@ -124,7 +157,6 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 | `IN_REVIEW_HSE` | Queue with HSE |
 | `WAITING_APPLICANT_SIGN` | Applicant must sign/acknowledge safety guideline (`signSk`) |
 | `IN_REVIEW_SECURITY` | Security review |
-| `NEED_INFO` | Approver requested more information; applicant edits then returns to `DRAFT` on save (see §6.4) |
 | `APPROVED` | Approved |
 | `REJECTED` | Rejected |
 | `CLOSED` | Work closed |
@@ -133,9 +165,9 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 ### 6.4 Workflow rules (service-level, current behaviour)
 
 - **Create:** Status `DRAFT`; **at least one worker** required; workers must be **Guest** users; “Others” classification requires `workClassificationOtherDetail`.
-- **Update:** Only `DRAFT` or `NEED_INFO`. If saving while `NEED_INFO`, status becomes **`DRAFT`** after update (“WP-049”).
-- **Submit:** Only from **`DRAFT`** → **`IN_REVIEW_PROJECT_OWNER`**; notifies HSE (implementation).
-- **Approve / reject / request-info:** Driven by **Master Approval** rights (`checkApprovalRights`). Reject sets `REJECTED`. Request info sets `NEED_INFO`.
+- **Update:** Only `DRAFT` or `REJECTED`.
+- **Submit:** Only from **`DRAFT`** or **`REJECTED`** → **`IN_REVIEW_PROJECT_OWNER`**; notifies HSE (implementation).
+- **Approve / reject:** Driven by **Master Approval** rights (`checkApprovalRights`). Reject sets `REJECTED`.
 - **Next status after approve:** Computed from Master Approval completion and **department name** of the current and next approver (e.g. HSE, SECURITY, PROJECT/OWNER). Can move to `IN_REVIEW_HSE`, `IN_REVIEW_SECURITY`, `IN_REVIEW_PROJECT_OWNER`, `WAITING_APPLICANT_SIGN`, `OPEN`, or **`APPROVED`** when the final approval is Security and the chain completes (see `approve()` in `work-permits.service.ts`).
 - **Applicant sign SK (`signSk`):** Only when status is **`WAITING_APPLICANT_SIGN`**, only **`createdBy`** user, safety guideline content must exist → then **`IN_REVIEW_SECURITY`** and notify security.
 - **Extend:** Only **`APPROVED`** → updates end date, status **`EXTENDED`**.
@@ -147,7 +179,7 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 
 **Proposed identity separation:**
 - **`createdBy` (actor / audit):** Always the logged-in user who performs the create action.
-- **`applicantUserId` (business applicant):** The contractor (or contractor PIC user) who the permit is **for** and who must perform applicant actions (e.g. sign SK, respond to request-info loop where applicable).
+- **`applicantUserId` (business applicant):** The contractor (or contractor PIC user) who the permit is **for** and who must perform applicant actions (e.g. sign SK).
 
 **Rules on create (functional):**
 - Always set `createdBy = req.user.id`.
@@ -178,21 +210,21 @@ Sections A–F in **§11** remain the **original paper** reference. The **implem
 
 Paste into [Swimlanes.io](https://swimlanes.io/) to render. Actor names are identifiers (no spaces). Adjust messages for your exact Master Approval chain.
 
-### 7.1 Draft, submit, and need-info loop
+### 7.1 Draft, submit, reject, and resubmit loop
 
 ```text
-title: Work Permit — Draft, submit, need info (implementation)
+title: Work Permit — Draft, submit, reject, resubmit (implementation)
 
 Applicant -> Applicant: Create permit (DRAFT), list workers + URLs
-Applicant -> System: PATCH /work-permits/:id (DRAFT or NEED_INFO)
-note: NEED_INFO save moves permit back to DRAFT after edit (WP-049)
+Applicant -> System: PATCH /work-permits/:id (DRAFT or REJECTED)
 Applicant -> System: POST /work-permits/:id/submit
 System -> Applicant: 200, status IN_REVIEW_PROJECT_OWNER
 System -> HSE: notification WORK_PERMIT_SUBMITTED (per implementation)
-Approver -> System: POST /work-permits/:id/request-info
-System -> Applicant: status NEED_INFO
-Applicant -> System: PATCH /work-permits/:id
-System -> Applicant: status DRAFT
+Approver -> System: POST /work-permits/:id/reject
+System -> Applicant: status REJECTED
+Applicant -> System: PATCH /work-permits/:id (REJECTED)
+Applicant -> System: POST /work-permits/:id/submit
+System -> Applicant: 200, status IN_REVIEW_PROJECT_OWNER
 ```
 
 ### 7.2 Approval chain (generic — Master Approval)
@@ -408,7 +440,7 @@ Catatan (Note): ___________
 | Status | All UI and API use the enum values in §6.3 consistently |
 | Create | Enforces workers present, Guest role workers, classifications + Others detail when needed |
 | Submit | Only from `DRAFT`; result `IN_REVIEW_PROJECT_OWNER` |
-| Edit | Only `DRAFT` / `NEED_INFO`; `NEED_INFO` → `DRAFT` after successful update |
+| Edit | Only `DRAFT` / `REJECTED` |
 | Approvals | Master Approval configuration determines who can approve; service sets next status |
 | Sign SK | Only applicant, only in `WAITING_APPLICANT_SIGN`, requires guideline content |
 | Extend / close | Rules in §6.4 |

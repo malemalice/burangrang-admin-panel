@@ -6,6 +6,9 @@ import moduleRoutes from './modules/moduleRoutes';
 const PublicHealthScreeningFillPage = lazy(
   () => import('@/modules/health-screenings/pages/PublicHealthScreeningFillPage'),
 );
+const PublicWorkPermitPage = lazy(
+  () => import('@/modules/work-permits/pages/PublicWorkPermitPage'),
+);
 import { settingsRoutes } from '@/modules/settings';
 import { accessLogRoutes } from '@/modules/access-logs';
 import { userRoutes } from '@/modules/users';
@@ -75,6 +78,10 @@ export const publicRoutes: RouteConfig[] = [
   {
     path: '/health-screenings/public/:token',
     component: PublicHealthScreeningFillPage,
+  },
+  {
+    path: '/work-permits/public/:token',
+    component: PublicWorkPermitPage,
   },
 ];
 

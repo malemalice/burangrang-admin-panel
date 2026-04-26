@@ -27,7 +27,6 @@ import { FindWorkPermitsDto } from './dto/find-work-permits.dto';
 import { SubmitWorkPermitDto } from './dto/submit-work-permit.dto';
 import { ApproveWorkPermitDto } from './dto/approve-work-permit.dto';
 import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
-import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
 import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
@@ -392,26 +391,6 @@ export class WorkPermitsController {
     @Request() req: any,
   ): Promise<WorkPermitDto> {
     return this.workPermitsService.reject(id, rejectDto, req.user.id, req.userContext);
-  }
-
-  @Post(':id/request-info')
-  @ApiOperation({ summary: 'Request additional information from requester (HSE only)' })
-  @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
-  @ApiBody({ type: RequestInfoWorkPermitDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Information request sent successfully',
-    type: WorkPermitDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid status for requesting info' })
-  @ApiResponse({ status: 404, description: 'Work permit not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async requestInfo(
-    @Param('id') id: string,
-    @Body() requestInfoDto: RequestInfoWorkPermitDto,
-    @Request() req: any,
-  ): Promise<WorkPermitDto> {
-    return this.workPermitsService.requestInfo(id, requestInfoDto, req.user.id, req.userContext);
   }
 
   @Post(':id/sign-sk')

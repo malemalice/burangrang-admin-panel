@@ -290,8 +290,8 @@ const WorkPermitDetailPage = () => {
     }
   };
 
-  const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'NEED_INFO';
-  const canSubmit = workPermit?.status === 'DRAFT';
+  const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'REJECTED';
+  const canSubmit = workPermit?.status === 'DRAFT' || workPermit?.status === 'REJECTED';
   
   // Permission-based actions using checkApprovalRights result
   const canApprove = approvalRights?.canApprove ?? false;

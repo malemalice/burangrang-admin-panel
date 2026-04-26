@@ -1,4 +1,4 @@
-import api from '@/core/lib/api';
+import api, { publicApi } from '@/core/lib/api';
 import { PaginatedResponse } from '@/core/lib/types';
 import {
   WorkPermit,
@@ -120,18 +120,6 @@ const workPermitService = {
   },
 
   /**
-   * Request additional information
-   */
-  requestInfo: async (id: string, message: string, ccUserIds?: string[], notes?: string): Promise<WorkPermit> => {
-    const response = await api.post(`/work-permits/${id}/request-info`, {
-      message,
-      ccUserIds,
-      notes,
-    });
-    return mapWorkPermitDtoToWorkPermit(response.data);
-  },
-
-  /**
    * Extend work permit
    */
   extendWorkPermit: async (id: string, newEndDate: string, reason: string, notes?: string): Promise<WorkPermit> => {
@@ -243,6 +231,64 @@ const workPermitService = {
   }): Promise<MasterDataOption> => {
     const response = await api.post('/work-permits/heavy-equipment', data);
     return response.data;
+  },
+
+  /**
+   * Generate anonymous applicant link (staff-only, authenticated).
+   */
+  generatePublicLink: async (body: {
+    workPermitId?: string;
+    userId?: string;
+  }): Promise<{
+    linkUrl: string;
+    expiresAt: string;
+    workPermitId: string;
+  }> => {
+    const res = await api.post('/work-permits/public-links', body);
+    return res.data as { linkUrl: string; expiresAt: string; workPermitId: string };
+  },
+
+  /**
+   * Public (no-login) token-based detail.
+   */
+  getPublicByToken: async (token: string): Promise<{
+    workPermit: WorkPermit;
+    isEditable: boolean;
+    mode: 'editable' | 'readonly';
+  }> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.get(`/work-permits/public/${enc}`);
+    const raw = res.data as {
+      workPermit: WorkPermitDTO;
+      isEditable: boolean;
+      mode: 'editable' | 'readonly';
+    };
+    return {
+      workPermit: mapWorkPermitDtoToWorkPermit(raw.workPermit),
+      isEditable: raw.isEditable,
+      mode: raw.mode,
+    };
+  },
+
+  /**
+   * Public (no-login) token-based update.
+   */
+  updatePublicByToken: async (
+    token: string,
+    data: UpdateWorkPermitDTO,
+  ): Promise<WorkPermit> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.patch(`/work-permits/public/${enc}`, data);
+    return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
+  },
+
+  /**
+   * Public (no-login) token-based submit.
+   */
+  submitPublicByToken: async (token: string, notes?: string): Promise<WorkPermit> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(`/work-permits/public/${enc}/submit`, { notes });
+    return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
   },
 };
 

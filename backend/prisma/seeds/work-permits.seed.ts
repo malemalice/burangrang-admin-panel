@@ -462,416 +462,257 @@ export async function seedWorkPermits(prisma: PrismaClient) {
   const nextMonth = new Date(now);
   nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-  // Sample Work Permit 1: DRAFT
-  const wp1 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 1),
-      projectName: 'Maintenance Building A - Electrical System',
-      areaId: area.id,
-      companyId: company.id,
-      proposedStartDate: tomorrow,
-      proposedEndDate: nextWeek,
-      workStagesDescription: '1. Site preparation\n2. Electrical installation\n3. Testing and commissioning\n4. Cleanup',
-      jobSafetyAnalysis: 'Risk: Electrical shock\nControl: Use proper PPE, lockout/tagout procedures, qualified electrician only',
-      workRequirements: 'All workers must have electrical safety training certificate',
-      requireCourseVerification: true,
-      status: 'DRAFT',
-      createdBy: creator.id,
-      classifications: {
-        create: [
-          {
-            workClassificationId: workClassification.id,
-            order: 0,
-          },
-        ],
-      },
-      employees: {
-        create: [
-          {
-            userId: projectUser.id,
-            order: 0,
-          },
-        ],
-      },
-      workers: {
-        create: [
-          {
-            workerId: wk1.id,
-            order: 0,
-          },
-          {
-            workerId: wk2.id,
-            order: 1,
-          },
-        ],
-      },
-      heavyEquipment: {
-        create: [
-          {
-            heavyEquipmentId: heavyEquip.id,
-            quantity: 1,
-            order: 0,
-          },
-        ],
-      },
-      tools: {
-        create: [
-          {
-            toolId: tool.id,
-            quantity: 2,
-            order: 0,
-          },
-        ],
-      },
-      materials: {
-        create: [
-          {
-            materialId: material.id,
-            quantity: 10,
-            order: 0,
-          },
-        ],
-      },
-      machines: {
-        create: [
-          {
-            machineId: machine.id,
-            quantity: 1,
-            order: 0,
-          },
-        ],
-      },
-      hazards: {
-        create: [
-          {
-            hazardName: 'Electrical Shock',
-            activity: 'Risk of electric shock during installation',
-            mitigation: 'Use insulated tools, proper grounding, lockout/tagout',
-            order: 0,
-          },
-          {
-            hazardName: 'Falling Objects',
-            activity: 'Risk of tools or materials falling',
-            mitigation: 'Secure tools, use tool lanyards, barricade work area',
-            order: 1,
-          },
-        ],
-      },
-      supervisors: {
-        create: [
-          {
-            guestId: supervisor.id,
-          },
-        ],
-      },
-      hseOfficers: {
-        create: [
-          {
-            userId: hseOfficer.id,
-          },
-        ],
-      },
-    },
+  const requiredCourse = await prisma.course.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, title: true, slug: true },
   });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp1.id);
-  console.log(`✅ Created work permit: ${wp1.code} (DRAFT)`);
+  if (!requiredCourse) {
+    console.log('⚠️ No active courses found. Course-required work permit will be created without requiredCourses.');
+  }
 
-  // Sample Work Permit 2: WAITING_APPROVAL
-  const wp2 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 2),
-      projectName: 'Renovation Building B - Plumbing System',
-      areaId: masters.areas.length > 1 ? masters.areas[1]!.id : area.id,
-      companyId: masters.companies.length > 1 ? masters.companies[1]!.id : company.id,
+  const applicant = worker1;
+  const baseData = {
+    areaId: area.id,
+    companyId: company.id,
+    proposedStartDate: tomorrow,
+    proposedEndDate: nextWeek,
+    workStagesDescription:
+      '1. Site preparation\n2. Execution\n3. Inspection\n4. Cleanup',
+    jobSafetyAnalysis:
+      'Risk: Injury, equipment hazards\nControl: PPE, toolbox meeting, supervisor monitoring',
+    workRequirements:
+      'All workers must follow site induction and safety rules',
+    createdBy: creator.id,
+    applicantUserId: applicant.id,
+    classifications: {
+      create: [
+        {
+          workClassificationId: workClassification.id,
+          order: 0,
+        },
+      ],
+    },
+    employees: {
+      create: [
+        {
+          userId: projectUser.id,
+          order: 0,
+        },
+      ],
+    },
+    workers: {
+      create: [
+        { workerId: wk1.id, order: 0 },
+        { workerId: wk2.id, order: 1 },
+      ],
+    },
+    heavyEquipment: {
+      create: [{ heavyEquipmentId: heavyEquip.id, quantity: 1, order: 0 }],
+    },
+    tools: {
+      create: [{ toolId: tool.id, quantity: 2, order: 0 }],
+    },
+    materials: {
+      create: [{ materialId: material.id, quantity: 10, order: 0 }],
+    },
+    machines: {
+      create: [{ machineId: machine.id, quantity: 1, order: 0 }],
+    },
+    hazards: {
+      create: [
+        {
+          hazardName: 'Slip/Trip',
+          activity: 'Walking/working around tools and cables',
+          mitigation: 'Housekeeping, cord management, signage',
+          order: 0,
+        },
+      ],
+    },
+    supervisors: { create: [{ guestId: supervisor.id }] },
+    hseOfficers: { create: [{ userId: hseOfficer.id }] },
+  } satisfies Record<string, any>;
+
+  async function createPermit(
+    sequence: number,
+    status: string,
+    overrides: Record<string, any> = {},
+    copyGuidance: boolean = true,
+  ) {
+    const wp = await prisma.workPermit.create({
+      data: {
+        ...baseData,
+        code: generateCode(currentYear, sequence),
+        projectName: `Seed Work Permit (${status})`,
+        requireCourseVerification: false,
+        status,
+        ...overrides,
+      },
+    });
+    if (copyGuidance) {
+      await copySafetyGuidanceFromTemplatesForSeed(prisma, wp.id);
+    }
+    console.log(`✅ Created work permit: ${wp.code} (${status})`);
+    return wp;
+  }
+
+  const permits: any[] = [];
+
+  // One-per-status matrix
+  permits.push(
+    await createPermit(1, 'DRAFT', {
+      projectName: 'Applicant fill (editable) — DRAFT',
+      requireCourseVerification: true,
+    }),
+  );
+
+  permits.push(
+    await createPermit(2, 'OPEN', {
+      projectName: 'OPEN (generic in-review fallback)',
       proposedStartDate: nextWeek,
       proposedEndDate: nextMonth,
-      workStagesDescription: '1. Remove old pipes\n2. Install new plumbing\n3. Pressure testing\n4. Final inspection',
-      jobSafetyAnalysis: 'Risk: Water damage, confined space\nControl: Proper drainage, ventilation, confined space permit',
-      workRequirements: 'Plumber certification required',
-      requireCourseVerification: false,
-      status: 'IN_REVIEW_HSE',
-      createdBy: creator.id,
-      classifications: {
-        create: [
-          {
-            workClassificationId:
-              masters.workClassifications.length > 1 ? masters.workClassifications[1]!.id : workClassification.id,
-            order: 0,
-          },
-        ],
-      },
-      workers: {
-        create: [
-          {
-            workerId: wk3.id,
-            order: 0,
-          },
-        ],
-      },
-      hazards: {
-        create: [
-          {
-            hazardName: 'Confined Space',
-            activity: 'Working in tight spaces',
-            mitigation: 'Proper ventilation, entry permit, safety monitoring',
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp2.id);
-  console.log(`✅ Created work permit: ${wp2.code} (IN_REVIEW_HSE)`);
+    }),
+  );
 
-  // Sample Work Permit 3: APPROVED
-  const wp3 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 3),
-      projectName: 'Painting Warehouse Exterior',
-      areaId: masters.areas.length > 2 ? masters.areas[2]!.id : area.id,
-      companyId: masters.companies[0].id,
-      proposedStartDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      proposedEndDate: nextWeek,
-      workStagesDescription: '1. Surface preparation\n2. Primer application\n3. Paint application\n4. Cleanup',
-      jobSafetyAnalysis: 'Risk: Fall from height, chemical exposure\nControl: Safety harness, proper PPE, ventilation',
-      workRequirements: 'Painter certification, height work permit',
-      requireCourseVerification: true,
-      status: 'APPROVED',
-      createdBy: creator.id,
-      classifications: {
-        create: [
-          {
-            workClassificationId:
-              masters.workClassifications.length > 3 ? masters.workClassifications[3]!.id : workClassification.id,
-            order: 0,
-          },
-        ],
-      },
-      workers: {
-        create: [
-          {
-            workerId: wk4.id,
-            order: 0,
-          },
-        ],
-      },
-      tools: {
-        create: [
-          {
-            toolId: masters.tools.length > 3 ? masters.tools[3]!.id : tool.id,
-            quantity: 5,
-            order: 0,
-          },
-        ],
-      },
-      materials: {
-        create: [
-          {
-            materialId: masters.materials.length > 3 ? masters.materials[3]!.id : material.id,
-            quantity: 20,
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp3.id);
-  console.log(`✅ Created work permit: ${wp3.code} (APPROVED)`);
-
-  // Sample Work Permit 4: REJECTED
-  const wp4 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 4),
-      projectName: 'Hot Work - Welding Operations',
-      areaId: area.id,
-      companyId: company.id,
-      proposedStartDate: tomorrow,
-      proposedEndDate: nextWeek,
-      workStagesDescription: 'Welding work for structural repairs',
-      jobSafetyAnalysis: 'Risk: Fire, explosion\nControl: Fire watch, fire extinguisher, clear area',
-      workRequirements: 'Welder certification required',
-      requireCourseVerification: true,
-      status: 'REJECTED',
-      createdBy: creator.id,
-      classifications: {
-        create: [
-          {
-            workClassificationId: workClassification.id,
-            order: 0,
-          },
-        ],
-      },
-      workers: {
-        create: [
-          {
-            workerId: wk5.id,
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp4.id);
-  console.log(`✅ Created work permit: ${wp4.code} (REJECTED)`);
-
-  // Sample Work Permit 5: CLOSED
-  const wp5 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 5),
-      projectName: 'General Maintenance - Completed',
-      areaId: masters.areas[0].id,
-      companyId: masters.companies[0].id,
-      proposedStartDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), // 2 weeks ago
-      proposedEndDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
-      workStagesDescription: 'General maintenance work - completed',
-      jobSafetyAnalysis: 'Standard maintenance procedures',
-      workRequirements: 'General maintenance training',
-      requireCourseVerification: false,
-      status: 'CLOSED',
-      createdBy: creator.id,
-      workers: {
-        create: [
-          {
-            workerId: wk1.id,
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-  console.log(`✅ Created work permit: ${wp5.code} (CLOSED)`);
-
-  // Admin Overview dashboard: WAITING_APPROVAL and one more APPROVED
-  const wp6 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 6),
-      projectName: 'Admin Overview - Confined Space Entry',
-      areaId: area.id,
-      companyId: company.id,
+  permits.push(
+    await createPermit(3, 'WAITING_APPROVAL', {
+      projectName: 'WAITING_APPROVAL (approval queue)',
       proposedStartDate: nextWeek,
       proposedEndDate: nextMonth,
-      workStagesDescription: 'Confined space inspection and maintenance',
-      jobSafetyAnalysis: 'Risk: Confined space\nControl: Entry permit, gas monitoring',
-      workRequirements: 'Confined space training',
-      requireCourseVerification: true,
-      status: 'WAITING_APPROVAL',
-      createdBy: creator.id,
-      classifications: {
-        create: [
-          {
-            workClassificationId:
-              masters.workClassifications.length > 1 ? masters.workClassifications[1]!.id : workClassification.id,
-            order: 0,
-          },
-        ],
-      },
-      workers: {
-        create: [
-          {
-            workerId: wk1.id,
-            order: 0,
-          },
-        ],
-      },
-      hazards: {
-        create: [
-          {
-            hazardName: 'Confined Space',
-            activity: 'Limited entry and exit',
-            mitigation: 'Permit to work, attendant',
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp6.id);
-  console.log(`✅ Created work permit: ${wp6.code} (WAITING_APPROVAL)`);
+      workStagesDescription: 'Waiting for approval chain to proceed.',
+    }),
+  );
 
-  const wp7 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 7),
-      projectName: 'Admin Overview - Height Work',
-      areaId: masters.areas.length > 1 ? masters.areas[1]!.id : area.id,
-      companyId: company.id,
-      proposedStartDate: tomorrow,
-      proposedEndDate: nextWeek,
-      workStagesDescription: 'Work at height - facade inspection',
-      jobSafetyAnalysis: 'Risk: Fall from height\nControl: Harness, guardrails',
-      workRequirements: 'Height work certification',
-      requireCourseVerification: true,
-      status: 'WAITING_APPROVAL',
-      createdBy: creator.id,
-      classifications: {
-        create: [
-          {
-            workClassificationId:
-              masters.workClassifications.length > 3 ? masters.workClassifications[3]!.id : workClassification.id,
-            order: 0,
-          },
-        ],
-      },
-      workers: {
-        create: [
-          {
-            workerId: wk2.id,
-            order: 0,
-          },
-        ],
-      },
-      hazards: {
-        create: [
-          {
-            hazardName: 'Fall from height',
-            activity: 'Working above 1.5m',
-            mitigation: 'Fall arrest, barriers',
-            order: 0,
-          },
-        ],
-      },
-    },
-  });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp7.id);
-  console.log(`✅ Created work permit: ${wp7.code} (WAITING_APPROVAL)`);
+  permits.push(
+    await createPermit(4, 'IN_REVIEW_PROJECT_OWNER', {
+      projectName: 'IN_REVIEW_PROJECT_OWNER (approval step)',
+      proposedStartDate: nextWeek,
+      proposedEndDate: nextMonth,
+    }),
+  );
 
-  const wp8 = await prisma.workPermit.create({
-    data: {
-      code: generateCode(currentYear, 8),
-      projectName: 'Admin Overview - Approved Permit',
-      areaId: area.id,
-      companyId: company.id,
-      proposedStartDate: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
-      proposedEndDate: nextWeek,
-      workStagesDescription: 'General repair work - approved',
-      jobSafetyAnalysis: 'Standard risks and controls',
-      workRequirements: 'General safety training',
+  permits.push(
+    await createPermit(5, 'IN_REVIEW_HSE', {
+      projectName: 'IN_REVIEW_HSE (HSE review step)',
       requireCourseVerification: false,
-      status: 'APPROVED',
-      createdBy: creator.id,
       classifications: {
         create: [
           {
-            workClassificationId: workClassification.id,
+            workClassificationId:
+              masters.workClassifications.length > 1
+                ? masters.workClassifications[1]!.id
+                : workClassification.id,
             order: 0,
           },
         ],
       },
-      workers: {
-        create: [
-          {
-            workerId: wk2.id,
-            order: 0,
-          },
-        ],
+      workers: { create: [{ workerId: wk3.id, order: 0 }] },
+    }),
+  );
+
+  // Applicant sign phase (with course requirement)
+  permits.push(
+    await createPermit(6, 'WAITING_APPLICANT_SIGN', {
+      projectName: 'Applicant sign SK — WITH course requirement',
+      requireCourseVerification: true,
+      requiredCourses: requiredCourse
+        ? {
+          create: [
+            {
+              courseId: requiredCourse.id,
+              isRequired: true,
+              order: 0,
+            },
+          ],
+        }
+        : undefined,
+    }),
+  );
+
+  // Applicant sign phase (without course requirement)
+  permits.push(
+    await createPermit(7, 'WAITING_APPLICANT_SIGN', {
+      projectName: 'Applicant sign SK — WITHOUT course requirement',
+      requireCourseVerification: false,
+    }),
+  );
+
+  // After signing SK, permit moves to IN_REVIEW_SECURITY and has applicantSignedAt/signature.
+  permits.push(
+    await createPermit(8, 'IN_REVIEW_SECURITY', {
+      projectName: 'IN_REVIEW_SECURITY (post applicant-sign)',
+      applicantSignedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+      applicantSignature: 'seed-signature-token',
+      requireCourseVerification: true,
+      requiredCourses: requiredCourse
+        ? {
+          create: [
+            {
+              courseId: requiredCourse.id,
+              isRequired: true,
+              order: 0,
+            },
+          ],
+        }
+        : undefined,
+    }),
+  );
+
+  permits.push(
+    await createPermit(9, 'APPROVED', {
+      projectName: 'APPROVED (ready for work / can extend)',
+      proposedStartDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+      proposedEndDate: nextWeek,
+      requireCourseVerification: true,
+      requiredCourses: requiredCourse
+        ? {
+          create: [
+            {
+              courseId: requiredCourse.id,
+              isRequired: true,
+              order: 0,
+            },
+          ],
+        }
+        : undefined,
+    }),
+  );
+
+  permits.push(
+    await createPermit(10, 'REJECTED', {
+      projectName: 'REJECTED (approval denied)',
+      jobSafetyAnalysis:
+        'Rejected example: missing required attachments and incomplete hazard controls.',
+      requireCourseVerification: false,
+    }),
+  );
+
+  permits.push(
+    await createPermit(
+      11,
+      'CLOSED',
+      {
+        projectName: 'CLOSED (completed work)',
+        proposedStartDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
+        proposedEndDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+        requireCourseVerification: false,
       },
-    },
-  });
-  await copySafetyGuidanceFromTemplatesForSeed(prisma, wp8.id);
-  console.log(`✅ Created work permit: ${wp8.code} (APPROVED)`);
+      false,
+    ),
+  );
+
+  permits.push(
+    await createPermit(12, 'EXTENDED', {
+      projectName: 'EXTENDED (end date extended)',
+      proposedStartDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+      proposedEndDate: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
+      requireCourseVerification: false,
+    }),
+  );
 
   console.log('✅ Work permit seeding completed');
   return {
-    workPermits: [wp1, wp2, wp3, wp4, wp5, wp6, wp7, wp8],
+    workPermits: permits,
     masters,
     guests,
   };

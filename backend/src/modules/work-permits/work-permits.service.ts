@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -16,7 +17,6 @@ import { FindWorkPermitsDto } from './dto/find-work-permits.dto';
 import { SubmitWorkPermitDto } from './dto/submit-work-permit.dto';
 import { ApproveWorkPermitDto } from './dto/approve-work-permit.dto';
 import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
-import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
 import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
@@ -32,6 +32,9 @@ import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 import { WORK_CLASSIFICATION_OTHER_CODE } from './constants/work-classification.constants';
 import { WorkPermitClassificationSafetyGuidanceInputDto } from './dto/work-permit-classification-safety-guidance.dto';
 import { SettingsHelperService } from '../../shared/services/settings.service';
+import { WorkPermitPublicLinkService } from './services/work-permit-public-link.service';
+import { GenerateWorkPermitPublicLinkDto } from './dto/generate-work-permit-public-link.dto';
+import { PublicWorkPermitLinkResponseDto } from './dto/public-work-permit-link-response.dto';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -50,6 +53,8 @@ export class WorkPermitsService {
     private readonly approvalAccessService: ApprovalAccessService,
     private readonly notificationsService: NotificationsService,
     private readonly settingsHelper: SettingsHelperService,
+    private readonly configService: ConfigService,
+    private readonly publicLinkService: WorkPermitPublicLinkService,
   ) {
     this.rawWorkPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
       area: {
@@ -1396,318 +1401,348 @@ export class WorkPermitsService {
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, existing);
 
-      // Business rule: Only can edit if status is DRAFT or NEED_INFO
-      if (existing.status !== WorkPermitStatusEnum.DRAFT && existing.status !== WorkPermitStatusEnum.NEED_INFO) {
-        this.errorHandler.throwBadRequest(`Cannot edit work permit with status ${existing.status}. Only DRAFT or NEED_INFO permits can be edited.`);
+      // Business rule: Only can edit if status is DRAFT or REJECTED
+      if (existing.status !== WorkPermitStatusEnum.DRAFT && existing.status !== WorkPermitStatusEnum.REJECTED) {
+        this.errorHandler.throwBadRequest(`Cannot edit work permit with status ${existing.status}. Only DRAFT or REJECTED permits can be edited.`);
       }
+      return this.updateWorkPermitAfterAccessChecked(id, updateDto, existing);
+    }, 'Updating work permit');
+  }
 
-      // Validate area if provided
-      if (updateDto.areaId) {
-        const area = await this.prisma.area.findUnique({
-          where: { id: updateDto.areaId },
-        });
-        this.errorHandler.throwIfNotFoundById('Area', updateDto.areaId, area);
-      }
+  private async updateWorkPermitAfterAccessChecked(
+    id: string,
+    updateDto: UpdateWorkPermitDto,
+    existing: { status: any; proposedStartDate: any; proposedEndDate: any; workClassificationOtherDetail: any },
+  ): Promise<WorkPermitDto> {
+    // Validate area if provided
+    if (updateDto.areaId) {
+      const area = await this.prisma.area.findUnique({
+        where: { id: updateDto.areaId },
+      });
+      this.errorHandler.throwIfNotFoundById('Area', updateDto.areaId, area);
+    }
 
-      // Validate company if provided
-      if (updateDto.companyId) {
-        const company = await this.prisma.company.findUnique({
-          where: { id: updateDto.companyId },
-        });
-        this.errorHandler.throwIfNotFoundById('Company', updateDto.companyId, company);
-      }
+    // Validate company if provided
+    if (updateDto.companyId) {
+      const company = await this.prisma.company.findUnique({
+        where: { id: updateDto.companyId },
+      });
+      this.errorHandler.throwIfNotFoundById('Company', updateDto.companyId, company);
+    }
 
-      // Validate dates if provided (WP-016: allow same start and end date)
-      const proposedStartDate = updateDto.proposedStartDate ? new Date(updateDto.proposedStartDate) : null;
-      const proposedEndDate = updateDto.proposedEndDate ? new Date(updateDto.proposedEndDate) : null;
+    // Validate dates if provided (WP-016: allow same start and end date)
+    const proposedStartDate = updateDto.proposedStartDate
+      ? new Date(updateDto.proposedStartDate)
+      : null;
+    const proposedEndDate = updateDto.proposedEndDate
+      ? new Date(updateDto.proposedEndDate)
+      : null;
 
-      if (proposedStartDate && proposedEndDate) {
-        if (proposedEndDate < proposedStartDate) {
-          this.errorHandler.throwBadRequest('Proposed end date must be on or after start date');
-        }
-      } else if (proposedEndDate) {
-        const currentStartDate = new Date(existing.proposedStartDate);
-        if (proposedEndDate < currentStartDate) {
-          this.errorHandler.throwBadRequest('Proposed end date must be on or after start date');
-        }
-      } else if (proposedStartDate) {
-        const currentEndDate = new Date(existing.proposedEndDate);
-        if (currentEndDate < proposedStartDate) {
-          this.errorHandler.throwBadRequest('Proposed end date must be on or after start date');
-        }
-      }
-
-      if (updateDto.classifications !== undefined) {
-        const mergedDetail =
-          updateDto.workClassificationOtherDetail !== undefined
-            ? updateDto.workClassificationOtherDetail
-            : existing.workClassificationOtherDetail;
-        await this.ensureOthersClassificationHasDetail(
-          updateDto.classifications.map((c) => c.workClassificationId),
-          mergedDetail,
-        );
-      } else if (updateDto.workClassificationOtherDetail !== undefined) {
-        const withClass = await this.prisma.workPermit.findUnique({
-          where: { id },
-          include: { classifications: true },
-        });
-        await this.ensureOthersClassificationHasDetail(
-          withClass!.classifications.map((c) => c.workClassificationId),
-          updateDto.workClassificationOtherDetail,
+    if (proposedStartDate && proposedEndDate) {
+      if (proposedEndDate < proposedStartDate) {
+        this.errorHandler.throwBadRequest(
+          'Proposed end date must be on or after start date',
         );
       }
-
-      // Prepare update data
-      const updateData: any = {};
-
-      // WP-049: If status is NEED_INFO, change to DRAFT after editing
-      if (existing.status === WorkPermitStatusEnum.NEED_INFO) {
-        updateData.status = WorkPermitStatusEnum.DRAFT;
+    } else if (proposedEndDate) {
+      const currentStartDate = new Date(existing.proposedStartDate);
+      if (proposedEndDate < currentStartDate) {
+        this.errorHandler.throwBadRequest(
+          'Proposed end date must be on or after start date',
+        );
       }
-
-      if (updateDto.projectName !== undefined) updateData.projectName = updateDto.projectName;
-      if (updateDto.areaId !== undefined) updateData.areaId = updateDto.areaId;
-      if (updateDto.companyId !== undefined) updateData.companyId = updateDto.companyId;
-      if (proposedStartDate) updateData.proposedStartDate = proposedStartDate;
-      if (proposedEndDate) updateData.proposedEndDate = proposedEndDate;
-      if (updateDto.workStagesDescription !== undefined) updateData.workStagesDescription = updateDto.workStagesDescription;
-      if (updateDto.jobSafetyAnalysis !== undefined) updateData.jobSafetyAnalysis = updateDto.jobSafetyAnalysis;
-      if (updateDto.workRequirements !== undefined) updateData.workRequirements = updateDto.workRequirements;
-      if (updateDto.workClassificationOtherDetail !== undefined) {
-        updateData.workClassificationOtherDetail = updateDto.workClassificationOtherDetail;
+    } else if (proposedStartDate) {
+      const currentEndDate = new Date(existing.proposedEndDate);
+      if (currentEndDate < proposedStartDate) {
+        this.errorHandler.throwBadRequest(
+          'Proposed end date must be on or after start date',
+        );
       }
-      if (updateDto.requireCourseVerification !== undefined) updateData.requireCourseVerification = updateDto.requireCourseVerification;
+    }
 
-      // Preserve permit-owned Section G: reconcile classification links (diff) instead of delete-all + recreate
-      if (updateDto.classifications !== undefined) {
-        await this.reconcileWorkPermitClassifications(id, updateDto.classifications);
+    if (updateDto.classifications !== undefined) {
+      const mergedDetail =
+        updateDto.workClassificationOtherDetail !== undefined
+          ? updateDto.workClassificationOtherDetail
+          : existing.workClassificationOtherDetail;
+      await this.ensureOthersClassificationHasDetail(
+        updateDto.classifications.map((c) => c.workClassificationId),
+        mergedDetail,
+      );
+    } else if (updateDto.workClassificationOtherDetail !== undefined) {
+      const withClass = await this.prisma.workPermit.findUnique({
+        where: { id },
+        include: { classifications: true },
+      });
+      await this.ensureOthersClassificationHasDetail(
+        withClass!.classifications.map((c) => c.workClassificationId),
+        updateDto.workClassificationOtherDetail,
+      );
+    }
+
+    // Prepare update data
+    const updateData: any = {};
+
+    if (updateDto.projectName !== undefined)
+      updateData.projectName = updateDto.projectName;
+    if (updateDto.areaId !== undefined) updateData.areaId = updateDto.areaId;
+    if (updateDto.companyId !== undefined)
+      updateData.companyId = updateDto.companyId;
+    if (proposedStartDate) updateData.proposedStartDate = proposedStartDate;
+    if (proposedEndDate) updateData.proposedEndDate = proposedEndDate;
+    if (updateDto.workStagesDescription !== undefined)
+      updateData.workStagesDescription = updateDto.workStagesDescription;
+    if (updateDto.jobSafetyAnalysis !== undefined)
+      updateData.jobSafetyAnalysis = updateDto.jobSafetyAnalysis;
+    if (updateDto.workRequirements !== undefined)
+      updateData.workRequirements = updateDto.workRequirements;
+    if (updateDto.workClassificationOtherDetail !== undefined) {
+      updateData.workClassificationOtherDetail =
+        updateDto.workClassificationOtherDetail;
+    }
+    if (updateDto.requireCourseVerification !== undefined)
+      updateData.requireCourseVerification =
+        updateDto.requireCourseVerification;
+
+    // Preserve permit-owned Section G: reconcile classification links (diff) instead of delete-all + recreate
+    if (updateDto.classifications !== undefined) {
+      await this.reconcileWorkPermitClassifications(id, updateDto.classifications);
+    }
+
+    // Handle nested relations updates (classifications handled above)
+    if (updateDto.employees !== undefined) {
+      await this.prisma.workPermitEmployee.deleteMany({
+        where: { workPermitId: id },
+      });
+      updateData.employees = {
+        create: updateDto.employees.map((e) => ({
+          userId: e.userId,
+          employeeName: e.employeeName,
+          order: e.order,
+        })),
+      };
+    }
+
+    if (updateDto.workers !== undefined) {
+      if (updateDto.workers.length === 0) {
+        this.errorHandler.throwBadRequest('At least one worker is required');
       }
-
-      // Handle nested relations updates (classifications handled above)
-      if (updateDto.employees !== undefined) {
-        await this.prisma.workPermitEmployee.deleteMany({
+      await this.validateWorkersForPermit(updateDto.workers);
+      await this.validateWorkerHealthDeclarations(updateDto.workers);
+      await this.prisma.$transaction(async (tx) => {
+        await tx.workPermitWorker.deleteMany({
           where: { workPermitId: id },
         });
-        updateData.employees = {
-          create: updateDto.employees.map((e) => ({
-            userId: e.userId,
-            employeeName: e.employeeName,
+        const workerIdByOrder = new Map<string, string>();
+        for (const w of updateDto.workers!) {
+          const wr = await this.upsertWorkerForPermit(tx, w);
+          workerIdByOrder.set(`${w.order}`, wr.id);
+        }
+        for (const w of updateDto.workers!) {
+          await tx.workPermitWorker.create({
+            data: {
+              workPermitId: id,
+              workerId: workerIdByOrder.get(`${w.order}`)!,
+              order: w.order,
+            },
+          });
+        }
+      });
+    }
+
+    if (updateDto.heavyEquipment !== undefined) {
+      await this.prisma.workPermitHeavyEquipment.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.heavyEquipment.length > 0) {
+        updateData.heavyEquipment = {
+          create: updateDto.heavyEquipment.map((e) => ({
+            heavyEquipmentId: e.heavyEquipmentId,
+            quantity: e.quantity,
             order: e.order,
           })),
         };
       }
+    }
 
-      if (updateDto.workers !== undefined) {
-        if (updateDto.workers.length === 0) {
-          this.errorHandler.throwBadRequest('At least one worker is required');
-        }
-        await this.validateWorkersForPermit(updateDto.workers);
-        await this.validateWorkerHealthDeclarations(updateDto.workers);
-        await this.prisma.$transaction(async (tx) => {
-          await tx.workPermitWorker.deleteMany({
-            where: { workPermitId: id },
-          });
-          const workerIdByOrder = new Map<string, string>();
-          for (const w of updateDto.workers!) {
-            const wr = await this.upsertWorkerForPermit(tx, w);
-            workerIdByOrder.set(`${w.order}`, wr.id);
-          }
-          for (const w of updateDto.workers!) {
-            await tx.workPermitWorker.create({
-              data: {
-                workPermitId: id,
-                workerId: workerIdByOrder.get(`${w.order}`)!,
-                order: w.order,
-              },
-            });
-          }
-        });
-      }
-
-      if (updateDto.heavyEquipment !== undefined) {
-        await this.prisma.workPermitHeavyEquipment.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.heavyEquipment.length > 0) {
-          updateData.heavyEquipment = {
-            create: updateDto.heavyEquipment.map((e) => ({
-              heavyEquipmentId: e.heavyEquipmentId,
-              quantity: e.quantity,
-              order: e.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.tools !== undefined) {
-        await this.prisma.workPermitTool.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.tools.length > 0) {
-          updateData.tools = {
-            create: updateDto.tools.map((t) => ({
-              toolId: t.toolId,
-              quantity: t.quantity,
-              order: t.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.materials !== undefined) {
-        await this.prisma.workPermitMaterial.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.materials.length > 0) {
-          updateData.materials = {
-            create: updateDto.materials.map((m) => ({
-              materialId: m.materialId,
-              quantity: m.quantity,
-              order: m.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.machines !== undefined) {
-        await this.prisma.workPermitMachine.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.machines.length > 0) {
-          updateData.machines = {
-            create: updateDto.machines.map((m) => ({
-              machineId: m.machineId,
-              quantity: m.quantity,
-              order: m.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.requiredCourses !== undefined) {
-        await this.prisma.workPermitRequiredCourse.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.requiredCourses.length > 0) {
-          updateData.requiredCourses = {
-            create: updateDto.requiredCourses.map((c) => ({
-              courseId: c.courseId,
-              isRequired: c.isRequired !== undefined ? c.isRequired : true,
-              order: c.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.hazards !== undefined) {
-        const normalizedHazards = this.normalizeHazards(updateDto.hazards);
-        await this.prisma.workPermitHazard.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (normalizedHazards && normalizedHazards.length > 0) {
-          updateData.hazards = {
-            create: normalizedHazards.map((h) => ({
-              hazardId: h.hazardId,
-              hazardName: h.hazardName,
-              activity: h.activity,
-              mitigation: h.mitigation,
-              order: h.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.attachments !== undefined) {
-        await this.prisma.workPermitAttachment.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.attachments.length > 0) {
-          updateData.attachments = {
-            create: updateDto.attachments.map((a) => ({
-              fileUrl: a.fileUrl,
-              fileName: a.fileName,
-              fileType: a.fileType,
-              description: a.description,
-              order: a.order,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.supervisorIds !== undefined) {
-        await this.prisma.workPermitSupervisorToGuest.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.supervisorIds.length > 0) {
-          updateData.supervisors = {
-            create: updateDto.supervisorIds.map((guestId) => ({
-              guestId,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.hseOfficerIds !== undefined) {
-        await this.prisma.workPermitToUser.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.hseOfficerIds.length > 0) {
-          updateData.hseOfficers = {
-            create: updateDto.hseOfficerIds.map((userId) => ({
-              userId,
-            })),
-          };
-        }
-      }
-
-      if (updateDto.safetyEquipmentIds !== undefined) {
-        await this.prisma.workPermitToSafetyEquipment.deleteMany({
-          where: { workPermitId: id },
-        });
-        if (updateDto.safetyEquipmentIds.length > 0) {
-          updateData.safetyEquipment = {
-            create: updateDto.safetyEquipmentIds.map((safetyEquipmentId) => ({
-              safetyEquipmentId,
-            })),
-          };
-        }
-      }
-
-      const workPermit = await this.prisma.workPermit.update({
-        where: { id },
-        data: updateData,
-        include: this.getWorkPermitFullInclude(),
+    if (updateDto.tools !== undefined) {
+      await this.prisma.workPermitTool.deleteMany({
+        where: { workPermitId: id },
       });
+      if (updateDto.tools.length > 0) {
+        updateData.tools = {
+          create: updateDto.tools.map((t) => ({
+            toolId: t.toolId,
+            quantity: t.quantity,
+            order: t.order,
+          })),
+        };
+      }
+    }
 
-      if (updateDto.workers !== undefined) {
-        const createdWorkerRows = await this.prisma.workPermitWorker.findMany({
-          where: { workPermitId: id },
-          select: { id: true, workerId: true, order: true },
-        });
-        await this.linkHealthScreeningsToWorkers(
-          updateDto.workers,
-          createdWorkerRows,
+    if (updateDto.materials !== undefined) {
+      await this.prisma.workPermitMaterial.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.materials.length > 0) {
+        updateData.materials = {
+          create: updateDto.materials.map((m) => ({
+            materialId: m.materialId,
+            quantity: m.quantity,
+            order: m.order,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.machines !== undefined) {
+      await this.prisma.workPermitMachine.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.machines.length > 0) {
+        updateData.machines = {
+          create: updateDto.machines.map((m) => ({
+            machineId: m.machineId,
+            quantity: m.quantity,
+            order: m.order,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.requiredCourses !== undefined) {
+      await this.prisma.workPermitRequiredCourse.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.requiredCourses.length > 0) {
+        updateData.requiredCourses = {
+          create: updateDto.requiredCourses.map((c) => ({
+            courseId: c.courseId,
+            isRequired: c.isRequired !== undefined ? c.isRequired : true,
+            order: c.order,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.hazards !== undefined) {
+      const normalizedHazards = this.normalizeHazards(updateDto.hazards);
+      await this.prisma.workPermitHazard.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (normalizedHazards && normalizedHazards.length > 0) {
+        updateData.hazards = {
+          create: normalizedHazards.map((h) => ({
+            hazardId: h.hazardId,
+            hazardName: h.hazardName,
+            activity: h.activity,
+            mitigation: h.mitigation,
+            order: h.order,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.attachments !== undefined) {
+      await this.prisma.workPermitAttachment.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.attachments.length > 0) {
+        updateData.attachments = {
+          create: updateDto.attachments.map((a) => ({
+            fileUrl: a.fileUrl,
+            fileName: a.fileName,
+            fileType: a.fileType,
+            description: a.description,
+            order: a.order,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.supervisorIds !== undefined) {
+      await this.prisma.workPermitSupervisorToGuest.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.supervisorIds.length > 0) {
+        updateData.supervisors = {
+          create: updateDto.supervisorIds.map((guestId) => ({
+            guestId,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.hseOfficerIds !== undefined) {
+      await this.prisma.workPermitToUser.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.hseOfficerIds.length > 0) {
+        updateData.hseOfficers = {
+          create: updateDto.hseOfficerIds.map((userId) => ({
+            userId,
+          })),
+        };
+      }
+    }
+
+    if (updateDto.safetyEquipmentIds !== undefined) {
+      await this.prisma.workPermitToSafetyEquipment.deleteMany({
+        where: { workPermitId: id },
+      });
+      if (updateDto.safetyEquipmentIds.length > 0) {
+        updateData.safetyEquipment = {
+          create: updateDto.safetyEquipmentIds.map((safetyEquipmentId) => ({
+            safetyEquipmentId,
+          })),
+        };
+      }
+    }
+
+    const workPermit = await this.prisma.workPermit.update({
+      where: { id },
+      data: updateData,
+      include: this.getWorkPermitFullInclude(),
+    });
+
+    if (updateDto.workers !== undefined) {
+      const createdWorkerRows = await this.prisma.workPermitWorker.findMany({
+        where: { workPermitId: id },
+        select: { id: true, workerId: true, order: true },
+      });
+      await this.linkHealthScreeningsToWorkers(
+        updateDto.workers,
+        createdWorkerRows,
+      );
+    }
+
+    if (
+      updateDto.classificationSafetyGuidance !== undefined &&
+      updateDto.classificationSafetyGuidance.length > 0
+    ) {
+      for (const block of updateDto.classificationSafetyGuidance) {
+        await this.validateClassificationBelongsToPermit(
+          block.workPermitClassificationId,
+          id,
+        );
+        await this.replaceClassificationSafetyGuidance(
+          block.workPermitClassificationId,
+          block,
         );
       }
+    }
 
-      if (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0) {
-        for (const block of updateDto.classificationSafetyGuidance) {
-          await this.validateClassificationBelongsToPermit(block.workPermitClassificationId, id);
-          await this.replaceClassificationSafetyGuidance(block.workPermitClassificationId, block);
-        }
-      }
+    const refreshed =
+      updateDto.classifications !== undefined ||
+      (updateDto.classificationSafetyGuidance !== undefined &&
+        updateDto.classificationSafetyGuidance.length > 0)
+        ? await this.prisma.workPermit.findUnique({
+            where: { id },
+            include: this.getWorkPermitFullInclude(),
+          })
+        : workPermit;
 
-      const refreshed =
-        updateDto.classifications !== undefined ||
-        (updateDto.classificationSafetyGuidance !== undefined && updateDto.classificationSafetyGuidance.length > 0)
-          ? await this.prisma.workPermit.findUnique({
-              where: { id },
-              include: this.getWorkPermitFullInclude(),
-            })
-          : workPermit;
-
-      return await this.mapWorkPermitWithRelations(refreshed ?? workPermit);
-    }, 'Updating work permit');
+    return await this.mapWorkPermitWithRelations(refreshed ?? workPermit);
   }
 
   /**
@@ -1754,9 +1789,14 @@ export class WorkPermitsService {
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
-      // Business rule: Only DRAFT status can be submitted
-      if (workPermit.status !== WorkPermitStatusEnum.DRAFT) {
-        this.errorHandler.throwBadRequest(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
+      // Business rule: Only DRAFT or REJECTED permits can be submitted
+      if (
+        workPermit.status !== WorkPermitStatusEnum.DRAFT &&
+        workPermit.status !== WorkPermitStatusEnum.REJECTED
+      ) {
+        this.errorHandler.throwBadRequest(
+          `Cannot submit work permit with status ${workPermit.status}. Only DRAFT or REJECTED permits can be submitted.`,
+        );
       }
 
       await this.ensureOthersClassificationHasDetail(
@@ -1986,59 +2026,6 @@ export class WorkPermitsService {
 
       return this.mapWorkPermitToDto(updated);
     }, 'Rejecting work permit');
-  }
-
-  /**
-   * Request additional information
-   */
-  async requestInfo(
-    id: string,
-    requestInfoDto: RequestInfoWorkPermitDto,
-    userId: string,
-    userContext?: UserContext,
-  ): Promise<WorkPermitDto> {
-    return this.errorHandler.safeExecute(async () => {
-      await this.ensureCanAccessWorkPermit(id, userContext);
-      const workPermit = await this.prisma.workPermit.findUnique({
-        where: { id },
-        include: {
-          creator: true,
-        },
-      });
-
-      this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
-
-      const user = await this.getFullUser(userId);
-
-      // Check approval rights (approvers can request info)
-      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
-        id,
-        user,
-        APPROVAL_ENTITIES.WORK_PERMIT,
-      );
-
-      if (!approvalRights.canApprove) {
-        this.errorHandler.throwForbidden('You do not have permission to request info for this work permit');
-      }
-
-      // Update status to NEED_INFO
-      const updated = await this.prisma.workPermit.update({
-        where: { id },
-        data: {
-          status: WorkPermitStatusEnum.NEED_INFO,
-        },
-        include: {
-          area: true,
-          company: true,
-          creator: true,
-        },
-      });
-
-      // Send notification to requester and CC users
-      await this.sendInfoRequestNotification(id, updated, requestInfoDto.message, requestInfoDto.ccUserIds || []);
-
-      return this.mapWorkPermitToDto(updated);
-    }, 'Requesting additional information');
   }
 
   /**
@@ -2355,54 +2342,6 @@ export class WorkPermitsService {
       }
     } catch (error) {
       console.error('Failed to send Security review notification:', error);
-    }
-  }
-
-  /**
-   * Send info request notification
-   */
-  private async sendInfoRequestNotification(
-    workPermitId: string,
-    workPermit: any,
-    message: string,
-    ccUserIds: string[],
-  ): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'WORK_PERMIT_NEED_INFO' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'WORK_PERMIT_NEED_INFO',
-            description: 'Work permit needs additional information',
-          },
-        });
-      }
-
-      // Notify creator and CC users
-      const userIds = [workPermit.createdBy, ...ccUserIds];
-      const users = await this.prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { roleId: true },
-      });
-      const roleIds = Array.from(new Set(users.map((u) => u.roleId)));
-
-      await this.notificationsService.createNotificationForRoles(
-        {
-          title: `Additional Information Required: ${workPermit.code}`,
-          message: `Work permit "${workPermit.projectName}" (${workPermit.code}) requires additional information: ${message}`,
-          context: 'work-permit',
-          contextId: workPermitId,
-          typeId: notificationType.id,
-          roleIds,
-          userIds,
-        },
-        workPermit.createdBy,
-      );
-    } catch (error) {
-      console.error('Failed to send info request notification:', error);
     }
   }
 
@@ -2807,5 +2746,176 @@ export class WorkPermitsService {
       },
       'Get master data for work permit form',
     );
+  }
+
+  /**
+   * Staff-only: generate an anonymous applicant link to view/edit a specific work permit.
+   * Data-level access is still enforced using userContext.
+   */
+  async generatePublicFillLink(
+    dto: GenerateWorkPermitPublicLinkDto,
+    _requesterUserId: string,
+    userContext?: UserContext,
+  ): Promise<PublicWorkPermitLinkResponseDto> {
+    return this.errorHandler.safeExecute(async () => {
+      let workPermitId = dto.workPermitId;
+      if (!workPermitId && dto.userId) {
+        const latest = await this.prisma.workPermit.findFirst({
+          where: {
+            isActive: true,
+            applicantUserId: dto.userId,
+          } as any,
+          orderBy: { updatedAt: 'desc' },
+          select: { id: true },
+        });
+        this.errorHandler.throwIfNotFound(
+          'WorkPermit',
+          `for applicant user ID ${dto.userId}`,
+          latest,
+        );
+        workPermitId = latest!.id;
+      }
+      if (!workPermitId) {
+        this.errorHandler.throwBadRequest('workPermitId or userId is required');
+      }
+
+      await this.ensureCanAccessWorkPermit(workPermitId, userContext);
+      const workPermit = await this.prisma.workPermit.findUnique({
+        where: { id: workPermitId },
+        select: { id: true, applicantUserId: true, createdBy: true },
+      });
+      this.errorHandler.throwIfNotFoundById(
+        'WorkPermit',
+        workPermitId,
+        workPermit,
+      );
+
+      const applicantUserId =
+        (workPermit as any).applicantUserId ?? workPermit!.createdBy;
+      const { token, expiresAt } = this.publicLinkService.signToken(
+        workPermitId,
+        applicantUserId,
+      );
+      const frontendUrl =
+        this.configService.get<string>('app.frontendUrl') ??
+        'http://localhost:5173';
+      const linkUrl = `${frontendUrl}/work-permits/public/${encodeURIComponent(token)}`;
+
+      return {
+        linkUrl,
+        expiresAt: expiresAt.toISOString(),
+        workPermitId,
+      };
+    }, 'Generate work permit public link');
+  }
+
+  private async loadWorkPermitForPublicToken(token: string): Promise<{
+    workPermit: any;
+    isEditable: boolean;
+  }> {
+    const payload = this.publicLinkService.parseAndVerifyToken(token);
+    const workPermit = await this.prisma.workPermit.findUnique({
+      where: { id: payload.workPermitId },
+      include: this.getWorkPermitFullInclude(),
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'WorkPermit',
+      payload.workPermitId,
+      workPermit,
+    );
+
+    if (workPermit!.isActive !== true) {
+      this.errorHandler.throwBadRequest('This work permit is no longer available');
+    }
+
+    const applicantUserId =
+      (workPermit as any).applicantUserId ?? workPermit!.createdBy;
+    if (applicantUserId !== payload.applicantUserId) {
+      this.errorHandler.throwForbidden('Invalid link');
+    }
+
+    const isEditable =
+      workPermit!.status === WorkPermitStatusEnum.DRAFT ||
+      workPermit!.status === WorkPermitStatusEnum.REJECTED;
+    return { workPermit, isEditable };
+  }
+
+  async getPublicWorkPermitByToken(token: string) {
+    const { workPermit, isEditable } =
+      await this.loadWorkPermitForPublicToken(token);
+    const dto = await this.mapWorkPermitWithRelations(workPermit);
+    return {
+      workPermit: dto,
+      isEditable,
+      mode: isEditable ? 'editable' : 'readonly',
+    };
+  }
+
+  async updatePublicWorkPermitByToken(token: string, dto: UpdateWorkPermitDto) {
+    return this.errorHandler.safeExecute(async () => {
+      const { workPermit, isEditable } =
+        await this.loadWorkPermitForPublicToken(token);
+      if (!isEditable) {
+        this.errorHandler.throwBadRequest('This work permit is no longer editable');
+      }
+
+      const existing = await this.prisma.workPermit.findUnique({
+        where: { id: workPermit.id },
+      });
+      this.errorHandler.throwIfNotFoundById('WorkPermit', workPermit.id, existing);
+
+      // Re-apply same status gate as authenticated update.
+      if (
+        existing!.status !== WorkPermitStatusEnum.DRAFT &&
+        existing!.status !== WorkPermitStatusEnum.REJECTED
+      ) {
+        this.errorHandler.throwBadRequest(
+          `Cannot edit work permit with status ${existing!.status}. Only DRAFT or REJECTED permits can be edited.`,
+        );
+      }
+
+      return this.updateWorkPermitAfterAccessChecked(
+        workPermit.id,
+        dto,
+        existing as any,
+      );
+    }, 'Updating work permit (public link)');
+  }
+
+  async submitPublicWorkPermitByToken(token: string, _dto: SubmitWorkPermitDto) {
+    return this.errorHandler.safeExecute(async () => {
+      const { workPermit } = await this.loadWorkPermitForPublicToken(token);
+
+      // Business rule: Only DRAFT or REJECTED permits can be submitted (same as authenticated).
+      if (
+        workPermit.status !== WorkPermitStatusEnum.DRAFT &&
+        workPermit.status !== WorkPermitStatusEnum.REJECTED
+      ) {
+        this.errorHandler.throwBadRequest(
+          `Cannot submit work permit with status ${workPermit.status}. Only DRAFT or REJECTED permits can be submitted.`,
+        );
+      }
+
+      await this.ensureOthersClassificationHasDetail(
+        workPermit.classifications.map((c: any) => c.workClassificationId),
+        workPermit.workClassificationOtherDetail,
+      );
+
+      const updated = await this.prisma.workPermit.update({
+        where: { id: workPermit.id },
+        data: {
+          status: WorkPermitStatusEnum.IN_REVIEW_PROJECT_OWNER,
+        },
+        include: {
+          area: true,
+          company: true,
+          creator: true,
+          applicant: true,
+        },
+      });
+
+      await this.sendNotificationToHse(workPermit.id, updated);
+      return this.mapWorkPermitToDto(updated);
+    }, 'Submitting work permit (public link)');
   }
 }

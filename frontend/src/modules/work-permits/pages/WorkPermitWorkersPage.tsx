@@ -43,6 +43,8 @@ const WorkPermitWorkersPage = () => {
   const [companyFilterId, setCompanyFilterId] = useState('');
   const [companyOptions, setCompanyOptions] = useState<{ value: string; label: string }[]>([]);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkDialogTitle, setLinkDialogTitle] = useState('Link');
+  const [linkDialogDescription, setLinkDialogDescription] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
   const [linkExpiresAt, setLinkExpiresAt] = useState('');
   const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
@@ -114,6 +116,10 @@ const WorkPermitWorkersPage = () => {
       const res = await healthScreeningService.generatePublicLink({
         userId: row.id,
       });
+      setLinkDialogTitle('Health screening link');
+      setLinkDialogDescription(
+        'Share this link with the worker. It works without login and expires after 24 hours.',
+      );
       setGeneratedLink(res.linkUrl);
       setLinkExpiresAt(res.expiresAt);
       setLinkDialogOpen(true);
@@ -248,7 +254,13 @@ const WorkPermitWorkersPage = () => {
         isSortable: false,
       },
     ],
-    [isSuperAdmin, hasPermission, navigate, generatingUserId, handleGenerateHealthLink],
+    [
+      isSuperAdmin,
+      hasPermission,
+      navigate,
+      generatingUserId,
+      handleGenerateHealthLink,
+    ],
   );
 
   if (!hasPermission('user:list')) {
@@ -333,9 +345,9 @@ const WorkPermitWorkersPage = () => {
         <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Health screening link</DialogTitle>
+              <DialogTitle>{linkDialogTitle}</DialogTitle>
               <DialogDescription>
-                Share this link with the worker. It works without login and expires after 24 hours.
+                {linkDialogDescription}
                 {linkExpiresAt && (
                   <span className="mt-2 block text-foreground">
                     Expires:{' '}
@@ -348,10 +360,10 @@ const WorkPermitWorkersPage = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
-              <Label htmlFor="health-screening-generated-url">URL</Label>
+              <Label htmlFor="generated-public-url">URL</Label>
               <div className="flex gap-2">
                 <Input
-                  id="health-screening-generated-url"
+                  id="generated-public-url"
                   readOnly
                   value={generatedLink}
                   className="font-mono text-xs"
