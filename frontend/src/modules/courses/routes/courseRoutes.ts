@@ -6,6 +6,7 @@ const CoursesPage = lazy(() => import('../pages/CoursesPage'));
 const CourseDetailPage = lazy(() => import('../pages/CourseDetailPage'));
 const CourseQuizManagePage = lazy(() => import('../pages/CourseQuizManagePage'));
 const CoursePlayerPage = lazy(() => import('../pages/CoursePlayerPage'));
+const ChapterDetailPage = lazy(() => import('../pages/ChapterDetailPage'));
 
 // Lazy load wrapper components for forms that need props
 const CreateCourseForm = lazy(() => import('../components/CreateCourseForm'));
@@ -44,6 +45,10 @@ const courseRoutes: RouteConfig[] = [
   {
     path: '/courses/:courseId/chapters/new',
     component: CreateChapterForm,
+  },
+  {
+    path: '/courses/:courseId/chapters/:chapterId',
+    component: ChapterDetailPage,
   },
   {
     path: '/courses/:courseId/chapters/:chapterId/edit',

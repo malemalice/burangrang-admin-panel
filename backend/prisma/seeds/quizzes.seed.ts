@@ -41,25 +41,47 @@ export const seedQuizzes = async () => {
 
     console.log(`📝 Using creator: ${creator.firstName} ${creator.lastName}`);
 
-    // Get courses and chapters for binding
-    const courses = await prisma.course.findMany({
-      where: { isActive: true },
-      take: 3,
+    const courseBasicSafety = await prisma.course.findUnique({
+      where: { slug: 'basic-safety-training' },
+    });
+    const courseFireSafety = await prisma.course.findUnique({
+      where: { slug: 'fire-safety-prevention' },
+    });
+    const courseErgonomics = await prisma.course.findUnique({
+      where: { slug: 'workplace-ergonomics' },
+    });
+    const chapterFirstAidIntro = await prisma.chapter.findFirst({
+      where: {
+        isActive: true,
+        order: 1,
+        course: { slug: 'first-aid-cpr' },
+      },
     });
 
-    const chapters = await prisma.chapter.findMany({
-      where: { isActive: true },
-      take: 3,
-    });
+    if (!courseBasicSafety) {
+      console.log('⚠️  Course basic-safety-training not found; Basic Safety Knowledge quiz may be standalone.');
+    }
+    if (!courseFireSafety) {
+      console.log('⚠️  Course fire-safety-prevention not found; Fire Safety quiz will be standalone.');
+    }
+    if (!courseErgonomics) {
+      console.log('⚠️  Course workplace-ergonomics not found; Ergonomics quiz will be standalone.');
+    }
+    if (!chapterFirstAidIntro) {
+      console.log(
+        '⚠️  First Aid chapter (order 1) not found; First Aid quiz will not bind to a chapter.',
+      );
+    }
 
-    // Define quizzes
+    // Define quizzes (entity bindings resolved by slug after seedCourses)
     const quizzesData = [
       {
         title: 'safety quiz',
-        description: 'Safety awareness, PPE, hazard, fire safety, emergency response, ergonomics',
-        instructions: 'choose one correct answer',
+        description:
+          'Short standalone check on reporting culture and common trip hazards (LMS demo).',
+        instructions: 'Choose one correct answer per question.',
         entity: null as 'COURSE' | 'CHAPTER' | null,
-        entityId: null,
+        entityId: null as string | null,
         duration: 30,
         passingScore: 80,
         maxAttempts: 2,
@@ -72,38 +94,46 @@ export const seedQuizzes = async () => {
         questions: [
           {
             questionType: 'MULTIPLE_CHOICE',
-            questionText: 'What is the primary purpose of Personal Protective Equipment (PPE)?',
-            explanation: 'PPE is designed to reduce exposure to workplace hazards when engineering and administrative controls are not feasible or effective.',
+            questionText: 'What is a “near miss”?',
+            explanation:
+              'A near miss is an unplanned event that did not result in injury or damage but could have.',
             points: 10,
             order: 1,
             options: [
-              { optionText: 'To replace engineering controls', isCorrect: false, order: 1 },
-              { optionText: 'To eliminate all hazards', isCorrect: false, order: 2 },
-              { optionText: 'To reduce exposure to workplace hazards', isCorrect: true, order: 3 },
-              { optionText: 'To increase productivity', isCorrect: false, order: 4 },
+              { optionText: 'An injury that required first aid only', isCorrect: false, order: 1 },
+              {
+                optionText: 'An incident with no injury or loss but with potential for harm',
+                isCorrect: true,
+                order: 2,
+              },
+              { optionText: 'A hazard that has been fully eliminated', isCorrect: false, order: 3 },
+              { optionText: 'A scheduled safety audit', isCorrect: false, order: 4 },
             ],
           },
           {
             questionType: 'MULTIPLE_CHOICE',
-            questionText: 'Which of the following is considered a physical hazard?',
-            explanation: 'Physical hazards include factors within the environment that can harm the body without necessarily touching it, such as noise, radiation, and extreme temperatures.',
+            questionText:
+              'Which factor most often contributes to slips and trips in workplaces?',
+            explanation:
+              'Contamination (wet or oily floors, debris) is a leading contributor to slip and trip events.',
             points: 10,
             order: 2,
             options: [
-              { optionText: 'Chemicals', isCorrect: false, order: 1 },
-              { optionText: 'Noise', isCorrect: true, order: 2 },
-              { optionText: 'Biological agents', isCorrect: false, order: 3 },
-              { optionText: 'Stress', isCorrect: false, order: 4 },
+              { optionText: 'Poor lighting only', isCorrect: false, order: 1 },
+              { optionText: 'Floor contamination or obstacles in walkways', isCorrect: true, order: 2 },
+              { optionText: 'Only footwear choice', isCorrect: false, order: 3 },
+              { optionText: 'Outdoor weather only', isCorrect: false, order: 4 },
             ],
           },
         ],
       },
       {
         title: 'Basic Safety Knowledge Quiz',
-        description: 'Test your understanding of basic safety principles and workplace safety protocols.',
+        description:
+          'Aligned with Basic Safety Training: PPE, electrical safety, fire discovery, and inspections.',
         instructions: 'Answer all questions. You have 30 minutes to complete this quiz. Passing score is 70%.',
-        entity: null as 'COURSE' | 'CHAPTER' | null,
-        entityId: null,
+        entity: courseBasicSafety ? ('COURSE' as const) : null,
+        entityId: courseBasicSafety?.id ?? null,
         duration: 30,
         passingScore: 70,
         maxAttempts: 3,
@@ -116,21 +146,29 @@ export const seedQuizzes = async () => {
         questions: [
           {
             questionType: 'MULTIPLE_CHOICE',
-            questionText: 'What is the primary purpose of Personal Protective Equipment (PPE)?',
-            explanation: 'PPE is designed to protect workers from workplace hazards and reduce the risk of injury.',
+            questionText:
+              'When must personal protective equipment (PPE) typically be used?',
+            explanation:
+              'PPE is used when hazards cannot be fully controlled by elimination, substitution, or engineering/administrative controls.',
             points: 10,
             order: 1,
             options: [
-              { optionText: 'To make workers look professional', isCorrect: false, order: 1 },
-              { optionText: 'To protect workers from workplace hazards', isCorrect: true, order: 2 },
-              { optionText: 'To comply with fashion standards', isCorrect: false, order: 3 },
-              { optionText: 'To increase productivity', isCorrect: false, order: 4 },
+              { optionText: 'Only on Fridays', isCorrect: false, order: 1 },
+              {
+                optionText:
+                  'When required by risk assessment and site rules for the task',
+                isCorrect: true,
+                order: 2,
+              },
+              { optionText: 'Only for visitors', isCorrect: false, order: 3 },
+              { optionText: 'Never if the task is quick', isCorrect: false, order: 4 },
             ],
           },
           {
             questionType: 'MULTIPLE_CHOICE',
             questionText: 'What should you do if you discover a fire in the workplace?',
-            explanation: 'In case of fire, the priority is to alert others and evacuate safely, then call emergency services.',
+            explanation:
+              'In case of fire, the priority is to alert others and evacuate safely, then call emergency services.',
             points: 10,
             order: 2,
             options: [
@@ -143,7 +181,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'TRUE_FALSE',
             questionText: 'It is safe to use damaged electrical equipment if it still works.',
-            explanation: 'Damaged electrical equipment can cause electric shock, fire, or other hazards. It should never be used.',
+            explanation:
+              'Damaged electrical equipment can cause electric shock, fire, or other hazards. It should never be used.',
             points: 5,
             order: 3,
             options: [
@@ -154,7 +193,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'ESSAY',
             questionText: 'Explain the importance of conducting regular safety inspections in the workplace.',
-            explanation: 'Regular safety inspections help identify hazards before they cause accidents, ensure compliance with safety regulations, and maintain a safe working environment.',
+            explanation:
+              'Regular safety inspections help identify hazards before they cause accidents, ensure compliance with safety regulations, and maintain a safe working environment.',
             points: 15,
             order: 4,
             options: [],
@@ -163,10 +203,11 @@ export const seedQuizzes = async () => {
       },
       {
         title: 'Fire Safety Assessment',
-        description: 'Evaluate your knowledge of fire safety procedures and prevention techniques.',
+        description:
+          'Course-level assessment for Fire Safety and Prevention (extinguishers, PASS, alarms).',
         instructions: 'Complete all questions within 20 minutes. You need 75% to pass.',
-        entity: courses.length > 0 ? ('COURSE' as const) : null,
-        entityId: courses.length > 0 ? courses[0].id : null,
+        entity: courseFireSafety ? ('COURSE' as const) : null,
+        entityId: courseFireSafety?.id ?? null,
         duration: 20,
         passingScore: 75,
         maxAttempts: 2,
@@ -180,7 +221,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'MULTIPLE_CHOICE',
             questionText: 'What type of fire extinguisher should be used for electrical fires?',
-            explanation: 'Class C fire extinguishers are designed for electrical fires. Water-based extinguishers should never be used on electrical fires.',
+            explanation:
+              'Class C fire extinguishers are designed for electrical fires. Water-based extinguishers should never be used on electrical fires.',
             points: 10,
             order: 1,
             options: [
@@ -193,7 +235,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'MULTIPLE_CHOICE',
             questionText: 'What does the acronym PASS stand for in fire extinguisher operation?',
-            explanation: 'PASS stands for Pull, Aim, Squeeze, Sweep - the correct sequence for using a fire extinguisher.',
+            explanation:
+              'PASS stands for Pull, Aim, Squeeze, Sweep - the correct sequence for using a fire extinguisher.',
             points: 10,
             order: 2,
             options: [
@@ -206,7 +249,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'TRUE_FALSE',
             questionText: 'Smoke detectors should be tested monthly.',
-            explanation: 'Regular monthly testing ensures smoke detectors are functioning properly and can save lives.',
+            explanation:
+              'Regular monthly testing ensures smoke detectors are functioning properly and can save lives.',
             points: 5,
             order: 3,
             options: [
@@ -218,10 +262,11 @@ export const seedQuizzes = async () => {
       },
       {
         title: 'First Aid Fundamentals Quiz',
-        description: 'Test your knowledge of basic first aid procedures and emergency response.',
+        description:
+          'Chapter assessment for the first module of First Aid and CPR (scene safety and initial assessment).',
         instructions: 'Answer all questions carefully. Passing score is 80%.',
-        entity: chapters.length > 0 ? ('CHAPTER' as const) : null,
-        entityId: chapters.length > 0 ? chapters[0].id : null,
+        entity: chapterFirstAidIntro ? ('CHAPTER' as const) : null,
+        entityId: chapterFirstAidIntro?.id ?? null,
         duration: 25,
         passingScore: 80,
         maxAttempts: null,
@@ -235,7 +280,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'MULTIPLE_CHOICE',
             questionText: 'What is the first step in providing first aid to an unconscious person?',
-            explanation: 'The first step is always to check for responsiveness and ensure the scene is safe before approaching.',
+            explanation:
+              'The first step is always to check for responsiveness and ensure the scene is safe before approaching.',
             points: 10,
             order: 1,
             options: [
@@ -247,7 +293,7 @@ export const seedQuizzes = async () => {
           },
           {
             questionType: 'MULTIPLE_CHOICE',
-            questionText: 'How many chest compressions should be given per minute during CPR for adults?',
+            questionText: 'How many chest compressions per minute are recommended for adult CPR?',
             explanation: 'The recommended rate for adult CPR is 100-120 compressions per minute.',
             points: 10,
             order: 2,
@@ -261,7 +307,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'TRUE_FALSE',
             questionText: 'You should remove an embedded object from a wound before applying pressure.',
-            explanation: 'Never remove embedded objects as they may be preventing further bleeding. Apply pressure around the object instead.',
+            explanation:
+              'Never remove embedded objects as they may be preventing further bleeding. Apply pressure around the object instead.',
             points: 5,
             order: 3,
             options: [
@@ -272,7 +319,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'ESSAY',
             questionText: 'Describe the steps you would take when encountering someone who is choking.',
-            explanation: 'The Heimlich maneuver should be used for conscious choking victims, followed by checking for responsiveness and calling emergency services if needed.',
+            explanation:
+              'The Heimlich maneuver should be used for conscious choking victims, followed by checking for responsiveness and calling emergency services if needed.',
             points: 15,
             order: 4,
             options: [],
@@ -281,24 +329,25 @@ export const seedQuizzes = async () => {
       },
       {
         title: 'Workplace Ergonomics Quiz',
-        description: 'Assess your understanding of ergonomic principles and workplace design.',
+        description: 'Course draft quiz for Workplace Ergonomics (monitor height, micro-breaks).',
         instructions: 'Complete this quiz in 15 minutes. Score 70% or higher to pass.',
-        entity: courses.length > 1 ? ('COURSE' as const) : null,
-        entityId: courses.length > 1 ? courses[1].id : null,
+        entity: courseErgonomics ? ('COURSE' as const) : null,
+        entityId: courseErgonomics?.id ?? null,
         duration: 15,
         passingScore: 70,
         maxAttempts: 5,
         shuffleQuestions: true,
         shuffleOptions: true,
         showCorrectAnswer: true,
-        isPublished: false, // Draft quiz
+        isPublished: false,
         publishedAt: null,
         isActive: true,
         questions: [
           {
             questionType: 'MULTIPLE_CHOICE',
             questionText: 'What is the recommended height for a computer monitor?',
-            explanation: 'The top of the monitor should be at or slightly below eye level to prevent neck strain.',
+            explanation:
+              'The top of the monitor should be at or slightly below eye level to prevent neck strain.',
             points: 10,
             order: 1,
             options: [
@@ -311,7 +360,8 @@ export const seedQuizzes = async () => {
           {
             questionType: 'TRUE_FALSE',
             questionText: 'Taking regular breaks from computer work can help prevent repetitive strain injuries.',
-            explanation: 'Regular breaks allow muscles to rest and recover, reducing the risk of repetitive strain injuries.',
+            explanation:
+              'Regular breaks allow muscles to rest and recover, reducing the risk of repetitive strain injuries.',
             points: 5,
             order: 2,
             options: [
@@ -342,7 +392,7 @@ export const seedQuizzes = async () => {
       }
 
       // Create quiz with questions and options
-      const quiz = await prisma.quiz.create({
+      await prisma.quiz.create({
         data: {
           title: quizData.title,
           description: quizData.description,
@@ -383,7 +433,7 @@ export const seedQuizzes = async () => {
       const entityInfo = quizData.entity
         ? ` (bound to ${quizData.entity}${quizData.entityId ? ' ID: ' + quizData.entityId : ''})`
         : ' (standalone)';
-      console.log(`✅ Created quiz: ${quiz.title}${entityInfo} with ${quizData.questions.length} questions`);
+      console.log(`✅ Created quiz: ${quizData.title}${entityInfo} with ${quizData.questions.length} questions`);
     }
 
     // Seed quiz attempts for Admin Overview dashboard (LMS quiz pass rate)
