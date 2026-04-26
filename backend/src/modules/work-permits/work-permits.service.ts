@@ -50,6 +50,9 @@ import { ProgressService } from '../progress/progress.service';
 import { UpdateProgressDto } from '../progress/dto/update-progress.dto';
 import { CreateQuizAttemptDto } from '../quizzes/dto/quiz-attempt.dto';
 import { SubmitAnswerDto } from '../quizzes/dto/quiz-answer.dto';
+import { HealthScreeningsService } from '../health-screenings/health-screenings.service';
+import { PublicHealthScreeningLinkResponseDto } from '../health-screenings/dto/public-health-screening-link-response.dto';
+import { SETTINGS_KEYS } from '../settings/constants/settings-keys';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -73,6 +76,7 @@ export class WorkPermitsService {
     private readonly enrollmentsService: EnrollmentsService,
     private readonly quizzesService: QuizzesService,
     private readonly progressService: ProgressService,
+    private readonly healthScreeningsService: HealthScreeningsService,
   ) {
     this.rawWorkPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
       area: {
@@ -215,6 +219,71 @@ export class WorkPermitsService {
       if (!hasUrl && !w.healthScreeningId) {
         this.errorHandler.throwBadRequest(
           'Each worker must have a health declaration URL and/or a linked health screening',
+        );
+      }
+    }
+  }
+
+  /**
+   * For submit: each permit worker must have a declaration file on `t_worker` and/or
+   * a latest health screening with status DONE that is still within the configured validity window.
+   */
+  private async assertAllWorkersHaveHealthSatisfiedForSubmit(
+    workPermitId: string,
+  ): Promise<void> {
+    const wp = await this.prisma.workPermit.findUnique({
+      where: { id: workPermitId },
+      include: {
+        workers: {
+          orderBy: { order: 'asc' },
+          include: {
+            worker: {
+              include: {
+                healthScreenings: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                  select: { id: true, status: true, createdAt: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!wp?.workers?.length) {
+      this.errorHandler.throwBadRequest('At least one worker is required');
+    }
+    const validityDays = await this.settingsHelper.getNumber(
+      HEALTH_DECLARATION_VALIDITY_DAYS_KEY,
+      90,
+    );
+    const ms = validityDays * 24 * 60 * 60 * 1000;
+    for (const row of wp.workers) {
+      const w = row.worker;
+      if (!w) {
+        this.errorHandler.throwBadRequest('Worker profile missing for a permit worker');
+      }
+      const hasUrl =
+        w.healthDeclarationUrl != null &&
+        String(w.healthDeclarationUrl).trim().length > 0;
+      if (hasUrl) {
+        continue;
+      }
+      const hs = w.healthScreenings?.[0];
+      if (!hs) {
+        this.errorHandler.throwBadRequest(
+          'Each worker must have a health declaration file on the worker profile and/or a completed health declaration in the validity period. Update workers before submitting.',
+        );
+      }
+      if (hs.status !== 'DONE') {
+        this.errorHandler.throwBadRequest(
+          'Each worker must have a completed (DONE) health declaration or a declaration file on the worker profile before submitting.',
+        );
+      }
+      const validUntil = new Date(hs.createdAt.getTime() + ms);
+      if (validUntil.getTime() < Date.now()) {
+        this.errorHandler.throwBadRequest(
+          'A worker health declaration is past its validity period. Renew the declaration or upload a file on the worker profile before submitting.',
         );
       }
     }
@@ -1827,6 +1896,8 @@ export class WorkPermitsService {
         workPermit.workClassificationOtherDetail,
       );
 
+      await this.assertAllWorkersHaveHealthSatisfiedForSubmit(id);
+
       // Update status to IN_REVIEW_PROJECT_OWNER
       const updated = await this.prisma.workPermit.update({
         where: { id },
@@ -3098,6 +3169,10 @@ export class WorkPermitsService {
       (!courseVerification.enabled || courseVerification.allRequiredCompleted);
     const mitigationsByRiskId =
       await this.loadPublicMitigationsByRiskIds(workPermit);
+    const classificationContentEnabled = await this.settingsHelper.getBoolean(
+      SETTINGS_KEYS.FEATURE_WORK_PERMIT_CLASSIFICATION_CONTENT,
+      false,
+    );
     return {
       workPermit: dto,
       isEditable,
@@ -3108,6 +3183,7 @@ export class WorkPermitsService {
       canSignSkAction,
       courseVerification,
       mitigationsByRiskId,
+      classificationContentEnabled,
     };
   }
 
@@ -3161,6 +3237,8 @@ export class WorkPermitsService {
         workPermit.workClassificationOtherDetail,
       );
 
+      await this.assertAllWorkersHaveHealthSatisfiedForSubmit(workPermit.id);
+
       const updated = await this.prisma.workPermit.update({
         where: { id: workPermit.id },
         data: {
@@ -3177,6 +3255,39 @@ export class WorkPermitsService {
       await this.sendNotificationToHse(workPermit.id, updated);
       return this.mapWorkPermitToDto(updated);
     }, 'Submitting work permit (public link)');
+  }
+
+  /**
+   * Mint a time-limited health declaration fill URL for a worker on this permit.
+   * Authorized by the work-permit public token; requester for screening start is the bound applicant.
+   */
+  async generateWorkerHealthScreeningLinkByWorkPermitToken(
+    token: string,
+    workerUserId: string,
+  ): Promise<PublicHealthScreeningLinkResponseDto> {
+    return this.errorHandler.safeExecute(async () => {
+      const { workPermit } = await this.loadWorkPermitForPublicToken(token);
+
+      const workers = workPermit.workers ?? [];
+      const onPermit = workers.some(
+        (row: { worker?: { userId?: string } }) =>
+          row.worker?.userId === workerUserId,
+      );
+      if (!onPermit) {
+        this.errorHandler.throwBadRequest(
+          'This user is not listed as a worker on this work permit',
+        );
+      }
+
+      const requesterUserId =
+        (workPermit as { applicantUserId?: string | null }).applicantUserId ??
+        workPermit.createdBy;
+
+      return this.healthScreeningsService.generatePublicFillLink(
+        { userId: workerUserId },
+        requesterUserId,
+      );
+    }, 'Generating worker health declaration link (public work permit token)');
   }
 
   // --- Public work permit: inline course (token, applicant only) ---

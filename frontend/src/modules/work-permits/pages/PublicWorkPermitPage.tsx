@@ -17,13 +17,13 @@ import { PublicWorkPermitReadOnlyDetail } from '../components/PublicWorkPermitRe
 import { WorkPermitSafetyGuidelineDisplay } from '../components/WorkPermitSafetyGuidelineDisplay';
 import { WorkPermitSection, WorkPermitSubsectionTitle } from '../components/WorkPermitSection';
 import { WORK_PERMIT_SECTION_G_SUB } from '../constants/workPermitSections';
-import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { PublicAppModuleHeader } from '@/core/components/layout/PublicAppModuleHeader';
 import PublicWorkPermitInlineCoursePanel from '../components/PublicWorkPermitInlineCoursePanel';
 import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 import type { PublicWorkPermitCourseVerification, WorkPermitPublicApplicantPhase } from '../types/work-permit.types';
+import { isWorkPermitWorkerHealthSatisfiedForSubmit } from '../utils/healthScreeningEligibility';
 
 const PUBLIC_WORK_PERMIT_MODULE_TITLE = 'Work permit (public)';
 const PUBLIC_WORK_PERMIT_MODULE_DESC =
@@ -73,6 +73,7 @@ const PublicWorkPermitPage = () => {
   const [mitigationsByRiskIdPrefetch, setMitigationsByRiskIdPrefetch] = useState<
     Record<string, RiskMitigation[]> | undefined
   >(undefined);
+  const [classificationContentEnabled, setClassificationContentEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,7 +83,6 @@ const PublicWorkPermitPage = () => {
   const [ackDataAccurate, setAckDataAccurate] = useState(false);
   const [signingSk, setSigningSk] = useState(false);
 
-  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const {
     mitigationsByRiskId,
     mitigationsLoadingByRiskId,
@@ -91,6 +91,12 @@ const PublicWorkPermitPage = () => {
     workPermit?.classifications,
     mitigationsByRiskIdPrefetch,
   );
+
+  const workersHealthReadyForPublicSubmit = useMemo(() => {
+    const workers = workPermit?.workers;
+    if (!workers?.length) return false;
+    return workers.every((w) => isWorkPermitWorkerHealthSatisfiedForSubmit(w));
+  }, [workPermit?.workers]);
 
   // Minimal editable fields (avoid depending on authenticated master-data endpoints).
   const [projectName, setProjectName] = useState('');
@@ -202,6 +208,7 @@ const PublicWorkPermitPage = () => {
       setCanSignSkAction(res.canSignSkAction);
       setCourseVerification(res.courseVerification);
       setMitigationsByRiskIdPrefetch(res.mitigationsByRiskId);
+      setClassificationContentEnabled(res.classificationContentEnabled);
       hydrateEditableState(res.workPermit);
     } catch (e) {
       const msg = getErrorMessage(e);
@@ -280,6 +287,12 @@ const PublicWorkPermitPage = () => {
 
   const handleSubmit = async () => {
     if (!token || !canEditDraft) return;
+    if (!workersHealthReadyForPublicSubmit) {
+      toast.error(
+        'Each listed worker must have a valid health declaration: a completed online declaration in the validity period, or a declaration file on the worker profile. See the Workers section below.',
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       await workPermitService.submitPublicByToken(token);
@@ -727,11 +740,25 @@ const PublicWorkPermitPage = () => {
               </div>
             </div>
 
+            {!workersHealthReadyForPublicSubmit ? (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  Submit is disabled until every worker has a valid health declaration (online declaration
+                  in the validity window and/or a declaration file on the worker profile). Check the
+                  Workers section, use &quot;Get declaration link&quot; to share the questionnaire if needed, then
+                  refresh this page.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleSave} disabled={saving || submitting}>
                 {saving ? 'Saving...' : 'Save'}
               </Button>
-              <Button onClick={handleSubmit} disabled={saving || submitting}>
+              <Button
+                onClick={handleSubmit}
+                disabled={saving || submitting || !workersHealthReadyForPublicSubmit}
+              >
                 {submitting ? 'Submitting...' : 'Submit'}
               </Button>
             </div>
@@ -742,7 +769,11 @@ const PublicWorkPermitPage = () => {
       <PublicWorkPermitReadOnlyDetail
         workPermit={workPermit}
         hideSectionG={canSignSk}
-        mitigationsByRiskIdPrefetched={mitigationsByRiskIdPrefetch}
+        classificationContentEnabled={classificationContentEnabled}
+        mitigationsByRiskId={mitigationsByRiskId}
+        mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
+        mitigationsErrorByRiskId={mitigationsErrorByRiskId}
+        publicApplicantToken={token}
       />
 
       {canSignSk &&

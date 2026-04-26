@@ -79,6 +79,7 @@ import { WORK_CLASSIFICATION_OTHER_CODE } from '../constants/workClassification'
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 import healthScreeningService from '@/modules/health-screenings/services/healthScreeningService';
 import type { HealthScreeningListItem } from '@/modules/health-screenings/types/healthScreening.types';
+import { isHealthScreeningListItemEligible } from '../utils/healthScreeningEligibility';
 import type { CompanyDTO } from '@/modules/master-data/types/master-data.types';
 
 const workerRowSchema = z.object({
@@ -336,14 +337,6 @@ function WorkerCertificateReadonly({
   );
 }
 
-function isEligibleHealthScreening(s: HealthScreeningListItem): boolean {
-  if (s.status !== 'DONE') return false;
-  if (s.validUntil) {
-    return new Date(s.validUntil).getTime() >= Date.now();
-  }
-  return true;
-}
-
 /** Resolves latest valid DONE screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
 function WorkerAutoLinkedHealthScreening({
   control,
@@ -382,7 +375,7 @@ function WorkerAutoLinkedHealthScreening({
           limit: 20,
         });
         if (cancelled) return;
-        const pick = res.data.find(isEligibleHealthScreening);
+        const pick = res.data.find(isHealthScreeningListItemEligible);
         if (pick) {
           setValue(`workers.${index}.healthScreeningId`, pick.id);
           setPreview(pick);

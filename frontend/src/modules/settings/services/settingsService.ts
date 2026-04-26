@@ -112,12 +112,9 @@ const settingsService = {
         console.warn(`403 Forbidden for setting ${key}, not retrying`);
         return null;
       }
-      // Handle 401 (unauthorized) - retry once if we haven't exceeded limit
-      if (error.response?.status === 401 && retryCount < MAX_RETRIES) {
-        console.log(`401 Unauthorized for setting ${key}, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-        // Wait a bit before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return settingsService.getSettingValue(key, retryCount + 1);
+      // 401: no valid session (e.g. public pages) — do not retry; same as missing value for feature flags
+      if (error.response?.status === 401) {
+        return null;
       }
 
       console.error(`Error fetching setting ${key}:`, error);

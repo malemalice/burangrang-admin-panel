@@ -124,4 +124,10 @@ export class PublicWorkPermitByTokenResponseDto {
     type: Object,
   })
   mitigationsByRiskId: Record<string, PublicWorkPermitRiskMitigationItemDto[]>;
+
+  @ApiProperty({
+    description:
+      'When true, show classification safety guideline narrative/attachments in work permit UI (mirrors `feature.work_permit_classification_content.enabled` without a separate settings call).',
+  })
+  classificationContentEnabled: boolean;
 }

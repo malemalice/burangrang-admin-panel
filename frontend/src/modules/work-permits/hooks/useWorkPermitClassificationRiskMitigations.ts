@@ -23,6 +23,8 @@ export function useWorkPermitClassificationRiskMitigations(
   >({});
   const isMountedRef = useRef(true);
   const mitigationsInFlightRef = useRef<Set<string>>(new Set());
+  const mitigationsByRiskIdRef = useRef(mitigationsByRiskId);
+  mitigationsByRiskIdRef.current = mitigationsByRiskId;
 
   useEffect(() => {
     return () => {
@@ -91,11 +93,11 @@ export function useWorkPermitClassificationRiskMitigations(
     };
 
     distinctRiskIds.forEach((riskId) => {
-      if (mitigationsByRiskId[riskId] !== undefined) return;
+      if (mitigationsByRiskIdRef.current[riskId] !== undefined) return;
       if (mitigationsInFlightRef.current.has(riskId)) return;
       void loadMitigations(riskId);
     });
-  }, [distinctRiskIds, mitigationsByRiskId, prefetchedMitigationsByRiskId]);
+  }, [distinctRiskIds, prefetchedMitigationsByRiskId]);
 
   const mitigationsPending =
     distinctRiskIds.length > 0 &&

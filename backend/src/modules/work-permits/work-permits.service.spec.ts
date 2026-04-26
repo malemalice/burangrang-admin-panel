@@ -62,7 +62,10 @@ const mockApprovalAccess = {
   isApproverForEntityType: jest.fn().mockResolvedValue({ isApprover: false, pendingStatuses: [] }),
 } as unknown as ApprovalAccessService;
 const mockNotifications = {} as unknown as NotificationsService;
-const mockSettings = { getNumber: jest.fn().mockResolvedValue(90) } as unknown as SettingsHelperService;
+const mockSettings = {
+  getNumber: jest.fn().mockResolvedValue(90),
+  getBoolean: jest.fn().mockResolvedValue(false),
+} as unknown as SettingsHelperService;
 
 const mockConfigService = { get: jest.fn() };
 const mockPublicLinkService = {
@@ -76,6 +79,10 @@ const mockQuizzesService = {};
 const mockProgressService = {
   updateProgress: jest.fn(),
   completeChapter: jest.fn(),
+};
+
+const mockHealthScreeningsService = {
+  generatePublicFillLink: jest.fn(),
 };
 
 describe('WorkPermitsService (applicant on behalf)', () => {
@@ -162,6 +169,7 @@ describe('WorkPermitsService (applicant on behalf)', () => {
       mockEnrollmentsService as any,
       mockQuizzesService as any,
       mockProgressService as any,
+      mockHealthScreeningsService as any,
     );
   });
 

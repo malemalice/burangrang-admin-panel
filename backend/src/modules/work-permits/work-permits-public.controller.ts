@@ -30,6 +30,8 @@ import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
 import { PublicWorkPermitByTokenResponseDto } from './dto/public-work-permit-by-token-response.dto';
 import { UpdateProgressDto } from '../progress/dto/update-progress.dto';
 import { SubmitAnswerDto } from '../quizzes/dto/quiz-answer.dto';
+import { WorkerHealthScreeningLinkDto } from './dto/worker-health-screening-link.dto';
+import { PublicHealthScreeningLinkResponseDto } from '../health-screenings/dto/public-health-screening-link-response.dto';
 
 interface RequestWithUser extends Request {
   user: { id: string; email: string; role: string };
@@ -198,6 +200,23 @@ export class WorkPermitsPublicController {
     return this.workPermitsService.updatePublicWorkPermitByToken(
       decodeURIComponent(token),
       dto,
+    );
+  }
+
+  @Post('public/:token/worker-health-screening-link')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Generate a time-limited health declaration fill link for a worker on this permit (anonymous applicant token)',
+  })
+  @ApiBody({ type: WorkerHealthScreeningLinkDto })
+  async postPublicWorkerHealthScreeningLink(
+    @Param('token') token: string,
+    @Body() dto: WorkerHealthScreeningLinkDto,
+  ): Promise<PublicHealthScreeningLinkResponseDto> {
+    return this.workPermitsService.generateWorkerHealthScreeningLinkByWorkPermitToken(
+      decodeURIComponent(token),
+      dto.userId,
     );
   }
 

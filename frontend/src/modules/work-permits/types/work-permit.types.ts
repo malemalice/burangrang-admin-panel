@@ -559,6 +559,8 @@ export interface PublicWorkPermitByTokenResponse {
   courseVerification: PublicWorkPermitCourseVerification;
   /** Master risk mitigations for safety-guidance row risks (avoids unauthenticated /risk-mitigations calls) */
   mitigationsByRiskId: Record<string, RiskMitigation[]>;
+  /** From server settings; avoids unauthenticated /settings/value on public pages */
+  classificationContentEnabled: boolean;
 }
 
 // Data transformation functions

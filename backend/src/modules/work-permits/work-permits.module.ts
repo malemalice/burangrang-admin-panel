@@ -14,6 +14,7 @@ import { WorkPermitPublicLinkService } from './services/work-permit-public-link.
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { QuizzesModule } from '../quizzes/quizzes.module';
 import { ProgressModule } from '../progress/progress.module';
+import { HealthScreeningsModule } from '../health-screenings/health-screenings.module';
 
 /**
  * Approval entity name for Work Permit module
@@ -31,6 +32,7 @@ export const WORK_PERMIT_APPROVAL_ENTITY = APPROVAL_ENTITIES.WORK_PERMIT;
     EnrollmentsModule,
     QuizzesModule,
     ProgressModule,
+    HealthScreeningsModule,
   ],
   controllers: [
     WorkPermitsController,

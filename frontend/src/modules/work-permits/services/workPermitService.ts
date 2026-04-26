@@ -266,6 +266,7 @@ const workPermitService = {
       canSignSkAction: raw.canSignSkAction,
       courseVerification: raw.courseVerification,
       mitigationsByRiskId: raw.mitigationsByRiskId ?? {},
+      classificationContentEnabled: raw.classificationContentEnabled ?? false,
     };
   },
 
@@ -297,6 +298,21 @@ const workPermitService = {
     const enc = encodeURIComponent(token);
     const res = await publicApi.post(`/work-permits/public/${enc}/sign-sk`, { signature });
     return mapWorkPermitDtoToWorkPermit(res.data as WorkPermitDTO);
+  },
+
+  /**
+   * Public (no-login) — mint health declaration fill URL for a worker on this permit.
+   */
+  postPublicWorkerHealthScreeningLink: async (
+    token: string,
+    body: { userId: string },
+  ): Promise<{ linkUrl: string; expiresAt: string; screeningId: string }> => {
+    const enc = encodeURIComponent(token);
+    const res = await publicApi.post(
+      `/work-permits/public/${enc}/worker-health-screening-link`,
+      body,
+    );
+    return res.data as { linkUrl: string; expiresAt: string; screeningId: string };
   },
 };
 

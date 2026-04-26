@@ -1,8 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 import { format } from 'date-fns';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { Copy, ExternalLink, Loader2 } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
+import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import { Label } from '@/core/components/ui/label';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -23,10 +29,12 @@ import {
   WORK_PERMIT_SECTION_F_SUB,
   WORK_PERMIT_SECTION_G_SUB,
 } from '../constants/workPermitSections';
-import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
-import type { WorkPermit } from '../types/work-permit.types';
-import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
-import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
+import type { WorkPermit, WorkPermitWorker } from '../types/work-permit.types';
+import {
+  hasHealthDeclarationFile,
+  isHealthScreeningEligible,
+} from '../utils/healthScreeningEligibility';
+import workPermitService from '../services/workPermitService';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
   if (v == null) return '—';
@@ -34,11 +42,202 @@ const displayField = (v: string | number | boolean | null | undefined) => {
   return s !== '' ? s : '—';
 };
 
+function getPublicDetailErrorMessage(e: unknown): string {
+  if (axios.isAxiosError(e)) {
+    const data = e.response?.data as { message?: string | string[] } | undefined;
+    const m = data?.message;
+    if (Array.isArray(m)) return m.join(', ');
+    if (typeof m === 'string' && m.trim()) return m;
+    return e.message || 'Request failed';
+  }
+  if (e instanceof Error) return e.message;
+  return 'Something went wrong';
+}
+
+const screeningBadgeClass = {
+  valid: 'border-0 bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200',
+  warn: 'border-0 bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200',
+  muted: 'border-0 bg-muted text-muted-foreground',
+} as const;
+
+function PublicWorkPermitWorkersList({
+  workers,
+  publicApplicantToken,
+}: {
+  workers: WorkPermitWorker[];
+  publicApplicantToken?: string;
+}) {
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
+  const [linkByUserId, setLinkByUserId] = useState<
+    Record<string, { linkUrl: string; expiresAt: string }>
+  >({});
+
+  const getScreeningBadge = (w: WorkPermitWorker) => {
+    const hs = w.healthScreening;
+    if (!hs) {
+      return { label: 'No online declaration', className: screeningBadgeClass.muted };
+    }
+    if (isHealthScreeningEligible(hs)) {
+      return { label: 'Valid', className: screeningBadgeClass.valid };
+    }
+    if (hs.status === 'DONE' && hs.validUntil) {
+      const expired = new Date(hs.validUntil).getTime() < Date.now();
+      if (expired) {
+        return { label: 'Expired', className: screeningBadgeClass.warn };
+      }
+    }
+    return {
+      label: hs.status === 'IN_PROGRESS' ? 'In progress' : hs.status.replace(/_/g, ' '),
+      className: screeningBadgeClass.warn,
+    };
+  };
+
+  const fetchLink = async (userId: string) => {
+    if (!publicApplicantToken) return;
+    setLoadingUserId(userId);
+    try {
+      const res = await workPermitService.postPublicWorkerHealthScreeningLink(
+        publicApplicantToken,
+        { userId },
+      );
+      setLinkByUserId((prev) => ({
+        ...prev,
+        [userId]: { linkUrl: res.linkUrl, expiresAt: res.expiresAt },
+      }));
+      toast.success('Declaration link ready — copy or open in a new tab');
+    } catch (e) {
+      toast.error(getPublicDetailErrorMessage(e));
+    } finally {
+      setLoadingUserId(null);
+    }
+  };
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard');
+    } catch {
+      toast.error('Could not copy — copy the link manually');
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {workers.map((worker) => {
+        const userId = worker.userId;
+        const hs = worker.healthScreening;
+        const eligible = hs ? isHealthScreeningEligible(hs) : false;
+        const hasFile = hasHealthDeclarationFile(worker.healthDeclarationUrl);
+        /** Show health form link whenever the online declaration is not valid (file alone does not block—users can still open/share the public questionnaire). */
+        const showLinkActions = Boolean(publicApplicantToken) && !eligible;
+        const cached = userId ? linkByUserId[userId] : undefined;
+        const screeningBadge = getScreeningBadge(worker);
+
+        return (
+          <div
+            key={worker.id}
+            className="space-y-2 rounded-md border p-3 sm:p-4"
+          >
+            <div>
+              <p className="font-medium">
+                {worker.user
+                  ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() ||
+                    worker.user.email ||
+                    'Unknown'
+                  : 'Unknown'}
+              </p>
+              {worker.profession ? (
+                <p className="text-sm text-muted-foreground">
+                  {worker.profession.name} ({worker.profession.code})
+                </p>
+              ) : null}
+              {worker.idNumber ? (
+                <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Health declaration</span>
+              <Badge variant="secondary" className={screeningBadge.className}>
+                {screeningBadge.label}
+              </Badge>
+              {hs?.validUntil ? (
+                <span className="text-xs text-muted-foreground">
+                  {eligible
+                    ? `Valid through ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`
+                    : hs.status === 'DONE' &&
+                        new Date(hs.validUntil).getTime() < Date.now()
+                      ? `Expired ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`
+                      : `Review by ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`}
+                </span>
+              ) : null}
+            </div>
+            {hasFile ? (
+              <p className="text-xs text-muted-foreground">Declaration file on record</p>
+            ) : null}
+            {publicApplicantToken && showLinkActions ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={loadingUserId === userId}
+                  onClick={() => void fetchLink(userId)}
+                >
+                  {loadingUserId === userId ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating link…
+                    </>
+                  ) : (
+                    'Get declaration link'
+                  )}
+                </Button>
+                {cached ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void copyLink(cached.linkUrl)}
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy link
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        window.open(cached.linkUrl, '_blank', 'noopener,noreferrer')
+                      }
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open in new tab
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Link expires: {format(new Date(cached.expiresAt), 'MMM d, yyyy HH:mm')}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 type Props = {
   workPermit: WorkPermit;
   hideSectionG?: boolean;
-  /** From public GET bundle — avoids unauthenticated /risk-mitigations calls */
-  mitigationsByRiskIdPrefetched?: Record<string, RiskMitigation[]>;
+  /** From public GET bundle (server settings) — avoids /settings/value on anonymous pages */
+  classificationContentEnabled: boolean;
+  mitigationsByRiskId: Record<string, RiskMitigation[]>;
+  mitigationsLoadingByRiskId: Record<string, boolean>;
+  mitigationsErrorByRiskId: Record<string, string | undefined>;
+  /** When set, show worker health declaration status and token-based fill links */
+  publicApplicantToken?: string;
 };
 
 /**
@@ -48,17 +247,12 @@ type Props = {
 export function PublicWorkPermitReadOnlyDetail({
   workPermit,
   hideSectionG = false,
-  mitigationsByRiskIdPrefetched,
+  classificationContentEnabled,
+  mitigationsByRiskId,
+  mitigationsLoadingByRiskId,
+  mitigationsErrorByRiskId,
+  publicApplicantToken,
 }: Props) {
-  const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
-  const {
-    mitigationsByRiskId,
-    mitigationsLoadingByRiskId,
-    mitigationsErrorByRiskId,
-  } = useWorkPermitClassificationRiskMitigations(
-    workPermit?.classifications,
-    mitigationsByRiskIdPrefetched,
-  );
 
   const createdByLabel = (() => {
     const creator = workPermit?.creator;
@@ -214,30 +408,23 @@ export function PublicWorkPermitReadOnlyDetail({
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
             </CardHeader>
             <CardContent>
+              {publicApplicantToken ? (
+                <Alert className="mb-4">
+                  <AlertDescription className="text-sm leading-relaxed">
+                    Each worker on this permit must have a valid health declaration: either a completed online
+                    declaration (below) or a declaration file already stored on the worker profile. Links are
+                    time-limited—share one with the worker to complete the questionnaire, or open it for them. After
+                    they finish, refresh this page to see updated status.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               {(workPermit.workers?.length ?? 0) === 0 ? (
                 <p className="text-sm text-muted-foreground">No workers listed.</p>
               ) : (
-                <div className="space-y-2">
-                  {workPermit.workers!.map((worker) => (
-                    <div key={worker.id} className="flex items-center justify-between p-2 border rounded-md">
-                      <div>
-                        <p className="font-medium">
-                          {worker.user
-                            ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
-                            : 'Unknown'}
-                        </p>
-                        {worker.profession ? (
-                          <p className="text-sm text-muted-foreground">
-                            {worker.profession.name} ({worker.profession.code})
-                          </p>
-                        ) : null}
-                        {worker.idNumber ? (
-                          <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PublicWorkPermitWorkersList
+                  workers={workPermit.workers!}
+                  publicApplicantToken={publicApplicantToken}
+                />
               )}
             </CardContent>
           </Card>
