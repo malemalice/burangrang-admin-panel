@@ -44,6 +44,12 @@ import { WorkPermitPublicLinkService } from './services/work-permit-public-link.
 import { GenerateWorkPermitPublicLinkDto } from './dto/generate-work-permit-public-link.dto';
 import { PublicWorkPermitLinkResponseDto } from './dto/public-work-permit-link-response.dto';
 import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { QuizzesService } from '../quizzes/quizzes.service';
+import { ProgressService } from '../progress/progress.service';
+import { UpdateProgressDto } from '../progress/dto/update-progress.dto';
+import { CreateQuizAttemptDto } from '../quizzes/dto/quiz-attempt.dto';
+import { SubmitAnswerDto } from '../quizzes/dto/quiz-answer.dto';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -64,6 +70,9 @@ export class WorkPermitsService {
     private readonly settingsHelper: SettingsHelperService,
     private readonly configService: ConfigService,
     private readonly publicLinkService: WorkPermitPublicLinkService,
+    private readonly enrollmentsService: EnrollmentsService,
+    private readonly quizzesService: QuizzesService,
+    private readonly progressService: ProgressService,
   ) {
     this.rawWorkPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
       area: {
@@ -3168,6 +3177,249 @@ export class WorkPermitsService {
       await this.sendNotificationToHse(workPermit.id, updated);
       return this.mapWorkPermitToDto(updated);
     }, 'Submitting work permit (public link)');
+  }
+
+  // --- Public work permit: inline course (token, applicant only) ---
+
+  private async ensureApplicantEnrollmentForCourse(
+    applicantUserId: string,
+    courseId: string,
+  ): Promise<string> {
+    const existing = await this.prisma.enrollment.findFirst({
+      where: { userId: applicantUserId, courseId },
+      orderBy: { enrolledAt: 'desc' },
+    });
+    if (existing) {
+      return existing.id;
+    }
+    const created = await this.prisma.enrollment.create({
+      data: {
+        userId: applicantUserId,
+        courseId,
+        status: EnrollmentStatusEnum.ACTIVE,
+        enrolledAt: new Date(),
+        progress: 0,
+      },
+    });
+    return created.id;
+  }
+
+  private async assertQuizBelongsToCourse(
+    quizId: string,
+    courseId: string,
+  ): Promise<void> {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+    });
+    this.errorHandler.throwIfNotFoundById('Quiz', quizId, quiz);
+    if (quiz!.entity === 'COURSE') {
+      if (quiz!.entityId !== courseId) {
+        this.errorHandler.throwBadRequest('Quiz does not belong to this course');
+      }
+      return;
+    }
+    if (quiz!.entity === 'CHAPTER') {
+      const entityId = quiz!.entityId;
+      if (entityId == null || entityId === '') {
+        this.errorHandler.throwBadRequest('Quiz is not part of a course');
+      }
+      const ch = await this.prisma.chapter.findUnique({
+        where: { id: entityId },
+      });
+      this.errorHandler.throwIfNotFoundById('Chapter', entityId, ch);
+      if (ch!.courseId !== courseId) {
+        this.errorHandler.throwBadRequest('Quiz does not belong to this course');
+      }
+      return;
+    }
+    this.errorHandler.throwBadRequest('Quiz is not part of a course');
+  }
+
+  /**
+   * Public token: applicant may study only when permit waits for sign-off and course is required on the permit.
+   */
+  private async resolvePublicCourseLearning(
+    token: string,
+    courseId: string,
+  ): Promise<{
+    applicantUserId: string;
+    enrollmentId: string;
+  }> {
+    const { workPermit } = await this.loadWorkPermitForPublicToken(token);
+    if (workPermit.status !== WorkPermitStatusEnum.WAITING_APPLICANT_SIGN) {
+      this.errorHandler.throwBadRequest(
+        'Course training is only available when the permit is waiting for applicant sign-off.',
+      );
+    }
+    if (!workPermit.requireCourseVerification) {
+      this.errorHandler.throwBadRequest(
+        'Course verification is not required for this permit.',
+      );
+    }
+    const requiredIds = (workPermit.requiredCourses ?? [])
+      .filter((c: { isRequired?: boolean; courseId: string }) => c.isRequired)
+      .map((c: { courseId: string }) => c.courseId);
+    if (!requiredIds.includes(courseId)) {
+      this.errorHandler.throwBadRequest(
+        'This course is not a required course on this work permit.',
+      );
+    }
+    const applicantUserId =
+      (workPermit as any).applicantUserId ?? workPermit.createdBy;
+    if (!applicantUserId) {
+      this.errorHandler.throwBadRequest('Applicant user is not set on this permit.');
+    }
+    const enrollmentId = await this.ensureApplicantEnrollmentForCourse(
+      applicantUserId,
+      courseId,
+    );
+    return { applicantUserId, enrollmentId };
+  }
+
+  private async assertChapterBelongsToCourse(
+    courseId: string,
+    chapterId: string,
+  ): Promise<void> {
+    const ch = await this.prisma.chapter.findFirst({
+      where: { id: chapterId, courseId },
+    });
+    this.errorHandler.throwIfNotFoundById('Chapter', chapterId, ch);
+  }
+
+  async getPublicCourseLearningContext(token: string, courseId: string) {
+    return this.errorHandler.safeExecute(async () => {
+      const { applicantUserId, enrollmentId } = await this.resolvePublicCourseLearning(
+        token,
+        courseId,
+      );
+      return this.enrollmentsService.getPublicLearningContextForUser(
+        enrollmentId,
+        applicantUserId,
+      );
+    }, 'Getting public work permit course learning context');
+  }
+
+  async updatePublicCourseProgress(
+    token: string,
+    courseId: string,
+    chapterId: string,
+    dto: UpdateProgressDto,
+  ) {
+    return this.errorHandler.safeExecute(async () => {
+      const { enrollmentId } = await this.resolvePublicCourseLearning(
+        token,
+        courseId,
+      );
+      await this.assertChapterBelongsToCourse(courseId, chapterId);
+      return this.progressService.updateProgress(
+        enrollmentId,
+        chapterId,
+        dto,
+      );
+    }, 'Updating public work permit course progress');
+  }
+
+  async completePublicCourseChapter(
+    token: string,
+    courseId: string,
+    chapterId: string,
+  ) {
+    return this.errorHandler.safeExecute(async () => {
+      const { enrollmentId } = await this.resolvePublicCourseLearning(
+        token,
+        courseId,
+      );
+      await this.assertChapterBelongsToCourse(courseId, chapterId);
+      return this.progressService.completeChapter(enrollmentId, chapterId);
+    }, 'Completing public work permit course chapter');
+  }
+
+  async publicStartQuizAttempt(
+    token: string,
+    courseId: string,
+    quizId: string,
+  ) {
+    return this.errorHandler.safeExecute(async () => {
+      const { applicantUserId, enrollmentId } = await this.resolvePublicCourseLearning(
+        token,
+        courseId,
+      );
+      await this.assertQuizBelongsToCourse(quizId, courseId);
+      const dto: CreateQuizAttemptDto = { enrollmentId };
+      return this.quizzesService.startAttempt(quizId, dto, applicantUserId);
+    }, 'Starting quiz attempt (public work permit token)');
+  }
+
+  async publicGetCurrentQuizAttempt(
+    token: string,
+    courseId: string,
+    quizId: string,
+  ) {
+    return this.errorHandler.safeExecute(async () => {
+      const { applicantUserId, enrollmentId } = await this.resolvePublicCourseLearning(
+        token,
+        courseId,
+      );
+      await this.assertQuizBelongsToCourse(quizId, courseId);
+      return this.quizzesService.getCurrentAttempt(
+        quizId,
+        applicantUserId,
+        enrollmentId,
+      );
+    }, 'Getting current quiz attempt (public work permit token)');
+  }
+
+  private async assertAttemptBelongsToPublicCourseLearning(
+    token: string,
+    courseId: string,
+    attemptId: string,
+  ): Promise<{
+    applicantUserId: string;
+    enrollmentId: string;
+  }> {
+    const { applicantUserId, enrollmentId } = await this.resolvePublicCourseLearning(
+      token,
+      courseId,
+    );
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+    });
+    this.errorHandler.throwIfNotFoundById('Quiz Attempt', attemptId, attempt);
+    if (attempt!.enrollmentId !== enrollmentId) {
+      this.errorHandler.throwForbidden('This attempt does not belong to this session');
+    }
+    return { applicantUserId, enrollmentId };
+  }
+
+  async publicSubmitQuizAnswer(
+    token: string,
+    courseId: string,
+    attemptId: string,
+    dto: SubmitAnswerDto,
+  ) {
+    return this.errorHandler.safeExecute(async () => {
+      const { applicantUserId } = await this.assertAttemptBelongsToPublicCourseLearning(
+        token,
+        courseId,
+        attemptId,
+      );
+      return this.quizzesService.submitAnswer(attemptId, dto, applicantUserId);
+    }, 'Submitting quiz answer (public work permit token)');
+  }
+
+  async publicSubmitQuizAttempt(
+    token: string,
+    courseId: string,
+    attemptId: string,
+  ) {
+    return this.errorHandler.safeExecute(async () => {
+      const { applicantUserId } = await this.assertAttemptBelongsToPublicCourseLearning(
+        token,
+        courseId,
+        attemptId,
+      );
+      return this.quizzesService.submitAttempt(attemptId, applicantUserId);
+    }, 'Submitting quiz attempt (public work permit token)');
   }
 
   /**

@@ -28,6 +28,7 @@ import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermi
 import { useWorkPermitClassificationRiskMitigations } from '../hooks/useWorkPermitClassificationRiskMitigations';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { PublicAppModuleHeader } from '@/core/components/layout/PublicAppModuleHeader';
+import PublicWorkPermitInlineCoursePanel from '../components/PublicWorkPermitInlineCoursePanel';
 import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 import type {
   PublicWorkPermitCourseAssignee,
@@ -138,6 +139,27 @@ const PublicWorkPermitPage = () => {
       }),
     [workPermit?.classifications, classificationContentEnabled],
   );
+
+  const requiredCourseRows = useMemo(
+    () => (courseVerification?.requiredCourses ?? []).filter((r) => r.isRequired),
+    [courseVerification?.requiredCourses],
+  );
+  const inlineApplicantUserId = courseVerification?.assignees[0]?.userId;
+  const [inlineCourseId, setInlineCourseId] = useState<string>('');
+
+  useEffect(() => {
+    if (requiredCourseRows.length === 0 || !inlineApplicantUserId) return;
+    const firstIncomplete = requiredCourseRows.find(
+      (r) => !r.userCompletions[inlineApplicantUserId],
+    )?.courseId;
+    const fallback = firstIncomplete ?? requiredCourseRows[0]?.courseId;
+    if (fallback) {
+      setInlineCourseId((prev) => {
+        if (prev && requiredCourseRows.some((r) => r.courseId === prev)) return prev;
+        return fallback;
+      });
+    }
+  }, [requiredCourseRows, inlineApplicantUserId]);
 
   const hydrateEditableState = useCallback((wp: WorkPermit) => {
     setProjectName(wp.projectName ?? '');
@@ -680,12 +702,57 @@ const PublicWorkPermitPage = () => {
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_G_SUB.byClassification}</WorkPermitSubsectionTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {canSignSk &&
+              courseVerification?.enabled &&
+              applicantPhase === 'sign_sk' &&
+              inlineCourseId &&
+              inlineApplicantUserId ? (
+                <Card className="border-primary/25 bg-muted/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Required training</CardTitle>
+                    <p className="text-xs text-muted-foreground font-normal">
+                      Complete the required course content below. Progress is saved while this link is valid;
+                      you can close the page and resume. When all required courses show complete, use
+                      Refresh permit status then Open sign-off.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {requiredCourseRows.length > 1 ? (
+                      <div className="space-y-1.5 max-w-md">
+                        <Label className="text-xs">Course</Label>
+                        <select
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                          value={inlineCourseId}
+                          onChange={(e) => setInlineCourseId(e.target.value)}
+                        >
+                          {requiredCourseRows.map((r) => (
+                            <option key={r.courseId} value={r.courseId}>
+                              {r.courseTitle || r.courseId}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                    <PublicWorkPermitInlineCoursePanel
+                      key={inlineCourseId}
+                      permitToken={token}
+                      courseId={inlineCourseId}
+                      courseTitle={
+                        requiredCourseRows.find((r) => r.courseId === inlineCourseId)?.courseTitle
+                      }
+                      onContextRefresh={() => {
+                        void load();
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              ) : null}
               {courseVerification?.enabled && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium">Course verification (HSE / LMS)</p>
                   <p className="text-xs text-muted-foreground">
-                    The applicant must complete the required course(s) in the HSE app (signed in) before
-                    you can sign. Completion is stored on the user profile.
+                    The applicant must complete the required course(s) before you can sign. You can
+                    complete training on this page; completion is stored on the user account.
                   </p>
                   {courseVerification.assignees.length > 0 ? (
                     <ul className="text-sm list-disc pl-4 space-y-1">
@@ -786,7 +853,7 @@ const PublicWorkPermitPage = () => {
         mitigationsByRiskIdPrefetched={mitigationsByRiskIdPrefetch}
         courseVerificationNote={
           workPermit.requireCourseVerification
-            ? 'When course verification is required, the applicant completes the listed courses in the HSE app (signed in). Completion is recorded on the user profile. This public page does not run course quizzes here.'
+            ? 'When course verification is required, the applicant completes the listed courses from the public link (or in the signed-in HSE app). Completion is stored on the user profile.'
             : undefined
         }
       />

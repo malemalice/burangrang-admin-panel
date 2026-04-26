@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -27,6 +28,8 @@ import { UpdateWorkPermitDto } from './dto/update-work-permit.dto';
 import { SubmitWorkPermitDto } from './dto/submit-work-permit.dto';
 import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
 import { PublicWorkPermitByTokenResponseDto } from './dto/public-work-permit-by-token-response.dto';
+import { UpdateProgressDto } from '../progress/dto/update-progress.dto';
+import { SubmitAnswerDto } from '../quizzes/dto/quiz-answer.dto';
 
 interface RequestWithUser extends Request {
   user: { id: string; email: string; role: string };
@@ -54,6 +57,118 @@ export class WorkPermitsPublicController {
       dto,
       req.user.id,
       req.userContext,
+    );
+  }
+
+  @Get('public/:token/learning-context')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Get LMS learning context (chapters, quizzes, progress) for a required course — applicant public token, WAITING_APPLICANT_SIGN + course on permit',
+  })
+  async getPublicCourseLearningContext(
+    @Param('token') token: string,
+    @Query('courseId') courseId: string,
+  ) {
+    return this.workPermitsService.getPublicCourseLearningContext(
+      decodeURIComponent(token),
+      courseId,
+    );
+  }
+
+  @Patch('public/:token/progress/:chapterId')
+  @Public()
+  @ApiOperation({ summary: 'Update chapter progress (public work permit token)' })
+  @ApiBody({ type: UpdateProgressDto })
+  async updatePublicCourseProgress(
+    @Param('token') token: string,
+    @Param('chapterId') chapterId: string,
+    @Query('courseId') courseId: string,
+    @Body() dto: UpdateProgressDto,
+  ) {
+    return this.workPermitsService.updatePublicCourseProgress(
+      decodeURIComponent(token),
+      courseId,
+      chapterId,
+      dto,
+    );
+  }
+
+  @Post('public/:token/progress/:chapterId/complete')
+  @Public()
+  @ApiOperation({ summary: 'Mark chapter complete (public work permit token)' })
+  async completePublicCourseChapter(
+    @Param('token') token: string,
+    @Param('chapterId') chapterId: string,
+    @Query('courseId') courseId: string,
+  ) {
+    return this.workPermitsService.completePublicCourseChapter(
+      decodeURIComponent(token),
+      courseId,
+      chapterId,
+    );
+  }
+
+  @Post('public/:token/quizzes/:quizId/attempts')
+  @Public()
+  @ApiOperation({ summary: 'Start quiz attempt (public work permit token)' })
+  async publicStartQuizAttempt(
+    @Param('token') token: string,
+    @Param('quizId') quizId: string,
+    @Query('courseId') courseId: string,
+  ) {
+    return this.workPermitsService.publicStartQuizAttempt(
+      decodeURIComponent(token),
+      courseId,
+      quizId,
+    );
+  }
+
+  @Get('public/:token/quizzes/:quizId/attempts/current')
+  @Public()
+  @ApiOperation({ summary: 'Get current in-progress attempt (public work permit token)' })
+  async publicGetCurrentQuizAttempt(
+    @Param('token') token: string,
+    @Param('quizId') quizId: string,
+    @Query('courseId') courseId: string,
+  ) {
+    return this.workPermitsService.publicGetCurrentQuizAttempt(
+      decodeURIComponent(token),
+      courseId,
+      quizId,
+    );
+  }
+
+  @Post('public/:token/quizzes/attempts/:attemptId/answers')
+  @Public()
+  @ApiOperation({ summary: 'Submit an answer in a quiz attempt (public work permit token)' })
+  @ApiBody({ type: SubmitAnswerDto })
+  async publicSubmitQuizAnswer(
+    @Param('token') token: string,
+    @Param('attemptId') attemptId: string,
+    @Query('courseId') courseId: string,
+    @Body() dto: SubmitAnswerDto,
+  ) {
+    return this.workPermitsService.publicSubmitQuizAnswer(
+      decodeURIComponent(token),
+      courseId,
+      attemptId,
+      dto,
+    );
+  }
+
+  @Post('public/:token/quizzes/attempts/:attemptId/submit')
+  @Public()
+  @ApiOperation({ summary: 'Submit and finish quiz attempt (public work permit token)' })
+  async publicSubmitQuizAttempt(
+    @Param('token') token: string,
+    @Param('attemptId') attemptId: string,
+    @Query('courseId') courseId: string,
+  ) {
+    return this.workPermitsService.publicSubmitQuizAttempt(
+      decodeURIComponent(token),
+      courseId,
+      attemptId,
     );
   }
 

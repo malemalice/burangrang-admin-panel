@@ -11,6 +11,9 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { SettingsModule } from '../settings/settings.module';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { WorkPermitPublicLinkService } from './services/work-permit-public-link.service';
+import { EnrollmentsModule } from '../enrollments/enrollments.module';
+import { QuizzesModule } from '../quizzes/quizzes.module';
+import { ProgressModule } from '../progress/progress.module';
 
 /**
  * Approval entity name for Work Permit module
@@ -25,6 +28,9 @@ export const WORK_PERMIT_APPROVAL_ENTITY = APPROVAL_ENTITIES.WORK_PERMIT;
     MasterApprovalsModule,
     NotificationsModule,
     SettingsModule,
+    EnrollmentsModule,
+    QuizzesModule,
+    ProgressModule,
   ],
   controllers: [
     WorkPermitsController,

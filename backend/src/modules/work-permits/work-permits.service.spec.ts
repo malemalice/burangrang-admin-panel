@@ -13,7 +13,7 @@ const mockPrisma = {
   user: { findUnique: jest.fn(), findMany: jest.fn() },
   area: { findUnique: jest.fn(), findMany: jest.fn() },
   company: { findUnique: jest.fn(), findMany: jest.fn() },
-  enrollment: { findMany: jest.fn() },
+  enrollment: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
   workPermit: {
     count: jest.fn(),
     create: jest.fn(),
@@ -63,6 +63,20 @@ const mockApprovalAccess = {
 } as unknown as ApprovalAccessService;
 const mockNotifications = {} as unknown as NotificationsService;
 const mockSettings = { getNumber: jest.fn().mockResolvedValue(90) } as unknown as SettingsHelperService;
+
+const mockConfigService = { get: jest.fn() };
+const mockPublicLinkService = {
+  parseAndVerifyToken: jest.fn(),
+  signToken: jest.fn(),
+};
+const mockEnrollmentsService = {
+  getPublicLearningContextForUser: jest.fn(),
+};
+const mockQuizzesService = {};
+const mockProgressService = {
+  updateProgress: jest.fn(),
+  completeChapter: jest.fn(),
+};
 
 describe('WorkPermitsService (applicant on behalf)', () => {
   let service: WorkPermitsService;
@@ -130,6 +144,10 @@ describe('WorkPermitsService (applicant on behalf)', () => {
       safetyEquipment: [],
     });
 
+    (mockPrisma as any).chapter = { findFirst: jest.fn() };
+    (mockPrisma as any).quiz = { findUnique: jest.fn() };
+    (mockPrisma as any).quizAttempt = { findUnique: jest.fn() };
+
     service = new WorkPermitsService(
       mockPrisma,
       mockErrorHandler,
@@ -139,6 +157,11 @@ describe('WorkPermitsService (applicant on behalf)', () => {
       mockApprovalAccess,
       mockNotifications,
       mockSettings,
+      mockConfigService as any,
+      mockPublicLinkService as any,
+      mockEnrollmentsService as any,
+      mockQuizzesService as any,
+      mockProgressService as any,
     );
   });
 
@@ -392,6 +415,31 @@ describe('WorkPermitsService (applicant on behalf)', () => {
     await expect(
       service.signSk('wp-1', { signature: 'sig' } as any, 'applicant-1', ctx),
     ).rejects.toThrow(/has not completed required course/);
+  });
+
+  it('getPublicCourseLearningContext delegates to enrollments for token-bound applicant and enrollment', async () => {
+    (mockPublicLinkService.parseAndVerifyToken as jest.Mock).mockReturnValue({
+      workPermitId: 'wp-1',
+      applicantUserId: 'u1',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    (mockPrisma.workPermit.findUnique as jest.Mock).mockResolvedValue({
+      id: 'wp-1',
+      isActive: true,
+      status: 'WAITING_APPLICANT_SIGN',
+      createdBy: 'u1',
+      applicantUserId: 'u1',
+      requireCourseVerification: true,
+      requiredCourses: [{ courseId: 'c1', isRequired: true, course: { title: 'T' } }],
+    });
+    (mockPrisma.enrollment.findFirst as jest.Mock).mockResolvedValue({ id: 'enr-1' });
+    (mockEnrollmentsService.getPublicLearningContextForUser as jest.Mock).mockResolvedValue({
+      enrollment: { id: 'enr-1' },
+    });
+
+    const res = await service.getPublicCourseLearningContext('tok', 'c1');
+    expect(res).toEqual({ enrollment: { id: 'enr-1' } });
+    expect(mockEnrollmentsService.getPublicLearningContextForUser).toHaveBeenCalledWith('enr-1', 'u1');
   });
 });
 

@@ -292,4 +292,6 @@ export interface LearningContext {
   quizzes: Quiz[];
   progress: Progress[];
   quizAttempts: QuizAttemptSummary[];
+  /** Suggested first incomplete chapter (from server learning context) */
+  currentChapterId?: string;
 }
