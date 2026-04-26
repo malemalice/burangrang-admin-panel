@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ClipboardList, PenLine } from 'lucide-react';
+import { ClipboardList, FileSignature, PenLine } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -292,21 +292,27 @@ const PublicWorkPermitPage = () => {
     if (!token || !canSignSkAction) return;
     setSigningSk(true);
     try {
-      const updated = await workPermitService.signSkPublicByToken(
+      await workPermitService.signSkPublicByToken(
         token,
         applicantSignature.trim() || undefined,
       );
-      setWorkPermit(updated);
-      hydrateEditableState(updated);
       setSignSkDialogOpen(false);
       setApplicantSignature('');
       toast.success('Signed — permit sent for security review');
+      await load();
     } catch (e) {
       toast.error(getErrorMessage(e));
     } finally {
       setSigningSk(false);
     }
   };
+
+  const scrollToSkAcknowledgment = useCallback(() => {
+    document.getElementById('public-work-permit-section-sk-ack')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
 
   if (loading) {
     return (
@@ -692,10 +698,22 @@ const PublicWorkPermitPage = () => {
         </Card>
       ) : null}
 
+      <PublicWorkPermitReadOnlyDetail
+        workPermit={workPermit}
+        hideSectionG={canSignSk}
+        mitigationsByRiskIdPrefetched={mitigationsByRiskIdPrefetch}
+        courseVerificationNote={
+          workPermit.requireCourseVerification
+            ? 'When course verification is required, the applicant completes the listed courses from the public link (or in the signed-in HSE app). Completion is stored on the user profile.'
+            : undefined
+        }
+      />
+
       {canSignSk ? (
         <WorkPermitSection
           id="public-work-permit-section-sk-ack"
           title="Safety Guideline Acknowledgment"
+          titleClassName="scroll-mt-20"
         >
           <Card>
             <CardHeader>
@@ -829,7 +847,7 @@ const PublicWorkPermitPage = () => {
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  When Section G is present below, read the full safety content there, then use Open sign-off to
+                  When the full safety guideline appears in this section, read it here, then use Open sign-off to
                   complete your acknowledgment.
                 </p>
               )}
@@ -847,16 +865,19 @@ const PublicWorkPermitPage = () => {
         </WorkPermitSection>
       ) : null}
 
-      <PublicWorkPermitReadOnlyDetail
-        workPermit={workPermit}
-        hideSectionG={canSignSk}
-        mitigationsByRiskIdPrefetched={mitigationsByRiskIdPrefetch}
-        courseVerificationNote={
-          workPermit.requireCourseVerification
-            ? 'When course verification is required, the applicant completes the listed courses from the public link (or in the signed-in HSE app). Completion is stored on the user profile.'
-            : undefined
-        }
-      />
+      {canSignSk ? (
+        <Button
+          type="button"
+          variant="default"
+          size="icon"
+          className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg"
+          onClick={scrollToSkAcknowledgment}
+          aria-label="Go to safety guideline sign-off"
+          title="Go to safety guideline sign-off"
+        >
+          <FileSignature className="h-5 w-5" aria-hidden />
+        </Button>
+      ) : null}
 
       <Dialog open={signSkDialogOpen} onOpenChange={setSignSkDialogOpen}>
         <DialogContent>
@@ -881,8 +902,8 @@ const PublicWorkPermitPage = () => {
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Guideline text may appear in Section G on this page. You can still confirm and submit your
-                  sign-off below.
+                  Guideline text may also appear in the Safety Guideline Acknowledgment section on this page. You
+                  can still confirm and submit your sign-off below.
                 </p>
               )}
             </div>

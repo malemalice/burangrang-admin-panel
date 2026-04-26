@@ -1,7 +1,7 @@
 # PRD: Digital Work Permit Management System
 
 **Document Type:** Product Requirements Document  
-**Version:** 1.3  
+**Version:** 1.4  
 **Date:** April 26, 2026  
 **Author:** Senior PM  
 **Source policy (intent):** BSJ/F.5/H&S Policy 05/Rev 02 — Ijin Bekerja / Permit to Work  
@@ -25,8 +25,9 @@ This PRD describes **what the product does today** as reflected in `work-permit.
 | Backend API shape | `backend/src/modules/work-permits/dto/work-permit.dto.ts` | `WorkPermitDto`, `WorkPermitStatusEnum` |
 | Workflow behaviour | `backend/src/modules/work-permits/work-permits.service.ts` | Submit, approve, reject, sign SK, extend, close |
 | Public link (signed token) | `backend/src/modules/work-permits/services/work-permit-public-link.service.ts` | HMAC-signed token, ~24h TTL; payload binds `workPermitId` + `applicantUserId` |
-| Public HTTP API | `backend/src/modules/work-permits/work-permits-public.controller.ts` | `@Public()` routes for token-based get / patch / submit; `POST /work-permits/public-links` for staff to generate links (separate from `DataScopeGuard` on main controller) |
-| Public UI | `frontend/src/modules/work-permits/pages/PublicWorkPermitPage.tsx` | No-login page: **applicant action** when status allows (see §6.5); **read-only** detail when the permit is not in an applicant-obligation phase for this token (aligned with detail page sections) |
+| Public HTTP API | `backend/src/modules/work-permits/work-permits-public.controller.ts` | `@Public()` routes for token-based get / patch / submit / **sign-off**; **public LMS (token)**: `learning-context`, chapter **progress** (patch + complete), **quiz** attempt / answers / submit (all query `courseId` where required); `POST /work-permits/public-links` for staff to generate links (separate from `DataScopeGuard` on main controller) |
+| Public UI | `frontend/src/modules/work-permits/pages/PublicWorkPermitPage.tsx` + `PublicWorkPermitInlineCoursePanel.tsx` | No-login page: **applicant action** when status allows (see §6.5). In **`WAITING_APPLICANT_SIGN`** with course verification, **inline course player** (chapters + quizzes) on the public page; **read-only** detail when the permit is not in an applicant-obligation phase for this token (aligned with detail page sections) |
+| Public course client | `frontend/src/modules/work-permits/services/publicWorkPermitCourseService.ts` | Token-scoped `publicApi` calls to the public work-permit course routes (no JWT) |
 | Link generation (staff) | `frontend/src/modules/work-permits/pages/WorkPermitsPage.tsx` | Per permit: “Public applicant link” (requires `work-permit:update`) |
 | Approval configuration | `backend/src/modules/work-permits/WORK_PERMIT_SETUP.md` | Master Approval setup for `WORK_PERMIT` |
 
@@ -178,7 +179,7 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 - **Extend:** Only **`APPROVED`** → updates end date, status **`EXTENDED`**.
 - **Close:** Only **`APPROVED`** or **`EXTENDED`** → **`CLOSED`**.
 
-### 6.5 Public applicant link (no password) — v1.3
+### 6.5 Public applicant link (no password) — v1.4
 
 **Purpose:** Let the **contractor applicant** (the user bound to `applicantUserId` in the token) use the work permit in the browser **without** a username/password, so they can complete **applicant-phase** work and otherwise **view** the permit, without staff sharing internal accounts.
 
@@ -197,9 +198,21 @@ Master data for picklists is loaded via **work permit master-data** endpoints (s
 4. **Edit / save (drafting):** `PATCH /work-permits/public/:token` is allowed only when status is **`DRAFT` or `REJECTED`** (same edit gate as authenticated update). Authorization is **only** via token + applicant binding (no JWT).
 5. **Submit for approval:** `POST /work-permits/public/:token/submit` is allowed from **`DRAFT` or `REJECTED`** (same as authenticated submit).
 6. **Sign / acknowledge (applicant):** `POST /work-permits/public/:token/sign-sk` is allowed only when status is **`WAITING_APPLICANT_SIGN`**, with the same business rules as authenticated `POST /work-permits/:id/sign-sk` (applicant identity; safety guideline content present). This is **not** “read-only” — it is the second major applicant action on the public page.
-7. **Course verification:** When **`requireCourseVerification`** is set and **required courses** are listed, workers (and any scoped internal employees on the permit) are expected to **complete the required courses in the authenticated HSE app**; completion is determined from **`t_enrollments` with `status = COMPLETED`** (same model as the main `WorkPermitForm`). The public `GET` surfaces progress; **Sign SK** is **hard-blocked** in the API until all required (per-assignee) completions exist (same check as authenticated `sign-sk` when verification is on). The public page does not run LMS quizzes.
+7. **Course verification (LMS) — gating, display, and how completion is met:**
+   - **Business rule (unchanged):** When **`requireCourseVerification`** is on and **required courses** are listed, **Sign SK** is **hard-blocked** in the API until the **applicant’s** required enrollments are **`COMPLETED`** (from **`t_enrollments`**, same as authenticated `sign-sk`). The public `GET` includes **`courseVerification`**: `assignees` (at minimum the **applicant** as a row), per-course / per-user completion flags, `allRequiredCompleted`, and `unmetMessages`.
+   - **Inline learning on the public page (v1.4):** While status is **`WAITING_APPLICANT_SIGN`**, `PublicWorkPermitPage` shows a **Required training** block: the applicant can **read chapters, update progress, and take published course/chapter-bound quizzes** **without** signing in, using the same **token** (only **published** quiz content; instructor-only drafts are not exposed through this path). Completing a course (enrollment → `COMPLETED` via normal progress + quiz flow) still satisfies the gate.
+   - **Also valid:** the applicant can still complete required courses in the **authenticated** HSE app (e.g. **Courses** / **Learn**) if they prefer; the permit page’s **Refresh permit status** re-runs the public `GET` so **`canSignSkAction`** and the verification table update.
+   - **Token-scoped public LMS HTTP API** (all `@Public()`, no JWT; all require a valid, non-expired token and — for learning — status **`WAITING_APPLICANT_SIGN`**, `requireCourseVerification`, and a **`courseId`** that appears in the permit’s **required** courses; operations apply only to the **applicant’s** enrollment/attempts resolved for that `courseId`):
+     - `GET /work-permits/public/:token/learning-context?courseId=…` — same shape as authenticated learning context (enrollment, course + chapters, quizzes, progress, quiz attempts, `currentChapterId` suggestion).
+     - `PATCH /work-permits/public/:token/progress/:chapterId?courseId=…` — chapter progress (delegates to progress service; updates enrollment progress).
+     - `POST /work-permits/public/:token/progress/:chapterId/complete?courseId=…` — mark chapter complete.
+     - `POST /work-permits/public/:token/quizzes/:quizId/attempts?courseId=…` — start attempt (enrollment id is resolved server-side for the token applicant; quiz must belong to the course).
+     - `GET /work-permits/public/:token/quizzes/:quizId/attempts/current?courseId=…` — current / latest attempt (supports **resume** of `IN_PROGRESS`).
+     - `POST /work-permits/public/:token/quizzes/attempts/:attemptId/answers?courseId=…` — save answer; `POST .../submit?courseId=…` — finish attempt.  
+   - **Backend reuse:** Enrollments’ **`getPublicLearningContextForUser`**, and existing **quizzes** / **progress** service logic, are used where possible; token handlers enforce **applicant = token payload** and **course on permit** before delegating.
+   - **Resume (UX):** Chapter/quiz **progress and attempts** persist in the **DB** (same as logged-in learning). The UI may store the **active course / chapter / quiz** in **`sessionStorage`** (keyed by the token) so a user who **closes the tab** can return **before the link expires** and pick up in context; the server remains the **source of truth** for progress and in-progress attempts.
 
-**Out of scope for the public page:** Master Approval actions, PDF export, timeline/history fetches that require logged-in `approval` APIs, and creating new master-data rows (those remain in the authenticated app).
+**Out of scope for the public page:** Master Approval actions, PDF export, timeline/history fetches that require logged-in `approval` APIs, and creating new master-data rows (those remain in the authenticated app). **Not supported on the token:** completing required courses **on behalf of other users** (e.g. workers listed elsewhere on the permit) — the token is bound to the **applicant** for writable LMS operations.
 
 **Security / abuse notes (product):** Treat the link like a **capability URL** — do not post in public channels; expires automatically; token must match the permit and applicant in the database.
 
