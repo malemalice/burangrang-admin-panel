@@ -743,11 +743,6 @@ const PublicWorkPermitPage = () => {
         workPermit={workPermit}
         hideSectionG={canSignSk}
         mitigationsByRiskIdPrefetched={mitigationsByRiskIdPrefetch}
-        courseVerificationNote={
-          workPermit.requireCourseVerification
-            ? 'When course verification is required, the applicant completes the listed courses from the public link (or in the signed-in HSE app). Completion is stored on the user profile.'
-            : undefined
-        }
       />
 
       {canSignSk &&

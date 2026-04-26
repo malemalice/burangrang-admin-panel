@@ -36,7 +36,6 @@ const displayField = (v: string | number | boolean | null | undefined) => {
 
 type Props = {
   workPermit: WorkPermit;
-  courseVerificationNote?: string;
   hideSectionG?: boolean;
   /** From public GET bundle — avoids unauthenticated /risk-mitigations calls */
   mitigationsByRiskIdPrefetched?: Record<string, RiskMitigation[]>;
@@ -48,7 +47,6 @@ type Props = {
  */
 export function PublicWorkPermitReadOnlyDetail({
   workPermit,
-  courseVerificationNote,
   hideSectionG = false,
   mitigationsByRiskIdPrefetched,
 }: Props) {
@@ -482,47 +480,6 @@ export function PublicWorkPermitReadOnlyDetail({
                 <Label className="text-muted-foreground">Extended end date</Label>
                 <p className="mt-1">—</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.courseVerification}</WorkPermitSubsectionTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm">
-                Require course verification:{' '}
-                <span className="font-medium">{workPermit.requireCourseVerification ? 'Yes' : 'No'}</span>
-              </p>
-              {courseVerificationNote ? (
-                <p className="text-sm text-muted-foreground mt-2">{courseVerificationNote}</p>
-              ) : null}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_F_SUB.requiredCourses}</WorkPermitSubsectionTitle>
-            </CardHeader>
-            <CardContent>
-              {(workPermit.requiredCourses?.length ?? 0) === 0 ? (
-                <p className="text-sm text-muted-foreground">No required courses.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Course</TableHead>
-                      <TableHead className="w-28">Required</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {workPermit.requiredCourses!.map((c) => (
-                      <TableRow key={c.id}>
-                        <TableCell>{displayField(c.course?.title)}</TableCell>
-                        <TableCell>{c.isRequired ? 'Yes' : 'No'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
             </CardContent>
           </Card>
         </div>
