@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import { MultiSelectSearchable, SearchableSelect } from '@/core/components/ui/searchable-select';
 import {
   CreateWorkPermitDTO,
   UpdateWorkPermitDTO,
@@ -734,15 +734,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   });
 
   const {
-    fields: classificationFields,
-    append: appendClassification,
-    remove: removeClassification,
-  } = useFieldArray({
-    control: form.control,
-    name: 'classifications',
-  });
-
-  const {
     fields: employeeFields,
     append: appendEmployee,
     remove: removeEmployee,
@@ -1423,77 +1414,49 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           description="Select at least one work classification for this permit (required)"
         >
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <WorkPermitSubsectionTitle>
-                  {WORK_PERMIT_SECTION_A_SUB.classifications}{' '}
-                  <span className="text-destructive" aria-hidden>
-                    *
-                  </span>
-                </WorkPermitSubsectionTitle>
-                <CardDescription>Add one or more classification rows; at least one must be selected</CardDescription>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => appendClassification({ workClassificationId: '', order: classificationFields.length })}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Classification
-              </Button>
+            <CardHeader>
+              <WorkPermitSubsectionTitle>
+                {WORK_PERMIT_SECTION_A_SUB.classifications}{' '}
+                <span className="text-destructive" aria-hidden>
+                  *
+                </span>
+              </WorkPermitSubsectionTitle>
+              <CardDescription>Select one or more classifications (required)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {classificationFields.map((field, index) => {
-                const allClassificationValues = watchedClassifications ?? [];
-                const selectedIds = allClassificationValues
-                  .filter((_, i) => i !== index)
-                  .map((c) => c?.workClassificationId)
-                  .filter(Boolean);
+              <FormField
+                control={form.control}
+                name="classifications"
+                render={({ field }) => {
+                  const rows =
+                    (Array.isArray(field.value) ? field.value : [])
+                      .filter((r) => r?.workClassificationId)
+                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) ?? [];
+                  const selectedIds = rows.map((r) => r.workClassificationId);
+                  const options = workClassifications.map((wc) => ({ value: wc.id, label: wc.name }));
 
-                return (
-                  <div key={field.id} className="flex gap-2 items-end">
-                    <FormField
-                      control={form.control}
-                      name={`classifications.${index}.workClassificationId`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>
-                            Classification <span className="text-destructive">*</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select classification" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {workClassifications
-                                  .filter((wc) => !selectedIds.includes(wc.id) || wc.id === field.value)
-                                  .map((wc) => (
-                                    <SelectItem key={wc.id} value={wc.id}>
-                                      {wc.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {classificationFields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeClassification(index)}
-                        aria-label="Remove classification row"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+                  return (
+                    <FormItem>
+                      <FormLabel>
+                        Classification <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <MultiSelectSearchable
+                          options={options}
+                          value={selectedIds}
+                          onValueChange={(ids) => {
+                            field.onChange(ids.map((id, idx) => ({ workClassificationId: id, order: idx })));
+                          }}
+                          placeholder="Select classifications"
+                          searchPlaceholder="Search classification..."
+                          maxDisplay={2}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
               {showOthersDetailField && (
                 <FormField
                   control={form.control}

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { authApi, validateEmbedToken, getEmbedSession } from './api';
 import { toast } from 'sonner';
 
@@ -250,20 +250,17 @@ export const useAuth = (): AuthContextType => {
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading, isEmbedContext, embedUnauthorized } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    if (embedUnauthorized) return;
-    if (!isLoading && !isAuthenticated && !isAuthExemptPath(location.pathname)) {
-      console.log('[ProtectedRoute] Not authenticated, redirecting to login');
-      saveLastVisitedUrl(location.pathname + location.search);
-      const search = location.search ? `?${location.search}` : '';
-      navigate(isEmbedContext ? `/login${search}` : '/login');
-    }
-  }, [isAuthenticated, isLoading, isEmbedContext, embedUnauthorized, navigate, location]);
+  const isExempt = isAuthExemptPath(location.pathname);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (embedUnauthorized) {
     return (
@@ -273,7 +270,12 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated) {
+    if (isExempt) return <>{children}</>;
+    saveLastVisitedUrl(location.pathname + location.search);
+    const next = isEmbedContext && location.search ? `/login${location.search}` : '/login';
+    return <Navigate to={next} replace />;
+  }
 
   return <>{children}</>;
 }; 
