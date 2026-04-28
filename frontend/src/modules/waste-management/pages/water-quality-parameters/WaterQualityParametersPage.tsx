@@ -126,7 +126,7 @@ export default function WaterQualityParametersPage() {
     },
     {
       id: 'regulatoryLimit',
-      header: 'Regulatory Limit',
+      header: 'Quality Standard Value',
       cell: (item: WaterQualityParameter) => item.regulatoryLimit || '-',
       isSortable: true,
     },

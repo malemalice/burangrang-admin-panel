@@ -310,7 +310,7 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
                 name="regulatoryLimit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Regulatory Limit</FormLabel>
+                    <FormLabel>Quality Standard Value</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.0001" placeholder="Enter limit" value={field.value ?? ''} onChange={field.onChange} />
                     </FormControl>
