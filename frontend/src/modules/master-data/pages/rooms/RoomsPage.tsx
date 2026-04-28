@@ -35,6 +35,10 @@ export default function RoomsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({
+    id: 'name',
+    desc: false,
+  });
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -66,8 +70,8 @@ export default function RoomsPage() {
         page: pageIndex + 1,
         limit,
         search: searchTerm || undefined,
-        sortBy: 'name',
-        sortOrder: 'asc',
+        sortBy: sorting?.id ?? 'name',
+        sortOrder: sorting?.desc ? 'desc' : 'asc',
         isActive: activeFilters.status?.value === 'active' ? true :
                  activeFilters.status?.value === 'inactive' ? false :
                  undefined
@@ -86,7 +90,7 @@ export default function RoomsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   // Fetch rooms when pagination, search, filters change
   useEffect(() => {
@@ -173,14 +177,18 @@ export default function RoomsPage() {
     {
       id: 'name',
       header: 'Room Name',
+      isSortable: true,
       cell: (room: RoomDTO) => (
         <div>
           <div className="font-medium">{room.name}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Code: {room.code}
-          </div>
         </div>
       ),
+    },
+    {
+      id: 'code',
+      header: 'Code',
+      isSortable: true,
+      cell: (room: RoomDTO) => room.code,
     },
     {
       id: 'area',
@@ -275,6 +283,11 @@ export default function RoomsPage() {
         columns={columns}
         data={rooms}
         isLoading={isLoading}
+        sorting={sorting}
+        onSortingChange={(nextSorting) => {
+          setSorting(nextSorting);
+          setPageIndex(0);
+        }}
         pagination={{
           pageIndex,
           limit,

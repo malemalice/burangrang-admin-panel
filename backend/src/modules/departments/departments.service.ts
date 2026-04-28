@@ -15,6 +15,8 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
 }
 
 @Injectable()
@@ -50,9 +52,18 @@ export class DepartmentsService {
       data.emails = createDepartmentDto.emails as any;
     }
 
-    const department = await this.prisma.department.create({
-      data,
-    });
+    let department: any;
+    try {
+      department = await this.prisma.department.create({
+        data,
+      });
+    } catch (error: any) {
+      // Prisma unique constraint violation (e.g. duplicate code)
+      if (error?.code === 'P2002' && error?.meta?.target?.includes('code')) {
+        this.errorHandler.throwBadRequest('Department code already exist');
+      }
+      throw error;
+    }
 
     return this.departmentMapper(department);
   }
@@ -64,10 +75,12 @@ export class DepartmentsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
+      sortBy,
+      sortOrder,
       isActive,
       search,
+      name,
+      code,
     } = options || {};
 
     // Build where clause
@@ -83,17 +96,22 @@ export class DepartmentsService {
       ];
     }
 
+    if (name) {
+      where.name = { contains: name, mode: 'insensitive' };
+    }
+
+    if (code) {
+      where.code = { contains: code, mode: 'insensitive' };
+    }
+
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
 
     // Build order by clause
-    const orderBy: Prisma.DepartmentOrderByWithRelationInput = {};
-    if (sortBy) {
-      orderBy[sortBy] = sortOrder || 'asc';
-    } else {
-      orderBy.name = 'asc';
-    }
+    const orderBy: Prisma.DepartmentOrderByWithRelationInput = sortBy
+      ? ({ [sortBy]: sortOrder || 'asc' } as Prisma.DepartmentOrderByWithRelationInput)
+      : { createdAt: 'desc' };
 
     // Get total count
     const total = await this.prisma.department.count({ where });
@@ -153,10 +171,19 @@ export class DepartmentsService {
       updateData.emails = updateDepartmentDto.emails as any;
     }
 
-    const department = await this.prisma.department.update({
-      where: { id },
-      data: updateData,
-    });
+    let department: any;
+    try {
+      department = await this.prisma.department.update({
+        where: { id },
+        data: updateData,
+      });
+    } catch (error: any) {
+      // Prisma unique constraint violation (e.g. duplicate code)
+      if (error?.code === 'P2002' && error?.meta?.target?.includes('code')) {
+        this.errorHandler.throwBadRequest('Department code already exist');
+      }
+      throw error;
+    }
 
     return this.departmentMapper(department);
   }

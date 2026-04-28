@@ -62,6 +62,8 @@ export class DepartmentsController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('code') code?: string,
   ): Promise<{ data: DepartmentDto[]; meta: { total: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -76,6 +78,8 @@ export class DepartmentsController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      name,
+      code,
     });
   }
 

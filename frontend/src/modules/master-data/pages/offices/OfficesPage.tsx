@@ -35,6 +35,10 @@ const OfficesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({
+    id: 'name',
+    desc: false,
+  });
   
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -70,8 +74,8 @@ const OfficesPage = () => {
       const params: PaginationParams = {
         page: pageIndex + 1,
         limit,
-        sortBy: 'name',
-        sortOrder: 'asc',
+        sortBy: sorting?.id ?? 'name',
+        sortOrder: sorting?.desc ? 'desc' : 'asc',
         search: searchTerm,
         filters: {
           ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
@@ -99,7 +103,7 @@ const OfficesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   // Fetch offices when dependencies change
   useEffect(() => {
@@ -179,6 +183,7 @@ const OfficesPage = () => {
     {
       id: 'name',
       header: 'Office Name',
+      isSortable: true,
       cell: (office: Office) => (
         <div>
           <div className="font-medium">{office.name}</div>
@@ -192,6 +197,7 @@ const OfficesPage = () => {
     {
       id: 'code',
       header: 'Code',
+      isSortable: true,
       cell: (office: Office) => office.code,
     },
     {
@@ -320,6 +326,11 @@ const OfficesPage = () => {
         columns={columns}
         data={offices}
         isLoading={isLoading}
+        sorting={sorting}
+        onSortingChange={(nextSorting) => {
+          setSorting(nextSorting);
+          setPageIndex(0);
+        }}
         pagination={{
           pageIndex,
           limit,
