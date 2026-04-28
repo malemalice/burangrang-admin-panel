@@ -166,10 +166,17 @@ export class RiskAssessmentService {
       console.log(
         `[RiskAssessment] create before zoho sync assessmentId=${assessmentWithRelations.id} code=${assessmentWithRelations.code}`,
       );
-      await this.syncCreatedRiskAssessmentToZoho(assessmentWithRelations);
-      console.log(
-        `[RiskAssessment] create zoho sync success assessmentId=${assessmentWithRelations.id}`,
-      );
+      try {
+        await this.syncCreatedRiskAssessmentToZoho(assessmentWithRelations);
+        console.log(
+          `[RiskAssessment] create zoho sync success assessmentId=${assessmentWithRelations.id}`,
+        );
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Zoho sync failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
+          error,
+        );
+      }
 
       return this.mapToDtoWithMitigations(assessmentWithRelations);
     } catch (error: any) {

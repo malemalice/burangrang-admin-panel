@@ -55,6 +55,13 @@ describe('RiskAssessmentZohoSyncService', () => {
 
                 return Promise.resolve(defaultValue);
             }),
+            getString: jest.fn((key: string, defaultValue = '') => {
+                if (key === SETTINGS_KEYS.SDP_AUTHTOKEN) {
+                    return Promise.resolve('sdp-token');
+                }
+
+                return Promise.resolve(defaultValue);
+            }),
             getJsonRecord: jest.fn(
                 (
                     _key: string,
@@ -190,6 +197,37 @@ describe('RiskAssessmentZohoSyncService', () => {
         expect(createRequestMock).not.toHaveBeenCalled();
         expect(mappingCreateMock).not.toHaveBeenCalled();
         expect(createAccessLogMock).not.toHaveBeenCalled();
+    });
+
+    it('returns null and logs skip when SDP_AUTHTOKEN is not configured', async () => {
+        (zohoConfigService.getString as jest.Mock).mockResolvedValueOnce('');
+
+        const result = await service.createTicketForRiskAssessment({
+            riskAssessmentId: 'ra-1',
+            payload: {
+                subject: 'Risk Assessment RA-001',
+            },
+            correlationId: 'corr-missing-token-1',
+        });
+
+        expect(result).toBeNull();
+        expect(createRequestMock).not.toHaveBeenCalled();
+        expect(mappingCreateMock).not.toHaveBeenCalled();
+        expect(createAccessLogMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                method: 'POST',
+                endpoint: '/api/v3/requests',
+                statusCode: 200,
+                userAgent: 'RiskAssessmentZohoSyncService',
+                payload: expect.objectContaining({
+                    source: 'risk_assessment_zoho_create_skip',
+                    correlationId: 'corr-missing-token-1',
+                    riskAssessmentId: 'ra-1',
+                    result: 'skipped_missing_sdp_authtoken',
+                    errorMessage: 'Zoho create skipped: SDP_AUTHTOKEN not configured',
+                }),
+            }),
+        );
     });
 
     it('creates access log when zoho create request fails before response', async () => {

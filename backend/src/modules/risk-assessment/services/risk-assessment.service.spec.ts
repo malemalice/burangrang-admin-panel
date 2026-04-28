@@ -123,7 +123,7 @@ describe('RiskAssessmentService', () => {
         jest.restoreAllMocks();
     });
 
-    it('rolls back persisted data when zoho create fails', async () => {
+    it('does not fail creation when zoho create fails', async () => {
         createTicketForRiskAssessmentMock.mockRejectedValueOnce(
             new Error('SDP request failed before response: fetch failed'),
         );
@@ -153,7 +153,7 @@ describe('RiskAssessmentService', () => {
                 },
                 'user-1',
             ),
-        ).rejects.toThrow('SDP request failed before response: fetch failed');
+        ).resolves.toBeDefined();
 
         expect(createTicketForRiskAssessmentMock).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -161,30 +161,16 @@ describe('RiskAssessmentService', () => {
                 payload: {
                     subject: 'RA260315220904',
                     description: 'Desc',
-                    requester: { id: '1' },
+                    requester: { id: '5' },
                     status: { name: 'Open' },
                 },
                 lastHseStatus: GeneralStatusEnum.OPEN,
             }),
         );
-        expect(riskAssessmentItemFindManyMock).toHaveBeenCalledWith({
-            where: { riskAssessmentId: 'ra-1' },
-            select: { id: true },
-        });
-        expect(riskMitigationDeleteManyMock).toHaveBeenCalledWith({
-            where: {
-                entity: 'RISK_ASSESSMENT_ITEM',
-                entityId: {
-                    in: ['item-1'],
-                },
-            },
-        });
-        expect(riskAssessmentItemDeleteManyMock).toHaveBeenCalledWith({
-            where: { riskAssessmentId: 'ra-1' },
-        });
-        expect(riskAssessmentDeleteMock).toHaveBeenCalledWith({
-            where: { id: 'ra-1' },
-        });
+        expect(riskAssessmentItemFindManyMock).not.toHaveBeenCalled();
+        expect(riskMitigationDeleteManyMock).not.toHaveBeenCalled();
+        expect(riskAssessmentItemDeleteManyMock).not.toHaveBeenCalled();
+        expect(riskAssessmentDeleteMock).not.toHaveBeenCalled();
     });
 
     it('converts prisma unique violation on code into conflict exception', async () => {
