@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Info, Save } from 'lucide-react';
-import { Button, ThemeButton } from '@/core/components/ui/button';
+import { ThemeButton } from '@/core/components/ui/button';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import {
   Form,
@@ -30,28 +30,21 @@ import { ManHour, ManHourGroup, Month, MONTHS, MONTH_LABELS, GROUP_LABELS } from
 import manHourService from '../services/manHourService';
 import { useState, useRef } from 'react';
 
-/** Students: fixed 22 work days in month; capacity in man-hours = qty × mhpd × this. */
+/** Default working days in month used when empty/invalid. */
 const WORKING_DAYS_PER_MONTH = 22;
 
 function getInitialTotalWorkingDays(manHour?: ManHour): number {
   if (!manHour) {
     return 22;
   }
-  if (manHour.group === 'STUDENT') {
-    return manHour.qty * Number(manHour.manHourPerDay) * WORKING_DAYS_PER_MONTH;
-  }
   const v = Number(manHour.totalWorkingDays) || 0;
   if (v <= 0) {
     return 22;
   }
-  if (v > 31) {
-    const legacyCapacity = manHour.qty * Number(manHour.manHourPerDay) * WORKING_DAYS_PER_MONTH;
-    if (Math.abs(v - legacyCapacity) < 1) {
-      return 22;
-    }
-    return 22;
-  }
-  return v;
+  // Backward compatibility: some older records may have stored "capacity man-hours" here.
+  // We now treat this field as "working days in month", so only accept sane day-counts.
+  if (v > 31) return 22;
+  return Math.round(v);
 }
 
 const formSchema = z.object({
@@ -85,7 +78,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
   const currentYear = getCurrentYear();
 
   // Track which field the user last edited to avoid circular updates
-  const lastEditedField = useRef<'lostHour' | 'total' | 'hrApply' | null>(null);
+  const lastEditedField = useRef<'lostHour' | 'total' | null>(null);
 
   const defaultTotalWorkingDays = getInitialTotalWorkingDays(manHour);
   const defaultLostHour = manHour?.lostHour ?? 0;
@@ -112,40 +105,30 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
 
   const watchedQty = useWatch({ control: form.control, name: 'qty' });
   const watchedManHourPerDay = useWatch({ control: form.control, name: 'manHourPerDay' });
-  const watchedGroup = useWatch({ control: form.control, name: 'group' });
   const watchedTotalWorkingDays = useWatch({ control: form.control, name: 'totalWorkingDays' });
   const watchedLostHour = useWatch({ control: form.control, name: 'lostHour' });
   const watchedTotal = useWatch({ control: form.control, name: 'total' });
 
-  const studentComputedCapacity =
-    (Number(watchedQty) || 0) * (Number(watchedManHourPerDay) || 0) * WORKING_DAYS_PER_MONTH;
-  const nonStudentDayCount =
-    (Number(watchedTotalWorkingDays) || 0) > 0 ? Number(watchedTotalWorkingDays) : 22;
-  const nonStudentCapacityManHours =
-    (Number(watchedQty) || 0) * (Number(watchedManHourPerDay) || 0) * nonStudentDayCount;
-  const capacityForBalance =
-    watchedGroup === 'NON_STUDENT' ? nonStudentCapacityManHours : studentComputedCapacity;
+  const dayCount = (Number(watchedTotalWorkingDays) || 0) > 0 ? Number(watchedTotalWorkingDays) : WORKING_DAYS_PER_MONTH;
+  const capacityForBalance = (Number(watchedQty) || 0) * (Number(watchedManHourPerDay) || 0) * dayCount;
 
-  // Sync totals: STUDENT column totalWorkingDays = capacity; NON_STUDENT totalWorkingDays = day count; total = capacity − lost
+  // Auto-sync totals for both groups: capacity = qty × hrs/day × workingDays; total = capacity − lost
   useEffect(() => {
-    if (lastEditedField.current === 'hrApply') return;
-    if (!watchedGroup) return;
     const q = Number(watchedQty) || 0;
     const m = Number(watchedManHourPerDay) || 0;
-    const lh = Number(form.getValues('lostHour')) || 0;
+    const d = Math.max(0, Number(form.getValues('totalWorkingDays')) || 0) || WORKING_DAYS_PER_MONTH;
+    const cap = q * m * d;
 
-    if (watchedGroup === 'STUDENT') {
-      const cap = q * m * WORKING_DAYS_PER_MONTH;
-      form.setValue('totalWorkingDays', cap, { shouldValidate: false });
-      form.setValue('total', Math.max(0, cap - lh), { shouldValidate: false });
+    if (lastEditedField.current === 'total') {
+      const t = Number(form.getValues('total')) || 0;
+      form.setValue('lostHour', Math.max(0, cap - t), { shouldValidate: false });
       return;
     }
 
-    const dayCount = Math.max(0, Number(form.getValues('totalWorkingDays')) || 0) || 22;
-    const cap = q * m * dayCount;
+    const lh = Number(form.getValues('lostHour')) || 0;
     form.setValue('total', Math.max(0, cap - lh), { shouldValidate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedGroup, watchedQty, watchedManHourPerDay, watchedTotalWorkingDays]);
+  }, [watchedQty, watchedManHourPerDay, watchedTotalWorkingDays]);
 
   // When lostHour changes, recompute total
   useEffect(() => {
@@ -153,7 +136,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
     const lh = Number(watchedLostHour) || 0;
     form.setValue('total', Math.max(0, capacityForBalance - lh), { shouldValidate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedLostHour, capacityForBalance, watchedGroup]);
+  }, [watchedLostHour, capacityForBalance]);
 
   // When total changes, back-calculate lostHour
   useEffect(() => {
@@ -161,53 +144,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
     const t = Number(watchedTotal) || 0;
     form.setValue('lostHour', Math.max(0, capacityForBalance - t), { shouldValidate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedTotal, capacityForBalance, watchedGroup]);
-
-  /**
-   * HR hardcopy: user enters Quantity (people) and Total man hours from HR.
-   * Derives hours/day so capacity matches HR total; any rounding gap becomes lost hours.
-   * STUDENT: capacity = qty × hours/day × 22. NON_STUDENT: capacity = qty × hours/day × working day count; total = capacity − lostHour.
-   */
-  const applyFromHrHardcopy = () => {
-    const qty = Number(form.getValues('qty')) || 0;
-    const hrTotal = Number(form.getValues('total')) || 0;
-    if (qty < 1) {
-      toast.error('Enter quantity (people) first.');
-      return;
-    }
-    if (hrTotal < 0) {
-      toast.error('Total man hours cannot be negative.');
-      return;
-    }
-    const isStudent = form.getValues('group') === 'STUDENT';
-    const dayCount = isStudent
-      ? WORKING_DAYS_PER_MONTH
-      : Math.max(0, Number(form.getValues('totalWorkingDays')) || 0) || 22;
-    const rawHoursPerDay = hrTotal / (qty * dayCount);
-    if (rawHoursPerDay > 24) {
-      toast.error(
-        'The combination implies more than 24 hours per day. Check quantity, total from HR, and working day count.',
-      );
-      return;
-    }
-    const manHourPerDay = Math.round(rawHoursPerDay * 100) / 100;
-    const totalCapacity = qty * manHourPerDay * dayCount;
-    const lostHour = Math.max(0, Math.round((totalCapacity - hrTotal) * 100) / 100);
-    const reconciledTotal = Math.round((totalCapacity - lostHour) * 100) / 100;
-    const totalWorkingDaysDisplay = isStudent
-      ? totalCapacity
-      : dayCount;
-
-    lastEditedField.current = 'hrApply';
-    form.setValue('manHourPerDay', manHourPerDay, { shouldValidate: true });
-    form.setValue('lostHour', lostHour, { shouldValidate: true });
-    form.setValue('total', reconciledTotal, { shouldValidate: true });
-    form.setValue('totalWorkingDays', totalWorkingDaysDisplay, { shouldValidate: true });
-    requestAnimationFrame(() => {
-      lastEditedField.current = null;
-    });
-    toast.success('Hours per day and lost hours updated from HR totals.');
-  };
+  }, [watchedTotal, capacityForBalance]);
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -220,7 +157,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
           manHourPerDay: data.manHourPerDay,
           month: data.month as Month,
           year: data.year,
-          ...(data.group === 'NON_STUDENT' ? { totalWorkingDays: data.totalWorkingDays } : {}),
+          totalWorkingDays: data.totalWorkingDays,
           lostHour: data.lostHour,
           total: data.total,
           notes: data.notes,
@@ -234,7 +171,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
           manHourPerDay: data.manHourPerDay,
           month: data.month as Month,
           year: data.year,
-          ...(data.group === 'NON_STUDENT' ? { totalWorkingDays: data.totalWorkingDays } : {}),
+          totalWorkingDays: data.totalWorkingDays,
           lostHour: data.lostHour,
           total: data.total,
           notes: data.notes,
@@ -260,31 +197,11 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
           <AlertDescription className="space-y-3 text-foreground">
             <p className="font-medium">How totals work (this form)</p>
             <p className="text-sm text-muted-foreground">
-              <span className="text-foreground font-medium">Student</span> — Capacity (man-hours) = Quantity
-              (people) × Hours per day × {WORKING_DAYS_PER_MONTH} fixed work days. The &quot;capacity&quot;
-              field in the form reflects that. Total man hours = Capacity − Lost hours. Editing
-              &quot;Total man hours&quot; or &quot;Lost hours&quot; adjusts the other to match.
+              Capacity (man-hours) = Quantity (people) × Hours per day × Working days in month (defaults to{' '}
+              {WORKING_DAYS_PER_MONTH} when empty).
+              Total man hours = Capacity − Lost hours. Editing &quot;Total man hours&quot; or &quot;Lost hours&quot; adjusts the
+              other to match.
             </p>
-            <p className="text-sm text-muted-foreground">
-              <span className="text-foreground font-medium">Non-student</span> — Set <span className="text-foreground">Working days in month</span>{' '}
-              (1–31; often 20–22). New rows default to {WORKING_DAYS_PER_MONTH} unless
-              the saved record already has a value or you set another. Capacity = Quantity × Hours per day
-              × working days in month. Total man hours = Capacity − Lost hours, same as for students.
-            </p>
-            <p className="font-medium pt-1">Data from HR (optional)</p>
-            <p className="text-sm text-muted-foreground">
-              Enter <span className="text-foreground font-medium">Quantity (people)</span> and{' '}
-              <span className="text-foreground font-medium">Total man hours</span> as from HR, then
-              use &quot;Apply HR totals&quot;. The app derives <span className="text-foreground font-medium">Hours per day</span> (2
-              decimals) and, if needed, <span className="text-foreground font-medium">Lost hours</span> to reconcile rounding.{' '}
-              For <span className="text-foreground font-medium">non-student</span>, the divisor uses your current{' '}
-              <span className="text-foreground font-medium">Working days in month</span> (not the fixed {WORKING_DAYS_PER_MONTH}{' '}
-              used for students). For <span className="text-foreground font-medium">student</span>, the divisor is{' '}
-              {WORKING_DAYS_PER_MONTH} (same as the student capacity formula).
-            </p>
-            <Button type="button" variant="outline" size="sm" onClick={applyFromHrHardcopy}>
-              Apply HR totals
-            </Button>
           </AlertDescription>
         </Alert>
 
@@ -317,12 +234,10 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                       value={field.value}
                       onValueChange={(v) => {
                         field.onChange(v);
-                        if (v === 'NON_STUDENT') {
-                          const twd = form.getValues('totalWorkingDays');
-                          const n = Number(twd);
-                          if (twd === undefined || twd === null || n <= 0) {
-                            form.setValue('totalWorkingDays', 22, { shouldValidate: true });
-                          }
+                        const twd = form.getValues('totalWorkingDays');
+                        const n = Number(twd);
+                        if (twd === undefined || twd === null || n <= 0) {
+                          form.setValue('totalWorkingDays', WORKING_DAYS_PER_MONTH, { shouldValidate: true });
                         }
                       }}
                     >
@@ -434,41 +349,13 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="totalWorkingDays"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {watchedGroup === 'NON_STUDENT' ? 'Working days in month *' : 'Total man-hour capacity (display)'}
-                    </FormLabel>
-                    {watchedGroup === 'NON_STUDENT' ? (
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="1"
-                          min="0"
-                          max="31"
-                          {...field}
-                        />
-                      </FormControl>
-                    ) : (
-                      <FormControl>
-                        <Input
-                          type="number"
-                          readOnly
-                          disabled
-                          className="bg-muted cursor-not-allowed"
-                          {...field}
-                          value={field.value ?? studentComputedCapacity}
-                        />
-                      </FormControl>
-                    )}
+                    <FormLabel>Working days in month *</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="1" min="0" max="31" {...field} />
+                    </FormControl>
                     <p className="text-xs text-muted-foreground">
-                      {watchedGroup === 'NON_STUDENT' ? (
-                        <>
-                          Man-hour capacity = Quantity × Hours per day × this day count. Default 22 when empty.
-                        </>
-                      ) : (
-                        <>
-                          Same as: {watchedQty || 0} people × {watchedManHourPerDay || 0} hrs/day × {WORKING_DAYS_PER_MONTH} days
-                        </>
-                      )}
+                      Man-hour capacity = {watchedQty || 0} people × {watchedManHourPerDay || 0} hrs/day ×{' '}
+                      {dayCount || WORKING_DAYS_PER_MONTH} days.
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -488,7 +375,6 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                         step="0.5"
                         min="0"
                         {...field}
-                        onFocus={() => { lastEditedField.current = 'lostHour'; }}
                         onChange={(e) => {
                           lastEditedField.current = 'lostHour';
                           field.onChange(e);
@@ -514,7 +400,6 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                         step="0.5"
                         min="0"
                         {...field}
-                        onFocus={() => { lastEditedField.current = 'total'; }}
                         onChange={(e) => {
                           lastEditedField.current = 'total';
                           field.onChange(e);
