@@ -10,10 +10,22 @@ export class PublicWorkPermitRiskMitigationItemDto {
   eliminate?: string;
 
   @ApiPropertyOptional()
-  transfer?: string;
+  eliminationControl?: string;
 
   @ApiPropertyOptional()
-  reduce?: string;
+  substitutionControl?: string;
+
+  @ApiPropertyOptional()
+  engineeringControl?: string;
+
+  @ApiPropertyOptional()
+  administrationControl?: string;
+
+  @ApiPropertyOptional()
+  personalProtectiveEquipment?: string;
+
+  @ApiPropertyOptional()
+  transfer?: string;
 
   @ApiPropertyOptional()
   accept?: string;

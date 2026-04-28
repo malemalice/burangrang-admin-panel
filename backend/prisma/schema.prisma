@@ -337,8 +337,12 @@ model Risk {
 model RiskMitigation {
   id         String   @id @default(uuid())
   eliminate  String?  @db.Text
+  eliminationControl           String?  @db.Text
+  substitutionControl          String?  @db.Text
+  engineeringControl           String?  @db.Text
+  administrationControl        String?  @db.Text
+  personalProtectiveEquipment  String?  @db.Text
   transfer   String?  @db.Text
-  reduce     String?  @db.Text
   accept     String?  @db.Text
   isActive   Boolean  @default(true)
   deletedAt  DateTime?
@@ -354,8 +358,12 @@ model RiskMitigation {
 model RiskControl {
   id        String   @id @default(uuid())
   eliminate String?  @db.Text
+  eliminationControl           String?  @db.Text
+  substitutionControl          String?  @db.Text
+  engineeringControl           String?  @db.Text
+  administrationControl        String?  @db.Text
+  personalProtectiveEquipment  String?  @db.Text
   transfer  String?  @db.Text
-  reduce    String?  @db.Text
   isOpen    Boolean  @default(true)
   isAccept  Boolean  @default(false)
   isActive  Boolean  @default(true)
@@ -377,8 +385,12 @@ model RiskMitigationRecord {
   id           String   @id @default(uuid())
   code         String // Auto-generated code with prefix RSK{datetime}, not user-updatable; unique for non-deleted rows (partial index)
   eliminate    String?  @db.Text
+  eliminationControl           String?  @db.Text
+  substitutionControl          String?  @db.Text
+  engineeringControl           String?  @db.Text
+  administrationControl        String?  @db.Text
+  personalProtectiveEquipment  String?  @db.Text
   transfer     String?  @db.Text
-  reduce       String?  @db.Text
   accept       String?  @db.Text
   legalAspect  String?  @db.Text
   isActive     Boolean  @default(true)

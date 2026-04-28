@@ -231,6 +231,17 @@ const RiskMitigationsPage = () => {
   const colActions = 'w-[6%] min-w-0';
   const cellOverflow = 'overflow-hidden';
 
+  const getControlHierarchyText = (m: RiskMitigation): string | undefined => {
+    const parts: string[] = [];
+    if (m.eliminationControl?.trim()) parts.push(`Elimination Control\n${m.eliminationControl}`);
+    if (m.substitutionControl?.trim()) parts.push(`Substitution Control\n${m.substitutionControl}`);
+    if (m.engineeringControl?.trim()) parts.push(`Engineering Control\n${m.engineeringControl}`);
+    if (m.administrationControl?.trim()) parts.push(`Administration Control\n${m.administrationControl}`);
+    if (m.personalProtectiveEquipment?.trim()) parts.push(`Personal Protective Equipment\n${m.personalProtectiveEquipment}`);
+    const out = parts.join('\n\n');
+    return out.length > 0 ? out : undefined;
+  };
+
   // Table columns
   const columns = [
     {
@@ -269,11 +280,11 @@ const RiskMitigationsPage = () => {
       isSortable: false,
     },
     {
-      id: 'reduce',
-      header: 'Reduce',
+      id: 'controls',
+      header: 'Controls',
       headerClassName: colStrategy,
       cellClassName: cellOverflow,
-      cell: (mitigation: RiskMitigation) => <TruncateCell text={mitigation.reduce ?? undefined} />,
+      cell: (mitigation: RiskMitigation) => <TruncateCell text={getControlHierarchyText(mitigation)} />,
       isSortable: false,
     },
     {

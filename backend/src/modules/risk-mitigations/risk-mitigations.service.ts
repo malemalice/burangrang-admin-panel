@@ -163,8 +163,12 @@ export class RiskMitigationsService {
     return {
       id: mitigation.id,
       eliminate: mitigation.eliminate,
+      eliminationControl: mitigation.eliminationControl,
+      substitutionControl: mitigation.substitutionControl,
+      engineeringControl: mitigation.engineeringControl,
+      administrationControl: mitigation.administrationControl,
+      personalProtectiveEquipment: mitigation.personalProtectiveEquipment,
       transfer: mitigation.transfer,
-      reduce: mitigation.reduce,
       accept: mitigation.accept,
       isActive: mitigation.isActive,
       riskId: mitigation.riskId,

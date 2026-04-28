@@ -89,12 +89,18 @@ const RiskDetailPage = () => {
       ),
     },
     {
-      id: 'reduce',
-      header: 'Reduce',
+      id: 'controls',
+      header: 'Controls',
       cell: (mitigation: RiskMitigation) => (
         <div className="text-sm max-w-xs">
-          {mitigation.reduce ? (
-            <div className="truncate">{mitigation.reduce}</div>
+          {mitigation.engineeringControl || mitigation.administrationControl || mitigation.personalProtectiveEquipment || mitigation.eliminationControl || mitigation.substitutionControl ? (
+            <div className="truncate">
+              {mitigation.engineeringControl ||
+                mitigation.administrationControl ||
+                mitigation.personalProtectiveEquipment ||
+                mitigation.eliminationControl ||
+                mitigation.substitutionControl}
+            </div>
           ) : (
             <span className="text-gray-400">-</span>
           )}

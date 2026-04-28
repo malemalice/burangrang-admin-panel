@@ -9,8 +9,12 @@ import { User } from '@/core/lib/types';
 
 export interface RiskMitigationData {
   eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
   transfer?: string;
-  reduce?: string;
   accept?: string;
   legalAspect?: string;
 }

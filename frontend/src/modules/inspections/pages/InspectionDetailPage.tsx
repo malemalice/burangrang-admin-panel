@@ -478,8 +478,12 @@ const InspectionDetailPage = () => {
                 })),
                 mitigation: editingItem.mitigation ? {
                   eliminate: editingItem.mitigation.eliminate,
+                  eliminationControl: (editingItem.mitigation as any).eliminationControl,
+                  substitutionControl: (editingItem.mitigation as any).substitutionControl,
+                  engineeringControl: (editingItem.mitigation as any).engineeringControl,
+                  administrationControl: (editingItem.mitigation as any).administrationControl,
+                  personalProtectiveEquipment: (editingItem.mitigation as any).personalProtectiveEquipment,
                   transfer: editingItem.mitigation.transfer,
-                  reduce: editingItem.mitigation.reduce,
                   accept: editingItem.mitigation.accept,
                   legalAspect: editingItem.mitigation.legalAspect,
                 } : undefined,
