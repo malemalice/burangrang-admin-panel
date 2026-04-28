@@ -10,6 +10,28 @@ import {
   ClassificationSafetyGuidanceUpdate,
 } from '../types/work-permit.types';
 
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'response' in err &&
+    err.response &&
+    typeof err.response === 'object' &&
+    'data' in err.response &&
+    err.response.data &&
+    typeof err.response.data === 'object'
+  ) {
+    const data = err.response.data as { message?: unknown };
+    const m = data?.message;
+    if (typeof m === 'string' && m.trim()) return m;
+    if (Array.isArray(m)) {
+      const joined = m.map(String).filter(Boolean).join(', ');
+      if (joined.trim()) return joined;
+    }
+  }
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
 export const useWorkPermits = () => {
   const [workPermits, setWorkPermits] = useState<WorkPermit[]>([]);
   const [totalWorkPermits, setTotalWorkPermits] = useState(0);
@@ -42,7 +64,7 @@ export const useWorkPermits = () => {
       toast.success('Work permit created successfully');
       return newWorkPermit;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create work permit';
+      const errorMessage = getApiErrorMessage(err, 'Failed to create work permit');
       toast.error(errorMessage);
       throw err;
     }

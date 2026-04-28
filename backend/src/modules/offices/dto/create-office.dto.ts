@@ -1,10 +1,12 @@
-import { IsString, IsOptional, IsUUID, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsBoolean, IsNotEmpty } from 'class-validator';
 
 export class CreateOfficeDto {
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @IsString()
+  @IsNotEmpty()
   code: string;
 
   @IsString()

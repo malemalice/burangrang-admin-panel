@@ -129,6 +129,30 @@ export class RiskAssessmentZohoSyncService {
       return null;
     }
 
+    const authToken = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.SDP_AUTHTOKEN,
+      '',
+    );
+    if (!authToken?.trim()) {
+      const correlationId = params.correlationId || `corr-${randomUUID()}`;
+      await this.accessLogsService.createAccessLog({
+        method: 'POST',
+        endpoint: '/api/v3/requests',
+        statusCode: 200,
+        payload: {
+          source: 'risk_assessment_zoho_create_skip',
+          correlationId,
+          riskAssessmentId: params.riskAssessmentId,
+          result: 'skipped_missing_sdp_authtoken',
+          errorMessage: 'Zoho create skipped: SDP_AUTHTOKEN not configured',
+          requestFieldKeys: Object.keys(params.payload ?? {}),
+        },
+        userAgent: 'RiskAssessmentZohoSyncService',
+        executionTime: 0,
+      });
+      return null;
+    }
+
     const existingMapping = await this.findMapping(params.riskAssessmentId);
     if (existingMapping) {
       return {

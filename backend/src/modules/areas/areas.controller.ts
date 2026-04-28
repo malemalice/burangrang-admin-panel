@@ -55,6 +55,8 @@ export class AreasController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'name', required: false, type: String })
+  @ApiQuery({ name: 'code', required: false, type: String })
   @ApiQuery({ name: 'hasRoom', required: false, type: Boolean, description: 'Filter by room assignment status' })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
@@ -64,6 +66,8 @@ export class AreasController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('code') code?: string,
     @Query('hasRoom') hasRoom?: string,
   ) {
     return this.areasService.findAll({
@@ -73,6 +77,8 @@ export class AreasController {
       sortOrder,
       isActive: isActive !== undefined ? isActive === 'true' : undefined,
       search,
+      name,
+      code,
       hasRoom: hasRoom !== undefined ? hasRoom === 'true' : undefined,
     });
   }

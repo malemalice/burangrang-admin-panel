@@ -331,6 +331,7 @@ const OfficeDetailPage = () => {
         title="Delete Office"
         description={`Are you sure you want to delete the office "${office?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

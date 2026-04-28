@@ -27,6 +27,14 @@ export class DispatchOrdersService {
   private dispatchOrderMapper: (entity: any) => DispatchOrderDto;
   private attachmentMapper: (entity: any) => DispatchOrderAttachmentDto;
 
+  private isUniqueDispatchCodeError(error: any): boolean {
+    return (
+      error?.code === 'P2002' &&
+      Array.isArray(error?.meta?.target) &&
+      error.meta.target.includes('dispatchCode')
+    );
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
@@ -91,8 +99,6 @@ export class DispatchOrdersService {
     userId: string,
   ): Promise<DispatchOrderDto> {
     return this.errorHandler.safeExecute(async () => {
-      const dispatchCode = await this.generateDispatchCode();
-
       const dispatchDate = new Date(createDto.dispatchDate);
       if (Number.isNaN(dispatchDate.getTime())) {
         this.errorHandler.throwBadRequest('Invalid dispatchDate');
@@ -102,35 +108,55 @@ export class DispatchOrdersService {
       }
 
       const { attachments, ...rest } = createDto;
-      const data: any = {
-        ...rest,
-        dispatchCode,
-        orderedBy: userId,
-        createdBy: userId,
-        dispatchDate,
-        quantity: new Prisma.Decimal(createDto.quantity),
-        status: GeneralStatusEnum.WAITING_APPROVAL,
-      };
 
-      if (attachments?.length) {
-        data.attachments = {
-          create: attachments.map((a) => ({
-            fileUrl: a.fileUrl,
-            fileName: a.fileName,
-            order: a.order,
-          })),
+      // dispatchCode is generated server-side; to avoid rare collisions under parallel requests
+      // we retry on Prisma unique constraint errors for this field.
+      const maxAttempts = 5;
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const dispatchCode = await this.generateDispatchCode();
+        const data: any = {
+          ...rest,
+          dispatchCode,
+          orderedBy: userId,
+          createdBy: userId,
+          dispatchDate,
+          quantity: new Prisma.Decimal(createDto.quantity),
+          status: GeneralStatusEnum.WAITING_APPROVAL,
         };
+
+        if (attachments?.length) {
+          data.attachments = {
+            create: attachments.map((a) => ({
+              fileUrl: a.fileUrl,
+              fileName: a.fileName,
+              order: a.order,
+            })),
+          };
+        }
+
+        try {
+          const item = await this.prisma.dispatchOrder.create({
+            data,
+            include: {
+              orderer: true,
+              creator: true,
+              attachments: attachmentInclude,
+            },
+          });
+          return this.dispatchOrderMapper(item);
+        } catch (error) {
+          if (this.isUniqueDispatchCodeError(error) && attempt < maxAttempts) {
+            lastError = error;
+            const jitterMs = 10 + Math.floor(Math.random() * 40);
+            await new Promise((resolve) => setTimeout(resolve, jitterMs));
+            continue;
+          }
+          throw error;
+        }
       }
 
-      const item = await this.prisma.dispatchOrder.create({
-        data,
-        include: {
-          orderer: true,
-          creator: true,
-          attachments: attachmentInclude,
-        },
-      });
-      return this.dispatchOrderMapper(item);
+      throw lastError ?? new Error('Failed to generate unique dispatchCode');
     }, 'creating dispatch order');
   }
 

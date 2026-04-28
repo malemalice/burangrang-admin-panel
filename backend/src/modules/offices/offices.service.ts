@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateOfficeDto } from './dto/create-office.dto';
 import { UpdateOfficeDto } from './dto/update-office.dto';
@@ -14,6 +14,10 @@ interface FindAllOptions {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
+  search?: string;
+  name?: string;
+  code?: string;
+  address?: string;
 }
 
 @Injectable()
@@ -72,20 +76,36 @@ export class OfficesService {
 
   async create(createOfficeDto: CreateOfficeDto): Promise<OfficeDto> {
     const { parentId, ...data } = createOfficeDto;
-    const office = await this.prisma.office.create({
-      data: {
-        ...data,
-        ...(parentId && {
-          parent: {
-            connect: { id: parentId },
+
+    const existing = await this.prisma.office.findFirst({
+      where: {
+        code: data.code,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('office code already exist');
+    }
+
+    const office = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.office.create({
+          data: {
+            ...data,
+            ...(parentId && {
+              parent: {
+                connect: { id: parentId },
+              },
+            }),
+          },
+          include: {
+            children: true,
+            parent: true,
           },
         }),
-      },
-      include: {
-        children: true,
-        parent: true,
-      },
-    });
+      'creating office',
+    );
 
     return this.officeMapper(office);
   }
@@ -100,6 +120,10 @@ export class OfficesService {
       sortBy = 'name',
       sortOrder = 'asc',
       isActive,
+      search,
+      name,
+      code,
+      address,
     } = options || {};
 
     const where: Prisma.OfficeWhereInput = {
@@ -107,6 +131,19 @@ export class OfficesService {
     };
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+    if (name) {
+      where.name = { contains: name, mode: 'insensitive' };
+    }
+    if (code) {
+      where.code = { contains: code, mode: 'insensitive' };
+    }
+    if (address) {
+      where.address = { contains: address, mode: 'insensitive' };
+    }
+    if (search) {
+      // Search is scoped to name only (per QA expectation)
+      where.name = { contains: search, mode: 'insensitive' };
     }
 
     const [offices, total] = await Promise.all([
@@ -156,21 +193,39 @@ export class OfficesService {
     this.errorHandler.throwIfNotFoundById('Office', id, existingOffice);
 
     const { parentId, ...data } = updateOfficeDto;
-    const office = await this.prisma.office.update({
-      where: { id },
-      data: {
-        ...data,
-        ...(parentId !== undefined && {
-          parent: parentId
-            ? { connect: { id: parentId } }
-            : { disconnect: true },
+    if (data.code) {
+      const existingByCode = await this.prisma.office.findFirst({
+        where: {
+          code: data.code,
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (existingByCode) {
+        throw new ConflictException('office code already exist');
+      }
+    }
+
+    const office = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.office.update({
+          where: { id },
+          data: {
+            ...data,
+            ...(parentId !== undefined && {
+              parent: parentId
+                ? { connect: { id: parentId } }
+                : { disconnect: true },
+            }),
+          },
+          include: {
+            children: true,
+            parent: true,
+          },
         }),
-      },
-      include: {
-        children: true,
-        parent: true,
-      },
-    });
+      'updating office',
+    );
 
     return this.officeMapper(office);
   }

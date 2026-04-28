@@ -111,6 +111,15 @@ export class CertificatesService {
         });
     }
 
+    /**
+     * Best-effort in-process dedupe for expiry emails.
+     * Keyed by `${certificateId}:${YYYY-MM-DD}:${reminderType}`.
+     *
+     * Note: This does not persist across restarts. For strict idempotency across deployments,
+     * store last-sent state in DB (not implemented to avoid migrations).
+     */
+    private readonly expiryEmailSentCache = new Map<string, true>();
+
     // ==================== Certificate Categories ====================
 
     async createCategory(
@@ -515,6 +524,57 @@ export class CertificatesService {
                 }
             }
         }
+    }
+
+    /**
+     * Sends post-expiry reminder emails to certificate category responsible departments.
+     * Requirement: strictly after expired date (validityDate < now), send daily.
+     */
+    async sendExpiredCertificatesDepartmentEmailsDaily(): Promise<{
+        scanned: number;
+        emailed: number;
+        skippedDedupe: number;
+    }> {
+        const now = new Date();
+        const todayKey = now.toISOString().slice(0, 10); // YYYY-MM-DD
+
+        const expiredCertificates = await this.prisma.certificate.findMany({
+            where: {
+                deletedAt: null,
+                isActive: true,
+                validityDate: { lt: now },
+            },
+            include: {
+                category: { include: { responsibleDepartments: true } },
+            },
+            take: 1000,
+            orderBy: { validityDate: 'asc' },
+        });
+
+        let emailed = 0;
+        let skippedDedupe = 0;
+
+        for (const cert of expiredCertificates) {
+            const cacheKey = `${cert.id}:${todayKey}:daily`;
+            if (this.expiryEmailSentCache.has(cacheKey)) {
+                skippedDedupe += 1;
+                continue;
+            }
+
+            try {
+                await this.notifyResponsibleDepartments(cert, 'daily');
+                this.expiryEmailSentCache.set(cacheKey, true);
+                emailed += 1;
+            } catch (e) {
+                // Do not fail the whole batch; log and continue.
+                console.error(
+                    `Failed to send expired certificate daily emails for cert ${cert.id}:`,
+                    e,
+                );
+            }
+        }
+
+        return { scanned: expiredCertificates.length, emailed, skippedDedupe };
     }
 
     /**

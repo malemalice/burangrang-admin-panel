@@ -35,6 +35,10 @@ export default function AreasPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({
+    id: 'createdAt',
+    desc: true,
+  });
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -66,8 +70,8 @@ export default function AreasPage() {
         page: pageIndex + 1,
         limit,
         search: searchTerm || undefined,
-        sortBy: 'name',
-        sortOrder: 'asc',
+        sortBy: sorting?.id,
+        sortOrder: sorting?.desc ? 'desc' : 'asc',
         filters: {
              isActive: activeFilters.status?.value === 'active' ? true :
                        activeFilters.status?.value === 'inactive' ? false :
@@ -89,7 +93,7 @@ export default function AreasPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   // Fetch when pagination, search, filters change
   useEffect(() => {
@@ -176,6 +180,7 @@ export default function AreasPage() {
     {
       id: 'name',
       header: 'Area Name',
+      isSortable: true,
       cell: (area: AreaDTO) => (
         <div>
           <div className="font-medium">{area.name}</div>
@@ -211,6 +216,16 @@ export default function AreasPage() {
         >
           {area.isActive ? 'Active' : 'Inactive'}
         </Badge>
+      ),
+    },
+    {
+      id: 'createdAt',
+      header: 'Created',
+      isSortable: true,
+      cell: (area: AreaDTO) => (
+        <span className="text-sm text-muted-foreground">
+          {area.createdAt ? new Date(area.createdAt).toLocaleString() : '-'}
+        </span>
       ),
     },
     {
@@ -288,6 +303,11 @@ export default function AreasPage() {
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        sorting={sorting}
+        onSortingChange={(next) => {
+          setSorting(next ?? { id: 'createdAt', desc: true });
+          setPageIndex(0);
+        }}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

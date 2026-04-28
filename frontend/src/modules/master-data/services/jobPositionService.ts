@@ -8,8 +8,15 @@ import {
   UpdateJobPositionDTO 
 } from '../types/master-data.types';
 
+interface JobPositionListParams extends PaginationParams {
+  isActive?: boolean;
+  name?: string;
+  code?: string;
+  level?: string | number;
+}
+
 const jobPositionService = {
-  getAll: async (params?: PaginationParams): Promise<PaginatedResponse<JobPosition>> => {
+  getAll: async (params?: JobPositionListParams): Promise<PaginatedResponse<JobPosition>> => {
     const response = await api.get('/job-positions', { params });
     return response.data;
   },

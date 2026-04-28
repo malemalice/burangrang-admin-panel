@@ -55,15 +55,20 @@ const RiskMatrixManagementPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [rowToDelete, setRowToDelete] = useState<MatrixRow | null>(null);
   const newRowInputRef = useRef<HTMLInputElement>(null);
+  const shouldFocusNewRowRef = useRef(false);
 
   // Focus the new row's first input when a new row is added
   useEffect(() => {
-    if (matrixRows.length > 0 && matrixRows[matrixRows.length - 1].isNew) {
-      requestAnimationFrame(() => {
-        newRowInputRef.current?.focus();
-      });
-    }
-  }, [matrixRows]);
+    if (!shouldFocusNewRowRef.current) return;
+
+    const lastRow = matrixRows[matrixRows.length - 1];
+    if (!lastRow?.isNew) return;
+
+    shouldFocusNewRowRef.current = false;
+    requestAnimationFrame(() => {
+      newRowInputRef.current?.focus();
+    });
+  }, [matrixRows.length]);
 
   // Fetch initial data
   useEffect(() => {
@@ -165,6 +170,7 @@ const RiskMatrixManagementPage = () => {
       error: undefined,
     };
 
+    shouldFocusNewRowRef.current = true;
     setMatrixRows([...matrixRows, newRow]);
   };
 

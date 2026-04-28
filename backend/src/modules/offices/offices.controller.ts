@@ -89,6 +89,10 @@ export class OfficesController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
+    @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('code') code?: string,
+    @Query('address') address?: string,
   ): Promise<{ data: OfficeDto[]; meta: { total: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -102,6 +106,10 @@ export class OfficesController {
       sortBy,
       sortOrder,
       isActive: isActiveBoolean,
+      search,
+      name,
+      code,
+      address,
     });
   }
 

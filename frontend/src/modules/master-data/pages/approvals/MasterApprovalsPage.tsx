@@ -1,24 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, CheckCircle2, MoreHorizontal, Eye } from 'lucide-react';
-import { Button, ThemeButton } from '@/core/components/ui/button';
+import { Edit, MoreHorizontal, Eye } from 'lucide-react';
+import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
 import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
-import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import masterApprovalService from '../../services/masterApprovalService';
 import { MasterApproval } from '@/core/lib/types';
-import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
 
 // Sentinel values for dynamic approval fields
@@ -46,8 +43,6 @@ const MasterApprovalsPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalApprovals, setTotalApprovals] = useState(0);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [approvalToDelete, setApprovalToDelete] = useState<MasterApproval | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
@@ -111,38 +106,6 @@ const MasterApprovalsPage = () => {
   useEffect(() => {
     fetchApprovals();
   }, [fetchApprovals]);
-
-  const handleDeleteClick = (approval: MasterApproval, event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    setOpenDropdownId(null); // Explicitly close the dropdown
-    setApprovalToDelete(approval);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!approvalToDelete) return;
-    
-    setIsLoading(true);
-    try {
-      await masterApprovalService.delete(approvalToDelete.id);
-      toast.success(`Approval "${approvalToDelete.entity}" has been deleted`);
-      setOpenDropdownId(null); // Ensure dropdown is closed
-      fetchApprovals();
-    } catch (error) {
-      console.error('Failed to delete approval:', error);
-      toast.error('Failed to delete approval');
-    } finally {
-      setIsLoading(false);
-      setDeleteDialogOpen(false);
-      setApprovalToDelete(null);
-    }
-  };
-
-  const handleDialogCancel = () => {
-    setDeleteDialogOpen(false);
-    setApprovalToDelete(null);
-    setOpenDropdownId(null); // Ensure dropdown is closed
-  };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -261,18 +224,6 @@ const MasterApprovalsPage = () => {
                 Edit
               </DropdownMenuItem>
             )}
-            {(hasPermission('master-approval:read') || hasPermission('master-approval:update')) && hasPermission('master-approval:delete') && (
-              <DropdownMenuSeparator />
-            )}
-            {hasPermission('master-approval:delete') && (
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={(e) => handleDeleteClick(approval, e)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -284,13 +235,6 @@ const MasterApprovalsPage = () => {
       <PageHeader
         title="Master Approvals"
         subtitle="Manage your organization's approval flows"
-        actions={
-          <PermissionGuard permission="master-approval:create">
-            <ThemeButton onClick={() => navigate('/master/approvals/new')}>
-              <Plus className="mr-2 h-4 w-4" /> Add Approval
-            </ThemeButton>
-          </PermissionGuard>
-        }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
@@ -317,19 +261,6 @@ const MasterApprovalsPage = () => {
         activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleDialogCancel();
-          }
-        }}
-        title="Delete Approval"
-        description={`Are you sure you want to delete "${approvalToDelete?.entity}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-        variant="destructive"
       />
     </>
   );

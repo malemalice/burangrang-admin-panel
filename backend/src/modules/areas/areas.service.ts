@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateAreaDto } from './dto/create-area.dto';
 import { UpdateAreaDto } from './dto/update-area.dto';
@@ -15,6 +15,8 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
   hasRoom?: boolean; // Filter areas by whether they have a room assigned
 }
 
@@ -59,12 +61,27 @@ export class AreasService {
   }
 
   async create(createAreaDto: CreateAreaDto): Promise<AreaDto> {
-    const area = await this.prisma.area.create({
-      data: createAreaDto,
-      include: {
-        office: true,
+    const existing = await this.prisma.area.findFirst({
+      where: {
+        code: createAreaDto.code,
+        deletedAt: null,
       },
+      select: { id: true },
     });
+    if (existing) {
+      throw new ConflictException('areas code already exist');
+    }
+
+    const area = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.area.create({
+          data: createAreaDto,
+          include: {
+            office: true,
+          },
+        }),
+      'creating area',
+    );
 
     return this.areaMapper(area);
   }
@@ -76,10 +93,12 @@ export class AreasService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       isActive,
       search,
+      name,
+      code,
       hasRoom,
     } = options || {};
 
@@ -87,25 +106,40 @@ export class AreasService {
       deletedAt: null,
     };
 
+    const and: Prisma.AreaWhereInput[] = [];
+
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (name) {
+      and.push({ name: { contains: name, mode: 'insensitive' } });
+    }
+
+    if (code) {
+      and.push({ code: { contains: code, mode: 'insensitive' } });
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      and.push({ isActive });
     }
 
     // Filter by whether area has a room assigned
     if (hasRoom !== undefined) {
       if (hasRoom) {
-        where.rooms = { some: {} };
+        and.push({ rooms: { some: {} } });
       } else {
-        where.rooms = { none: {} };
+        and.push({ rooms: { none: {} } });
       }
+    }
+
+    if (and.length > 0) {
+      where.AND = and;
     }
 
     const [areas, total] = await Promise.all([
@@ -149,13 +183,31 @@ export class AreasService {
 
     this.errorHandler.throwIfNotFoundById('Area', id, existingArea);
 
-    const area = await this.prisma.area.update({
-      where: { id },
-      data: updateAreaDto,
-      include: {
-        office: true,
-      },
-    });
+    if (updateAreaDto.code) {
+      const existingByCode = await this.prisma.area.findFirst({
+        where: {
+          code: updateAreaDto.code,
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (existingByCode) {
+        throw new ConflictException('areas code already exist');
+      }
+    }
+
+    const area = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.area.update({
+          where: { id },
+          data: updateAreaDto,
+          include: {
+            office: true,
+          },
+        }),
+      'updating area',
+    );
 
     return this.areaMapper(area);
   }

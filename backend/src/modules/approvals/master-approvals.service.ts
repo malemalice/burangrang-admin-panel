@@ -30,6 +30,7 @@ import {
   isApprovalFieldMarker,
 } from './constants/approval-field-markers';
 import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
+import { formatEntityLabel } from '../../shared/utils/entity-label.util';
 
 interface FindAllOptions {
   page?: number;
@@ -1264,6 +1265,9 @@ export class MasterApprovalsService {
     approver: User,
   ): Promise<void> {
     try {
+      const entityLabel = formatEntityLabel(entityName);
+      const entitySlug = entityName.toLowerCase().replace(/_/g, '-');
+
       // Get or create notification type
       const notificationTypeName =
         status === ApprovalStatus.APPROVED
@@ -1317,9 +1321,9 @@ export class MasterApprovalsService {
 
         await this.notificationsService.createNotificationForRoles(
           {
-            title: `${entityName} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
-            message: `Your ${entityName} request has been ${statusText} by ${approverName}.${notesText}`,
-            context: entityName.toLowerCase().replace(/_/g, '-'),
+            title: `${entityLabel} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
+            message: `Your ${entityLabel} request has been ${statusText} by ${approverName}.${notesText}`,
+            context: entitySlug,
             contextId: entityId,
             typeId: notificationType.id,
             roleIds: requester.roleId ? [requester.roleId] : [],
@@ -1351,9 +1355,9 @@ export class MasterApprovalsService {
 
         await this.notificationsService.createNotificationByDepartmentAndJobPosition(
           {
-            title: `${entityName} Approval Request`,
-            message: `A ${entityName} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
-            context: entityName.toLowerCase().replace(/_/g, '-'),
+            title: `${entityLabel} Approval Request`,
+            message: `A ${entityLabel} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
+            context: entitySlug,
             contextId: entityId,
             typeId: approvalRequestType.id,
             departmentId: approvalStatus.nextApprover.department.id,

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -16,6 +16,8 @@ interface FindAllOptions {
   search?: string;
   areaId?: string;
 }
+
+type RoomSortField = 'name' | 'code' | 'createdAt' | 'updatedAt' | 'isActive';
 
 @Injectable()
 export class RoomsService {
@@ -51,6 +53,14 @@ export class RoomsService {
   }
 
   async create(createRoomDto: CreateRoomDto): Promise<RoomDto> {
+    const existingByCode = await this.prisma.room.findFirst({
+      where: { code: createRoomDto.code, deletedAt: null },
+      select: { id: true },
+    });
+    if (existingByCode) {
+      throw new ConflictException('Rooms code already exist');
+    }
+
     // Check if area exists
     const area = await this.prisma.area.findFirst({
       where: { id: createRoomDto.areaId, deletedAt: null },
@@ -67,12 +77,16 @@ export class RoomsService {
       this.errorHandler.throwConflictCustom(`Area with ID ${createRoomDto.areaId} already has a room assigned`);
     }
 
-    const room = await this.prisma.room.create({
-      data: createRoomDto,
-      include: {
-        area: true,
-      },
-    });
+    const room = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.room.create({
+          data: createRoomDto,
+          include: {
+            area: true,
+          },
+        }),
+      'creating room',
+    );
 
     return this.roomMapper(room);
   }
@@ -87,6 +101,16 @@ export class RoomsService {
       search,
       areaId,
     } = options || {};
+
+    const allowedSortFields: Record<string, RoomSortField> = {
+      name: 'name',
+      code: 'code',
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt',
+      isActive: 'isActive',
+    };
+    const safeSortBy: RoomSortField = allowedSortFields[sortBy] ?? 'name';
+    const safeSortOrder: 'asc' | 'desc' = sortOrder === 'desc' ? 'desc' : 'asc';
 
     const where: any = {
       deletedAt: null,
@@ -112,7 +136,7 @@ export class RoomsService {
       this.prisma.room.findMany({
         where,
         orderBy: {
-          [sortBy]: sortOrder,
+          [safeSortBy]: safeSortOrder,
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -149,6 +173,20 @@ export class RoomsService {
 
     this.errorHandler.throwIfNotFoundById('Room', id, existingRoom);
 
+    if (updateRoomDto.code) {
+      const existingByCode = await this.prisma.room.findFirst({
+        where: {
+          code: updateRoomDto.code,
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (existingByCode) {
+        throw new ConflictException('Rooms code already exist');
+      }
+    }
+
     // If areaId is being updated, check if new area exists and is not already assigned
     if (updateRoomDto.areaId && updateRoomDto.areaId !== existingRoom.areaId) {
       const area = await this.prisma.area.findFirst({
@@ -166,13 +204,17 @@ export class RoomsService {
       }
     }
 
-    const updatedRoom = await this.prisma.room.update({
-      where: { id },
-      data: updateRoomDto,
-      include: {
-        area: true,
-      },
-    });
+    const updatedRoom = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.room.update({
+          where: { id },
+          data: updateRoomDto,
+          include: {
+            area: true,
+          },
+        }),
+      'updating room',
+    );
 
     return this.roomMapper(updatedRoom);
   }

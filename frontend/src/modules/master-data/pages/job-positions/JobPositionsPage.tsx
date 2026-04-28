@@ -69,11 +69,28 @@ const JobPositionsPage = () => {
   const fetchJobPositions = useCallback(async () => {
     try {
       setIsLoading(true);
+      const isActiveFromFilter = activeFilters.status
+        ? (activeFilters.status.value === 'active'
+          ? true
+          : activeFilters.status.value === 'inactive'
+            ? false
+            : undefined)
+        : undefined;
+      const isActive =
+        isActiveFromFilter !== undefined
+          ? isActiveFromFilter
+          : activeTab === 'all'
+            ? undefined
+            : activeTab === 'active';
+
       const response = await jobPositionService.getAll({
         page: pageIndex + 1,
         limit,
-        isActive: activeTab === 'all' ? undefined : activeTab === 'active',
-        search: searchTerm,
+        isActive,
+        search: searchTerm || undefined,
+        name: activeFilters.name?.value,
+        code: activeFilters.code?.value,
+        level: activeFilters.level?.value,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       });
@@ -89,7 +106,7 @@ const JobPositionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting]);
+  }, [pageIndex, limit, activeTab, searchTerm, sorting, activeFilters]);
 
   useEffect(() => {
     fetchJobPositions();
@@ -99,6 +116,13 @@ const JobPositionsPage = () => {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({ status: { value: 'active', label: 'Active' } });
+    } else if (value === 'inactive') {
+      setActiveFilters({ status: { value: 'inactive', label: 'Inactive' } });
+    }
   };
 
   // Handle search
@@ -125,6 +149,18 @@ const JobPositionsPage = () => {
     });
     setActiveFilters(newFilters);
     setPageIndex(0);
+
+    // Sync tab with status filter
+    const statusFilter = filters.find(f => f.id === 'status');
+    if (!statusFilter && (activeTab === 'active' || activeTab === 'inactive')) {
+      setActiveTab('all');
+      return;
+    }
+    if (statusFilter) {
+      if (statusFilter.value === 'active') setActiveTab('active');
+      else if (statusFilter.value === 'inactive') setActiveTab('inactive');
+      else setActiveTab('all');
+    }
   };
 
   // Handle sorting

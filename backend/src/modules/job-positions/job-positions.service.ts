@@ -15,6 +15,9 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
+  level?: number;
 }
 
 @Injectable()
@@ -55,21 +58,44 @@ export class JobPositionsService {
       sortOrder = 'asc',
       isActive,
       search,
+      name,
+      code,
+      level,
     } = options || {};
 
     const where: Prisma.JobPositionWhereInput = {
       deletedAt: null,
     };
 
+    const and: Prisma.JobPositionWhereInput[] = [];
+
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-      ];
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (name) {
+      and.push({ name: { contains: name, mode: 'insensitive' } });
+    }
+
+    if (code) {
+      and.push({ code: { contains: code, mode: 'insensitive' } });
+    }
+
+    if (level !== undefined) {
+      and.push({ level: { equals: level } });
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      and.push({ isActive });
+    }
+
+    if (and.length > 0) {
+      where.AND = and;
     }
 
     const [jobPositions, total] = await Promise.all([
