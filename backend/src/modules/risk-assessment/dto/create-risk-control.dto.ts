@@ -10,12 +10,32 @@ export class CreateRiskControlDto {
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })
-  transfer?: string;
+  eliminationControl?: string;
 
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })
-  reduce?: string;
+  substitutionControl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  engineeringControl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  administrationControl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  personalProtectiveEquipment?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  transfer?: string;
 
   @IsOptional()
   @IsBoolean()

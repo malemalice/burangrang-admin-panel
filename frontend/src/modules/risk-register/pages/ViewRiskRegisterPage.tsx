@@ -232,19 +232,35 @@ const ViewRiskRegisterPage = () => {
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminate ?? '—'}</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold mb-2">Transfer</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.transfer ?? '—'}</p>
+              <h4 className="text-sm font-semibold mb-2">Elimination Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminationControl ?? '—'}</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold mb-2">Reduce</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.reduce ?? '—'}</p>
+              <h4 className="text-sm font-semibold mb-2">Substitution Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.substitutionControl ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Engineering Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.engineeringControl ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Administration Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.administrationControl ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Personal Protective Equipment</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.personalProtectiveEquipment ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Transfer</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.transfer ?? '—'}</p>
             </div>
             <div>
               <h4 className="text-sm font-semibold mb-2">Accept</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.accept ?? '—'}</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold mb-2">Legal Aspect</h4>
+              <h4 className="text-sm font-semibold mb-2">Legal Aspect & Standard reference</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.legalAspect ?? '—'}</p>
             </div>
           </CardContent>

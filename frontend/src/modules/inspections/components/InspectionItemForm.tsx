@@ -70,8 +70,12 @@ interface ImageUpload {
 // Mitigation schema for validation
 const mitigationSchema = z.object({
   eliminate: z.string().optional(),
+  eliminationControl: z.string().optional(),
+  substitutionControl: z.string().optional(),
+  engineeringControl: z.string().optional(),
+  administrationControl: z.string().optional(),
+  personalProtectiveEquipment: z.string().optional(),
   transfer: z.string().optional(),
-  reduce: z.string().optional(),
   accept: z.string().optional(),
   legalAspect: z.string().optional(),
 });
@@ -114,8 +118,12 @@ const itemFormRefinement = (data: z.infer<typeof baseItemFormSchema>, ctx: z.Ref
   if (data.riskId && data.mitigation) {
     const hasMitigation = !!(
       (data.mitigation.eliminate && data.mitigation.eliminate.trim()) ||
+      (data.mitigation.eliminationControl && data.mitigation.eliminationControl.trim()) ||
+      (data.mitigation.substitutionControl && data.mitigation.substitutionControl.trim()) ||
+      (data.mitigation.engineeringControl && data.mitigation.engineeringControl.trim()) ||
+      (data.mitigation.administrationControl && data.mitigation.administrationControl.trim()) ||
+      (data.mitigation.personalProtectiveEquipment && data.mitigation.personalProtectiveEquipment.trim()) ||
       (data.mitigation.transfer && data.mitigation.transfer.trim()) ||
-      (data.mitigation.reduce && data.mitigation.reduce.trim()) ||
       (data.mitigation.accept && data.mitigation.accept.trim())
     );
     if (!hasMitigation) {
@@ -342,8 +350,12 @@ const InspectionItemForm = ({
       dueDateAt: initialItem?.dueDateAt ? new Date(initialItem.dueDateAt).toISOString().split('T')[0] : '',
       mitigation: initialItem?.mitigation || {
         eliminate: '',
+        eliminationControl: '',
+        substitutionControl: '',
+        engineeringControl: '',
+        administrationControl: '',
+        personalProtectiveEquipment: '',
         transfer: '',
-        reduce: '',
         accept: '',
         legalAspect: '',
       },
@@ -507,8 +519,12 @@ const InspectionItemForm = ({
         // Only do this if the risk has changed (not on initial load with existing data)
         const hasExistingMitigation = initialItem?.mitigation && (
           initialItem.mitigation.eliminate ||
+          (initialItem as any).mitigation.eliminationControl ||
+          (initialItem as any).mitigation.substitutionControl ||
+          (initialItem as any).mitigation.engineeringControl ||
+          (initialItem as any).mitigation.administrationControl ||
+          (initialItem as any).mitigation.personalProtectiveEquipment ||
           initialItem.mitigation.transfer ||
-          initialItem.mitigation.reduce ||
           initialItem.mitigation.accept
         );
         
@@ -516,8 +532,12 @@ const InspectionItemForm = ({
           // Combine all mitigations into a single object (in case there are multiple)
           const combinedMitigation = {
             eliminate: mitigations.map(m => m.eliminate).filter(Boolean).join('\n') || '',
+            eliminationControl: mitigations.map(m => (m as any).eliminationControl).filter(Boolean).join('\n') || '',
+            substitutionControl: mitigations.map(m => (m as any).substitutionControl).filter(Boolean).join('\n') || '',
+            engineeringControl: mitigations.map(m => (m as any).engineeringControl).filter(Boolean).join('\n') || '',
+            administrationControl: mitigations.map(m => (m as any).administrationControl).filter(Boolean).join('\n') || '',
+            personalProtectiveEquipment: mitigations.map(m => (m as any).personalProtectiveEquipment).filter(Boolean).join('\n') || '',
             transfer: mitigations.map(m => m.transfer).filter(Boolean).join('\n') || '',
-            reduce: mitigations.map(m => m.reduce).filter(Boolean).join('\n') || '',
             accept: mitigations.map(m => m.accept).filter(Boolean).join('\n') || '',
           };
           
@@ -835,8 +855,12 @@ const InspectionItemForm = ({
         const followUpNotes = data.followUpNotes || undefined;
         const hasMitigation = data.mitigation && (
           data.mitigation.eliminate ||
+          (data as any).mitigation.eliminationControl ||
+          (data as any).mitigation.substitutionControl ||
+          (data as any).mitigation.engineeringControl ||
+          (data as any).mitigation.administrationControl ||
+          (data as any).mitigation.personalProtectiveEquipment ||
           data.mitigation.transfer ||
-          data.mitigation.reduce ||
           data.mitigation.accept ||
           data.mitigation.legalAspect
         );
@@ -855,8 +879,12 @@ const InspectionItemForm = ({
           mitigation: hasMitigation
             ? {
                 eliminate: data.mitigation?.eliminate || undefined,
+                eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
+                substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
+                engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
+                administrationControl: (data as any).mitigation?.administrationControl || undefined,
+                personalProtectiveEquipment: (data as any).mitigation?.personalProtectiveEquipment || undefined,
                 transfer: data.mitigation?.transfer || undefined,
-                reduce: data.mitigation?.reduce || undefined,
                 accept: data.mitigation?.accept || undefined,
                 legalAspect: data.mitigation?.legalAspect || undefined,
               }
@@ -880,8 +908,12 @@ const InspectionItemForm = ({
       const followUpNotes = data.followUpNotes || undefined;
       const hasMitigation = data.mitigation && (
         data.mitigation.eliminate ||
+        (data as any).mitigation.eliminationControl ||
+        (data as any).mitigation.substitutionControl ||
+        (data as any).mitigation.engineeringControl ||
+        (data as any).mitigation.administrationControl ||
+        (data as any).mitigation.personalProtectiveEquipment ||
         data.mitigation.transfer ||
-        data.mitigation.reduce ||
         data.mitigation.accept ||
         data.mitigation.legalAspect
       );
@@ -901,8 +933,12 @@ const InspectionItemForm = ({
         mitigation: hasMitigation
           ? {
               eliminate: data.mitigation?.eliminate || undefined,
+              eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
+              substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
+              engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
+              administrationControl: (data as any).mitigation?.administrationControl || undefined,
+              personalProtectiveEquipment: (data as any).mitigation?.personalProtectiveEquipment || undefined,
               transfer: data.mitigation?.transfer || undefined,
-              reduce: data.mitigation?.reduce || undefined,
               accept: data.mitigation?.accept || undefined,
               legalAspect: data.mitigation?.legalAspect || undefined,
             }
@@ -1543,13 +1579,33 @@ const InspectionItemForm = ({
                             multiline
                           />
                           <ReadOnlyField
-                            label="Transfer"
-                            value={form.watch('mitigation.transfer')}
+                            label="Elimination Control"
+                            value={form.watch('mitigation.eliminationControl')}
                             multiline
                           />
                           <ReadOnlyField
-                            label="Reduce"
-                            value={form.watch('mitigation.reduce')}
+                            label="Substitution Control"
+                            value={form.watch('mitigation.substitutionControl')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Engineering Control"
+                            value={form.watch('mitigation.engineeringControl')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Administration Control"
+                            value={form.watch('mitigation.administrationControl')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Personal Protective Equipment"
+                            value={form.watch('mitigation.personalProtectiveEquipment')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Transfer"
+                            value={form.watch('mitigation.transfer')}
                             multiline
                           />
                           <ReadOnlyField
@@ -1558,7 +1614,7 @@ const InspectionItemForm = ({
                             multiline
                           />
                           <ReadOnlyField
-                            label="Legal Aspect"
+                            label="Legal Aspect & Standard reference"
                             value={form.watch('mitigation.legalAspect')}
                             multiline
                           />
@@ -1587,13 +1643,13 @@ const InspectionItemForm = ({
                         />
                         <FormField
                           control={form.control}
-                          name="mitigation.transfer"
+                          name="mitigation.eliminationControl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                              <FormLabel className="text-sm font-medium">Elimination Control</FormLabel>
                               <FormControl>
                                 <Textarea
-                                  placeholder="Describe transfer strategy..."
+                                  placeholder="Describe elimination control measures..."
                                   className="min-h-[120px] resize-y"
                                   {...field}
                                   value={field.value || ''}
@@ -1606,13 +1662,89 @@ const InspectionItemForm = ({
                         />
                         <FormField
                           control={form.control}
-                          name="mitigation.reduce"
+                          name="mitigation.substitutionControl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-medium">Reduce</FormLabel>
+                              <FormLabel className="text-sm font-medium">Substitution Control</FormLabel>
                               <FormControl>
                                 <Textarea
-                                  placeholder="Describe reduction strategy..."
+                                  placeholder="Describe substitution control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.engineeringControl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Engineering Control</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe engineering control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.administrationControl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Administration Control</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe administration control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.personalProtectiveEquipment"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Personal Protective Equipment</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe PPE control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.transfer"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe transfer strategy..."
                                   className="min-h-[120px] resize-y"
                                   {...field}
                                   value={field.value || ''}
@@ -1647,7 +1779,7 @@ const InspectionItemForm = ({
                           name="mitigation.legalAspect"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
+                              <FormLabel className="text-sm font-medium">Legal Aspect & Standard reference</FormLabel>
                               <FormControl>
                                 <Textarea
                                   placeholder="Enter legal aspect (filled by approver)..."

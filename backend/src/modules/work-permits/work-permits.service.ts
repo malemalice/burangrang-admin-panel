@@ -3072,8 +3072,12 @@ export class WorkPermitsService {
       const item: PublicWorkPermitRiskMitigationItemDto = {
         id: m.id,
         eliminate: m.eliminate ?? undefined,
+        eliminationControl: m.eliminationControl ?? undefined,
+        substitutionControl: m.substitutionControl ?? undefined,
+        engineeringControl: m.engineeringControl ?? undefined,
+        administrationControl: m.administrationControl ?? undefined,
+        personalProtectiveEquipment: m.personalProtectiveEquipment ?? undefined,
         transfer: m.transfer ?? undefined,
-        reduce: m.reduce ?? undefined,
         accept: m.accept ?? undefined,
         isActive: m.isActive,
         riskId: m.riskId,

@@ -175,8 +175,12 @@ export interface Risk {
 export interface RiskMitigation {
   id: string;
   eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
   transfer?: string;
-  reduce?: string;
   accept?: string;
   isActive: boolean;
   riskId: string;
@@ -232,8 +236,12 @@ export interface RiskAssessmentItem {
     entity: string;
     entityId: string;
     eliminate?: string;
+    eliminationControl?: string;
+    substitutionControl?: string;
+    engineeringControl?: string;
+    administrationControl?: string;
+    personalProtectiveEquipment?: string;
     transfer?: string;
-    reduce?: string;
     accept?: string;
     legalAspect?: string;
     isActive: boolean;
@@ -245,8 +253,12 @@ export interface RiskAssessmentItem {
 export interface RiskControl {
   id: string;
   eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
   transfer?: string;
-  reduce?: string;
   isOpen: boolean;
   isAccept: boolean;
   isActive: boolean;

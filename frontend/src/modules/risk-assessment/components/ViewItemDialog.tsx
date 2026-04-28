@@ -119,18 +119,50 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Elimination Control</p>
                 <div className="p-3 rounded-md border bg-card text-card-foreground">
                   <p className="text-sm whitespace-pre-wrap">
-                    {item.mitigation?.transfer || 'N/A'}
+                    {item.mitigation?.eliminationControl || 'N/A'}
                   </p>
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Reduce</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Substitution Control</p>
                 <div className="p-3 rounded-md border bg-card text-card-foreground">
                   <p className="text-sm whitespace-pre-wrap">
-                    {item.mitigation?.reduce || 'N/A'}
+                    {item.mitigation?.substitutionControl || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Engineering Control</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.engineeringControl || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Administration Control</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.administrationControl || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Personal Protective Equipment</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.personalProtectiveEquipment || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.transfer || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -143,7 +175,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Legal Aspect</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Legal Aspect & Standard reference</p>
                 <div className="p-3 rounded-md border bg-card text-card-foreground">
                   <p className="text-sm whitespace-pre-wrap">
                     {item.mitigation?.legalAspect || 'N/A'}

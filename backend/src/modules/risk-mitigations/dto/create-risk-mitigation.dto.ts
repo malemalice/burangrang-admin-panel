@@ -7,15 +7,35 @@ export class CreateRiskMitigationDto {
   @IsOptional()
   eliminate?: string;
 
+  @ApiProperty({ description: 'Elimination Control', required: false })
+  @IsString()
+  @IsOptional()
+  eliminationControl?: string;
+
+  @ApiProperty({ description: 'Substitution Control', required: false })
+  @IsString()
+  @IsOptional()
+  substitutionControl?: string;
+
+  @ApiProperty({ description: 'Engineering Control', required: false })
+  @IsString()
+  @IsOptional()
+  engineeringControl?: string;
+
+  @ApiProperty({ description: 'Administration Control', required: false })
+  @IsString()
+  @IsOptional()
+  administrationControl?: string;
+
+  @ApiProperty({ description: 'Personal Protective Equipment', required: false })
+  @IsString()
+  @IsOptional()
+  personalProtectiveEquipment?: string;
+
   @ApiProperty({ description: 'Transfer control measure', required: false })
   @IsString()
   @IsOptional()
   transfer?: string;
-
-  @ApiProperty({ description: 'Reduce control measure', required: false })
-  @IsString()
-  @IsOptional()
-  reduce?: string;
 
   @ApiProperty({ description: 'Accept control measure', required: false })
   @IsString()
