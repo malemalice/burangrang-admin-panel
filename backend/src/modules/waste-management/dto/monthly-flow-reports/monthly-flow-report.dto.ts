@@ -9,7 +9,9 @@ export class MonthlyFlowReportDto {
   @ApiProperty({ required: false }) @Expose() reportMonth?: string;
   @ApiProperty({ required: false }) @Expose() reportYear?: number;
   @ApiProperty() @Expose() totalVolume: number;
-  @ApiProperty() @Expose() averageDailyFlow: number;
+  @ApiProperty({ required: false }) @Expose() averageDailyFlow?: number;
+  @ApiProperty() @Expose() initialFlow: number;
+  @ApiProperty() @Expose() finalFlow: number;
   @ApiProperty({ required: false }) @Expose() peakFlow?: number;
   @ApiProperty({ required: false }) @Expose() minimumFlow?: number;
   @ApiProperty({ required: false }) @Expose() reportDocumentUrl?: string;

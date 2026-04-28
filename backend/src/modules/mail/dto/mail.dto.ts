@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
+import * as nodemailer from 'nodemailer';
 
 export class SendVerificationEmailDto {
   @ApiProperty()
@@ -123,6 +124,10 @@ export class SendTemplatedEmailDto {
 
   @ApiProperty({ type: Object })
   context: Record<string, unknown>;
+
+  @ApiProperty({ required: false, description: 'Optional nodemailer attachments' })
+  @IsOptional()
+  attachments?: NonNullable<nodemailer.SendMailOptions['attachments']>;
 
   constructor(partial: Partial<SendTemplatedEmailDto>) {
     Object.assign(this, partial);

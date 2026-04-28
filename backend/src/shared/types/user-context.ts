@@ -16,4 +16,7 @@ export interface UserContext {
   roleName: string;
   dataLevel: DataLevel;
   departmentId: string | null;
+  jobPositionId: string | null;
+  /** Contractor / vendor tenancy; null = internal BSJ scope per product rules */
+  companyId: string | null;
 }

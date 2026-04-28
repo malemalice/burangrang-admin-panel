@@ -59,6 +59,9 @@ RUN npx prisma generate
 # Copy built application from builder
 COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
 
+# Copy source so prisma seed (ts-node) can resolve imports from src/ (e.g. shared constants)
+COPY --chown=nodejs:nodejs --from=builder /app/src ./src
+
 # Verify build artifacts exist
 RUN test -f dist/src/main.js || (echo "ERROR: dist/src/main.js not found in production stage" && exit 1)
 

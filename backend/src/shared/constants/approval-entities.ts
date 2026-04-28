@@ -16,6 +16,9 @@ export const APPROVAL_ENTITIES = {
   AUDIT_ITEM: 'AUDIT_ITEM',
   INCIDENT: 'INCIDENT',
   PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
+  ENVIRONMENTAL_MEASUREMENT: 'ENVIRONMENTAL_MEASUREMENT',
+  WEIGHT_REPORT: 'WEIGHT_REPORT',
+  DISPATCH_ORDER: 'DISPATCH_ORDER',
 } as const;
 
 /**
@@ -40,6 +43,9 @@ export const APPROVAL_ENTITY_TO_TABLE: Record<ApprovalEntityName, string> = {
   [APPROVAL_ENTITIES.AUDIT_ITEM]: 't_audit_items',
   [APPROVAL_ENTITIES.INCIDENT]: 't_incidents',
   [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 't_ppe_withdrawals',
+  [APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT]: 't_environmental_measurements',
+  [APPROVAL_ENTITIES.WEIGHT_REPORT]: 't_weight_reports',
+  [APPROVAL_ENTITIES.DISPATCH_ORDER]: 't_dispatch_orders',
 } as const;
 
 /**
@@ -59,6 +65,24 @@ export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<
   [APPROVAL_ENTITIES.AUDIT_ITEM]: null,
   [APPROVAL_ENTITIES.INCIDENT]: 'assignedDepartmentId',
   [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 'departmentId',
+  [APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT]: null,
+  [APPROVAL_ENTITIES.WEIGHT_REPORT]: null,
+  [APPROVAL_ENTITIES.DISPATCH_ORDER]: null,
+};
+
+/**
+ * Maps each data-scoped approval entity to the statuses that indicate it is pending approval.
+ * Used by ApprovalAccessService to grant read access to configured approvers.
+ * Only data-scoped entities that participate in master approvals are listed here.
+ */
+export const ENTITY_APPROVAL_PENDING_STATUSES: Partial<Record<ApprovalEntityName, string[]>> = {
+  [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: ['WAITING_APPROVAL'],
+  [APPROVAL_ENTITIES.WORK_PERMIT]: [
+    'WAITING_APPROVAL',
+    'IN_REVIEW_PROJECT_OWNER',
+    'IN_REVIEW_HSE',
+    'IN_REVIEW_SECURITY',
+  ],
 };
 
 /**

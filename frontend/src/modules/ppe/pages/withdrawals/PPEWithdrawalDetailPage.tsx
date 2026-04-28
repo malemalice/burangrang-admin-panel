@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send, Ban } from 'lucide-react';
+import { usePDF } from 'react-to-pdf';
+import { format } from 'date-fns';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send, Ban, FileDown } from 'lucide-react';
+import { PPEWithdrawalPDFTemplate } from '../../components/PPEWithdrawalPDFTemplate';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -43,6 +47,7 @@ const PPEWithdrawalDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const { withdrawal, isLoading, fetchWithdrawal, submitWithdrawal, approveWithdrawal, rejectWithdrawal, collectWithdrawal, cancelWithdrawal } = usePPEWithdrawal(id || null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
     const [actionType, setActionType] = useState<'submit' | 'approve' | 'collect' | 'cancel' | null>(null);
     const [canApprove, setCanApprove] = useState(false);
@@ -50,6 +55,32 @@ const PPEWithdrawalDetailPage = () => {
     const [rejectNote, setRejectNote] = useState('');
     const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    const { targetRef } = usePDF(
+        buildPdfOptions({
+            filename: `ppe-withdrawal-${withdrawal?.withdrawalCode ?? id ?? 'export'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+    );
+
+    const handleExportPDF = async () => {
+        if (!withdrawal) return;
+        try {
+            setIsExportingPDF(true);
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            await generateTableAwarePdf(
+                targetRef,
+                buildPdfOptions({
+                    filename: `ppe-withdrawal-${withdrawal.withdrawalCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                }),
+            );
+            toast.success('PDF exported successfully');
+        } catch (error) {
+            console.error('Failed to export PDF:', error);
+            toast.error('Failed to export PDF');
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
 
     useEffect(() => {
         if (!id || !withdrawal || withdrawal.status !== PPEWithdrawalStatus.WAITING_APPROVAL) {
@@ -239,6 +270,18 @@ const PPEWithdrawalDetailPage = () => {
 
     return (
         <>
+            {/* Hidden PDF template for export */}
+            <div
+                ref={targetRef}
+                style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+                aria-hidden="true"
+            >
+                <PPEWithdrawalPDFTemplate
+                    withdrawal={withdrawal}
+                    approvalHistory={approvalHistory}
+                    viewUrl={`${window.location.origin}/ppe/withdrawals/${withdrawal.id}`}
+                />
+            </div>
             <PageHeader
                 title={`Withdrawal: ${withdrawal.withdrawalCode}`}
                 subtitle="View withdrawal details and items"
@@ -251,6 +294,14 @@ const PPEWithdrawalDetailPage = () => {
                         >
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Withdrawals
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={handleExportPDF}
+                            disabled={isLoading || isProcessing || isExportingPDF}
+                        >
+                            <FileDown className="mr-2 h-4 w-4" />
+                            {isExportingPDF ? 'Exporting...' : 'Export PDF'}
                         </Button>
                         {canEdit && (
                             <Button

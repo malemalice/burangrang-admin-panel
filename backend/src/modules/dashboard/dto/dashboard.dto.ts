@@ -61,10 +61,10 @@ export class DepartmentProfileDto {
 }
 
 export class RiskCategoryAnalysisDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard ID' })
   categoryId: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard name' })
   name: string;
 
   @ApiProperty()
@@ -81,7 +81,7 @@ export class RiskAnalysisDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Type of hazard name' })
   category: string;
 
   @ApiProperty()
@@ -172,7 +172,7 @@ export class MonthlyHazardDto {
 }
 
 export class HazardTypeDto {
-  @ApiProperty({ description: 'Hazard type name (risk category name)' })
+  @ApiProperty({ description: 'Type of hazard name' })
   type: string;
 
   @ApiProperty({ description: 'Count of incidents/inspection items' })
@@ -204,7 +204,7 @@ export class ResponsibleActionDto {
 }
 
 export class SecurityTypeNonConformanceDto {
-  @ApiProperty({ description: 'Risk category / type name' })
+  @ApiProperty({ description: 'Type of hazard name' })
   type: string;
 
   @ApiProperty({ description: 'Count of incidents' })

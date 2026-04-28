@@ -1,8 +1,10 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import UsersPage from '../pages/UsersPage';
-import CreateUserPage from '../pages/CreateUserPage';
-import EditUserPage from '../pages/EditUserPage';
-import UserDetailPage from '../pages/UserDetailPage';
+
+const UsersPage = lazy(() => import('../pages/UsersPage'));
+const CreateUserPage = lazy(() => import('../pages/CreateUserPage'));
+const EditUserPage = lazy(() => import('../pages/EditUserPage'));
+const UserDetailPage = lazy(() => import('../pages/UserDetailPage'));
 
 /**
  * User management module routes
@@ -26,4 +28,4 @@ const userRoutes: RouteConfig[] = [
   },
 ];
 
-export default userRoutes; 
+export default userRoutes;

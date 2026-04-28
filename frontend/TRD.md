@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.11
+- **Version**: 1.13
 - **Date**: 2025-02-21
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Workflow Guideline UI — dynamic approval steps from Master Approval (content, structure, UI/UX)
+- **Last Updated**: Route-level code splitting (`React.lazy`) and edit-page vs form data-fetch principles
 
 ---
 
@@ -14,6 +14,8 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.13 Updates**: Added **Route-level code splitting** and **Edit page vs form data fetching** under Technical Implementation Guidelines. Module route files should use `React.lazy()` for page components so each route loads on demand (smaller dev-time graphs per navigation, clearer production chunks). Root `Suspense` is required (see `App.tsx`). Edit pages that only wrap a form must not duplicate entity hooks (`useX`, `fetchX`) already used inside the form—avoid redundant API calls and keep the page a thin shell (header + navigation). Reference: `quizRoutes.ts`, `certificateRoutes.tsx`, `EditCertificatePage.tsx`, `CertificateForm.tsx`.
+**Version 1.12 Updates**: Added **PDF — Verification and approval (digital)** under Advanced Features: mandatory structure for PDF templates when an entity uses Master Approvals (`ApprovalStatusHistory`: summary line, workflow-by-step table, chronological log, empty state). Reference: `EnvironmentalMeasurementPDFTemplate`, `WeightReportPDFTemplate`.
 **Version 1.11 Updates**: Added "Workflow Guideline UI — Principles for Creating Workflow Information" under Document Workflow & Status Management Patterns. Defines content principles (status per step, concrete ownership Who/Role-Dept, one-line description, terminal state), structure principles (sequential steps, consistent fields per step, short intro), and UI/UX principles (one card per step, semantic color, connectors, terminal callout, dialog layout). **Workflow guidelines must be dynamic**: approval steps (who approves) are driven by Master Approval configuration — fetch by entity from `approval-entities`, render approval lines from `masterApproval.items` (with sentinel labels), fallback when no config. Reference: MasterApprovalForm, InspectionItemsPage.
 **Version 1.10 Updates**: Added "Data-Level Access (Backend)" — for data-scoped modules (Enrollments, Work Permits, Certificates, PPE Withdrawals) the backend enforces row-level access (SELF / DEPARTMENT / SUPER). Lists may return fewer rows or empty; single-record requests (get by id, update, delete) may return 403. Handle 403 with a clear message (e.g. "You do not have access to this record"); treat empty lists as valid, not as errors. Reference: Error Handling Patterns, docs/auth.md.
 **Version 1.9 Updates**: Added "Options Bypass for Select/Dropdown Data" — when fetching list data for form dropdowns/selects, add `options: true` to query params so users without the specific `*:list` permission can still load options for forms they have access to. Use: `departmentService.getDepartments({ page: 1, limit: 100, options: true })`. Reference: UserForm, CertificateForm, Inter-Module API Calls.
@@ -170,18 +172,52 @@ export * from './routes';
 ```
 
 ### 2. Route Registration Pattern
+
+Central registration in [`core/routes/index.ts`](src/core/routes/index.ts) aggregates each module’s route array. Modules export route configs from `modules/[name]/routes/*Routes.ts(x)`.
+
+#### Principles — route-level code splitting
+
+- **Lazy-load page components**: In module route files, register pages with `React.lazy(() => import('../pages/...'))` instead of static `import ... from` for every page. That way the bundler splits by route; navigating to a URL loads that route’s chunk instead of pulling the entire module page tree up front.
+- **Why it matters**: In Vite dev, many small JS requests are normal; without lazy routes, the dependency graph for *all* statically imported pages is evaluated together, which inflates initial work and confuses network debugging. In production, lazy routes map to separate async chunks and better caching.
+- **Suspense**: The app root must wrap routed content in `<Suspense fallback={...}>` so lazy components can suspend (see `App.tsx`).
+- **Keep route files thin**: Only `lazy`, `RouteConfig[]`, and path → component mapping—no business logic.
+
 ```typescript
-// core/routes/index.ts
+// modules/[feature]/routes/[feature]Routes.ts
+import { lazy } from 'react';
+import { RouteConfig } from '@/core/routes/types';
+
+const FeatureListPage = lazy(() => import('../pages/FeatureListPage'));
+const FeatureDetailPage = lazy(() => import('../pages/FeatureDetailPage'));
+
+const featureRoutes: RouteConfig[] = [
+  { path: '/features', component: FeatureListPage },
+  { path: '/features/:id', component: FeatureDetailPage },
+];
+
+export default featureRoutes;
+```
+
+```typescript
+// core/routes/index.ts (aggregate only; still imports route modules)
 import userRoutes from '@/modules/users/routes/userRoutes';
 import roleRoutes from '@/modules/roles/routes/roleRoutes';
 
-export const allRoutes = [
-  ...coreRoutes,
+const routes: RouteConfig[] = [
+  ...coreRoutes.filter(/* ... */),
   ...userRoutes,
   ...roleRoutes,
-  // ... other routes
+  // ... other route arrays
 ];
+
+export default routes;
 ```
+
+#### Principles — edit page vs form data fetching
+
+- **Single source of fetch for one entity**: If a form component already calls a hook that loads the record by id (e.g. `useCertificate(id)` in edit mode), the parent **edit page** should not call the same hook again or duplicate `useEffect` + `fetch`—that causes multiple identical API requests and races.
+- **Thin edit shell**: Prefer an edit route page that only provides layout (e.g. `PageHeader`, back button) and renders `<EntityForm mode="edit" />`. Loading and “not found” handling live in the form (or a dedicated data boundary), unless the product explicitly needs a full-page loading state driven by the parent.
+- **Shared id**: The form reads `id` from `useParams` or receives it via props; avoid fetching in both parent and child for the same id.
 
 ### 3. Module Communication Guidelines
 - **Keep module state local** when possible
@@ -686,11 +722,45 @@ Use these when adding "Export PDF" on entity detail pages (e.g. Risk Assessment,
 
 1. **Library**: `react-to-pdf` (`usePDF`). Client-side only; no backend PDF generation.
 2. **Dedicated template**: One component only for PDF content (e.g. `[Entity]PDFTemplate`). Props: main entity + full list data + approval history (if applicable). Use print-safe layout: white bg, Arial, HTML tables with `borderCollapse: 'collapse'`, Tailwind for colors. No complex layout or portals.
-3. **Full data before capture**: If the page shows paginated children, PDF must include all. On export: fetch all items (e.g. `page: 1`, `limit: 10000`) and refresh approval status in parallel; put results in state; wait ~200 ms for re-render; then call `toPDF()` so the captured DOM has the full dataset.
+3. **Full data before capture**: If the page shows paginated children, PDF must include all. On export: fetch all items (e.g. `page: 1`, `limit: 10000`) and refresh approval status in parallel; put results in state; wait ~200 ms for re-render; then call `generateTableAwarePdf(targetRef, buildPdfOptions({...}))` (see §8) so the captured DOM has the full dataset.
 4. **Hidden target**: Render the template in a div with `ref={targetRef}`, off-screen (`position: 'absolute', left: '-9999px', top: '-9999px'`), fixed width (e.g. `210mm`), `aria-hidden="true"`. Only this div is used for PDF.
 5. **Data fallback**: Pass to template: items = `allItemsForPDF.length ? allItemsForPDF : items`, approval = `approvalHistoryForPDF ?? approvalHistory` so PDF still works if the full fetch hasn’t completed or fails.
 6. **UX**: Filename = `{entityCode}-{yyyyMMdd-HHmmss}.pdf`. Disable export and show "Preparing PDF…" while loading; toast on success/error.
-7. **Template structure**: Header (title + code + date) → Details (key fields; optional HTML with `dangerouslySetInnerHTML` in a constrained block) → Full data table(s) → Approval timeline (workflow + history) if applicable. Format dates with `date-fns`; use semantic colors for status.
+7. **Template structure**: Header (title + code + date) → Details (key fields; optional HTML with `dangerouslySetInnerHTML` in a constrained block) → Full data table(s) → **Verification and approval** (digital; see below) when the entity uses Master Approvals. Format dates with `date-fns`; use semantic colors for status.
+8. **Table rows vs page breaks (html2canvas slicing)**: `react-to-pdf` tiles the screenshot at fixed page heights; long tables can look “cut” mid-row. Mark data tables with `data-pdf-table-splittable` and use `generateTableAwarePdf` from `@/core/lib/pdfExport` (clone + `prepareTableAwarePdfDom`) instead of `toPDF()` for detail/list exports that include long tables. Shared options remain `buildPdfOptions`.
+
+#### PDF — Verification and approval section (digital)
+
+For entities integrated with **Master Approvals**, exported PDFs must include a **Verification and approval** section that reflects **digital approval** data from the backend. Do **not** rely on a standalone traditional “Persetujuan” table or wet-signature blocks as the only source of approval evidence—use the same pattern as **`EnvironmentalMeasurementPDFTemplate`** and **`WeightReportPDFTemplate`**.
+
+**Data source**
+
+- Load `ApprovalStatusHistory` via `approvalService.checkApprovalStatus(entityId, APPROVAL_ENTITIES.<ENTITY>)` (align entity with backend `m_approvals.entity`).
+- Pass into the PDF template as `approvalHistory?: ApprovalStatusHistory | null`.
+- **Detail export**: Prefer refreshing approval immediately before capture (e.g. `approvalHistoryForPDF` snapshot) so the PDF matches the latest `t_approvals` rows—same idea as `EnvironmentalMeasurementDetailPage` / `handleExportPDF`.
+- **List / bulk export**: Fetch approval status **per record** in the export queue before calling `generateTableAwarePdf` / `toPDF()` for that row so each file embeds the correct workflow and log.
+
+**Section structure** (order and labels)
+
+1. **Section title**: `Verification and approval` (use this English heading for consistency across modules; introductory copy elsewhere on the PDF may stay bilingual per module).
+2. **Summary line**
+   - **Current approval status**: `approvalHistory.currentStatus`, or fallback to the entity’s workflow status field if needed.
+   - If the record is **not** in a terminal “done/closed” state and `approvalHistory.nextApprover` is set: append **Next responsible party**: organizational unit (`department.name`) — position (`jobPosition.name`), and **Step** using 1-based step index (`line + 1` from the API).
+3. **Approval workflow (by step)** — render when `approvalHistory.allApprovalLines.length > 0`
+   - One row per configured line from Master Approval.
+   - Columns: Step no., Organizational unit, Position, Status (derive per line from `line.status` and the latest matching entry in `history` for the same `line`: e.g. completed / awaiting verification / pending), Action by (approver name when completed), Date and time (of the last action on that line, if any).
+4. **Chronological approval log** — render when `approvalHistory.history.length > 0`
+   - Sort by `createdAt` ascending.
+   - Columns: No., Status, Action by, Organizational unit, Position, Date and time, Remarks (`notes`).
+5. **No workflow**: If there are no approval lines and no history rows, show a short message such as: *No approval workflow is associated with this record.*
+
+**Layout and capture**
+
+- Prefer plain HTML `<table>` with `style={{ borderCollapse: 'collapse' }}`, borders `border-gray-300`, header row background `bg-gray-100` for reliable `react-to-pdf` / html2canvas output.
+- Optional: root wrapper `style={{ fontFamily: 'Arial, sans-serif' }}` and `text-gray-900` / `bg-white` for print clarity.
+- Status text may use semantic color classes (e.g. green for approved, red for rejected), matching the on-screen timeline where practical.
+
+**References**: `EnvironmentalMeasurementPDFTemplate.tsx`, `WeightReportPDFTemplate.tsx`, `EnvironmentalMeasurementDetailPage` (PDF + `approvalHistoryForPDF` pattern).
 
 #### Comparison Views
 - **Side-by-side**: Compare two records or versions
@@ -2602,6 +2672,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.12 | 2026-04-04 | Development Team | Added **PDF — Verification and approval section (digital)** under Advanced Features: data source (`ApprovalStatusHistory`), section structure (summary, workflow-by-step table, chronological log, empty state), layout for print capture. Updated PDF Export template structure bullet to reference this subsection. Reference: EnvironmentalMeasurementPDFTemplate, WeightReportPDFTemplate. |
 | 1.11 | 2025-02-21 | Development Team | Added "Workflow Guideline UI — Principles for Creating Workflow Information" (item 9) under Document Workflow & Status Management Patterns. Workflow guidelines are dynamic: approval steps driven by Master Approval (fetch by entity, render items with sentinel labels, fallback if no config). Content/structure/UI principles as above. Reference: MasterApprovalForm, InspectionItemsPage. |
 | 1.9 | 2025-02-03 | Development Team | Added "Options Bypass for Select/Dropdown Data" under Inter-Module API Calls and Cross-Module Data Dependencies: use `options: true` in query params when fetching list data for form dropdowns so users without the specific list permission can load options. Reference: UserForm, CertificateForm. |
 | 1.8 | 2024-12-20 | Development Team | Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate. |

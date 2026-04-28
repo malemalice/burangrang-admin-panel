@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateAreaDto } from './dto/create-area.dto';
 import { UpdateAreaDto } from './dto/update-area.dto';
@@ -6,6 +6,7 @@ import { AreaDto } from './dto/area.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -14,6 +15,8 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
   hasRoom?: boolean; // Filter areas by whether they have a room assigned
 }
 
@@ -58,12 +61,27 @@ export class AreasService {
   }
 
   async create(createAreaDto: CreateAreaDto): Promise<AreaDto> {
-    const area = await this.prisma.area.create({
-      data: createAreaDto,
-      include: {
-        office: true,
+    const existing = await this.prisma.area.findFirst({
+      where: {
+        code: createAreaDto.code,
+        deletedAt: null,
       },
+      select: { id: true },
     });
+    if (existing) {
+      throw new ConflictException('areas code already exist');
+    }
+
+    const area = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.area.create({
+          data: createAreaDto,
+          include: {
+            office: true,
+          },
+        }),
+      'creating area',
+    );
 
     return this.areaMapper(area);
   }
@@ -75,34 +93,53 @@ export class AreasService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       isActive,
       search,
+      name,
+      code,
       hasRoom,
     } = options || {};
 
-    const where: Prisma.AreaWhereInput = {};
+    const where: Prisma.AreaWhereInput = {
+      deletedAt: null,
+    };
+
+    const and: Prisma.AreaWhereInput[] = [];
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (name) {
+      and.push({ name: { contains: name, mode: 'insensitive' } });
+    }
+
+    if (code) {
+      and.push({ code: { contains: code, mode: 'insensitive' } });
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      and.push({ isActive });
     }
 
     // Filter by whether area has a room assigned
     if (hasRoom !== undefined) {
       if (hasRoom) {
-        where.rooms = { some: {} };
+        and.push({ rooms: { some: {} } });
       } else {
-        where.rooms = { none: {} };
+        and.push({ rooms: { none: {} } });
       }
+    }
+
+    if (and.length > 0) {
+      where.AND = and;
     }
 
     const [areas, total] = await Promise.all([
@@ -127,8 +164,8 @@ export class AreasService {
   }
 
   async findOne(id: string): Promise<AreaDto> {
-    const area = await this.prisma.area.findUnique({
-      where: { id },
+    const area = await this.prisma.area.findFirst({
+      where: { id, deletedAt: null },
       include: {
         office: true,
       },
@@ -140,28 +177,46 @@ export class AreasService {
   }
 
   async update(id: string, updateAreaDto: UpdateAreaDto): Promise<AreaDto> {
-    const existingArea = await this.prisma.area.findUnique({
-      where: { id },
+    const existingArea = await this.prisma.area.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Area', id, existingArea);
 
-    const area = await this.prisma.area.update({
-      where: { id },
-      data: updateAreaDto,
-      include: {
-        office: true,
-      },
-    });
+    if (updateAreaDto.code) {
+      const existingByCode = await this.prisma.area.findFirst({
+        where: {
+          code: updateAreaDto.code,
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (existingByCode) {
+        throw new ConflictException('areas code already exist');
+      }
+    }
+
+    const area = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.area.update({
+          where: { id },
+          data: updateAreaDto,
+          include: {
+            office: true,
+          },
+        }),
+      'updating area',
+    );
 
     return this.areaMapper(area);
   }
 
-  async remove(id: string): Promise<void> {
-    const area = await this.prisma.area.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const area = await this.prisma.area.findFirst({
+      where: { id, deletedAt: null },
       include: {
-        rooms: true,
+        rooms: { where: { deletedAt: null } },
       },
     });
 
@@ -171,8 +226,9 @@ export class AreasService {
       this.errorHandler.throwConflictCustom(`Cannot delete area with ID ${id} because it has associated rooms`);
     }
 
-    await this.prisma.area.delete({
+    await this.prisma.area.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

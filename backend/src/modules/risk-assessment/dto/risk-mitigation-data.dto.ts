@@ -14,15 +14,39 @@ export class RiskMitigationDataDto {
 
   @IsOptional()
   @IsString()
-  @ApiProperty({ required: false, description: 'Transfer strategy' })
+  @ApiProperty({ required: false, description: 'Elimination control (control hierarchy detail)' })
   @Expose()
-  transfer?: string;
+  eliminationControl?: string;
 
   @IsOptional()
   @IsString()
-  @ApiProperty({ required: false, description: 'Reduction strategy' })
+  @ApiProperty({ required: false, description: 'Substitution control (control hierarchy detail)' })
   @Expose()
-  reduce?: string;
+  substitutionControl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false, description: 'Engineering control (control hierarchy detail)' })
+  @Expose()
+  engineeringControl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false, description: 'Administration control (control hierarchy detail)' })
+  @Expose()
+  administrationControl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false, description: 'Personal protective equipment (control hierarchy detail)' })
+  @Expose()
+  personalProtectiveEquipment?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false, description: 'Transfer strategy' })
+  @Expose()
+  transfer?: string;
 
   @IsOptional()
   @IsString()

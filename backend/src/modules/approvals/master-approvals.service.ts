@@ -29,6 +29,8 @@ import {
   APPROVAL_FIELD_MARKERS,
   isApprovalFieldMarker,
 } from './constants/approval-field-markers';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
+import { formatEntityLabel } from '../../shared/utils/entity-label.util';
 
 interface FindAllOptions {
   page?: number;
@@ -113,7 +115,7 @@ export class MasterApprovalsService {
       search,
     } = options || {};
 
-    const where: Prisma.MasterApprovalWhereInput = {};
+    const where: Prisma.MasterApprovalWhereInput = { ...isNotDeleted };
 
     if (search) {
       where.entity = { contains: search, mode: 'insensitive' };
@@ -161,8 +163,8 @@ export class MasterApprovalsService {
   }
 
   async findOne(id: string): Promise<MasterApprovalDto> {
-    const masterApprovalRaw = await this.prisma.masterApproval.findUnique({
-      where: { id },
+    const masterApprovalRaw = await this.prisma.masterApproval.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         items: {
           // Don't include relations here - we'll load them separately to handle sentinel values
@@ -199,8 +201,8 @@ export class MasterApprovalsService {
     const { items, ...data } = updateMasterApprovalDto;
 
     // Verify approval exists
-    const existingApproval = await this.prisma.masterApproval.findUnique({
-      where: { id },
+    const existingApproval = await this.prisma.masterApproval.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById(
@@ -247,9 +249,9 @@ export class MasterApprovalsService {
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
-    const masterApproval = await this.prisma.masterApproval.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const masterApproval = await this.prisma.masterApproval.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById(
@@ -258,14 +260,9 @@ export class MasterApprovalsService {
       masterApproval,
     );
 
-    // Delete all related items first
-    await this.prisma.masterApprovalItem.deleteMany({
-      where: { mApprovalId: id },
-    });
-
-    // Then delete the master approval
-    await this.prisma.masterApproval.delete({
+    await this.prisma.masterApproval.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -671,6 +668,10 @@ export class MasterApprovalsService {
     if (entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL) {
       return 'APPROVED' as unknown as GeneralStatusEnum;
     }
+    // Dispatch order: approved chain ends in scheduled dispatch (not DRAFT/DONE)
+    if (entityName === APPROVAL_ENTITIES.DISPATCH_ORDER) {
+      return GeneralStatusEnum.SCHEDULED;
+    }
     return GeneralStatusEnum.DONE;
   }
 
@@ -691,7 +692,7 @@ export class MasterApprovalsService {
 
     // Get master approval to check if current step uses dynamic markers
     const masterApproval = await this.prisma.masterApproval.findFirst({
-      where: { entity: entityName, isActive: true },
+      where: { entity: entityName, isActive: true, ...isNotDeleted },
       include: {
         items: { orderBy: { order: 'asc' } },
       },
@@ -757,6 +758,7 @@ export class MasterApprovalsService {
       where: {
         entity: entityName,
         isActive: true,
+        ...isNotDeleted,
       },
       include: {
         items: {
@@ -1045,6 +1047,7 @@ export class MasterApprovalsService {
       where: {
         entity: submitApprovalDto.entity,
         isActive: true,
+        ...isNotDeleted,
       },
     });
 
@@ -1065,6 +1068,15 @@ export class MasterApprovalsService {
       throw new BadRequestException('User does not have approval rights');
     }
 
+    if (
+      submitApprovalDto.status === ApprovalStatus.REJECTED &&
+      !submitApprovalDto.notes?.trim()
+    ) {
+      throw new BadRequestException('Notes are required when rejecting');
+    }
+
+    const notes = submitApprovalDto.notes?.trim() ?? '';
+
     // Create approval record
     try {
       await this.prisma.approval.create({
@@ -1074,7 +1086,7 @@ export class MasterApprovalsService {
           departmentId: user.departmentId!,
           jobPositionId: user.jobPositionId!,
           status: submitApprovalDto.status,
-          notes: submitApprovalDto.notes,
+          notes,
           createdBy: user.id,
         },
       });
@@ -1127,11 +1139,13 @@ export class MasterApprovalsService {
       );
     }
 
-    // PPE Withdrawal uses PPEWithdrawalStatusEnum; other entities use GeneralStatusEnum
+    // PPE Withdrawal uses PPEWithdrawalStatusEnum; WeightReport uses WeightReportStatusEnum; others use GeneralStatusEnum
     const statusCast =
       entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL
         ? `'${status}'::"PPEWithdrawalStatusEnum"`
-        : `'${status}'::"GeneralStatusEnum"`;
+        : entityName === APPROVAL_ENTITIES.WEIGHT_REPORT
+          ? `'${status}'::"WeightReportStatusEnum"`
+          : `'${status}'::"GeneralStatusEnum"`;
 
     await this.prisma.$executeRaw(
       Prisma.sql`UPDATE ${Prisma.raw(`"${tableName}"`)} SET status = ${Prisma.raw(statusCast)} WHERE id = ${entityId}`
@@ -1251,6 +1265,9 @@ export class MasterApprovalsService {
     approver: User,
   ): Promise<void> {
     try {
+      const entityLabel = formatEntityLabel(entityName);
+      const entitySlug = entityName.toLowerCase().replace(/_/g, '-');
+
       // Get or create notification type
       const notificationTypeName =
         status === ApprovalStatus.APPROVED
@@ -1304,9 +1321,9 @@ export class MasterApprovalsService {
 
         await this.notificationsService.createNotificationForRoles(
           {
-            title: `${entityName} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
-            message: `Your ${entityName} request has been ${statusText} by ${approverName}.${notesText}`,
-            context: entityName.toLowerCase().replace(/_/g, '-'),
+            title: `${entityLabel} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
+            message: `Your ${entityLabel} request has been ${statusText} by ${approverName}.${notesText}`,
+            context: entitySlug,
             contextId: entityId,
             typeId: notificationType.id,
             roleIds: requester.roleId ? [requester.roleId] : [],
@@ -1338,9 +1355,9 @@ export class MasterApprovalsService {
 
         await this.notificationsService.createNotificationByDepartmentAndJobPosition(
           {
-            title: `${entityName} Approval Request`,
-            message: `A ${entityName} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
-            context: entityName.toLowerCase().replace(/_/g, '-'),
+            title: `${entityLabel} Approval Request`,
+            message: `A ${entityLabel} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
+            context: entitySlug,
             contextId: entityId,
             typeId: approvalRequestType.id,
             departmentId: approvalStatus.nextApprover.department.id,

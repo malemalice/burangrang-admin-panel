@@ -1,4 +1,5 @@
 import { PrismaClient, Setting } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 export const defaultSettings = [
   // Theme Settings
@@ -11,8 +12,20 @@ export const defaultSettings = [
   { key: 'system.timezone', value: 'UTC' },
 
   // App Settings
-  { key: 'app.name', value: 'HSE System' },
+  { key: 'app.name', value: 'HSSE System' },
   { key: 'app.language', value: 'en' },
+  { key: 'app.logo.portraitUrl', value: '/images/logo-portrait.png' },
+  { key: 'app.logo.landscapeUrl', value: '/images/logo-landscape.png' },
+  { key: 'app.login.tagline', value: 'made by HSSE Team' },
+
+  // Environmental measurement regulatory limits (global defaults)
+  { key: 'environmental_measurements.regulatory_limit.lighting', value: '300' }, // lux
+  { key: 'environmental_measurements.regulatory_limit.noise', value: '85' }, // dB
+  { key: 'environmental_measurements.regulatory_limit.humidity', value: '60' }, // %
+  { key: 'environmental_measurements.regulatory_limit.temperature', value: '27' }, // °C
+
+  // Feature flags (default off)
+  { key: 'feature.work_permit_classification_content.enabled', value: 'false' },
 
   // Pagination defaults
   { key: 'pagination.default_limit', value: '10' },
@@ -26,6 +39,28 @@ export const defaultSettings = [
   { key: 'mail.user', value: '8e821863ade893' },
   { key: 'mail.password', value: '75223abde492c2' },
   { key: 'mail.from', value: 'Burangrang Admin <no-reply@burangrang.local>' },
+
+  // Zoho Integration Settings
+  { key: 'zoho.sync.enabled', value: 'true' },
+  { key: 'zoho.webhook.enabled', value: 'true' },
+  { key: 'zoho.webhook.auth_mode', value: 'secret' },
+  { key: 'zoho.webhook.secret', value: '' },
+  { key: 'zoho.webhook.jwt', value: '' },
+  { key: 'zoho.sdp.base_url', value: 'https://servicedesk.hapfor.com' },
+  { key: 'zoho.sdp.authtoken', value: '' },
+  { key: 'zoho.sdp.api_version', value: 'v3' },
+  { key: 'zoho.inbound.default_department_id', value: '' },
+  { key: 'zoho.inbound.integration_user_id', value: '' },
+  { key: 'zoho.inbound.default_status', value: 'OPEN' },
+  {
+    key: 'zoho.outbound.status_map',
+    value:
+      '{"DRAFT":"Open","OPEN":"On Hold","WAITING_APPROVAL":"On Hold","DONE":"Closed","CLOSE":"Closed","REJECTED":"Open"}',
+  },
+  { key: 'zoho.retry.max_retries', value: '6' },
+  { key: 'zoho.retry.base_ms', value: '2000' },
+  { key: 'zoho.retry.max_ms', value: '60000' },
+  { key: 'zoho.worker.batch_size', value: '5' },
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<Setting[]> {
@@ -35,8 +70,8 @@ export async function seedSettings(prisma: PrismaClient): Promise<Setting[]> {
 
   for (const setting of defaultSettings) {
     // Check if setting already exists
-    const existingSetting = await prisma.setting.findUnique({
-      where: { key: setting.key }
+    const existingSetting = await prisma.setting.findFirst({
+      where: { key: setting.key, ...notDeleted },
     });
 
     if (!existingSetting) {

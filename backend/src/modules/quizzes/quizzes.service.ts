@@ -13,6 +13,7 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class QuizzesService {
@@ -75,6 +76,33 @@ export class QuizzesService {
     this.quizPaginatedMapper = this.dtoMapper.createPaginatedMapper(QuizDto);
   }
 
+  private isEligibleHealthScreeningDefault(quiz: {
+    kind: string;
+    entity: string | null;
+    isPublished: boolean;
+    isActive: boolean;
+  }): boolean {
+    return (
+      quiz.kind === 'HEALTH_DECLARATION' &&
+      quiz.entity == null &&
+      quiz.isPublished === true &&
+      quiz.isActive === true
+    );
+  }
+
+  private assertCanSetHealthScreeningDefault(quiz: {
+    kind: string;
+    entity: string | null;
+    isPublished: boolean;
+    isActive: boolean;
+  }): void {
+    if (!this.isEligibleHealthScreeningDefault(quiz)) {
+      this.errorHandler.throwBadRequest(
+        'Only a published, active, standalone health declaration questionnaire can be the default health screening template',
+      );
+    }
+  }
+
   async create(createQuizDto: CreateQuizDto, createdBy: string): Promise<QuizDto> {
     // Validate polymorphic relationship
     if (createQuizDto.entity && !createQuizDto.entityId) {
@@ -86,8 +114,8 @@ export class QuizzesService {
 
     // Validate entity exists if provided
     if (createQuizDto.entity === 'COURSE' && createQuizDto.entityId) {
-      const course = await this.prisma.course.findUnique({
-        where: { id: createQuizDto.entityId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: createQuizDto.entityId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Course', createQuizDto.entityId, course);
     }
@@ -106,69 +134,114 @@ export class QuizzesService {
     }
 
     // Create quiz with questions and options
-    const quiz = await this.prisma.quiz.create({
-      data: {
-        title: createQuizDto.title,
-        description: createQuizDto.description,
-        instructions: createQuizDto.instructions,
-        entity: createQuizDto.entity as any,
-        entityId: createQuizDto.entityId,
-        duration: createQuizDto.duration,
-        passingScore: createQuizDto.passingScore || 75,
-        maxAttempts: createQuizDto.maxAttempts,
-        shuffleQuestions: createQuizDto.shuffleQuestions || false,
-        shuffleOptions: createQuizDto.shuffleOptions || false,
-        showCorrectAnswer: createQuizDto.showCorrectAnswer !== false,
+    const quizKind = createQuizDto.kind ?? 'LMS_QUIZ';
+
+    if (
+      createQuizDto.isDefaultForHealthScreening !== undefined &&
+      createQuizDto.isDefaultForHealthScreening &&
+      quizKind !== 'HEALTH_DECLARATION'
+    ) {
+      this.errorHandler.throwBadRequest(
+        'isDefaultForHealthScreening applies only to health declaration questionnaires',
+      );
+    }
+
+    const setHealthScreeningDefault =
+      quizKind === 'HEALTH_DECLARATION' &&
+      createQuizDto.isDefaultForHealthScreening === true;
+
+    if (setHealthScreeningDefault) {
+      this.assertCanSetHealthScreeningDefault({
+        kind: 'HEALTH_DECLARATION',
+        entity: createQuizDto.entity ? (createQuizDto.entity as string) : null,
         isPublished: createQuizDto.isPublished || false,
-        publishedAt,
-        createdBy,
-        questions: {
-          create: createQuizDto.questions.map((q) => ({
-            questionType: q.questionType,
-            questionText: q.questionText,
-            explanation: q.explanation,
-            mediaUrl: q.mediaUrl,
-            mediaType: q.mediaType,
-            points: q.points || 1,
-            order: q.order,
-            options: q.options
-              ? {
+        isActive: true,
+      });
+    }
+
+    const createPayload: Prisma.QuizCreateInput = {
+      kind: quizKind as any,
+      title: createQuizDto.title,
+      description: createQuizDto.description,
+      instructions: createQuizDto.instructions,
+      entity: createQuizDto.entity as any,
+      entityId: createQuizDto.entityId,
+      duration: createQuizDto.duration,
+      passingScore: createQuizDto.passingScore ?? 75,
+      maxAttempts: createQuizDto.maxAttempts,
+      shuffleQuestions: createQuizDto.shuffleQuestions || false,
+      shuffleOptions: createQuizDto.shuffleOptions || false,
+      showCorrectAnswer: createQuizDto.showCorrectAnswer !== false,
+      isPublished: createQuizDto.isPublished || false,
+      publishedAt,
+      isDefaultForHealthScreening: setHealthScreeningDefault,
+      creator: { connect: { id: createdBy } },
+      questions: {
+        create: createQuizDto.questions.map((q) => ({
+          questionType: q.questionType,
+          questionText: q.questionText,
+          explanation: q.explanation,
+          mediaUrl: q.mediaUrl,
+          mediaType: q.mediaType,
+          points: q.points || 1,
+          order: q.order,
+          options: q.options
+            ? {
                 create: q.options.map((opt) => ({
                   optionText: opt.optionText,
                   isCorrect: opt.isCorrect,
                   order: opt.order,
                 })),
               }
-              : undefined,
-          })),
+            : undefined,
+        })),
+      },
+    };
+
+    const includeCreate = {
+      creator: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
         },
       },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+      questions: {
+        where: { isActive: true },
+        include: {
+          options: {
+            orderBy: { order: 'asc' },
           },
         },
-        questions: {
-          where: { isActive: true },
-          include: {
-            options: {
-              orderBy: { order: 'asc' },
-            },
-          },
-          orderBy: { order: 'asc' },
-        },
+        orderBy: { order: 'asc' },
       },
-    });
+    } as const;
+
+    const quiz = setHealthScreeningDefault
+      ? await this.prisma.$transaction(async (tx) => {
+          await tx.quiz.updateMany({
+            where: { isDefaultForHealthScreening: true },
+            data: { isDefaultForHealthScreening: false },
+          });
+          return tx.quiz.create({
+            data: createPayload,
+            include: includeCreate,
+          });
+        })
+      : await this.prisma.quiz.create({
+          data: {
+            ...createPayload,
+            isDefaultForHealthScreening: false,
+          },
+          include: includeCreate,
+        });
 
     // Load course/chapter if entity is set
     let quizWithRelations: any = quiz;
     if (createQuizDto.entity === 'COURSE' && createQuizDto.entityId) {
-      const course = await this.prisma.course.findUnique({
-        where: { id: createQuizDto.entityId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: createQuizDto.entityId, ...isNotDeleted },
         select: {
           id: true,
           title: true,
@@ -215,9 +288,14 @@ export class QuizzesService {
       entityId,
       createdBy,
       search,
+      kind,
     } = options || {};
 
     const where: Prisma.QuizWhereInput = {};
+
+    if (kind) {
+      where.kind = kind as any;
+    }
 
     // Apply filters
     if (search) {
@@ -388,15 +466,15 @@ export class QuizzesService {
 
       // Validate entity exists if provided
       if (updateQuizDto.entity === 'COURSE' && updateQuizDto.entityId) {
-        const course = await this.prisma.course.findUnique({
-          where: { id: updateQuizDto.entityId },
+        const course = await this.prisma.course.findFirst({
+          where: { id: updateQuizDto.entityId, ...isNotDeleted },
         });
         this.errorHandler.throwIfNotFoundById('Course', updateQuizDto.entityId, course);
       }
 
       if (updateQuizDto.entity === 'CHAPTER' && updateQuizDto.entityId) {
-        const chapter = await this.prisma.chapter.findUnique({
-          where: { id: updateQuizDto.entityId },
+        const chapter = await this.prisma.chapter.findFirst({
+          where: { id: updateQuizDto.entityId, ...isNotDeleted },
         });
         this.errorHandler.throwIfNotFoundById('Chapter', updateQuizDto.entityId, chapter);
       }
@@ -427,6 +505,7 @@ export class QuizzesService {
 
     // Update quiz - only include fields that are being updated
     const updateData: Prisma.QuizUpdateInput = {
+      ...(updateQuizDto.kind !== undefined && { kind: updateQuizDto.kind as any }),
       ...(updateQuizDto.title !== undefined && { title: updateQuizDto.title }),
       ...(updateQuizDto.description !== undefined && { description: updateQuizDto.description }),
       ...(updateQuizDto.instructions !== undefined && { instructions: updateQuizDto.instructions }),
@@ -489,29 +568,95 @@ export class QuizzesService {
       };
     }
 
-    const quiz = await this.prisma.quiz.update({
-      where: { id },
-      data: updateData,
-      include: {
-        creator: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        questions: {
-          where: { isActive: true },
-          include: {
-            options: {
-              orderBy: { order: 'asc' },
-            },
-          },
-          orderBy: { order: 'asc' },
+    const nextKind = (updateQuizDto.kind ?? existingQuiz.kind) as string;
+    const nextPublished =
+      updateQuizDto.isPublished !== undefined
+        ? updateQuizDto.isPublished
+        : existingQuiz.isPublished;
+    const nextActive = existingQuiz.isActive;
+
+    let nextEntity: string | null = existingQuiz.entity as string | null;
+    if (updateQuizDto.entity !== undefined) {
+      if (updateQuizDto.entity === 'COURSE' || updateQuizDto.entity === 'CHAPTER') {
+        nextEntity = updateQuizDto.entity;
+      } else {
+        nextEntity = null;
+      }
+    }
+
+    if (
+      updateQuizDto.isDefaultForHealthScreening !== undefined &&
+      updateQuizDto.isDefaultForHealthScreening &&
+      nextKind !== 'HEALTH_DECLARATION'
+    ) {
+      this.errorHandler.throwBadRequest(
+        'isDefaultForHealthScreening applies only to health declaration questionnaires',
+      );
+    }
+
+    let useDefaultTransaction = false;
+    if (nextKind === 'HEALTH_DECLARATION') {
+      if (updateQuizDto.isDefaultForHealthScreening === true) {
+        this.assertCanSetHealthScreeningDefault({
+          kind: nextKind,
+          entity: nextEntity,
+          isPublished: nextPublished,
+          isActive: nextActive,
+        });
+        useDefaultTransaction = true;
+        updateData.isDefaultForHealthScreening = true;
+      } else if (updateQuizDto.isDefaultForHealthScreening === false) {
+        updateData.isDefaultForHealthScreening = false;
+      } else if (
+        existingQuiz.isDefaultForHealthScreening &&
+        !this.isEligibleHealthScreeningDefault({
+          kind: nextKind,
+          entity: nextEntity,
+          isPublished: nextPublished,
+          isActive: nextActive,
+        })
+      ) {
+        updateData.isDefaultForHealthScreening = false;
+      }
+    }
+
+    const includeUpdate = {
+      creator: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
         },
       },
-    });
+      questions: {
+        where: { isActive: true },
+        include: {
+          options: {
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: { order: 'asc' },
+      },
+    } as const;
+
+    const quiz = useDefaultTransaction
+      ? await this.prisma.$transaction(async (tx) => {
+          await tx.quiz.updateMany({
+            where: { isDefaultForHealthScreening: true },
+            data: { isDefaultForHealthScreening: false },
+          });
+          return tx.quiz.update({
+            where: { id },
+            data: updateData,
+            include: includeUpdate,
+          });
+        })
+      : await this.prisma.quiz.update({
+          where: { id },
+          data: updateData,
+          include: includeUpdate,
+        });
 
     // Load course/chapter if entity is set
     let quizWithRelations: any = quiz;
@@ -559,7 +704,10 @@ export class QuizzesService {
     // Soft delete
     await this.prisma.quiz.update({
       where: { id },
-      data: { isActive: false },
+      data: {
+        isActive: false,
+        ...(quiz.isDefaultForHealthScreening ? { isDefaultForHealthScreening: false } : {}),
+      },
     });
 
     // Log activity
@@ -585,13 +733,13 @@ export class QuizzesService {
 
     // Validate entity exists
     if (linkData.entity === 'COURSE') {
-      const course = await this.prisma.course.findUnique({
-        where: { id: linkData.entityId },
+      const course = await this.prisma.course.findFirst({
+        where: { id: linkData.entityId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Course', linkData.entityId, course);
     } else if (linkData.entity === 'CHAPTER') {
-      const chapter = await this.prisma.chapter.findUnique({
-        where: { id: linkData.entityId },
+      const chapter = await this.prisma.chapter.findFirst({
+        where: { id: linkData.entityId, ...isNotDeleted },
       });
       this.errorHandler.throwIfNotFoundById('Chapter', linkData.entityId, chapter);
     }
@@ -602,6 +750,10 @@ export class QuizzesService {
       data: {
         entity: linkData.entity as any,
         entityId: linkData.entityId,
+        ...(existingQuiz.isDefaultForHealthScreening &&
+        existingQuiz.kind === 'HEALTH_DECLARATION'
+          ? { isDefaultForHealthScreening: false }
+          : {}),
       },
       include: {
         creator: {
@@ -666,6 +818,12 @@ export class QuizzesService {
     });
 
     this.errorHandler.throwIfNotFoundById('Quiz', quizId, quiz);
+
+    if (quiz.kind === 'HEALTH_DECLARATION') {
+      this.errorHandler.throwBadRequest(
+        'Health declaration questionnaires cannot be assigned via LMS assignment',
+      );
+    }
 
     // Only standalone quizzes can be assigned
     if (quiz.entity !== null) {
@@ -898,8 +1056,13 @@ export class QuizzesService {
     let isCorrect: boolean | null = null;
     let pointsEarned = 0;
 
+    const isHealthQuiz = attempt.quiz.kind === 'HEALTH_DECLARATION';
+
     // Auto-grade for multiple choice and true/false
-    if (question.questionType === 'MULTIPLE_CHOICE' || question.questionType === 'TRUE_FALSE') {
+    if (
+      !isHealthQuiz &&
+      (question.questionType === 'MULTIPLE_CHOICE' || question.questionType === 'TRUE_FALSE')
+    ) {
       if (!submitAnswerDto.selectedOptionId) {
         this.errorHandler.throwBadRequest('selectedOptionId is required for multiple choice and true/false questions');
       }
@@ -910,13 +1073,30 @@ export class QuizzesService {
 
       isCorrect = selectedOption.isCorrect;
       pointsEarned = isCorrect ? Number(question.points) : 0;
-    } else if (question.questionType === 'ESSAY') {
+    } else if (!isHealthQuiz && question.questionType === 'ESSAY') {
       // Essay allows empty string - will be graded manually later
       // Only check if essayAnswer field is provided (not undefined/null)
       if (submitAnswerDto.essayAnswer === undefined || submitAnswerDto.essayAnswer === null) {
         this.errorHandler.throwBadRequest('essayAnswer field is required for essay questions (can be empty string)');
       }
       // Essay requires manual grading
+      isCorrect = null;
+      pointsEarned = 0;
+    } else if (isHealthQuiz) {
+      // Informational questionnaire: no scoring
+      if (question.questionType === 'MULTIPLE_CHOICE' || question.questionType === 'TRUE_FALSE') {
+        if (!submitAnswerDto.selectedOptionId) {
+          this.errorHandler.throwBadRequest(
+            'selectedOptionId is required for multiple choice and true/false questions',
+          );
+        }
+      } else if (question.questionType === 'ESSAY') {
+        if (submitAnswerDto.essayAnswer === undefined || submitAnswerDto.essayAnswer === null) {
+          this.errorHandler.throwBadRequest(
+            'essayAnswer field is required for essay questions (can be empty string)',
+          );
+        }
+      }
       isCorrect = null;
       pointsEarned = 0;
     }
@@ -1021,6 +1201,71 @@ export class QuizzesService {
 
     if (attempt.status !== 'IN_PROGRESS') {
       this.errorHandler.throwBadRequest('Attempt is not in progress');
+    }
+
+    if (attempt.quiz.kind === 'HEALTH_DECLARATION') {
+      const timeSpent = Math.floor(
+        (new Date().getTime() - attempt.startedAt.getTime()) / 1000,
+      );
+      const updatedAttempt = await this.prisma.quizAttempt.update({
+        where: { id: attemptId },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date(),
+          score: null,
+          totalPoints: null,
+          earnedPoints: null,
+          isPassed: false,
+          timeSpent,
+        },
+        include: {
+          quiz: {
+            include: {
+              questions: {
+                where: { isActive: true },
+                include: {
+                  options: {
+                    orderBy: { order: 'asc' },
+                  },
+                },
+                orderBy: { order: 'asc' },
+              },
+            },
+          },
+          answers: {
+            include: {
+              question: {
+                include: {
+                  options: true,
+                },
+              },
+              selectedOption: true,
+            },
+          },
+        },
+      });
+
+      return {
+        id: updatedAttempt.id,
+        quizId: updatedAttempt.quizId,
+        enrollmentId: updatedAttempt.enrollmentId,
+        userId: updatedAttempt.userId,
+        attemptNumber: updatedAttempt.attemptNumber,
+        status: updatedAttempt.status,
+        score: updatedAttempt.score ? Number(updatedAttempt.score) : null,
+        totalPoints: updatedAttempt.totalPoints
+          ? Number(updatedAttempt.totalPoints)
+          : null,
+        earnedPoints: updatedAttempt.earnedPoints
+          ? Number(updatedAttempt.earnedPoints)
+          : null,
+        isPassed: updatedAttempt.isPassed,
+        startedAt: updatedAttempt.startedAt,
+        completedAt: updatedAttempt.completedAt,
+        timeSpent: updatedAttempt.timeSpent,
+        quiz: updatedAttempt.quiz,
+        answers: updatedAttempt.answers,
+      } as any;
     }
 
     // Calculate score

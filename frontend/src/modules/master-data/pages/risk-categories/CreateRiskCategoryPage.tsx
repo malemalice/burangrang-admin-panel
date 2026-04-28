@@ -10,11 +10,11 @@ const CreateRiskCategoryPage = () => {
   return (
     <>
       <PageHeader
-        title="Create Risk Category"
-        subtitle="Add a new risk category to the system"
+        title="Create Type of Hazard"
+        subtitle="Add a new type of hazard to the system"
         actions={
           <Button variant="outline" onClick={() => navigate('/master/risk-categories')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Risk Categories
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Types of Hazard
           </Button>
         }
       />

@@ -23,6 +23,17 @@ export class CreateManHourDto {
   @Max(24)
   manHourPerDay: number;
 
+  @ApiPropertyOptional({
+    description:
+      'NON_STUDENT only: working day count in the month (typically 20–22). Omitted or invalid values default to 22. ' +
+        'Total man hours capacity = qty × manHourPerDay × this day count. STUDENT: omit (ignored; capacity uses fixed 22 days). ' +
+        'Legacy: values that look like the old "capacity" number are normalized to 22 on the server.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalWorkingDays?: number;
+
   @ApiProperty({ enum: MonthEnum, description: 'Month' })
   @IsEnum(MonthEnum)
   month: MonthEnum;
@@ -32,6 +43,18 @@ export class CreateManHourDto {
   @Min(2000)
   @Max(2100)
   year: number;
+
+  @ApiPropertyOptional({ description: 'Lost hours (absence, accidents, etc.)', example: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lostHour?: number;
+
+  @ApiPropertyOptional({ description: 'Total man hours (overrides lostHour if both provided)', example: 1540 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  total?: number;
 
   @ApiPropertyOptional({ description: 'Additional notes' })
   @IsOptional()

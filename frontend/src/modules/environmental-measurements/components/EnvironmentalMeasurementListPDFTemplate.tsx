@@ -1,13 +1,51 @@
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
+import type { EnvironmentalMeasurementRegulatoryLimits, MetricRegulatoryLimit } from '../services/environmentalMeasurementService';
+import type { RegulatoryMetricKey } from '../utils/regulatoryLimitComparison';
+import {
+  compareToRegulatoryLimit,
+  formatRegulatoryComparisonText,
+  getRegulatoryLimitMode,
+} from '../utils/regulatoryLimitComparison';
 
 interface EnvironmentalMeasurementListPDFTemplateProps {
   measurements: EnvironmentalMeasurement[];
+  regulatoryLimits?: EnvironmentalMeasurementRegulatoryLimits | null;
+}
+
+function MetricPdfCell({
+  metric,
+  value,
+  limitEntry,
+}: {
+  metric: RegulatoryMetricKey;
+  value: number | undefined | null;
+  limitEntry?: MetricRegulatoryLimit | null;
+}) {
+  const limit = limitEntry?.limit ?? null;
+  const mode = limitEntry?.mode ?? getRegulatoryLimitMode(metric);
+  const limitText = limit != null && Number.isFinite(limit) ? String(limit) : '—';
+  const comparisonText = formatRegulatoryComparisonText(value, limit, mode);
+  const { compliant } = compareToRegulatoryLimit(value, limit, mode);
+  
+
+  return (
+    <div className="text-right">
+      <div className="font-medium">{value ?? '—'}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">Quality Standard Value: {limitText}</div>
+      {comparisonText && (
+        <div className="text-[10px] text-foreground mt-0.5 font-medium">
+          {comparisonText}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function EnvironmentalMeasurementListPDFTemplate({
   measurements,
+  regulatoryLimits,
 }: EnvironmentalMeasurementListPDFTemplateProps) {
   return (
     <div className="bg-white p-8 space-y-6">
@@ -20,7 +58,7 @@ export function EnvironmentalMeasurementListPDFTemplate({
         </p>
       </div>
 
-      <Table>
+      <Table data-pdf-table-splittable="">
         <TableHeader>
           <TableRow>
             <TableHead className="bg-muted/50 font-semibold">Date</TableHead>
@@ -37,13 +75,28 @@ export function EnvironmentalMeasurementListPDFTemplate({
             <TableRow key={m.id}>
               <TableCell>{format(new Date(m.date), 'dd MMM yyyy')}</TableCell>
               <TableCell>
-                {m.room ? `${m.room.name} (${m.room.code})` : '-'}
+                {m.room ? (
+                  <div>
+                    <div className="font-medium">{m.room.name}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">Code: {m.room.code}</div>
+                  </div>
+                ) : (
+                  '—'
+                )}
               </TableCell>
-              <TableCell className="text-right">{m.lighting ?? '-'}</TableCell>
-              <TableCell className="text-right">{m.noise ?? '-'}</TableCell>
-              <TableCell className="text-right">{m.humidity ?? '-'}</TableCell>
-              <TableCell className="text-right">{m.temperature ?? '-'}</TableCell>
-              <TableCell className="max-w-[200px] truncate">{m.remarks ?? '-'}</TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell metric="lighting" value={m.lighting} limitEntry={regulatoryLimits?.lighting} />
+              </TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell metric="noise" value={m.noise} limitEntry={regulatoryLimits?.noise} />
+              </TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell metric="humidity" value={m.humidity} limitEntry={regulatoryLimits?.humidity} />
+              </TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell metric="temperature" value={m.temperature} limitEntry={regulatoryLimits?.temperature} />
+              </TableCell>
+              <TableCell className="break-words whitespace-pre-wrap">{m.remarks ?? '-'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

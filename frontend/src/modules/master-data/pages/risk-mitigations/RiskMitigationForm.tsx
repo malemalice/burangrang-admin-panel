@@ -31,8 +31,12 @@ import { RiskMitigation, Risk } from '@/core/lib/types';
 // Define form schema
 const formSchema = z.object({
   eliminate: z.string().optional(),
+  eliminationControl: z.string().optional(),
+  substitutionControl: z.string().optional(),
+  engineeringControl: z.string().optional(),
+  administrationControl: z.string().optional(),
+  personalProtectiveEquipment: z.string().optional(),
   transfer: z.string().optional(),
-  reduce: z.string().optional(),
   accept: z.string().optional(),
   riskId: z.string().min(1, "Risk is required"),
   isActive: z.boolean().default(true),
@@ -55,8 +59,12 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
     resolver: zodResolver(formSchema),
     defaultValues: {
       eliminate: riskMitigation?.eliminate || '',
+      eliminationControl: (riskMitigation as any)?.eliminationControl || '',
+      substitutionControl: (riskMitigation as any)?.substitutionControl || '',
+      engineeringControl: (riskMitigation as any)?.engineeringControl || '',
+      administrationControl: (riskMitigation as any)?.administrationControl || '',
+      personalProtectiveEquipment: (riskMitigation as any)?.personalProtectiveEquipment || '',
       transfer: riskMitigation?.transfer || '',
-      reduce: riskMitigation?.reduce || '',
       accept: riskMitigation?.accept || '',
       riskId: riskMitigation?.riskId || '',
       isActive: riskMitigation?.isActive !== undefined ? riskMitigation.isActive : true,
@@ -163,6 +171,116 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
 
             <FormField
               control={form.control}
+              name="eliminationControl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Elimination Control</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter elimination control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe elimination control measures (control hierarchy)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="substitutionControl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Substitution Control</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter substitution control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe substitution control measures (control hierarchy)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="engineeringControl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Engineering Control</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter engineering control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe engineering control measures (control hierarchy)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="administrationControl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Administration Control</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter administration control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe administration control measures (control hierarchy)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="personalProtectiveEquipment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Personal Protective Equipment</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter PPE control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe PPE control measures (control hierarchy)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="transfer"
               render={({ field }) => (
                 <FormItem>
@@ -177,28 +295,6 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
                   </FormControl>
                   <FormDescription>
                     Describe measures to transfer the risk (e.g., insurance, outsourcing)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="reduce"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reduce</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter reduce control measure"
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value || ''}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Describe measures to reduce the risk
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

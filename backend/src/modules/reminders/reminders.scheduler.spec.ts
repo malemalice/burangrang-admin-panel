@@ -3,6 +3,7 @@ import { RemindersService } from './reminders.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ReminderTargetTypeEnum } from './dto/reminder.dto';
+import { HealthScreeningsService } from '../health-screenings/health-screenings.service';
 
 const mockGetDueReminders = jest.fn();
 const mockUpdateAfterExecution = jest.fn();
@@ -29,6 +30,11 @@ const mockPrisma = {
   },
 } as unknown as PrismaService;
 
+const mockExpireStaleHealthScreenings = jest.fn();
+const mockHealthScreeningsService = {
+  expireStaleHealthScreenings: mockExpireStaleHealthScreenings,
+} as unknown as HealthScreeningsService;
+
 describe('RemindersScheduler', () => {
   let scheduler: RemindersScheduler;
 
@@ -38,7 +44,9 @@ describe('RemindersScheduler', () => {
       mockRemindersService,
       mockNotificationsService,
       mockPrisma,
+      mockHealthScreeningsService,
     );
+    mockExpireStaleHealthScreenings.mockResolvedValue(0);
     mockUpdateAfterExecution.mockResolvedValue(undefined);
     (mockPrisma.notificationType.findFirst as jest.Mock).mockResolvedValue({
       id: 'type-reminder',

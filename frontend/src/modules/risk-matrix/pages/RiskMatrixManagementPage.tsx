@@ -1,19 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, Plus, Trash2, RefreshCw, Eye } from 'lucide-react';
+import { Save, Plus, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Input } from '@/core/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Badge } from '@/core/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/core/components/ui/dialog';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import riskMatrixService from '../services/riskMatrixService';
 import {
@@ -52,14 +46,29 @@ interface ConsequenceOption {
 }
 
 const RiskMatrixManagementPage = () => {
+  const navigate = useNavigate();
   const [likelihoods, setLikelihoods] = useState<LikelihoodOption[]>([]);
   const [consequences, setConsequences] = useState<ConsequenceOption[]>([]);
   const [matrixRows, setMatrixRows] = useState<MatrixRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [rowToDelete, setRowToDelete] = useState<MatrixRow | null>(null);
+  const newRowInputRef = useRef<HTMLInputElement>(null);
+  const shouldFocusNewRowRef = useRef(false);
+
+  // Focus the new row's first input when a new row is added
+  useEffect(() => {
+    if (!shouldFocusNewRowRef.current) return;
+
+    const lastRow = matrixRows[matrixRows.length - 1];
+    if (!lastRow?.isNew) return;
+
+    shouldFocusNewRowRef.current = false;
+    requestAnimationFrame(() => {
+      newRowInputRef.current?.focus();
+    });
+  }, [matrixRows.length]);
 
   // Fetch initial data
   useEffect(() => {
@@ -161,6 +170,7 @@ const RiskMatrixManagementPage = () => {
       error: undefined,
     };
 
+    shouldFocusNewRowRef.current = true;
     setMatrixRows([...matrixRows, newRow]);
   };
 
@@ -355,63 +365,6 @@ const RiskMatrixManagementPage = () => {
     }
   };
 
-  const buildMatrixGrid = () => {
-    // likelihoodLevel is string (A, B, C...); consequenceLevel is number (1, 2, 3...)
-    const likelihoodSet = new Set<string>();
-    const consequenceSet = new Set<number>();
-    const likelihoodNameMap = new Map<string, string>();
-    const consequenceNameMap = new Map<number, string>();
-
-    // Process all rows (including inactive ones for level extraction)
-    matrixRows.forEach((row) => {
-      if (row.likelihoodLevel !== null) {
-        likelihoodSet.add(row.likelihoodLevel);
-        if (row.likelihoodName) {
-          likelihoodNameMap.set(row.likelihoodLevel, row.likelihoodName);
-        }
-      }
-      if (row.consequenceLevel !== null) {
-        consequenceSet.add(row.consequenceLevel);
-        if (row.consequenceName) {
-          consequenceNameMap.set(row.consequenceLevel, row.consequenceName);
-        }
-      }
-    });
-
-    // Sort likelihood levels: alphabetically (A, B, C, D, E)
-    const likelihoodLevels = Array.from(likelihoodSet).sort((a, b) => a.localeCompare(b));
-    
-    // Sort consequence levels: numerically (1, 2, 3, 4, 5)
-    const consequenceLevels = Array.from(consequenceSet).sort((a, b) => a - b);
-
-    // Create a map for quick lookup: key = "likelihoodLevel-consequenceLevel"
-    // Only include active entries for the matrix display
-    const matrixMap = new Map<string, MatrixRow>();
-    matrixRows.forEach((row) => {
-      if (row.likelihoodLevel !== null && row.consequenceLevel !== null && row.isActive) {
-        const key = `${row.likelihoodLevel}-${row.consequenceLevel}`;
-        matrixMap.set(key, row);
-      }
-    });
-
-    return { likelihoodLevels, consequenceLevels, matrixMap, likelihoodNameMap, consequenceNameMap };
-  };
-
-  const getRiskRatingColor = (rating: RiskRatingEnum) => {
-    switch (rating) {
-      case RiskRatingEnum.LOW:
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case RiskRatingEnum.MEDIUM:
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-      case RiskRatingEnum.HIGH:
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-      case RiskRatingEnum.EXTREME:
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -432,13 +385,9 @@ const RiskMatrixManagementPage = () => {
         subtitle="Manage risk matrix by defining likelihood and consequence pairs with their risk ratings"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchAllData} disabled={isSaving} aria-label="Refresh risk matrix data">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button variant="outline" onClick={() => setViewModalOpen(true)} aria-label="View risk matrix">
-              <Eye className="mr-2 h-4 w-4" />
-              View
+            <Button variant="outline" onClick={() => navigate('/risk-matrix')} aria-label="Back to risk matrix view">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
             </Button>
             <Button onClick={handleSaveAll} disabled={!hasChanges || isSaving} aria-label="Save all changes">
               {isSaving ? (
@@ -504,6 +453,7 @@ const RiskMatrixManagementPage = () => {
                       >
                         <td className="p-4">
                           <Input
+                            ref={index === matrixRows.length - 1 && row.isNew ? newRowInputRef : undefined}
                             type="text"
                             placeholder="A-Z, AA-ZZ"
                             value={row.likelihoodLevel || ''}
@@ -620,86 +570,6 @@ const RiskMatrixManagementPage = () => {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-semibold">Risk Matrix View</DialogTitle>
-            <DialogDescription>
-              Visual representation of risk ratings based on likelihood and consequence levels
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4">
-            {(() => {
-              const { likelihoodLevels, consequenceLevels, matrixMap, likelihoodNameMap, consequenceNameMap } = buildMatrixGrid();
-              return (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="border p-3 bg-muted/50 font-semibold text-sm sticky top-0 z-10">
-                          Likelihood \ Consequence
-                        </th>
-                        {consequenceLevels.map((level) => (
-                          <th
-                            key={level}
-                            className="border p-3 bg-muted/50 font-semibold text-sm text-center sticky top-0 z-10"
-                          >
-                            <div className="flex flex-col items-center gap-1">
-                              <span>{level}</span>
-                              {consequenceNameMap.get(level) && (
-                                <span className="text-xs font-normal text-muted-foreground">
-                                  {consequenceNameMap.get(level)}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {likelihoodLevels.map((likelihood) => (
-                        <tr key={likelihood}>
-                          <td className="border p-3 bg-muted/30 font-semibold text-sm text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <span>{likelihood}</span>
-                              {likelihoodNameMap.get(likelihood) && (
-                                <span className="text-xs font-normal text-muted-foreground">
-                                  {likelihoodNameMap.get(likelihood)}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          {consequenceLevels.map((consequence) => {
-                            const key = `${likelihood}-${consequence}`;
-                            const cell = matrixMap.get(key);
-                            return (
-                              <td
-                                key={consequence}
-                                className={`border p-4 text-center align-middle min-w-[100px] ${
-                                  cell ? getRiskRatingColor(cell.interpretation) : 'bg-background'
-                                }`}
-                              >
-                                {cell ? (
-                                  <div className="font-medium">
-                                    {cell.interpretation}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })()}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={deleteDialogOpen}

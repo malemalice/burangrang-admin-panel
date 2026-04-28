@@ -20,6 +20,8 @@ import {
   GeneralStatusEnum,
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
+import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
+import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -28,6 +30,11 @@ import {
 } from '../../reminders/dto/reminder.dto';
 import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
 import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
+import {
+  buildSoftDeleteData,
+  buildSoftDeleteDataWithInactive,
+  isNotDeleted,
+} from '../../../shared/utils/soft-delete.util';
 
 // Entity type constant for risk assessment items
 const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
@@ -49,15 +56,21 @@ export class RiskAssessmentService {
     private readonly prisma: PrismaService,
     private readonly approvalsService: ApprovalsService,
     private readonly remindersService: RemindersService,
-  ) {}
+    private readonly riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService,
+  ) { }
 
   async create(
     createRiskAssessmentDto: CreateRiskAssessmentDto,
     userId: string,
   ): Promise<RiskAssessmentDto> {
     const { items, createdBy, ...data } = createRiskAssessmentDto;
+    let createdAssessmentId: string | null = null;
 
     try {
+      console.log(
+        `[RiskAssessment] create start code=${createRiskAssessmentDto.code} status=${createRiskAssessmentDto.status} departmentId=${createRiskAssessmentDto.departmentId}`,
+      );
+
       // Extract mitigations from items before creating (they need to be saved separately)
       const itemsWithoutMitigation = items?.map(({ mitigation, ...itemData }) => itemData);
       const itemMitigations = items?.map((item) => item.mitigation);
@@ -68,10 +81,10 @@ export class RiskAssessmentService {
           createdBy: userId, // Use authenticated user ID from request
           ...(itemsWithoutMitigation &&
             itemsWithoutMitigation.length > 0 && {
-              items: {
-                create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
-              },
-            }),
+            items: {
+              create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
+            },
+          }),
         } as any,
         include: {
           items: {
@@ -85,6 +98,10 @@ export class RiskAssessmentService {
           assignee: true,
         },
       });
+      createdAssessmentId = assessment.id;
+      console.log(
+        `[RiskAssessment] create persisted assessmentId=${assessment.id} code=${assessment.code}`,
+      );
 
       // Create mitigation records for items
       const assessmentWithItems = assessment as any as RiskAssessment & {
@@ -93,7 +110,7 @@ export class RiskAssessmentService {
           mRiskCategory: any;
         })[];
       };
-      
+
       if (assessmentWithItems.items?.length > 0 && itemMitigations) {
         for (let i = 0; i < assessmentWithItems.items.length; i++) {
           const mitigation = itemMitigations[i];
@@ -108,6 +125,7 @@ export class RiskAssessmentService {
           where: { id: assessment.id },
           include: {
             items: {
+              where: isNotDeleted,
               include: {
                 mRisk: true,
                 mRiskCategory: true,
@@ -145,8 +163,39 @@ export class RiskAssessmentService {
         }
       }
 
+      console.log(
+        `[RiskAssessment] create before zoho sync assessmentId=${assessmentWithRelations.id} code=${assessmentWithRelations.code}`,
+      );
+      try {
+        await this.syncCreatedRiskAssessmentToZoho(assessmentWithRelations);
+        console.log(
+          `[RiskAssessment] create zoho sync success assessmentId=${assessmentWithRelations.id}`,
+        );
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Zoho sync failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
+          error,
+        );
+      }
+
       return this.mapToDtoWithMitigations(assessmentWithRelations);
     } catch (error: any) {
+      console.error('[RiskAssessment] create failed', {
+        assessmentId: createdAssessmentId,
+        code: createRiskAssessmentDto.code,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        responseBody: error?.responseBody,
+        statusCode: error?.statusCode,
+      });
+      if (createdAssessmentId) {
+        console.log(
+          `[RiskAssessment] create triggering cleanup assessmentId=${createdAssessmentId}`,
+        );
+        await this.cleanupFailedRiskAssessmentCreation(createdAssessmentId);
+      }
+
       // Handle Prisma unique constraint error for code
       if (error.code === PRISMA_ERROR_CODES.UNIQUE_VIOLATION && error.meta?.target?.includes('code')) {
         throw new ConflictException('Code already exists');
@@ -193,11 +242,14 @@ export class RiskAssessmentService {
       where.status = status;
     }
 
+    const whereActive = { ...where, ...isNotDeleted };
+
     const [assessments, total] = await Promise.all([
       this.prisma.riskAssessment.findMany({
-        where,
+        where: whereActive,
         include: {
           items: {
+            where: isNotDeleted,
             include: {
               mRisk: true,
               mRiskCategory: true,
@@ -213,7 +265,7 @@ export class RiskAssessmentService {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.riskAssessment.count({ where }),
+      this.prisma.riskAssessment.count({ where: whereActive }),
     ]);
 
     // Fetch all mitigation records for all items in all assessments
@@ -223,6 +275,7 @@ export class RiskAssessmentService {
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: { in: allItemIds },
         isActive: true,
+        ...isNotDeleted,
       },
     });
 
@@ -245,6 +298,7 @@ export class RiskAssessmentService {
       where: { id },
       include: {
         items: {
+          where: isNotDeleted,
           include: {
             mRisk: true,
             mRiskCategory: true,
@@ -266,12 +320,13 @@ export class RiskAssessmentService {
   async update(
     id: string,
     updateRiskAssessmentDto: UpdateRiskAssessmentDto,
+    userId?: string,
   ): Promise<RiskAssessmentDto> {
     const { items, ...data } = updateRiskAssessmentDto;
 
     // First, find the assessment to update
-    const existingAssessment = await this.prisma.riskAssessment.findUnique({
-      where: { id },
+    const existingAssessment = await this.prisma.riskAssessment.findFirst({
+      where: { id, ...isNotDeleted },
       include: { items: true },
     });
 
@@ -292,17 +347,27 @@ export class RiskAssessmentService {
     const assessmentDateChanged =
       data.assessmentDate &&
       data.assessmentDate.getTime() !==
-        existingAssessment.assessmentDate.getTime();
+      existingAssessment.assessmentDate.getTime();
 
-    // Delete existing mitigation records if items are being replaced
+    // Soft-delete existing line items and mitigation records if items are being replaced
     if (items) {
-      const existingItemIds = existingAssessment.items.map((item) => item.id);
-      await this.prisma.riskMitigationRecord.deleteMany({
-        where: {
-          entity: RISK_ASSESSMENT_ITEM_ENTITY,
-          entityId: { in: existingItemIds },
-        },
-      });
+      const activeItemIds = existingAssessment.items
+        .filter((item) => item.deletedAt == null)
+        .map((item) => item.id);
+      if (activeItemIds.length > 0) {
+        await this.prisma.riskMitigationRecord.updateMany({
+          where: {
+            entity: RISK_ASSESSMENT_ITEM_ENTITY,
+            entityId: { in: activeItemIds },
+            ...isNotDeleted,
+          },
+          data: buildSoftDeleteDataWithInactive(userId),
+        });
+        await this.prisma.riskAssessmentItem.updateMany({
+          where: { id: { in: activeItemIds } },
+          data: buildSoftDeleteData(userId),
+        });
+      }
     }
 
     // Extract mitigations from items before creating (they need to be saved separately)
@@ -316,13 +381,13 @@ export class RiskAssessmentService {
         ...data,
         ...(itemsWithoutMitigation && {
           items: {
-            deleteMany: {},
             create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
           },
         }),
       } as any,
       include: {
         items: {
+          where: isNotDeleted,
           include: {
             mRisk: true,
             mRiskCategory: true,
@@ -341,7 +406,7 @@ export class RiskAssessmentService {
         mRiskCategory: any;
       })[];
     };
-    
+
     if (assessmentWithItems.items?.length > 0 && itemMitigations) {
       for (let i = 0; i < assessmentWithItems.items.length; i++) {
         const mitigation = itemMitigations[i];
@@ -411,15 +476,25 @@ export class RiskAssessmentService {
       }
     }
 
+    if (newStatus && oldStatus !== newStatus) {
+      await this.riskAssessmentZohoSyncService.enqueueStatusSyncIfNeeded({
+        riskAssessmentId: assessment.id,
+        oldStatus,
+        newStatus,
+      });
+    }
+
     return this.mapToDtoWithMitigations(assessment as any);
   }
 
-  async remove(id: string): Promise<void> {
-    // First check if the assessment exists
-    const assessment = await this.prisma.riskAssessment.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const assessment = await this.prisma.riskAssessment.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
-        items: true,
+        items: {
+          where: isNotDeleted,
+          select: { id: true },
+        },
       },
     });
 
@@ -427,17 +502,27 @@ export class RiskAssessmentService {
       throw new NotFoundException(`Risk Assessment with ID ${id} not found`);
     }
 
-    // Delete all related items first
-    await this.prisma.riskAssessmentItem.deleteMany({
-      where: { riskAssessmentId: id },
-    });
+    const itemIds = assessment.items.map((i) => i.id);
+    if (itemIds.length > 0) {
+      await this.prisma.riskMitigationRecord.updateMany({
+        where: {
+          entity: RISK_ASSESSMENT_ITEM_ENTITY,
+          entityId: { in: itemIds },
+          ...isNotDeleted,
+        },
+        data: buildSoftDeleteDataWithInactive(deletedBy),
+      });
+      await this.prisma.riskAssessmentItem.updateMany({
+        where: { id: { in: itemIds } },
+        data: buildSoftDeleteData(deletedBy),
+      });
+    }
 
-    // Delete related reminders
     await this.deleteRemindersForRiskAssessment(id);
 
-    // Then delete the assessment
-    await this.prisma.riskAssessment.delete({
+    await this.prisma.riskAssessment.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -661,6 +746,7 @@ export class RiskAssessmentService {
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: { in: itemIds },
         isActive: true,
+        ...isNotDeleted,
       },
     });
 
@@ -735,8 +821,8 @@ export class RiskAssessmentService {
     createItemDto: CreateRiskAssessmentItemDto,
   ): Promise<RiskAssessmentItemDto> {
     // Verify risk assessment exists
-    const assessment = await this.prisma.riskAssessment.findUnique({
-      where: { id: riskAssessmentId },
+    const assessment = await this.prisma.riskAssessment.findFirst({
+      where: { id: riskAssessmentId, ...isNotDeleted },
     });
 
     if (!assessment) {
@@ -785,8 +871,8 @@ export class RiskAssessmentService {
     meta: { total: number; page: number; limit: number };
   }> {
     // Verify risk assessment exists
-    const assessment = await this.prisma.riskAssessment.findUnique({
-      where: { id: riskAssessmentId },
+    const assessment = await this.prisma.riskAssessment.findFirst({
+      where: { id: riskAssessmentId, ...isNotDeleted },
     });
 
     if (!assessment) {
@@ -824,6 +910,7 @@ export class RiskAssessmentService {
 
     const where: Prisma.RiskAssessmentItemWhereInput = {
       riskAssessmentId,
+      ...isNotDeleted,
       ...(search && {
         OR: [
           {
@@ -869,6 +956,7 @@ export class RiskAssessmentService {
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: { in: itemIds },
         isActive: true,
+        ...isNotDeleted,
       },
     });
 
@@ -894,6 +982,7 @@ export class RiskAssessmentService {
       where: {
         id: itemId,
         riskAssessmentId,
+        ...isNotDeleted,
       },
       include: {
         mRisk: true,
@@ -926,6 +1015,7 @@ export class RiskAssessmentService {
       where: {
         id: itemId,
         riskAssessmentId,
+        ...isNotDeleted,
       },
     });
 
@@ -962,12 +1052,16 @@ export class RiskAssessmentService {
     }, mitigationRecord);
   }
 
-  async removeItem(riskAssessmentId: string, itemId: string): Promise<void> {
-    // Verify item exists and belongs to the assessment
+  async removeItem(
+    riskAssessmentId: string,
+    itemId: string,
+    deletedBy?: string,
+  ): Promise<void> {
     const item = await this.prisma.riskAssessmentItem.findFirst({
       where: {
         id: itemId,
         riskAssessmentId,
+        ...isNotDeleted,
       },
     });
 
@@ -977,11 +1071,11 @@ export class RiskAssessmentService {
       );
     }
 
-    // Delete associated mitigation record first
-    await this.deleteMitigationRecord(itemId);
+    await this.softDeleteMitigationRecordForItem(itemId, deletedBy);
 
-    await this.prisma.riskAssessmentItem.delete({
+    await this.prisma.riskAssessmentItem.update({
       where: { id: itemId },
+      data: buildSoftDeleteData(deletedBy),
     });
   }
 
@@ -1003,8 +1097,8 @@ export class RiskAssessmentService {
       consequenceLevel: item.consequenceLevel,
       riskMatrixRating: item.riskMatrixRating,
       interpretation: item.interpretation,
-        postLikelihoodLevel: item.postLikelihoodLevel as any as string,
-        postConsequenceLevel: item.postConsequenceLevel,
+      postLikelihoodLevel: item.postLikelihoodLevel as any as string,
+      postConsequenceLevel: item.postConsequenceLevel,
       postRiskMatrixRating: item.postRiskMatrixRating,
       postInterpretation: item.postInterpretation,
       mitigation: mitigationRecord
@@ -1042,8 +1136,12 @@ export class RiskAssessmentService {
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: itemId,
         eliminate: mitigation.eliminate || null,
+        eliminationControl: mitigation.eliminationControl || null,
+        substitutionControl: mitigation.substitutionControl || null,
+        engineeringControl: mitigation.engineeringControl || null,
+        administrationControl: mitigation.administrationControl || null,
+        personalProtectiveEquipment: mitigation.personalProtectiveEquipment || null,
         transfer: mitigation.transfer || null,
-        reduce: mitigation.reduce || null,
         accept: mitigation.accept || null,
         legalAspect: mitigation.legalAspect || null,
         isActive: true,
@@ -1062,6 +1160,7 @@ export class RiskAssessmentService {
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: itemId,
         isActive: true,
+        ...isNotDeleted,
       },
     });
   }
@@ -1080,8 +1179,12 @@ export class RiskAssessmentService {
         where: { id: existing.id },
         data: {
           eliminate: mitigation.eliminate || null,
+          eliminationControl: mitigation.eliminationControl || null,
+          substitutionControl: mitigation.substitutionControl || null,
+          engineeringControl: mitigation.engineeringControl || null,
+          administrationControl: mitigation.administrationControl || null,
+          personalProtectiveEquipment: mitigation.personalProtectiveEquipment || null,
           transfer: mitigation.transfer || null,
-          reduce: mitigation.reduce || null,
           accept: mitigation.accept || null,
           legalAspect: mitigation.legalAspect || null,
         },
@@ -1092,14 +1195,19 @@ export class RiskAssessmentService {
   }
 
   /**
-   * Delete mitigation record for a risk assessment item
+   * Soft-delete mitigation record(s) for a risk assessment item
    */
-  private async deleteMitigationRecord(itemId: string): Promise<void> {
-    await this.prisma.riskMitigationRecord.deleteMany({
+  private async softDeleteMitigationRecordForItem(
+    itemId: string,
+    deletedBy?: string,
+  ): Promise<void> {
+    await this.prisma.riskMitigationRecord.updateMany({
       where: {
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: itemId,
+        ...isNotDeleted,
       },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -1115,13 +1223,140 @@ export class RiskAssessmentService {
       entity: record.entity,
       entityId: record.entityId,
       eliminate: record.eliminate || undefined,
+      eliminationControl: record.eliminationControl || undefined,
+      substitutionControl: record.substitutionControl || undefined,
+      engineeringControl: record.engineeringControl || undefined,
+      administrationControl: record.administrationControl || undefined,
+      personalProtectiveEquipment: record.personalProtectiveEquipment || undefined,
       transfer: record.transfer || undefined,
-      reduce: record.reduce || undefined,
       accept: record.accept || undefined,
       legalAspect: record.legalAspect || undefined,
       isActive: record.isActive,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+    };
+  }
+
+  private async syncCreatedRiskAssessmentToZoho(
+    assessment: RiskAssessment & {
+      department: { id: string; name: string };
+      creator: {
+        id: string;
+        email?: string | null;
+        firstName: string;
+        lastName: string;
+      };
+      assignee: {
+        id: string;
+        firstName: string;
+        lastName: string;
+      } | null;
+    },
+  ): Promise<void> {
+    const payload = await this.buildZohoCreatePayload(assessment);
+
+    console.log('[RiskAssessment] zoho create payload prepared', {
+      assessmentId: assessment.id,
+      payloadKeys: Object.keys(payload),
+      payload,
+    });
+
+    if (Object.keys(payload).length === 0) {
+      console.log(
+        `[RiskAssessment] zoho create skipped because payload empty assessmentId=${assessment.id}`,
+      );
+      return;
+    }
+
+    await this.riskAssessmentZohoSyncService.createTicketForRiskAssessment({
+      riskAssessmentId: assessment.id,
+      payload,
+      lastHseStatus: assessment.status,
+    });
+  }
+
+  private async cleanupFailedRiskAssessmentCreation(
+    riskAssessmentId: string,
+  ): Promise<void> {
+    try {
+      console.log(
+        `[RiskAssessment] cleanup start assessmentId=${riskAssessmentId}`,
+      );
+      await this.deleteRemindersForRiskAssessment(riskAssessmentId);
+      const itemIds = (
+        await this.prisma.riskAssessmentItem.findMany({
+          where: { riskAssessmentId },
+          select: { id: true },
+        })
+      ).map((item) => item.id);
+      console.log('[RiskAssessment] cleanup collected item ids', {
+        assessmentId: riskAssessmentId,
+        itemIds,
+      });
+      await this.prisma.riskMitigationRecord.deleteMany({
+        where: {
+          entity: RISK_ASSESSMENT_ITEM_ENTITY,
+          entityId: {
+            in: itemIds,
+          },
+        },
+      });
+      console.log(
+        `[RiskAssessment] cleanup deleting assessment items assessmentId=${riskAssessmentId}`,
+      );
+      await this.prisma.riskAssessmentItem.deleteMany({
+        where: { riskAssessmentId },
+      });
+      console.log(
+        `[RiskAssessment] cleanup deleting assessment row assessmentId=${riskAssessmentId}`,
+      );
+      await this.prisma.riskAssessment.delete({
+        where: { id: riskAssessmentId },
+      });
+      console.log(
+        `[RiskAssessment] cleanup success assessmentId=${riskAssessmentId}`,
+      );
+    } catch (cleanupError) {
+      console.error(
+        `[RiskAssessment] Failed to cleanup assessment ${riskAssessmentId} after Zoho create failure:`,
+        cleanupError,
+      );
+    }
+  }
+
+  private async buildZohoCreatePayload(
+    assessment: RiskAssessment & {
+      department: { id: string; name: string };
+      creator: {
+        id: string;
+        email?: string | null;
+        firstName: string;
+        lastName: string;
+      };
+      assignee: {
+        id: string;
+        firstName: string;
+        lastName: string;
+      } | null;
+    },
+  ): Promise<SdpRequestPayload> {
+    const targetStatus =
+      await this.riskAssessmentZohoSyncService.resolveZohoStatusForHseStatus(
+        assessment.status,
+      );
+
+    const subject = assessment.code;
+    const description =
+      assessment.description?.trim() ||
+      `Risk assessment ${assessment.code} created from HSE Dashboard`;
+
+    return {
+      subject,
+      description,
+      requester: {
+        id: '5',
+      },
+      status: targetStatus ? { name: targetStatus } : { name: 'Open' },
     };
   }
 }

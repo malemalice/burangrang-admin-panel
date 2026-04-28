@@ -1,4 +1,42 @@
-import { PrismaClient, Permission, DataLevelEnum } from '@prisma/client';
+import { PrismaClient, Permission, Role, DataLevelEnum } from '@prisma/client';
+import { notDeleted } from './not-deleted';
+
+/** Health screening permissions for Guest (worker) role — must match permissions.seed names. */
+const GUEST_HEALTH_SCREENING_PERMISSION_NAMES = [
+  'health-screening:start',
+  'health-screening:list',
+  'health-screening:read',
+  'health-screening:submit',
+];
+
+/** Contractor (work-permit worker) — work permit module + uploads + basics + health screening flow */
+const CONTRACTOR_PERMISSION_NAMES = [
+  ...GUEST_HEALTH_SCREENING_PERMISSION_NAMES,
+  'auth:login',
+  'auth:logout',
+  'auth:change-password',
+  'menu:read',
+  'user:read',
+  'setting:read',
+  'setting:update',
+  'notification:read',
+  'notification:mark-read',
+  'notification:mark-all-read',
+  'notification:unread-count',
+  'notification:types',
+  'company:read',
+  'company:list',
+  'work-permit:create',
+  'work-permit:read',
+  'work-permit:update',
+  'work-permit:delete',
+  'work-permit:list',
+  'upload:create',
+  'upload:read',
+  'upload:update',
+  'upload:delete',
+  'upload:list',
+];
 
 /** Permission names that belong to modules under the Settings menu (Admin excludes these). */
 const SETTINGS_PERMISSION_PREFIXES = ['setting:', 'mail-template:', 'reminder:'];
@@ -20,18 +58,41 @@ function getManagerUserPermissionNames(): Set<string> {
     'course',
     'chapter',
     'enrollment',
-    'quiz',
     'work-permit',
+    'progress', // LMS: ProgressController requires progress:read / progress:update for course player
+    'certificate', // full CRUD for HSE officers (was read/list-only; forms need create + certificate-category list)
+    'upload', // attachments; backend POST /uploads/upload requires upload:create
     'risk',
     'risk-mitigation',
     'risk-category',
     'risk-matrix',
   ];
+  const quizPermissions = [
+    'quiz:create',
+    'quiz:read',
+    'quiz:update',
+    'quiz:delete',
+    'quiz:list',
+    'quiz:attempt',
+  ];
+  const healthQuizPermissions = [
+    'health-quiz:create',
+    'health-quiz:read',
+    'health-quiz:update',
+    'health-quiz:delete',
+    'health-quiz:list',
+  ];
+  const healthScreeningPermissions = [
+    'health-screening:start',
+    'health-screening:list',
+    'health-screening:read',
+    'health-screening:submit',
+  ];
   const readListOnlyModules = [
     'dashboard',
     'audit-policy',
     'audit-criteria',
-    'certificate',
+    'certificate-category', // category dropdowns on certificate forms (GET /certificates/categories)
     'environmental-measurement',
     'waste-management',
     'man-hour',
@@ -42,6 +103,15 @@ function getManagerUserPermissionNames(): Set<string> {
   const set = new Set<string>();
   for (const mod of fullModules) {
     for (const a of actions) set.add(`${mod}:${a}`);
+  }
+  for (const permission of quizPermissions) {
+    set.add(permission);
+  }
+  for (const permission of healthQuizPermissions) {
+    set.add(permission);
+  }
+  for (const permission of healthScreeningPermissions) {
+    set.add(permission);
   }
   for (const mod of readListOnlyModules) {
     for (const a of readListActions) set.add(`${mod}:${a}`);
@@ -59,6 +129,8 @@ function getManagerUserPermissionNames(): Set<string> {
   set.add('notification:mark-all-read');
   set.add('notification:unread-count');
   set.add('notification:types');
+  set.add('company:read');
+  set.add('company:list');
   return set;
 }
 
@@ -90,7 +162,7 @@ export const roles = [
     name: 'Manager',
     code: 'MANAGER',
     description:
-      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (full CRUD + certificate categories read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, LMS progress, quizzes, work permit, file uploads',
     dataLevel: DataLevelEnum.DEPARTMENT,
     permissions: (permissions: Permission[]) =>
       permissions
@@ -101,7 +173,7 @@ export const roles = [
     name: 'User',
     code: 'USER',
     description:
-      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (full CRUD + certificate categories read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, LMS progress, quizzes, work permit, file uploads',
     dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions
@@ -115,7 +187,24 @@ export const roles = [
     dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions
-        .filter((p) => p.name === 'auth:login' || p.name === 'auth:logout')
+        .filter(
+          (p) =>
+            p.name === 'auth:login' ||
+            p.name === 'auth:logout' ||
+            p.name === 'menu:read' ||
+            GUEST_HEALTH_SCREENING_PERMISSION_NAMES.includes(p.name),
+        )
+        .map((p) => p.id),
+  },
+  {
+    name: 'Contractor',
+    code: 'CONTRACTOR',
+    description:
+      'External contractor user tied to a company; work permit access, uploads, and health screening',
+    dataLevel: DataLevelEnum.SELF,
+    permissions: (permissions: Permission[]) =>
+      permissions
+        .filter((p) => CONTRACTOR_PERMISSION_NAMES.includes(p.name))
         .map((p) => p.id),
   },
   {
@@ -166,32 +255,40 @@ export const roles = [
 
 export async function seedRoles(prisma: PrismaClient, permissions: Permission[]) {
   console.log('Creating roles...');
-  const createdRoles = await Promise.all(
-    roles.map((role) =>
-      prisma.role.upsert({
-        where: { name: role.name },
-        update: {
-          code: role.code,
-          description: role.description,
-          isActive: true,
-          dataLevel: role.dataLevel,
-          permissions: {
-            set: role.permissions(permissions).map((id) => ({ id })),
+  const createdRoles: Role[] = [];
+  for (const role of roles) {
+    const existing = await prisma.role.findFirst({
+      where: { name: role.name, ...notDeleted },
+    });
+    const permIds = role.permissions(permissions).map((id) => ({ id }));
+    if (existing) {
+      createdRoles.push(
+        await prisma.role.update({
+          where: { id: existing.id },
+          data: {
+            code: role.code,
+            description: role.description,
+            isActive: true,
+            dataLevel: role.dataLevel,
+            permissions: { set: permIds },
           },
-        },
-        create: {
-          name: role.name,
-          code: role.code,
-          description: role.description,
-          isActive: true,
-          dataLevel: role.dataLevel,
-          permissions: {
-            connect: role.permissions(permissions).map((id) => ({ id })),
+        }),
+      );
+    } else {
+      createdRoles.push(
+        await prisma.role.create({
+          data: {
+            name: role.name,
+            code: role.code,
+            description: role.description,
+            isActive: true,
+            dataLevel: role.dataLevel,
+            permissions: { connect: permIds },
           },
-        },
-      })
-    )
-  );
+        }),
+      );
+    }
+  }
   console.log('Created/Updated roles:', createdRoles.map((r) => r.name));
   return createdRoles;
 } 

@@ -8,7 +8,9 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RisksService } from './risks.service';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
@@ -21,6 +23,10 @@ import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('risks')
 @Controller('risks')
@@ -40,7 +46,7 @@ export class RisksController {
   @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all risks with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risks.', type: [RiskDto] })
-  @ApiQuery({ name: 'riskCategoryId', required: false, description: 'Filter risks by risk category ID' })
+  @ApiQuery({ name: 'riskCategoryId', required: false, description: 'Filter risks by type of hazard ID' })
   @ApiQuery({ name: 'name', required: false, description: 'Filter risks by name (contains)' })
   @ApiQuery({ name: 'code', required: false, description: 'Filter risks by code (contains)' })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
@@ -99,7 +105,7 @@ export class RisksController {
   @ApiOperation({ summary: 'Delete a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.risksService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.risksService.remove(id, req.user.id);
   }
 }

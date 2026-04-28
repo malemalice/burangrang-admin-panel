@@ -5,6 +5,7 @@ export type QuizAttemptStatus = 'INVITING' | 'INVITED' | 'IN_PROGRESS' | 'COMPLE
 
 export interface Quiz {
   id: string;
+  kind?: 'LMS_QUIZ' | 'HEALTH_DECLARATION';
   title: string;
   description?: string;
   instructions?: string;
@@ -19,6 +20,8 @@ export interface Quiz {
   isPublished: boolean;
   publishedAt?: string;
   isActive: boolean;
+  /** At most one quiz globally; used when starting a health screening without quizId */
+  isDefaultForHealthScreening?: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -118,6 +121,7 @@ export interface QuizAnswer {
 // DTO types for API communication
 export interface QuizDTO {
   id: string;
+  kind?: 'LMS_QUIZ' | 'HEALTH_DECLARATION';
   title: string;
   description?: string;
   instructions?: string;
@@ -132,6 +136,7 @@ export interface QuizDTO {
   isPublished: boolean;
   publishedAt?: string;
   isActive: boolean;
+  isDefaultForHealthScreening?: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -228,6 +233,8 @@ export interface CreateQuizDTO {
   shuffleOptions?: boolean;
   showCorrectAnswer?: boolean;
   isPublished?: boolean;
+  /** HEALTH_DECLARATION only; requires published standalone questionnaire */
+  isDefaultForHealthScreening?: boolean;
   questions: CreateQuizQuestionDTO[];
 }
 

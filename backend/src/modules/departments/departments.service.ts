@@ -6,6 +6,7 @@ import { DepartmentDto } from './dto/department.dto';
 import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -14,6 +15,8 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
 }
 
 @Injectable()
@@ -49,9 +52,18 @@ export class DepartmentsService {
       data.emails = createDepartmentDto.emails as any;
     }
 
-    const department = await this.prisma.department.create({
-      data,
-    });
+    let department: any;
+    try {
+      department = await this.prisma.department.create({
+        data,
+      });
+    } catch (error: any) {
+      // Prisma unique constraint violation (e.g. duplicate code)
+      if (error?.code === 'P2002' && error?.meta?.target?.includes('code')) {
+        this.errorHandler.throwBadRequest('Department code already exist');
+      }
+      throw error;
+    }
 
     return this.departmentMapper(department);
   }
@@ -63,14 +75,18 @@ export class DepartmentsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
+      sortBy,
+      sortOrder,
       isActive,
       search,
+      name,
+      code,
     } = options || {};
 
     // Build where clause
-    const where: Prisma.DepartmentWhereInput = {};
+    const where: Prisma.DepartmentWhereInput = {
+      deletedAt: null,
+    };
 
     if (search) {
       where.OR = [
@@ -80,17 +96,22 @@ export class DepartmentsService {
       ];
     }
 
+    if (name) {
+      where.name = { contains: name, mode: 'insensitive' };
+    }
+
+    if (code) {
+      where.code = { contains: code, mode: 'insensitive' };
+    }
+
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
 
     // Build order by clause
-    const orderBy: Prisma.DepartmentOrderByWithRelationInput = {};
-    if (sortBy) {
-      orderBy[sortBy] = sortOrder || 'asc';
-    } else {
-      orderBy.name = 'asc';
-    }
+    const orderBy: Prisma.DepartmentOrderByWithRelationInput = sortBy
+      ? ({ [sortBy]: sortOrder || 'asc' } as Prisma.DepartmentOrderByWithRelationInput)
+      : { createdAt: 'desc' };
 
     // Get total count
     const total = await this.prisma.department.count({ where });
@@ -110,8 +131,8 @@ export class DepartmentsService {
   }
 
   async findOne(id: string): Promise<DepartmentDto> {
-    const department = await this.prisma.department.findUnique({
-      where: { id },
+    const department = await this.prisma.department.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Department', id, department);
@@ -123,8 +144,8 @@ export class DepartmentsService {
     id: string,
     updateDepartmentDto: UpdateDepartmentDto,
   ): Promise<DepartmentDto> {
-    const existingDepartment = await this.prisma.department.findUnique({
-      where: { id },
+    const existingDepartment = await this.prisma.department.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
@@ -150,29 +171,39 @@ export class DepartmentsService {
       updateData.emails = updateDepartmentDto.emails as any;
     }
 
-    const department = await this.prisma.department.update({
-      where: { id },
-      data: updateData,
-    });
+    let department: any;
+    try {
+      department = await this.prisma.department.update({
+        where: { id },
+        data: updateData,
+      });
+    } catch (error: any) {
+      // Prisma unique constraint violation (e.g. duplicate code)
+      if (error?.code === 'P2002' && error?.meta?.target?.includes('code')) {
+        this.errorHandler.throwBadRequest('Department code already exist');
+      }
+      throw error;
+    }
 
     return this.departmentMapper(department);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingDepartment = await this.prisma.department.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existingDepartment = await this.prisma.department.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
-    await this.prisma.department.delete({
+    await this.prisma.department.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByCode(code: string): Promise<DepartmentDto> {
-    const department = await this.prisma.department.findUnique({
-      where: { code },
+    const department = await this.prisma.department.findFirst({
+      where: { code, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundByField('Department', 'code', code, department);

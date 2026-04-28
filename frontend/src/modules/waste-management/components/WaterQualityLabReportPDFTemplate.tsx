@@ -58,11 +58,15 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
         <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">
           General Information
         </h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
+        <table
+          data-pdf-table-splittable
+          style={{ width: '100%', borderCollapse: 'collapse' }}
+          className="text-sm"
+        >
           <tbody>
             <tr>
               <td className="py-1 font-semibold text-gray-700 w-1/3">Treatment Plant</td>
-              <td className="py-1 text-gray-900">{report.treatmentPlant?.name || '-'}</td>
+              <td className="py-1 text-gray-900 break-words">{report.treatmentPlant?.name || '-'}</td>
             </tr>
             <tr>
               <td className="py-1 font-semibold text-gray-700">Category</td>
@@ -74,6 +78,20 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
               <td className="py-1 font-semibold text-gray-700">Report Date</td>
               <td className="py-1 text-gray-900">
                 {report.reportDate ? format(new Date(report.reportDate), 'PPP') : '-'}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-1 font-semibold text-gray-700">Prepared By</td>
+              <td className="py-1 text-gray-900">
+                {report.preparer
+                  ? `${report.preparer.firstName} ${report.preparer.lastName}`
+                  : '-'}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-1 font-semibold text-gray-700">Record created (system)</td>
+              <td className="py-1 text-gray-900">
+                {report.createdAt ? format(new Date(report.createdAt), 'dd MMM yyyy, HH:mm') : '-'}
               </td>
             </tr>
             <tr>
@@ -132,6 +150,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                   {CATEGORY_LABELS[category] ?? category}
                 </h3>
                 <table
+                  data-pdf-table-splittable
                   style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb' }}
                   className="text-sm"
                 >
@@ -143,7 +162,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                       <th className="text-left p-2 border border-gray-300 font-semibold">Value</th>
                       <th className="text-left p-2 border border-gray-300 font-semibold">Unit</th>
                       <th className="text-left p-2 border border-gray-300 font-semibold">
-                        Compliant
+                        Regulatory Limit
                       </th>
                       <th className="text-left p-2 border border-gray-300 font-semibold">Notes</th>
                     </tr>
@@ -151,17 +170,17 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.id}>
-                        <td className="p-2 border border-gray-300 font-medium">
+                        <td className="p-2 border border-gray-300 font-medium break-words">
                           {r.parameter?.name ?? r.parameterId}
                         </td>
-                        <td className="p-2 border border-gray-300">{r.resultValue}</td>
-                        <td className="p-2 border border-gray-300">
+                        <td className="p-2 border border-gray-300 break-words">{r.resultValue}</td>
+                        <td className="p-2 border border-gray-300 break-words">
                           {r.unit ?? r.parameter?.unit ?? '-'}
                         </td>
                         <td className="p-2 border border-gray-300">
-                          {r.isCompliant === true ? 'Yes' : r.isCompliant === false ? 'No' : '-'}
+                          {r.parameter?.regulatoryLimit ?? '-'}
                         </td>
-                        <td className="p-2 border border-gray-300 text-gray-600">
+                        <td className="p-2 border border-gray-300 text-gray-600 break-words whitespace-pre-wrap">
                           {r.notes ?? '-'}
                         </td>
                       </tr>

@@ -4,8 +4,12 @@ import { PaginationParams, PaginatedResponse } from '@/core/lib/types';
 export interface RiskMitigation {
   id: string;
   eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
   transfer?: string;
-  reduce?: string;
   accept?: string;
   isActive: boolean;
   riskId: string;

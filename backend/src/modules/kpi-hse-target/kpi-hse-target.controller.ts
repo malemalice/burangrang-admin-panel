@@ -119,7 +119,7 @@ export class KpiHseTargetController {
   @ApiOperation({ summary: 'Delete an HSE target' })
   @ApiResponse({ status: 200, description: 'The HSE target has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'HSE target not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.kpiHseTargetService.remove(id);
+  remove(@Param('id') id: string, @Request() req: { user: { id: string } }): Promise<void> {
+    return this.kpiHseTargetService.remove(id, req.user.id);
   }
 }

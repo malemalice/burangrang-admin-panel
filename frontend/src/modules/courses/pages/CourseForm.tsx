@@ -17,11 +17,9 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
-import { Checkbox } from '@/core/components/ui/checkbox';
-import { BookOpen, X } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { useCourse } from '../hooks/useCourses';
 import courseService from '../services/courseService';
-import { CourseFormData } from '../types/course.types';
 import { userService } from '@/modules/users';
 import { ImageUpload, uploadService } from '@/modules/uploads';
 
@@ -30,10 +28,7 @@ const formSchema = z.object({
   slug: z.string().min(1, 'Slug is required'),
   description: z.string().optional(),
   thumbnailUrl: z.string().optional().or(z.literal('')),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
-  language: z.string().optional(),
   instructorId: z.string().optional(),
-  status: z.enum(['draft', 'published']),
   categoryIds: z.array(z.string()).optional(),
 });
 
@@ -59,10 +54,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
       slug: '',
       description: '',
       thumbnailUrl: '',
-      difficulty: undefined,
-      language: undefined,
       instructorId: '',
-      status: 'draft',
       categoryIds: [],
     },
   });
@@ -105,10 +97,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         slug: course.slug,
         description: course.description || '',
         thumbnailUrl: thumbnailUrl,
-        difficulty: course.difficulty,
-        language: course.language,
         instructorId: course.instructorId || '',
-        status: course.status === 'published' ? 'published' : 'draft',
         categoryIds: selectedCats.map(cat => cat.id),
       });
 
@@ -169,10 +158,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         slug: data.slug,
         description: data.description,
         thumbnailUrl: thumbnailUrl,
-        difficulty: data.difficulty || undefined,
-        language: data.language || undefined,
         instructorId: data.instructorId || undefined,
-        status: data.status,
         categoryIds: data.categoryIds && data.categoryIds.length > 0 ? data.categoryIds : undefined,
       };
 
@@ -338,7 +324,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
               {/* Course Settings */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Course Settings</CardTitle>
+                  <CardTitle>Course Assignment</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField
@@ -361,108 +347,6 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="difficulty"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Difficulty</FormLabel>
-                        <div className="flex items-center gap-2">
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select difficulty" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="beginner">Beginner</SelectItem>
-                              <SelectItem value="intermediate">Intermediate</SelectItem>
-                              <SelectItem value="advanced">Advanced</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {field.value && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 shrink-0"
-                              onClick={() => field.onChange(undefined)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="language"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Language</FormLabel>
-                        <div className="flex items-center gap-2">
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select language" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="en">English</SelectItem>
-                              <SelectItem value="id">Indonesian</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {field.value && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 shrink-0"
-                              onClick={() => field.onChange(undefined)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <FormControl>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant={field.value === 'draft' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => field.onChange('draft')}
-                            >
-                              Draft
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={field.value === 'published' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => field.onChange('published')}
-                            >
-                              Published
-                            </Button>
-                          </div>
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

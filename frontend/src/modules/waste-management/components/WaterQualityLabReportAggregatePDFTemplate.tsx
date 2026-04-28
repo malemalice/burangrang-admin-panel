@@ -45,10 +45,20 @@ const thStyle = {
   verticalAlign: 'middle' as const,
 };
 
+/** Four fixed columns: sample period, plant, category, merged preparer + record meta */
+const fixedColWidths = ['10%', '12%', '9%', '17%'] as const;
+
+function formatRegulatoryLimitCell(col: AggregateParameterColumn): string {
+  if (col.regulatoryLimit === undefined || col.regulatoryLimit === null) {
+    return '—';
+  }
+  const u = col.unit?.trim();
+  return u ? `${col.regulatoryLimit} ${u}` : String(col.regulatoryLimit);
+}
+
 /**
- * Renders a single table for PDF export: Sample Period, Treatment Plant, Category,
- * then parameter columns grouped by Chemistry / Physics / Microbiology.
- * No regulatory limit rows, no Remark column, no Report Analysis column.
+ * Renders aggregated PDF: four fixed columns (last merges preparer + record created),
+ * parameter headers show name and regulatory limit on separate lines in one cell.
  */
 export function WaterQualityLabReportAggregatePDFTemplate({
   data,
@@ -63,7 +73,7 @@ export function WaterQualityLabReportAggregatePDFTemplate({
 
   return (
     <div
-      className="bg-white p-6"
+      className="bg-white p-8"
       style={{ width: '210mm', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}
       aria-hidden="true"
     >
@@ -72,46 +82,33 @@ export function WaterQualityLabReportAggregatePDFTemplate({
           Water Quality Lab Reports – Aggregated Results
         </h1>
         <p className="text-xs text-gray-600 mt-1">
+          Aggregated extract of water quality laboratory test records.
+        </p>
+        <p className="text-xs text-gray-600 mt-1">
           Exported on {format(new Date(), 'dd MMM yyyy, HH:mm')}
         </p>
       </div>
 
       <table
+        data-pdf-table-splittable
         style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}
         className="text-sm"
       >
         <thead>
           <tr className="bg-gray-100">
-            <th
-              style={{
-                ...thStyle,
-                textAlign: 'left',
-                width: '12%',
-                borderBottom: 'none',
-              }}
-            >
-              {leftColumnLabels[0]}
-            </th>
-            <th
-              style={{
-                ...thStyle,
-                textAlign: 'left',
-                width: '18%',
-                borderBottom: 'none',
-              }}
-            >
-              {leftColumnLabels[1]}
-            </th>
-            <th
-              style={{
-                ...thStyle,
-                textAlign: 'left',
-                width: '14%',
-                borderBottom: 'none',
-              }}
-            >
-              {leftColumnLabels[2]}
-            </th>
+            {leftColumnLabels.map((label, i) => (
+              <th
+                key={label}
+                style={{
+                  ...thStyle,
+                  textAlign: 'center',
+                  width: fixedColWidths[i],
+                  borderBottom: 'none',
+                }}
+              >
+                {label}
+              </th>
+            ))}
             {categoryGroups.map((group) => (
               <th
                 key={group.category}
@@ -127,9 +124,9 @@ export function WaterQualityLabReportAggregatePDFTemplate({
             ))}
           </tr>
           <tr className="bg-gray-100">
-            <th style={{ ...thStyle, borderTop: 'none', width: '12%' }} />
-            <th style={{ ...thStyle, borderTop: 'none', width: '18%' }} />
-            <th style={{ ...thStyle, borderTop: 'none', width: '14%' }} />
+            {fixedColWidths.map((w, i) => (
+              <th key={`empty-${i}`} style={{ ...thStyle, borderTop: 'none', width: w }} />
+            ))}
             {parameterColumns.map((col) => (
               <th
                 key={col.id}
@@ -137,9 +134,22 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                   ...thStyle,
                   textAlign: 'center',
                   minWidth: '50px',
+                  fontWeight: 600,
+                  verticalAlign: 'middle',
                 }}
               >
-                {col.label}
+                <div
+                  style={{
+                    whiteSpace: 'pre-line',
+                    lineHeight: 1.35,
+                  }}
+                >
+                  <span>{col.label}</span>
+                  {'\n'}
+                  <span style={{ fontWeight: 500, fontSize: '10px', color: '#4b5563' }}>
+                    Limit: {formatRegulatoryLimitCell(col)}
+                  </span>
+                </div>
               </th>
             ))}
           </tr>
@@ -151,6 +161,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                 style={{
                   border: '1px solid #d1d5db',
                   padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                 }}
               >
                 {row.samplePeriod}
@@ -159,6 +171,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                 style={{
                   border: '1px solid #d1d5db',
                   padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                 }}
               >
                 {row.treatmentPlantName}
@@ -167,9 +181,33 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                 style={{
                   border: '1px solid #d1d5db',
                   padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                 }}
               >
                 {row.categoryLabel}
+              </td>
+              <td
+                style={{
+                  border: '1px solid #d1d5db',
+                  padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
+                  verticalAlign: 'top',
+                }}
+              >
+                {row.recordMetaDisplay.split('\n').map((line, lineIdx) => (
+                  <div
+                    key={lineIdx}
+                    style={{
+                      fontSize: lineIdx === 0 ? '11px' : '10px',
+                      lineHeight: 1.35,
+                      color: lineIdx === 0 ? '#111827' : '#4b5563',
+                    }}
+                  >
+                    {line}
+                  </div>
+                ))}
               </td>
               {parameterColumns.map((col) => (
                 <td
@@ -178,6 +216,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                     border: '1px solid #d1d5db',
                     padding: '6px 8px',
                     textAlign: 'center',
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-word',
                   }}
                 >
                   {getParamCellValue(row, col.id)}
@@ -187,7 +227,6 @@ export function WaterQualityLabReportAggregatePDFTemplate({
           ))}
         </tbody>
       </table>
-
     </div>
   );
 }

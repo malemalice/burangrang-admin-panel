@@ -4,6 +4,7 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { DataScopeService } from '../../shared/services/data-scope.service';
 import { RemindersService } from '../reminders/reminders.service';
+import { MailService } from '../mail/mail.service';
 import {
   ReminderRepeatTypeEnum,
   ReminderStatusEnum,
@@ -78,6 +79,10 @@ describe('CertificatesService', () => {
     create: createReminderMock,
   } as unknown as RemindersService;
 
+  const mockMailService = {
+    sendTemplatedMail: jest.fn(),
+  } as unknown as MailService;
+
   beforeEach(() => {
     service = new CertificatesService(
       mockPrismaService,
@@ -85,6 +90,7 @@ describe('CertificatesService', () => {
       mockDtoMapper,
       mockDataScopeService,
       mockRemindersService,
+      mockMailService,
     );
 
     jest.clearAllMocks();
@@ -316,6 +322,78 @@ describe('CertificatesService', () => {
         updatedCertificate,
         'updater-1',
       );
+    });
+  });
+
+  describe('sendExpiredCertificatesDepartmentEmailsDaily', () => {
+    it('should email responsible departments for expired certificates', async () => {
+      jest.setSystemTime(new Date('2026-06-20T00:00:00.000Z'));
+      (mockPrismaService.certificate.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'cert-exp-1',
+          validityDate: new Date('2026-06-19T00:00:00.000Z'),
+          certificateName: 'Forklift License',
+          certificateNumber: 'CERT-001',
+          category: {
+            name: 'Safety',
+            responsibleDepartments: [
+              { id: 'dept-1', name: 'HSE', emails: ['hse@example.com'] },
+            ],
+          },
+        },
+      ]);
+
+      await service.sendExpiredCertificatesDepartmentEmailsDaily();
+
+      expect(mockPrismaService.certificate.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deletedAt: null,
+            isActive: true,
+            validityDate: { lt: expect.any(Date) },
+          }),
+          include: {
+            category: { include: { responsibleDepartments: true } },
+          },
+        }),
+      );
+
+      expect(
+        (mockMailService as any).sendTemplatedMail,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          template: 'certificate-expiry-department',
+          email: 'hse@example.com',
+          context: expect.objectContaining({
+            departmentName: 'HSE',
+            categoryName: 'Safety',
+            reminderType: 'Daily Alert',
+          }),
+        }),
+      );
+    });
+
+    it('should dedupe within the same day in-process', async () => {
+      jest.setSystemTime(new Date('2026-06-20T00:00:00.000Z'));
+      (mockPrismaService.certificate.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'cert-exp-2',
+          validityDate: new Date('2026-06-19T00:00:00.000Z'),
+          certificateName: 'Boiler Permit',
+          certificateNumber: 'CERT-002',
+          category: {
+            name: 'Ops',
+            responsibleDepartments: [
+              { id: 'dept-2', name: 'OPS', emails: ['ops@example.com'] },
+            ],
+          },
+        },
+      ]);
+
+      await service.sendExpiredCertificatesDepartmentEmailsDaily();
+      await service.sendExpiredCertificatesDepartmentEmailsDaily();
+
+      expect((mockMailService as any).sendTemplatedMail).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -1,11 +1,12 @@
-import { PrismaClient, ManHourGroupEnum, MonthEnum } from '@prisma/client';
+import { ManHourGroupEnum, MonthEnum } from '@prisma/client';
+import { notDeleted } from './not-deleted';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
  * Seed data for Man Hours
  * Creates sample man hour records for students and non-students across multiple months/years
  */
 export async function seedManHours(): Promise<void> {
-  const prisma = new PrismaClient();
 
   try {
     console.log('📊 Seeding Man Hours...');
@@ -41,8 +42,8 @@ export async function seedManHours(): Promise<void> {
     const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
     const allMonths: MonthEnum[] = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-    // Working days per month approximation
-    const workingDaysPerMonth = 22;
+    // Working day count per month (NON_STUDENT: stored in totalWorkingDays; capacity = qty × mhpd × this)
+    const defaultWorkingDayCount = 22;
 
     let createdCount = 0;
 
@@ -53,36 +54,54 @@ export async function seedManHours(): Promise<void> {
 
       for (const month of monthsToSeed) {
         for (const classData of classes) {
-          // Calculate total: qty * manHourPerDay * workingDays
-          const total = classData.qty * classData.manHourPerDay * workingDaysPerMonth;
+          const isStudent = classData.group === ManHourGroupEnum.STUDENT;
+          const workingDayCount = defaultWorkingDayCount;
+          // STUDENT: totalWorkingDays column stores capacity (man-hours) per PRD; NON_STUDENT: day count
+          const totalWorkingDays = isStudent
+            ? classData.qty * classData.manHourPerDay * workingDayCount
+            : workingDayCount;
+          const lostHour = 0;
+          const capacityManHours = classData.qty * classData.manHourPerDay * workingDayCount;
+          const total = capacityManHours - lostHour;
 
           try {
-            await prisma.manHour.upsert({
+            const createData = {
+              name: classData.name,
+              group: classData.group,
+              qty: classData.qty,
+              manHourPerDay: classData.manHourPerDay,
+              month: month,
+              year: year,
+              totalWorkingDays,
+              lostHour,
+              total,
+              notes: `Man hour data for ${classData.name} - ${month} ${year}`,
+              createdBy: user.id,
+            };
+            const updateData = {
+              qty: classData.qty,
+              manHourPerDay: classData.manHourPerDay,
+              totalWorkingDays,
+              lostHour,
+              total,
+            };
+            const existing = await prisma.manHour.findFirst({
               where: {
-                name_group_month_year: {
-                  name: classData.name,
-                  group: classData.group,
-                  month: month,
-                  year: year,
-                },
-              },
-              update: {
-                qty: classData.qty,
-                manHourPerDay: classData.manHourPerDay,
-                total: total,
-              },
-              create: {
                 name: classData.name,
                 group: classData.group,
-                qty: classData.qty,
-                manHourPerDay: classData.manHourPerDay,
                 month: month,
                 year: year,
-                total: total,
-                notes: `Man hour data for ${classData.name} - ${month} ${year}`,
-                createdBy: user.id,
+                ...notDeleted,
               },
             });
+            if (existing) {
+              await prisma.manHour.update({
+                where: { id: existing.id },
+                data: updateData,
+              });
+            } else {
+              await prisma.manHour.create({ data: createData });
+            }
             createdCount++;
           } catch (error: any) {
             if (error.code !== 'P2002') {
@@ -101,7 +120,5 @@ export async function seedManHours(): Promise<void> {
   } catch (error) {
     console.error('❌ Error seeding man hours:', error);
     throw error;
-  } finally {
-    await prisma.$disconnect();
   }
 }

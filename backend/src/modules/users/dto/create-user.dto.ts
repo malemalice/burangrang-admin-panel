@@ -40,4 +40,8 @@ export class CreateUserDto {
   @IsUUID()
   @IsOptional()
   jobPositionId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  companyId?: string;
 }

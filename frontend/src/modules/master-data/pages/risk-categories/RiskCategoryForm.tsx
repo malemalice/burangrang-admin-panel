@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,6 +36,9 @@ interface RiskCategoryFormProps {
 
 const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
   const navigate = useNavigate();
+  const [isSecurityRelated, setIsSecurityRelated] = useState(
+    riskCategory?.code?.startsWith('SEC-') ?? false
+  );
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -46,6 +49,8 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
     },
   });
 
+  const name = form.watch('name');
+
   useEffect(() => {
     if (riskCategory) {
       form.reset({
@@ -54,28 +59,39 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
         description: riskCategory.description || '',
         isActive: riskCategory.isActive,
       });
+      setIsSecurityRelated(riskCategory.code?.startsWith('SEC-') ?? false);
     }
   }, [riskCategory, form]);
+
+  useEffect(() => {
+    if (mode !== 'create' || !name?.trim()) return;
+    const normalized = name
+      .toUpperCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^A-Z0-9-]/g, '');
+    const generated = isSecurityRelated ? `SEC-${normalized}` : normalized;
+    form.setValue('code', generated);
+  }, [mode, name, isSecurityRelated, form]);
 
   const onSubmit = async (data: FormValues) => {
     try {
       if (mode === 'create') {
         await riskCategoryService.create(data);
-        toast.success('Risk category created successfully');
+        toast.success('Type of hazard created successfully');
       } else {
         await riskCategoryService.update(riskCategory!.id, data);
-        toast.success('Risk category updated successfully');
+        toast.success('Type of hazard updated successfully');
       }
       navigate('/master/risk-categories');
     } catch (error) {
-      toast.error(`Failed to ${mode} risk category`);
+      toast.error(`Failed to ${mode} type of hazard`);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Risk Category</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Type of Hazard</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -93,6 +109,19 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
                 </FormItem>
               )}
             />
+
+            <div className="flex flex-row items-center justify-between rounded-lg border p-4 gap-4">
+              <div className="space-y-0.5">
+                <FormLabel>Security Related</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Prefixes the code with SEC-
+                </p>
+              </div>
+              <Switch
+                checked={isSecurityRelated}
+                onCheckedChange={setIsSecurityRelated}
+              />
+            </div>
 
             <FormField
               control={form.control}
@@ -133,7 +162,7 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
                   <div className="space-y-0.5">
                     <FormLabel>Active Status</FormLabel>
                     <div className="text-sm text-gray-500">
-                      Enable or disable this risk category
+                      Enable or disable this type of hazard
                     </div>
                   </div>
                   <FormControl>

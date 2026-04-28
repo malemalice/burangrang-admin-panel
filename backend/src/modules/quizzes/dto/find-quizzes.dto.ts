@@ -99,4 +99,9 @@ export class FindQuizzesOptions {
   @IsOptional()
   @IsString()
   createdBy?: string;
+
+  @ApiProperty({ description: 'Filter by quiz kind', enum: ['LMS_QUIZ', 'HEALTH_DECLARATION'], required: false })
+  @IsOptional()
+  @IsEnum(['LMS_QUIZ', 'HEALTH_DECLARATION'])
+  kind?: 'LMS_QUIZ' | 'HEALTH_DECLARATION';
 }

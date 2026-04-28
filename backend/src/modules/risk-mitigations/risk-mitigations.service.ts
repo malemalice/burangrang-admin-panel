@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../shared/utils/soft-delete.util';
 import { CreateRiskMitigationDto } from './dto/create-risk-mitigation.dto';
 import { UpdateRiskMitigationDto } from './dto/update-risk-mitigation.dto';
 import { RiskMitigationDto } from './dto/risk-mitigation.dto';
@@ -20,8 +21,8 @@ export class RiskMitigationsService {
 
   async create(createRiskMitigationDto: CreateRiskMitigationDto): Promise<RiskMitigationDto> {
     // Verify the Risk exists first
-    const risk = await (this.prisma as any).risk.findUnique({
-      where: { id: createRiskMitigationDto.riskId }
+    const risk = await (this.prisma as any).risk.findFirst({
+      where: { id: createRiskMitigationDto.riskId, ...isNotDeleted },
     });
 
     if (!risk) {
@@ -51,7 +52,7 @@ export class RiskMitigationsService {
     } = options || {};
 
     // Using 'any' as a workaround until the Prisma client is regenerated
-    const where: any = {};
+    const where: any = { ...isNotDeleted };
 
     if (isActive !== undefined) {
       where.isActive = isActive;
@@ -62,6 +63,7 @@ export class RiskMitigationsService {
       // Both riskId filter and search: search within the specific risk
       where.risk = {
         id: riskId,
+        ...isNotDeleted,
         name: { contains: search, mode: 'insensitive' },
       };
     } else if (riskId) {
@@ -70,6 +72,7 @@ export class RiskMitigationsService {
     } else if (search) {
       // Only search: search by risk name only (MDRMG-008)
       where.risk = {
+        ...isNotDeleted,
         name: { contains: search, mode: 'insensitive' },
       };
     }
@@ -96,8 +99,8 @@ export class RiskMitigationsService {
   }
 
   async findOne(id: string): Promise<RiskMitigationDto> {
-    const mitigation = await (this.prisma as any).riskMitigation.findUnique({
-      where: { id },
+    const mitigation = await (this.prisma as any).riskMitigation.findFirst({
+      where: { id, ...isNotDeleted },
       include: {
         risk: true,
       },
@@ -111,8 +114,8 @@ export class RiskMitigationsService {
   }
 
   async update(id: string, updateRiskMitigationDto: UpdateRiskMitigationDto): Promise<RiskMitigationDto> {
-    const existingMitigation = await (this.prisma as any).riskMitigation.findUnique({
-      where: { id },
+    const existingMitigation = await (this.prisma as any).riskMitigation.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     if (!existingMitigation) {
@@ -121,8 +124,8 @@ export class RiskMitigationsService {
 
     // If updating Risk ID, verify it exists
     if (updateRiskMitigationDto.riskId) {
-      const risk = await (this.prisma as any).risk.findUnique({
-        where: { id: updateRiskMitigationDto.riskId }
+      const risk = await (this.prisma as any).risk.findFirst({
+        where: { id: updateRiskMitigationDto.riskId, ...isNotDeleted },
       });
 
       if (!risk) {
@@ -141,17 +144,18 @@ export class RiskMitigationsService {
     return this.mapToDto(updatedMitigation);
   }
 
-  async remove(id: string): Promise<void> {
-    const mitigation = await (this.prisma as any).riskMitigation.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const mitigation = await (this.prisma as any).riskMitigation.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     if (!mitigation) {
       throw new NotFoundException(`Risk mitigation with ID ${id} not found`);
     }
 
-    await (this.prisma as any).riskMitigation.delete({
+    await (this.prisma as any).riskMitigation.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -159,8 +163,12 @@ export class RiskMitigationsService {
     return {
       id: mitigation.id,
       eliminate: mitigation.eliminate,
+      eliminationControl: mitigation.eliminationControl,
+      substitutionControl: mitigation.substitutionControl,
+      engineeringControl: mitigation.engineeringControl,
+      administrationControl: mitigation.administrationControl,
+      personalProtectiveEquipment: mitigation.personalProtectiveEquipment,
       transfer: mitigation.transfer,
-      reduce: mitigation.reduce,
       accept: mitigation.accept,
       isActive: mitigation.isActive,
       riskId: mitigation.riskId,

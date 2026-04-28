@@ -41,25 +41,34 @@ import {
   SecurityMonthlyIncidentsData,
   AdminOverviewData,
 } from '../types/dashboard.types';
+import { isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class DashboardService {
+  private adminOverviewCache:
+    | { expiresAtMs: number; value: AdminOverviewData }
+    | undefined;
+
   constructor(private prisma: PrismaService) {}
 
   async getRiskOverview(): Promise<RiskOverview> {
     const [totalAssessments, riskItems, recentAssessments] = await Promise.all([
       // Get total assessments
       this.prisma.riskAssessment.count({
-        where: { isActive: true },
+        where: { isActive: true, ...isNotDeleted },
       }),
       // Get risk distribution
       this.prisma.riskAssessmentItem.groupBy({
         by: ['riskMatrixRating'],
         _count: true,
+        where: {
+          ...isNotDeleted,
+          riskAssessment: { is: { isActive: true, ...isNotDeleted } },
+        },
       }),
       // Get recent assessments
       this.prisma.riskAssessment.findMany({
-        where: { isActive: true },
+        where: { isActive: true, ...isNotDeleted },
         take: 5,
         orderBy: { assessmentDate: 'desc' },
         include: {
@@ -99,14 +108,14 @@ export class DashboardService {
       }),
       // Get department assessments
       this.prisma.riskAssessment.findMany({
-        where: { departmentId, isActive: true },
+        where: { departmentId, isActive: true, ...isNotDeleted },
       }),
       // Get risk distribution
       this.prisma.riskAssessmentItem.findMany({
         where: {
+          ...isNotDeleted,
           riskAssessment: {
-            departmentId,
-            isActive: true,
+            is: { departmentId, isActive: true, ...isNotDeleted },
           },
         },
       }),
@@ -137,7 +146,8 @@ export class DashboardService {
       include: {
         riskAssessmentItems: {
           where: {
-            riskAssessment: { isActive: true },
+            ...isNotDeleted,
+            riskAssessment: { is: { isActive: true, ...isNotDeleted } },
           },
         },
       },
@@ -165,12 +175,13 @@ export class DashboardService {
 
   async getRiskAnalysis(): Promise<RiskAnalysis[]> {
     const risks = await (this.prisma as any).risk.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...isNotDeleted },
       include: {
         riskCategory: true,
         riskAssessmentItems: {
           where: {
-            riskAssessment: { isActive: true },
+            ...isNotDeleted,
+            riskAssessment: { is: { isActive: true, ...isNotDeleted } },
           },
         },
       },
@@ -210,7 +221,7 @@ export class DashboardService {
     const [assessments, departments] = await Promise.all([
       // Get all assessments
       this.prisma.riskAssessment.findMany({
-        where: { isActive: true },
+        where: { isActive: true, ...isNotDeleted },
         include: {
           department: true,
         },
@@ -306,6 +317,7 @@ export class DashboardService {
           year: { in: years },
           month: null,
           isActive: true,
+          ...isNotDeleted,
         },
         select: { code: true, year: true, target: true },
       }),
@@ -1112,9 +1124,15 @@ export class DashboardService {
     periodFrom?: string,
     periodTo?: string,
   ): Promise<SecurityTypeNonConformanceData[]> {
-    const where: { isActive: boolean; type: IncidentScopeEnum; incidentDate?: { gte?: Date; lte?: Date } } = {
+    const where: {
+      isActive: boolean;
+      type: IncidentScopeEnum;
+      riskCategory: { code: { startsWith: string } };
+      incidentDate?: { gte?: Date; lte?: Date };
+    } = {
       isActive: true,
       type: IncidentScopeEnum.SECURITY,
+      riskCategory: { code: { startsWith: 'SEC-' } },
     };
     if (periodFrom || periodTo) {
       where.incidentDate = {};
@@ -1130,7 +1148,7 @@ export class DashboardService {
 
     const incidents = await this.prisma.incident.findMany({
       where,
-      select: { riskCategory: { select: { name: true } } },
+      select: { riskCategory: { select: { name: true, code: true } } },
     });
 
     const countByName = new Map<string, number>();
@@ -1402,6 +1420,11 @@ export class DashboardService {
   }
 
   async getAdminOverview(): Promise<AdminOverviewData> {
+    const cached = this.adminOverviewCache;
+    if (cached && Date.now() < cached.expiresAtMs) {
+      return cached.value;
+    }
+
     const now = new Date();
     const in30Days = new Date(now);
     in30Days.setDate(in30Days.getDate() + 30);
@@ -1667,7 +1690,7 @@ export class DashboardService {
       0,
     );
 
-    return {
+    const result: AdminOverviewData = {
       lms: {
         overdueEnrollments,
         totalEnrollments,
@@ -1712,5 +1735,11 @@ export class DashboardService {
         yoyChangePercent,
       },
     };
+
+    // Simple in-process TTL cache to reduce repeated heavy DB queries during development.
+    // Kept intentionally short to avoid staleness concerns.
+    this.adminOverviewCache = { value: result, expiresAtMs: Date.now() + 30_000 };
+
+    return result;
   }
 } 

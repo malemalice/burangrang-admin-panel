@@ -10,12 +10,22 @@ const mockPrismaService = {
   course: {
     findUnique: jest.fn(),
   },
+  chapter: {
+    findMany: jest.fn(),
+  },
   user: {
     findUnique: jest.fn(),
   },
   enrollment: {
     findFirst: jest.fn(),
     create: jest.fn(),
+    findUnique: jest.fn(),
+  },
+  quiz: {
+    findMany: jest.fn(),
+  },
+  quizAttempt: {
+    findMany: jest.fn(),
   },
   notificationType: {
     findFirst: jest.fn(),
@@ -27,6 +37,7 @@ const mockErrorHandler = {
   safeExecute: jest.fn(),
   throwIfNotFoundById: jest.fn(),
   throwConflictCustom: jest.fn(),
+  throwForbidden: jest.fn(),
 } as unknown as ErrorHandlingService;
 
 const mockDtoMapper = {
@@ -36,7 +47,9 @@ const mockDtoMapper = {
     .mockReturnValue((entities: unknown[]) => entities),
 } as unknown as DtoMapperService;
 
-const mockDataScopeService = {} as DataScopeService;
+const mockDataScopeService = {
+  canAccessRecord: jest.fn(),
+} as unknown as DataScopeService;
 
 const mockCreateNotificationForRoles = jest.fn();
 const mockSendTemplatedMailWithResult = jest.fn();
@@ -125,6 +138,76 @@ describe('EnrollmentsService', () => {
       },
     });
 
+    (mockDataScopeService.canAccessRecord as jest.Mock).mockReturnValue(true);
+
+    (mockPrismaService.enrollment.findUnique as jest.Mock).mockResolvedValue({
+      id: 'enrollment-1',
+      userId: 'user-1',
+      courseId: 'course-1',
+      status: 'ACTIVE',
+      progress: 33.33,
+      user: {
+        id: 'user-1',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe@example.com',
+        departmentId: 'dept-1',
+      },
+      course: {
+        id: 'course-1',
+        title: 'Course Safety',
+        slug: 'course-safety',
+        thumbnailUrl: null,
+        instructorId: 'instructor-1',
+      },
+      progressRecords: [
+        {
+          id: 'progress-1',
+          enrollmentId: 'enrollment-1',
+          chapterId: 'chapter-1',
+          status: 'COMPLETED',
+          progress: 100,
+          timeSpent: 300,
+          startedAt: new Date('2026-04-20T00:00:00.000Z'),
+          completedAt: new Date('2026-04-20T00:05:00.000Z'),
+          lastAccessedAt: new Date('2026-04-20T00:05:00.000Z'),
+        },
+      ],
+    });
+
+    (mockPrismaService.chapter.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'chapter-1',
+        courseId: 'course-1',
+        title: 'Video A',
+        order: 1,
+        duration: 5,
+        contentType: 'video',
+        isActive: true,
+      },
+      {
+        id: 'chapter-2',
+        courseId: 'course-1',
+        title: 'Video B',
+        order: 2,
+        duration: 5,
+        contentType: 'video',
+        isActive: true,
+      },
+      {
+        id: 'chapter-3',
+        courseId: 'course-1',
+        title: 'Video C',
+        order: 3,
+        duration: 5,
+        contentType: 'video',
+        isActive: true,
+      },
+    ]);
+
+    (mockPrismaService.quiz.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrismaService.quizAttempt.findMany as jest.Mock).mockResolvedValue([]);
+
     (
       mockPrismaService.notificationType.findFirst as jest.Mock
     ).mockResolvedValue({
@@ -185,6 +268,93 @@ describe('EnrollmentsService', () => {
       expect(result.enrollment.id).toBe('enrollment-1');
       expect(result.emailStatus).toBe('not_requested');
       expect(mockSendTemplatedMailWithResult).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getLearningContext', () => {
+    it('should scope learning state per chapter instead of exposing a global play-control state', async () => {
+      const result = await service.getLearningContext('enrollment-1', {
+        userId: 'user-1',
+        dataLevel: 'SELF',
+      } as any);
+
+      expect(result.currentChapterId).toBe('chapter-2');
+      expect(result.progress).toHaveLength(1);
+
+      expect(result.course.chapters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'chapter-1',
+            learningState: expect.objectContaining({
+              status: 'completed',
+              isActive: false,
+              isCurrent: false,
+              isCompleted: true,
+              isUnlocked: true,
+              isLocked: false,
+              canPlay: true,
+              showPlayControl: true,
+              progressStatus: 'COMPLETED',
+              completedAt: expect.any(Date),
+            }),
+          }),
+          expect.objectContaining({
+            id: 'chapter-2',
+            learningState: expect.objectContaining({
+              status: 'active',
+              isActive: true,
+              isCurrent: true,
+              isCompleted: false,
+              isUnlocked: true,
+              isLocked: false,
+              canPlay: true,
+              showPlayControl: true,
+              progressStatus: 'NOT_STARTED',
+              completedAt: null,
+            }),
+          }),
+          expect.objectContaining({
+            id: 'chapter-3',
+            learningState: expect.objectContaining({
+              status: 'locked',
+              isActive: false,
+              isCurrent: false,
+              isCompleted: false,
+              isUnlocked: false,
+              isLocked: true,
+              canPlay: false,
+              showPlayControl: false,
+              progressStatus: 'NOT_STARTED',
+              completedAt: null,
+            }),
+          }),
+        ]),
+      );
+    });
+  });
+
+  describe('getPublicLearningContextForUser', () => {
+    it('forbids when enrollment belongs to a different user', async () => {
+      (mockPrismaService.enrollment.findUnique as jest.Mock).mockResolvedValue({
+        id: 'e1',
+        userId: 'u-other',
+        courseId: 'c1',
+        user: { id: 'u-other', departmentId: null, firstName: 'A', lastName: 'B', email: 'a@b.com' },
+        course: { id: 'c1', title: 'C', instructorId: 'inst' },
+        progressRecords: [],
+      });
+      (mockErrorHandler.throwIfNotFoundById as jest.Mock).mockImplementation(
+        (label, id, entity) => {
+          if (!entity) throw new Error('not found');
+        },
+      );
+      (mockErrorHandler.throwForbidden as jest.Mock).mockImplementation(() => {
+        throw new Error('forbidden');
+      });
+
+      await expect(service.getPublicLearningContextForUser('e1', 'u-expected')).rejects.toThrow(
+        'forbidden',
+      );
     });
   });
 });

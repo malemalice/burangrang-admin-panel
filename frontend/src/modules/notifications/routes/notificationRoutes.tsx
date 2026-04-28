@@ -1,5 +1,7 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import NotificationsPage from '../pages/NotificationsPage';
+
+const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 
 const notificationRoutes: RouteConfig[] = [
   {

@@ -120,88 +120,90 @@ export const RiskAssessmentPDFTemplate = ({
         {items.length === 0 ? (
           <p className="text-sm text-gray-600">No risk assessment items found.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    No
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Risk Category
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Risk
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Risk Matrix Rating
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Interpretation
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Post Risk Matrix Rating
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Post Interpretation
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {index + 1}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.mRiskCategory
-                        ? `${item.mRiskCategory.code} - ${item.mRiskCategory.name}`
-                        : 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.mRisk
-                        ? `${item.mRisk.code} - ${item.mRisk.name}`
-                        : 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.riskMatrixRating || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs">
+          <table
+            data-pdf-table-splittable
+            className="min-w-full border border-gray-300"
+            style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
+          >
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '5%' }}>
+                  No
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '18%' }}>
+                  Type of Hazard
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '18%' }}>
+                  Risk
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '12%' }}>
+                  Risk Matrix Rating
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '12%' }}>
+                  Interpretation
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '17%' }}>
+                  Post Risk Matrix Rating
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '18%' }}>
+                  Post Interpretation
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
+                    {index + 1}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.mRiskCategory
+                      ? `${item.mRiskCategory.code} - ${item.mRiskCategory.name}`
+                      : 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.mRisk
+                      ? `${item.mRisk.code} - ${item.mRisk.name}`
+                      : 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.riskMatrixRating || 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs">
+                    <span className={`font-medium ${
+                      item.interpretation === 'LOW' ? 'text-green-700' :
+                      item.interpretation === 'MEDIUM' ? 'text-yellow-700' :
+                      item.interpretation === 'HIGH' ? 'text-orange-700' :
+                      item.interpretation === 'CRITICAL' ? 'text-red-700' :
+                      item.interpretation === 'EXTREME' ? 'text-purple-700' :
+                      'text-gray-700'
+                    }`}>
+                      {item.interpretation}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.postRiskMatrixRating || 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs">
+                    {item.postInterpretation ? (
                       <span className={`font-medium ${
-                        item.interpretation === 'LOW' ? 'text-green-700' :
-                        item.interpretation === 'MEDIUM' ? 'text-yellow-700' :
-                        item.interpretation === 'HIGH' ? 'text-orange-700' :
-                        item.interpretation === 'CRITICAL' ? 'text-red-700' :
-                        item.interpretation === 'EXTREME' ? 'text-purple-700' :
+                        item.postInterpretation === 'LOW' ? 'text-green-700' :
+                        item.postInterpretation === 'MEDIUM' ? 'text-yellow-700' :
+                        item.postInterpretation === 'HIGH' ? 'text-orange-700' :
+                        item.postInterpretation === 'CRITICAL' ? 'text-red-700' :
+                        item.postInterpretation === 'EXTREME' ? 'text-purple-700' :
                         'text-gray-700'
                       }`}>
-                        {item.interpretation}
+                        {item.postInterpretation}
                       </span>
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.postRiskMatrixRating || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs">
-                      {item.postInterpretation ? (
-                        <span className={`font-medium ${
-                          item.postInterpretation === 'LOW' ? 'text-green-700' :
-                          item.postInterpretation === 'MEDIUM' ? 'text-yellow-700' :
-                          item.postInterpretation === 'HIGH' ? 'text-orange-700' :
-                          item.postInterpretation === 'CRITICAL' ? 'text-red-700' :
-                          item.postInterpretation === 'EXTREME' ? 'text-purple-700' :
-                          'text-gray-700'
-                        }`}>
-                          {item.postInterpretation}
-                        </span>
-                      ) : (
-                        'N/A'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    ) : (
+                      'N/A'
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -230,48 +232,50 @@ export const RiskAssessmentPDFTemplate = ({
         {approvalLines.length > 0 && (
           <div className="mb-6">
             <p className="text-sm font-semibold text-gray-900 mb-2">Workflow</p>
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Step</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Department</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Position</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">By</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {approvalLines.map((line) => {
-                    const approvalsForLine = allApprovals.filter((a) => a.line === line.line);
-                    const lastApproval = approvalsForLine.length > 0 ? approvalsForLine[approvalsForLine.length - 1] : null;
+            <table
+              data-pdf-table-splittable
+              className="min-w-full border border-gray-300"
+              style={{ borderCollapse: 'collapse' }}
+            >
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Step</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Department</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Position</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">By</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvalLines.map((line) => {
+                  const approvalsForLine = allApprovals.filter((a) => a.line === line.line);
+                  const lastApproval = approvalsForLine.length > 0 ? approvalsForLine[approvalsForLine.length - 1] : null;
 
-                    const statusLabel =
-                      line.status === 'completed'
-                        ? (lastApproval?.status || 'COMPLETED')
-                        : line.status === 'current'
-                          ? 'WAITING VERIFICATION'
-                          : 'PENDING';
+                  const statusLabel =
+                    line.status === 'completed'
+                      ? (lastApproval?.status || 'COMPLETED')
+                      : line.status === 'current'
+                        ? 'WAITING VERIFICATION'
+                        : 'PENDING';
 
-                    return (
-                      <tr key={`wf-${line.line}`}>
-                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.line}</td>
-                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.department.name}</td>
-                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.jobPosition.name}</td>
-                        <td className="border border-gray-300 px-3 py-2 text-xs">
-                          <span className={`font-semibold ${getStatusTextClass(statusLabel)}`}>{statusLabel}</span>
-                        </td>
-                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{lastApproval?.creator?.name || '-'}</td>
-                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                          {lastApproval?.createdAt ? format(new Date(lastApproval.createdAt), 'dd MMM yyyy HH:mm') : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  return (
+                    <tr key={`wf-${line.line}`}>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.line}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{line.department.name}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{line.jobPosition.name}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs">
+                        <span className={`font-semibold ${getStatusTextClass(statusLabel)}`}>{statusLabel}</span>
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{lastApproval?.creator?.name || '-'}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                        {lastApproval?.createdAt ? format(new Date(lastApproval.createdAt), 'dd MMM yyyy HH:mm') : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -279,43 +283,45 @@ export const RiskAssessmentPDFTemplate = ({
         {allApprovals.length > 0 ? (
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-2">Approval History</p>
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Line</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">By</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Department</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Position</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Notes</th>
+            <table
+              data-pdf-table-splittable
+              className="min-w-full border border-gray-300"
+              style={{ borderCollapse: 'collapse' }}
+            >
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Line</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">By</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Department</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Position</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allApprovals.map((approval, idx) => (
+                  <tr key={`ah-${approval.id}`}>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{idx + 1}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs">
+                      <span className={`font-semibold ${getStatusTextClass(approval.status)}`}>{approval.status}</span>
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.line}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{approval.creator?.name || '-'}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{approval.department?.name || '-'}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">{approval.jobPosition?.name || '-'}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                      {approval.createdAt ? format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm') : '-'}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words whitespace-pre-wrap">
+                      {approval.notes || '-'}
+                      {approval.isHistorical ? ' (Historical)' : ''}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {allApprovals.map((approval, idx) => (
-                    <tr key={`ah-${approval.id}`}>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{idx + 1}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs">
-                        <span className={`font-semibold ${getStatusTextClass(approval.status)}`}>{approval.status}</span>
-                      </td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.line}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.creator?.name || '-'}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.department?.name || '-'}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.jobPosition?.name || '-'}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                        {approval.createdAt ? format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm') : '-'}
-                      </td>
-                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                        {approval.notes || '-'}
-                        {approval.isHistorical ? ' (Historical)' : ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : approvalLines.length === 0 ? (
           <p className="text-sm text-gray-900">No approval information available.</p>

@@ -2,9 +2,8 @@
  * Risk Assessment and Inspection seed data
  * Following seed.ts patterns for seed data
  */
-import { PrismaClient, GeneralStatusEnum, RiskRatingEnum } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { GeneralStatusEnum, PrismaClient, RiskRatingEnum } from '@prisma/client';
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
  * Generate risk assessment code: RA{YY}{MM}{DD}{HH}{MM}{SS}
@@ -134,7 +133,7 @@ export const seedRiskAssessmentsAndInspections = async (
     });
 
     if (riskCategories.length === 0) {
-      console.log('⚠️  No risk categories found. Please run risk-categories seed first.');
+      console.log('⚠️  No types of hazard found. Please run risk-categories seed first.');
       return;
     }
 
@@ -291,36 +290,56 @@ export const seedRiskAssessmentsAndInspections = async (
         const mitigationOptions = [
           {
             eliminate: `Eliminate risk by removing the hazard source: ${risk.name}`,
+            eliminationControl: null,
+            substitutionControl: null,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             transfer: null,
-            reduce: null,
             accept: null,
             legalAspect: null,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             transfer: `Transfer risk through insurance or outsourcing: ${risk.name}`,
-            reduce: null,
             accept: null,
             legalAspect: null,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
             transfer: null,
-            reduce: `Reduce risk through engineering controls and safety measures for ${risk.name}`,
+            engineeringControl: `Engineering controls and safety measures for ${risk.name}`,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             accept: null,
             legalAspect: null,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             transfer: null,
-            reduce: null,
             accept: `Accept residual risk after implementing controls for ${risk.name}`,
             legalAspect: null,
           },
           {
             eliminate: `Implement engineering controls to eliminate ${risk.name}`,
+            eliminationControl: null,
+            substitutionControl: null,
             transfer: null,
-            reduce: `Apply administrative controls to reduce exposure`,
+            engineeringControl: null,
+            administrationControl: `Apply administrative controls to reduce exposure`,
+            personalProtectiveEquipment: null,
             accept: null,
             legalAspect: `Comply with local safety regulations and standards`,
           },
@@ -462,43 +481,67 @@ export const seedRiskAssessmentsAndInspections = async (
         const mitigationOptions = [
           {
             eliminate: `Eliminate the identified hazard: ${findings || risk.name}`,
+            eliminationControl: null,
+            substitutionControl: null,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             transfer: null,
-            reduce: null,
             accept: null,
             legalAspect: null,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             transfer: `Transfer risk responsibility to external contractor for ${risk.name}`,
-            reduce: null,
             accept: null,
             legalAspect: null,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
             transfer: null,
-            reduce: `Reduce risk through immediate corrective actions: ${findings || 'Hazard mitigation'}`,
+            engineeringControl: `Immediate corrective actions: ${findings || 'Hazard mitigation'}`,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             accept: null,
             legalAspect: null,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: null,
             transfer: null,
-            reduce: null,
             accept: `Accept residual risk level after implementing safety controls for ${risk.name}`,
             legalAspect: null,
           },
           {
             eliminate: `Remove hazard source: ${risk.name}`,
+            eliminationControl: null,
+            substitutionControl: null,
             transfer: null,
-            reduce: `Implement safety protocols to minimize exposure`,
+            engineeringControl: null,
+            administrationControl: `Implement safety protocols to minimize exposure`,
+            personalProtectiveEquipment: null,
             accept: null,
             legalAspect: `Ensure compliance with workplace safety regulations`,
           },
           {
             eliminate: null,
+            eliminationControl: null,
+            substitutionControl: null,
             transfer: `Outsource high-risk activities to specialized contractor`,
-            reduce: `Apply PPE and training requirements`,
+            engineeringControl: null,
+            administrationControl: null,
+            personalProtectiveEquipment: `Apply PPE and training requirements`,
             accept: null,
             legalAspect: `Meet OSH standards and regulatory requirements`,
           },

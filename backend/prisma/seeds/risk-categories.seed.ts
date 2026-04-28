@@ -49,10 +49,24 @@ export const riskCategories = [
     description: 'Administrative and regulatory compliance requirements',
     isActive: true,
   },
+  // Security-related types of hazard (code prefix SEC-) — names match incident category labels from security dashboard
+  { name: 'Inappropriate behavior (CP) (Major)', code: 'SEC-IBH', description: 'Inappropriate behavior (CP)', isActive: true },
+  { name: 'Sabotage (Major)', code: 'SEC-SAB', description: 'Sabotage (Major)', isActive: true },
+  { name: 'Confrontation / Assault (Major)', code: 'SEC-ASL', description: 'Confrontation / Assault (Major)', isActive: true },
+  { name: 'External Dispute (Major)', code: 'SEC-EXD', description: 'External Dispute (Major)', isActive: true },
+  { name: 'Trespasser / Intruder (Moderate)', code: 'SEC-TRS', description: 'Trespasser / Intruder (Moderate)', isActive: true },
+  { name: 'Internal Dispute', code: 'SEC-IND', description: 'Internal Dispute', isActive: true },
+  { name: 'Access Without RFID / Access Violation', code: 'SEC-ACC', description: 'Access Without RFID / Access Violation', isActive: true },
+  { name: 'Traffic Violation', code: 'SEC-TRF', description: 'Traffic Violation', isActive: true },
+  { name: 'Vandalism', code: 'SEC-VND', description: 'Vandalism', isActive: true },
+  { name: 'Theft', code: 'SEC-THF', description: 'Theft', isActive: true },
+  { name: 'Smoking / Vaping', code: 'SEC-SMK', description: 'Smoking / Vaping', isActive: true },
+  { name: 'Lost and Found', code: 'SEC-LST', description: 'Lost and Found', isActive: true },
+  { name: 'Others', code: 'SEC-OTH', description: 'Other security incidents', isActive: true },
 ];
 
 export async function seedRiskCategories(prisma: PrismaClient) {
-  console.log('Creating risk categories...');
+  console.log('Creating types of hazard...');
   const createdCategories = await Promise.all(
     riskCategories.map((category) =>
       (prisma as any).riskCategory.create({
@@ -60,6 +74,6 @@ export async function seedRiskCategories(prisma: PrismaClient) {
       })
     )
   );
-  console.log('Created risk categories:', createdCategories.map((c) => c.name));
+  console.log('Created types of hazard:', createdCategories.map((c) => c.name));
   return createdCategories;
 } 

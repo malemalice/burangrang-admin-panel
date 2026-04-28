@@ -1,49 +1,228 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil, Printer } from 'lucide-react';
+import {
+    ArrowLeft,
+    Pencil,
+    FileDown,
+    Send,
+    ClipboardCheck,
+    CheckCircle2,
+    XCircle,
+    Loader2,
+    RotateCcw,
+} from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
-import { Loader2 } from 'lucide-react';
+import { ApprovalStatus } from '@/core/lib/types';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
+import { format } from 'date-fns';
+import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { weightReportService } from '../../services/wasteManagementService';
 import { WeightReport, WeightReportStatusEnum } from '../../types/waste-management.types';
 import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
+import { ApprovalDialog } from '../../components/ApprovalDialog';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
+
+function getStatusBadge(status?: string) {
+    switch (status) {
+        case WeightReportStatusEnum.DRAFT:
+            return <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Draft</Badge>;
+        case WeightReportStatusEnum.OPEN:
+            return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">Open</Badge>;
+        case WeightReportStatusEnum.WAITING_APPROVAL:
+            return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Waiting Approval</Badge>;
+        case WeightReportStatusEnum.DONE:
+            return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Done</Badge>;
+        case WeightReportStatusEnum.REJECTED:
+            return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
+        default:
+            return status ? <Badge variant="outline">{status}</Badge> : null;
+    }
+}
 
 export default function WeightReportDetailPage() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [data, setData] = useState<WeightReport | null>(null);
     const [loading, setLoading] = useState(true);
-    const { toPDF, targetRef } = usePDF({ filename: `weight-report-${data?.reportCode || 'document'}.pdf` });
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!id) return;
-            try {
-                const response = await weightReportService.getById(id);
-                setData(response.data as WeightReport);
-            } catch (error) {
-                toast.error('Failed to fetch report details');
-                navigate('/waste-management/weight-reports');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+    /** Snapshot for PDF so export includes latest approval rows */
+    const [approvalHistoryForPDF, setApprovalHistoryForPDF] = useState<ApprovalStatusHistory | null>(null);
+    const [canApprove, setCanApprove] = useState(false);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+    const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+
+    const { targetRef } = usePDF(
+        buildPdfOptions({
+            filename: `weight-report-${data?.reportCode || 'document'}.pdf`,
+        }),
+    );
+
+    const fetchData = useCallback(async () => {
+        if (!id) return;
+        try {
+            const response = await weightReportService.getById(id);
+            setData(response.data as WeightReport);
+        } catch {
+            toast.error('Failed to fetch report details');
+            navigate('/waste-management/weight-reports');
+        } finally {
+            setLoading(false);
+        }
     }, [id, navigate]);
 
-    useEffect(() => {
-        if (searchParams.get('print') === 'true' && data) {
-            setTimeout(() => {
-                toPDF();
-            }, 1000);
+    const fetchApprovalData = useCallback(async (reportId: string) => {
+        setIsLoadingHistory(true);
+        try {
+            const [historyResult, rightsResult] = await Promise.allSettled([
+                approvalService.checkApprovalStatus(reportId, APPROVAL_ENTITIES.WEIGHT_REPORT),
+                approvalService.checkApprovalRights(reportId, APPROVAL_ENTITIES.WEIGHT_REPORT),
+            ]);
+
+            if (historyResult.status === 'fulfilled') {
+                setApprovalHistory(historyResult.value);
+            }
+            if (rightsResult.status === 'fulfilled') {
+                setCanApprove(!!rightsResult.value?.canApprove);
+            }
+        } catch {
+            // approval data is non-critical
+        } finally {
+            setIsLoadingHistory(false);
         }
-    }, [searchParams, data, toPDF]);
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    useEffect(() => {
+        if (!id || !data) return;
+        fetchApprovalData(id);
+    }, [id, data?.id, fetchApprovalData]);
+
+    useEffect(() => {
+        if (!data || !id || searchParams.get('print') !== 'true') return;
+
+        let cancelled = false;
+        const run = async () => {
+            try {
+                const fresh = await approvalService
+                    .checkApprovalStatus(id, APPROVAL_ENTITIES.WEIGHT_REPORT)
+                    .catch(() => null);
+                if (!cancelled && fresh) {
+                    setApprovalHistoryForPDF(fresh);
+                }
+                await new Promise((r) => setTimeout(r, 200));
+                if (cancelled) return;
+                await generateTableAwarePdf(
+                    targetRef,
+                    buildPdfOptions({
+                        filename: `weight-report-${data?.reportCode || 'document'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                    }),
+                );
+                toast.success('PDF exported successfully');
+            } catch {
+                if (!cancelled) toast.error('Failed to export PDF');
+            } finally {
+                if (!cancelled) {
+                    setSearchParams(
+                        (prev) => {
+                            const next = new URLSearchParams(prev);
+                            next.delete('print');
+                            return next;
+                        },
+                        { replace: true },
+                    );
+                }
+            }
+        };
+
+        const timer = setTimeout(() => {
+            void run();
+        }, 300);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [data, id, searchParams, setSearchParams, targetRef]);
+
+    const handleExportPDF = async () => {
+        if (!id) return;
+        try {
+            const fresh = await approvalService
+                .checkApprovalStatus(id, APPROVAL_ENTITIES.WEIGHT_REPORT)
+                .catch(() => null);
+            if (fresh) {
+                setApprovalHistoryForPDF(fresh);
+            }
+            await new Promise((r) => setTimeout(r, 200));
+            await generateTableAwarePdf(
+                targetRef,
+                buildPdfOptions({
+                    filename: `weight-report-${data?.reportCode || 'document'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+                }),
+            );
+            toast.success('PDF exported successfully');
+        } catch {
+            toast.error('Failed to export PDF');
+        }
+    };
+
+    const handleRefresh = useCallback(async () => {
+        await fetchData();
+        if (id) await fetchApprovalData(id);
+    }, [fetchData, fetchApprovalData, id]);
+
+    const handleSubmit = async () => {
+        if (!id) return;
+        try {
+            setIsUpdatingStatus(true);
+            const response = await weightReportService.submit(id);
+            setData(response.data as WeightReport);
+            toast.success('Report submitted successfully');
+        } catch {
+            toast.error('Failed to submit report');
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const handleRequestApproval = async () => {
+        if (!id) return;
+        try {
+            setIsUpdatingStatus(true);
+            const response = await weightReportService.requestApproval(id);
+            setData(response.data as WeightReport);
+            await fetchApprovalData(id);
+            toast.success('Approval requested successfully');
+        } catch {
+            toast.error('Failed to request approval');
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const openApproveDialog = () => {
+        setApprovalInitialStatus(ApprovalStatus.APPROVED);
+        setIsApprovalModalOpen(true);
+    };
+
+    const openRejectDialog = () => {
+        setApprovalInitialStatus(ApprovalStatus.REJECTED);
+        setIsApprovalModalOpen(true);
+    };
 
     if (loading) {
         return (
@@ -55,25 +234,68 @@ export default function WeightReportDetailPage() {
 
     if (!data) return null;
 
+    const isEditable =
+        data.status === WeightReportStatusEnum.DRAFT ||
+        data.status === WeightReportStatusEnum.OPEN ||
+        data.status === WeightReportStatusEnum.REJECTED;
+
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Solid Waste Report Details"
-                subtitle={`Report Code: ${data.reportCode}`}
+                title={`Solid Waste Report: ${data.reportCode}`}
+                subtitle={`Period: ${data.reportMonth} ${data.reportYear}`}
                 actions={
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                        {data.status === WeightReportStatusEnum.DRAFT && (
+                            <Button onClick={handleSubmit} disabled={isUpdatingStatus}>
+                                <Send className="h-4 w-4 mr-2" />
+                                {isUpdatingStatus ? 'Submitting...' : 'Submit'}
+                            </Button>
+                        )}
+                        {data.status === WeightReportStatusEnum.OPEN && (
+                            <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
+                                <ClipboardCheck className="h-4 w-4 mr-2" />
+                                {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
+                            </Button>
+                        )}
+                        {data.status === WeightReportStatusEnum.REJECTED && (
+                            <Button onClick={handleRequestApproval} disabled={isUpdatingStatus}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                {isUpdatingStatus ? 'Resubmitting...' : 'Resubmit for Approval'}
+                            </Button>
+                        )}
+                        {data.status === WeightReportStatusEnum.WAITING_APPROVAL && canApprove && (
+                            <>
+                                <Button
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={openApproveDialog}
+                                    disabled={isLoadingHistory}
+                                >
+                                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve
+                                </Button>
+                                <Button variant="destructive" onClick={openRejectDialog} disabled={isLoadingHistory}>
+                                    <XCircle className="h-4 w-4 mr-2" /> Reject
+                                </Button>
+                            </>
+                        )}
+                        <Button variant="outline" onClick={() => void handleExportPDF()}>
+                            <FileDown className="h-4 w-4 mr-2" /> Export PDF
+                        </Button>
+                        {isEditable && (
+                            <Button variant="outline" onClick={() => navigate(`/waste-management/weight-reports/${id}/edit`)}>
+                                <Pencil className="h-4 w-4 mr-2" /> Edit
+                            </Button>
+                        )}
                         <Button variant="outline" onClick={() => navigate('/waste-management/weight-reports')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                        </Button>
-                        <Button variant="outline" onClick={() => toPDF()}>
-                            <Printer className="mr-2 h-4 w-4" /> Export PDF
-                        </Button>
-                        <Button onClick={() => navigate(`/waste-management/weight-reports/${id}/edit`)}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit
+                            <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
                         </Button>
                     </div>
                 }
-            />
+            >
+                <div className="flex items-center gap-3">
+                    {getStatusBadge(data.status)}
+                </div>
+            </PageHeader>
 
             <div className="max-w-4xl mx-auto space-y-6">
                 <Card>
@@ -105,18 +327,6 @@ export default function WeightReportDetailPage() {
                         <div>
                             <p className="text-sm text-muted-foreground">Submitted At</p>
                             <p className="font-medium">{new Date(data.submittedAt).toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Report Status</p>
-                            <Badge variant={data.status === WeightReportStatusEnum.DONE ? 'default' : 'secondary'}>
-                                {data.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </Badge>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Status</p>
-                            <Badge variant={data.isActive ? 'default' : 'secondary'}>
-                                {data.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
                         </div>
                         {data.reportDocumentUrl && (
                             <div className="md:col-span-2">
@@ -161,14 +371,37 @@ export default function WeightReportDetailPage() {
                         </CardContent>
                     </Card>
                 )}
+
+                <Card>
+                    <CardContent className="pt-6">
+                        <ApprovalTimelineCard
+                            approvalHistory={approvalHistory}
+                            isLoading={isLoadingHistory}
+                            assessmentStatus={data.status}
+                        />
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Hidden PDF Template */}
-            <div className="absolute left-[-9999px] top-0">
+            <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }}>
                 <div ref={targetRef}>
-                    {data && <WeightReportPDFTemplate report={data} />}
+                    {data && (
+                        <WeightReportPDFTemplate
+                            report={data}
+                            approvalHistory={approvalHistoryForPDF ?? approvalHistory}
+                        />
+                    )}
                 </div>
             </div>
+
+            <ApprovalDialog
+                open={isApprovalModalOpen}
+                onOpenChange={setIsApprovalModalOpen}
+                weightReportId={id!}
+                onApprovalSubmitted={handleRefresh}
+                initialStatus={approvalInitialStatus}
+            />
         </div>
     );
 }

@@ -21,6 +21,7 @@ export type {
   User,
   UserDTO,
   CreateUserDTO,
+  CreateWorkPermitWorkerDTO,
   UpdateUserDTO,
   UserFormData,
   UserFilters,
@@ -32,3 +33,7 @@ export type {
 
 // Hooks
 export { useUsers, useUser, useUserStats } from './hooks/useUsers';
+
+// Components
+export { default as GuestWorkerModal } from './components/GuestWorkerModal';
+export type { GuestWorkerModalProps } from './components/GuestWorkerModal';

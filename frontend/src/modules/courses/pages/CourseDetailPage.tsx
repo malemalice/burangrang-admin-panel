@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -7,31 +7,24 @@ import {
   Plus,
   BookOpen,
   Clock,
-  Star,
   Play,
   FileText,
   Youtube,
   Calendar,
   Eye,
   EyeOff,
-  MoreHorizontal,
   ArrowLeft,
   FileQuestion
 } from 'lucide-react';
-import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
 import { Separator } from '@/core/components/ui/separator';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/core/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { formatDate } from '@/core/utils/date';
 import { useCourse } from '../hooks/useCourses';
 import { useChapters } from '../hooks/useChapters';
 import courseService from '../services/courseService';
@@ -150,15 +143,6 @@ const CourseDetailPage = () => {
     setChapterToDelete(null);
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    return courseService.getDifficultyColor(difficulty);
-  };
-
-  const getStatusColor = (status: string) => {
-    return courseService.getStatusColor(status);
-  };
-
-
   const formatDuration = (minutes: number) => {
     return courseService.formatDuration(minutes);
   };
@@ -198,6 +182,25 @@ const CourseDetailPage = () => {
     );
   }
 
+  const metadataItems = [
+    {
+      label: 'Created',
+      content: (
+        <p className="mt-1 text-sm text-gray-900">
+          {formatDate(course.createdAt)}
+        </p>
+      ),
+    },
+    {
+      label: 'Last Updated',
+      content: (
+        <p className="mt-1 text-sm text-gray-900">
+          {formatDate(course.updatedAt)}
+        </p>
+      ),
+    },
+  ] satisfies { label: string; content: ReactNode }[];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -219,12 +222,9 @@ const CourseDetailPage = () => {
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-start gap-2 mb-2">
-                <h1 className="text-2xl font-bold min-w-0 flex-1 line-clamp-2 break-words" title={course.title}>
+                <h1 className="text-2xl font-bold break-words min-w-0 flex-1" title={course.title}>
                   {course.title}
                 </h1>
-                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize shrink-0 mt-1`}>
-                  {course.status}
-                </Badge>
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
               <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
@@ -237,15 +237,6 @@ const CourseDetailPage = () => {
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
                 <span>{course.totalChapters} chapters</span>
-                {Number(course.rating) > 0 && (
-                  <>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -284,33 +275,13 @@ const CourseDetailPage = () => {
                   <CardTitle>Course Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Difficulty</label>
-                      <div className="mt-1">
-                        <Badge variant="outline" className={`${getDifficultyColor(course.difficulty)} border-0`}>
-                          {course.difficulty}
-                        </Badge>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {metadataItems.map((item) => (
+                      <div key={item.label}>
+                        <label className="text-sm font-medium text-gray-500">{item.label}</label>
+                        {item.content}
                       </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Language</label>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {course.language === 'en' ? 'English' : 'Indonesian'}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Created</label>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {new Date(course.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {new Date(course.updatedAt).toLocaleDateString()}
-                      </p>
-                    </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -356,17 +327,6 @@ const CourseDetailPage = () => {
                     </div>
                     <span className="font-medium">{formatDuration(course.totalDuration)}</span>
                   </div>
-                  {Number(course.rating) > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-400" />
-                        <span className="text-sm">Rating</span>
-                      </div>
-                      <span className="font-medium">
-                        {Number(course.rating).toFixed(1)} ({course.reviewCount})
-                      </span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>
@@ -443,32 +403,65 @@ const CourseDetailPage = () => {
                           </div>
                         </div>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigate(`/courses/${course.id}/quizzes/manage?entity=CHAPTER&entityId=${chapter.id}`)
-                            }
-                          >
-                            <FileQuestion className="mr-2 h-4 w-4" /> Add Quiz
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteChapter(chapter)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label="View chapter"
+                              onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label="Edit chapter"
+                              onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}/edit`)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label="Add quiz"
+                              onClick={() =>
+                                navigate(`/courses/${course.id}/quizzes/manage?entity=CHAPTER&entityId=${chapter.id}`)
+                              }
+                            >
+                              <FileQuestion className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Add Quiz</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              aria-label="Delete chapter"
+                              onClick={() => handleDeleteChapter(chapter)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

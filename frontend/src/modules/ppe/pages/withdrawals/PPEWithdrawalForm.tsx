@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,7 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
@@ -22,10 +23,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import ppeService from '../../services/ppeService';
 import { departmentService, jobPositionService, type Department, type JobPosition } from '@/modules/master-data';
-import { userService, type User } from '@/modules/users';
+import { userService, type User, GuestWorkerModal } from '@/modules/users';
 import {
     CreatePPEWithdrawalDTO,
-    UpdatePPEWithdrawalDTO,
     CreatePPEWithdrawalItemDTO,
     PPEWithdrawal,
     PPEStockItem,
@@ -49,31 +49,25 @@ const formSchema = z.object({
     notes: z.string().optional(),
     items: z.array(withdrawalItemSchema).min(1, 'At least one item is required'),
 }).superRefine((data, ctx) => {
-    // Validate requestedFor or requestedForName
-    if (!data.requestedFor && !data.requestedForName) {
+    const hasRecipient =
+        !!(data.requestedFor && data.requestedFor.trim()) ||
+        !!(data.requestedForName && data.requestedForName.trim());
+    if (!hasRecipient) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Either select a user or enter a name',
+            message: 'Select a user, add a guest, or keep a legacy external name',
             path: ['requestedFor'],
-        });
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Either select a user or enter a name',
-            path: ['requestedForName'],
         });
     }
 
-    // Validate jobPositionId or jobPositionName
-    if (!data.jobPositionId && !data.jobPositionName) {
+    const hasJob =
+        !!(data.jobPositionId && data.jobPositionId.trim()) ||
+        !!(data.jobPositionName && data.jobPositionName.trim());
+    if (!hasJob) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Either select a job position or enter a job position name',
+            message: 'Select a job position or enter a legacy job position name',
             path: ['jobPositionId'],
-        });
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Either select a job position or enter a job position name',
-            path: ['jobPositionName'],
         });
     }
 
@@ -108,6 +102,14 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     const [uploadingFile, setUploadingFile] = useState(false);
     const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
     const [withdrawalLetterCategoryId, setWithdrawalLetterCategoryId] = useState<string | null>(null);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+    const [isLoadingJobPositions, setIsLoadingJobPositions] = useState(false);
+    const [guestModalOpen, setGuestModalOpen] = useState(false);
+    const [guestInitialName, setGuestInitialName] = useState('');
+    const guestResolveRef = useRef<((id: string) => void) | null>(null);
+    const guestRejectRef = useRef<(() => void) | null>(null);
+    /** When true, job position came from recipient profile — show as label until user clicks Change */
+    const [jobPositionLockedFromRecipient, setJobPositionLockedFromRecipient] = useState(false);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -135,6 +137,146 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
         name: 'items',
     });
 
+    const ensureSelectedItemInList = useCallback(
+        async <T extends { id: string }>(
+            items: T[],
+            selectedId: string | undefined,
+            getById: (id: string) => Promise<T>
+        ): Promise<T[]> => {
+            if (!selectedId) return items;
+            const existingIds = new Set(items.map((item) => item.id));
+            if (existingIds.has(selectedId)) return items;
+            try {
+                const selectedItem = await getById(selectedId);
+                return [selectedItem, ...items.filter((item) => item.id !== selectedId)];
+            } catch {
+                return items;
+            }
+        },
+        []
+    );
+
+    const applyRecipientFromUser = useCallback(
+        (user: User) => {
+            if (user.departmentId) {
+                form.setValue('departmentId', user.departmentId);
+            }
+            if (user.jobPositionId) {
+                form.setValue('jobPositionId', user.jobPositionId);
+                form.setValue('jobPositionName', '');
+                setJobPositionLockedFromRecipient(true);
+                void jobPositionService.getById(user.jobPositionId).then((jp) => {
+                    setJobPositions((prev) => {
+                        if (prev.some((p) => p.id === jp.id)) return prev;
+                        return [jp, ...prev];
+                    });
+                }).catch(() => {});
+            } else {
+                form.setValue('jobPositionId', '');
+                form.setValue('jobPositionName', '');
+                setJobPositionLockedFromRecipient(false);
+            }
+        },
+        [form]
+    );
+
+    const handleSearchUsers = useCallback(
+        async (searchQuery: string) => {
+            setIsLoadingUsers(true);
+            try {
+                const query = searchQuery.trim();
+                const limit = query ? 20 : 5;
+                const response = await userService.getUsers({
+                    page: 1,
+                    limit,
+                    search: query || undefined,
+                    options: true,
+                });
+                const selectedId = form.getValues('requestedFor') || undefined;
+                const merged = await ensureSelectedItemInList(
+                    response.data,
+                    selectedId,
+                    userService.getUserById
+                );
+                setUsers(merged);
+            } catch {
+                toast.error('Failed to search users');
+            } finally {
+                setIsLoadingUsers(false);
+            }
+        },
+        [form, ensureSelectedItemInList]
+    );
+
+    const handleSearchJobPositions = useCallback(
+        async (searchQuery: string) => {
+            setIsLoadingJobPositions(true);
+            try {
+                const query = searchQuery.trim();
+                const limit = query ? 20 : 5;
+                const response = await jobPositionService.getAll({
+                    page: 1,
+                    limit,
+                    search: query || undefined,
+                    options: true,
+                });
+                const selectedId = form.getValues('jobPositionId') || undefined;
+                const merged = await ensureSelectedItemInList(
+                    response.data,
+                    selectedId,
+                    jobPositionService.getById
+                );
+                setJobPositions(merged);
+            } catch {
+                toast.error('Failed to search job positions');
+            } finally {
+                setIsLoadingJobPositions(false);
+            }
+        },
+        [form, ensureSelectedItemInList]
+    );
+
+    const openGuestCreate = useCallback((searchQuery: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            setGuestInitialName(searchQuery);
+            guestResolveRef.current = resolve;
+            guestRejectRef.current = () => reject(new Error('cancelled'));
+            setGuestModalOpen(true);
+        });
+    }, []);
+
+    const handleGuestSuccess = useCallback(
+        (user: User) => {
+            setUsers((prev) => {
+                const rest = prev.filter((u) => u.id !== user.id);
+                return [user, ...rest];
+            });
+            form.setValue('requestedFor', user.id);
+            form.setValue('requestedForName', '');
+            applyRecipientFromUser(user);
+            guestResolveRef.current?.(user.id);
+            guestResolveRef.current = null;
+            guestRejectRef.current = null;
+        },
+        [form, applyRecipientFromUser]
+    );
+
+    const handleGuestModalOpenChange = useCallback((open: boolean) => {
+        setGuestModalOpen(open);
+        if (!open && guestRejectRef.current) {
+            guestRejectRef.current();
+            guestRejectRef.current = null;
+            guestResolveRef.current = null;
+        }
+    }, []);
+
+    const handleCreateNewGuest = useCallback(
+        async (searchQuery: string) => {
+            return openGuestCreate(searchQuery);
+        },
+        [openGuestCreate]
+    );
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -154,11 +296,10 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                     console.error('Failed to fetch file categories:', error);
                 }
 
-                // Fetch departments, job positions, users, and available stock items
-                const [deptsRes, positionsRes, usersRes, stockItemsRes] = await Promise.all([
+                // Fetch departments, job positions, and available stock items (users load via async search)
+                const [deptsRes, positionsRes, stockItemsRes] = await Promise.all([
                     departmentService.getDepartments({ page: 1, limit: 100, options: true }),
                     jobPositionService.getAll({ page: 1, limit: 100, options: true }),
-                    userService.getUsers({ page: 1, limit: 100, options: true }),
                     ppeService.getAvailableStockItems({
                         page: 1,
                         limit: 1000,
@@ -172,7 +313,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                 setWithdrawalLetterCategoryId(categoryId);
                 setDepartments(deptsRes.data);
                 setJobPositions(positionsRes.data);
-                setUsers(usersRes.data);
+                setUsers([]);
 
                 // For edit mode, include existing withdrawal items in available options
                 // This ensures previously selected items appear in the dropdown
@@ -237,6 +378,67 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
 
         fetchData();
     }, [withdrawal, mode, form]);
+
+    useEffect(() => {
+        if (!dataReady || !withdrawal?.requestedFor) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const u = await userService.getUserById(withdrawal.requestedFor!);
+                if (cancelled) return;
+                setUsers((prev) => {
+                    if (prev.some((x) => x.id === u.id)) return prev;
+                    return [u, ...prev];
+                });
+            } catch {
+                /* ignore */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [dataReady, withdrawal?.requestedFor]);
+
+    useEffect(() => {
+        if (!dataReady || !withdrawal?.jobPositionId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const jp = await jobPositionService.getById(withdrawal.jobPositionId!);
+                if (cancelled) return;
+                setJobPositions((prev) => {
+                    if (prev.some((x) => x.id === jp.id)) return prev;
+                    return [jp, ...prev];
+                });
+            } catch {
+                /* ignore */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [dataReady, withdrawal?.jobPositionId]);
+
+    useEffect(() => {
+        if (!dataReady || mode !== 'edit' || !withdrawal?.requestedFor || !withdrawal?.jobPositionId) {
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const u = await userService.getUserById(withdrawal.requestedFor!);
+                if (cancelled) return;
+                setJobPositionLockedFromRecipient(
+                    !!u.jobPositionId && u.jobPositionId === withdrawal.jobPositionId
+                );
+            } catch {
+                if (!cancelled) setJobPositionLockedFromRecipient(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [dataReady, mode, withdrawal?.requestedFor, withdrawal?.jobPositionId]);
 
     const getStockItemLabel = (stockItem: PPEStockItem) => {
         const name = stockItem.equipmentName || 'Unknown';
@@ -462,7 +664,20 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     }
 
     const requestedForValue = form.watch('requestedFor');
+    const requestedForNameValue = form.watch('requestedForName');
     const jobPositionIdValue = form.watch('jobPositionId');
+    const jobPositionNameValue = form.watch('jobPositionName');
+    const legacyExternalRecipient =
+        !!(requestedForNameValue?.trim()) && !(requestedForValue?.trim());
+    const legacyJobNameOnly =
+        !!(jobPositionNameValue?.trim()) && !(jobPositionIdValue?.trim());
+
+    const jobPositionResolvedLabel =
+        jobPositions.find((p) => p.id === jobPositionIdValue)?.name ||
+        (requestedForValue
+            ? users.find((u) => u.id === requestedForValue)?.position
+            : undefined) ||
+        '—';
 
     return (
         <Card>
@@ -511,71 +726,97 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">Either select a user OR enter a name manually</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField
-                                control={form.control}
-                                name="requestedFor"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Requested For (User) <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl>
-                                            <SearchableSelect
-                                                options={users.map((user) => ({
-                                                    value: user.id,
-                                                    label: `${user.name} (${user.email})`,
-                                                }))}
-                                                value={field.value || ''}
-                                                onValueChange={(value) => {
-                                                    const actualValue = value === 'none' ? '' : value;
-                                                    field.onChange(actualValue);
-                                                    if (actualValue) {
-                                                        form.setValue('requestedForName', '');
+                        <FormField
+                            control={form.control}
+                            name="requestedFor"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>
+                                        Requested for <span className="text-red-500">*</span>
+                                    </FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={users.map((user) => ({
+                                                value: user.id,
+                                                label: `${user.name} (${user.email})`,
+                                            }))}
+                                            value={field.value || ''}
+                                            onValueChange={(value) => {
+                                                const actualValue = value === 'none' ? '' : value;
+                                                field.onChange(actualValue);
+                                                if (!actualValue) {
+                                                    setJobPositionLockedFromRecipient(false);
+                                                }
+                                                if (actualValue) {
+                                                    form.setValue('requestedForName', '');
+                                                    const u = users.find((x) => x.id === actualValue);
+                                                    if (u) {
+                                                        applyRecipientFromUser(u);
+                                                    } else {
+                                                        userService
+                                                            .getUserById(actualValue)
+                                                            .then(applyRecipientFromUser)
+                                                            .catch(() => {});
                                                     }
-                                                }}
-                                                placeholder="Select user (optional)"
-                                                searchPlaceholder="Search users..."
-                                                includeNone={true}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                                }
+                                            }}
+                                            placeholder="Search and select user"
+                                            searchPlaceholder="Search by name or email..."
+                                            includeNone={true}
+                                            onSearch={handleSearchUsers}
+                                            isLoading={isLoadingUsers}
+                                            onCreateNew={handleCreateNewGuest}
+                                            createNewText="Add recipient (guest)"
+                                        />
+                                    </FormControl>
+                                    {legacyExternalRecipient && (
+                                        <FormDescription>
+                                            Legacy external name (no system user):{' '}
+                                            <span className="font-medium text-foreground">
+                                                {requestedForNameValue}
+                                            </span>
+                                        </FormDescription>
+                                    )}
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                            <FormField
-                                control={form.control}
-                                name="requestedForName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Requested For (Name) <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="Enter name if not a user"
-                                                {...field}
-                                                disabled={!!requestedForValue && requestedForValue !== 'none'}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">Either select a job position OR enter a name manually</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField
-                                control={form.control}
-                                name="jobPositionId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Job Position <span className="text-red-500">*</span></FormLabel>
+                        <FormField
+                            control={form.control}
+                            name="jobPositionId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>
+                                        Job position <span className="text-red-500">*</span>
+                                    </FormLabel>
+                                    {jobPositionLockedFromRecipient &&
+                                    jobPositionIdValue?.trim() &&
+                                    !legacyJobNameOnly ? (
+                                        <>
+                                            <div className="flex flex-col gap-2 rounded-md border border-input bg-muted/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                                                <span className="text-sm font-medium leading-none">
+                                                    {jobPositionResolvedLabel}
+                                                </span>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="shrink-0"
+                                                    onClick={() =>
+                                                        setJobPositionLockedFromRecipient(false)
+                                                    }
+                                                >
+                                                    Change
+                                                </Button>
+                                            </div>
+                                            <FormDescription>
+                                                From recipient&apos;s profile. Use Change to pick a
+                                                different position.
+                                            </FormDescription>
+                                            <input type="hidden" name={field.name} ref={field.ref} value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
+                                        </>
+                                    ) : (
                                         <FormControl>
                                             <SearchableSelect
                                                 options={jobPositions.map((pos) => ({
@@ -589,35 +830,42 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                     if (actualValue) {
                                                         form.setValue('jobPositionName', '');
                                                     }
+                                                    setJobPositionLockedFromRecipient(false);
                                                 }}
-                                                placeholder="Select job position (optional)"
+                                                placeholder="Select job position"
                                                 searchPlaceholder="Search job positions..."
                                                 includeNone={true}
+                                                onSearch={handleSearchJobPositions}
+                                                isLoading={isLoadingJobPositions}
                                             />
                                         </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                    )}
+                                    {legacyJobNameOnly && (
+                                        <FormDescription>
+                                            Legacy job title (not in master list). Edit below or pick a
+                                            master position to replace it.
+                                        </FormDescription>
+                                    )}
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
+                        {legacyJobNameOnly && (
                             <FormField
                                 control={form.control}
                                 name="jobPositionName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Job Position Name <span className="text-red-500">*</span></FormLabel>
+                                        <FormLabel>Legacy job title</FormLabel>
                                         <FormControl>
-                                            <Input
-                                                placeholder="Enter job position if not from master data"
-                                                {...field}
-                                                disabled={!!jobPositionIdValue && jobPositionIdValue !== 'none'}
-                                            />
+                                            <Input placeholder="Job title" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                        </div>
+                        )}
 
                         <FormField
                             control={form.control}
@@ -806,6 +1054,17 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                         </div>
                     </form>
                 </Form>
+
+                <GuestWorkerModal
+                    open={guestModalOpen}
+                    onOpenChange={handleGuestModalOpenChange}
+                    onSuccess={handleGuestSuccess}
+                    initialName={guestInitialName}
+                    title="Add recipient (guest)"
+                    description="Create a guest user with name and email so this withdrawal is linked to a profile. They can use Forgot password to sign in later."
+                    successToastMessage="Guest user created and selected as recipient."
+                    submitButtonLabel="Create and select"
+                />
             </CardContent>
         </Card>
     );

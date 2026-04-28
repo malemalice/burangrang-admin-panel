@@ -9,10 +9,22 @@ export class RiskMitigationDto {
   eliminate?: string;
 
   @ApiProperty({ required: false })
-  transfer?: string;
+  eliminationControl?: string;
 
   @ApiProperty({ required: false })
-  reduce?: string;
+  substitutionControl?: string;
+
+  @ApiProperty({ required: false })
+  engineeringControl?: string;
+
+  @ApiProperty({ required: false })
+  administrationControl?: string;
+
+  @ApiProperty({ required: false })
+  personalProtectiveEquipment?: string;
+
+  @ApiProperty({ required: false })
+  transfer?: string;
 
   @ApiProperty({ required: false })
   accept?: string;

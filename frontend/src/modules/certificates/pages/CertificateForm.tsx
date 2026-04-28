@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,13 +20,6 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { useCertificate, useCertificates } from '../hooks/useCertificates';
@@ -81,8 +74,9 @@ const getFormSchema = (categories: CertificateCategory[]) =>
                 return true;
             },
             {
-                message: 'Either select from list OR enter name manually (not both)',
-                path: ['personnelName'],
+                message:
+                    'Select personnel from the list or add a custom name when they are not listed (use one option only)',
+                path: ['personnelId'],
             },
         )
         .refine(
@@ -139,11 +133,6 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         label: dept.name,
     }));
 
-    const userOptions: SearchableSelectOption[] = users.map((user) => ({
-        value: user.id,
-        label: user.name,
-    }));
-
     const formSchema = useMemo(() => getFormSchema(categories), [categories]);
 
     const form = useForm<FormValues>({
@@ -169,9 +158,35 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
 
     const equipmentId = form.watch('equipmentId');
     const equipmentName = form.watch('equipmentName');
+    const personnelId = form.watch('personnelId');
+    const personnelName = form.watch('personnelName');
     const [equipmentSearchQuery, setEquipmentSearchQuery] = useState('');
+    // displayedPersonnel mirrors the RiskAssessmentItemForm pattern: updated directly by the
+    // search handler so options go empty as soon as no match — allowing "Use this name" to appear.
+    const [displayedPersonnel, setDisplayedPersonnel] = useState<{ id: string; name: string }[]>([]);
+    const [personnelSearchQuery, setPersonnelSearchQuery] = useState('');
 
     const equipmentSelectValue = equipmentId || (equipmentName ? `free:${equipmentName}` : '');
+
+    // Resolve the custom name from either form state or the loaded certificate data so the
+    // select value is correct even before form.watch catches up after form.reset().
+    const resolvedPersonnelName = personnelName
+        || (mode === 'edit' && certificateData?.personnelName)
+        || '';
+    const personnelSelectValue = personnelId || (resolvedPersonnelName ? `free:${resolvedPersonnelName}` : '');
+
+    const handlePersonnelSearch = useCallback(
+        (q: string) => {
+            const query = q.trim().toLowerCase();
+            setPersonnelSearchQuery(query);
+            if (!query) {
+                setDisplayedPersonnel(users);
+                return;
+            }
+            setDisplayedPersonnel(users.filter((u) => u.name.toLowerCase().includes(query)));
+        },
+        [users],
+    );
 
     const categoryIdForEquipment = form.watch('categoryId');
     const isEquipmentTypeCertificate = useMemo(() => {
@@ -187,23 +202,67 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         const sourceList = isEquipmentTypeCertificate ? safetyEquipment : heavyEquipment;
         const base: SearchableSelectOption[] = sourceList.map((e) => ({ value: e.id, label: e.name }));
         if (equipmentName && !equipmentId) {
-            if (!base.some((o) => o.value === `free:${equipmentName}`)) {
-                base.push({ value: `free:${equipmentName}`, label: equipmentName });
+            const freeVal = `free:${equipmentName}`;
+            if (!base.some((o) => o.value === freeVal)) {
+                base.unshift({ value: freeVal, label: `${equipmentName} (custom name)` });
             }
         }
         if (equipmentId && equipmentName && !sourceList.some((e) => e.id === equipmentId)) {
             if (!base.some((o) => o.value === equipmentId)) {
-                base.push({ value: equipmentId, label: equipmentName });
+                base.unshift({ value: equipmentId, label: equipmentName });
             }
         }
         const q = equipmentSearchQuery.trim().toLowerCase();
         const filtered = q ? base.filter((o) => o.label.toLowerCase().includes(q)) : base;
         if (equipmentSelectValue && !filtered.some((o) => o.value === equipmentSelectValue)) {
             const currentOption = base.find((o) => o.value === equipmentSelectValue);
-            if (currentOption) filtered.push(currentOption);
+            if (currentOption && (!q || currentOption.label.toLowerCase().includes(q))) {
+                filtered.unshift(currentOption);
+            }
         }
         return filtered;
     }, [isEquipmentTypeCertificate, safetyEquipment, heavyEquipment, equipmentId, equipmentName, equipmentSearchQuery, equipmentSelectValue]);
+
+    const personnelOptions: SearchableSelectOption[] = useMemo(() => {
+        const base: SearchableSelectOption[] = displayedPersonnel.map((u) => ({
+            value: u.id,
+            label: u.name,
+        }));
+
+        // Use resolvedPersonnelName (which falls back to certificateData) so the custom option
+        // is always present even before form.watch syncs after form.reset().
+        const customName = resolvedPersonnelName;
+        if (customName && !personnelId) {
+            const freeVal = `free:${customName}`;
+            if (!base.some((o) => o.value === freeVal)) {
+                if (!personnelSearchQuery || customName.toLowerCase().includes(personnelSearchQuery)) {
+                    base.unshift({ value: freeVal, label: `${customName} (custom name)` });
+                }
+            }
+        }
+
+        if (
+            personnelId &&
+            !displayedPersonnel.some((u) => u.id === personnelId) &&
+            !base.some((o) => o.value === personnelId)
+        ) {
+            const fromPersonnel = certificateData?.personnel
+                ? `${certificateData.personnel.firstName} ${certificateData.personnel.lastName}`.trim()
+                : '';
+            const label = fromPersonnel || personnelName || 'Personnel';
+            if (!personnelSearchQuery || label.toLowerCase().includes(personnelSearchQuery)) {
+                base.unshift({ value: personnelId, label });
+            }
+        }
+        return base;
+    }, [
+        displayedPersonnel,
+        personnelId,
+        personnelName,
+        resolvedPersonnelName,
+        personnelSearchQuery,
+        certificateData?.personnel,
+    ]);
 
     useEffect(() => {
         const fetchOptions = async () => {
@@ -243,12 +302,9 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 }
 
                 setDepartments(deptsRes.data);
-                setUsers(
-                    usersRes.data.map((u) => ({
-                        id: u.id,
-                        name: u.name,
-                    })),
-                );
+                const loadedUsers = usersRes.data.map((u) => ({ id: u.id, name: u.name }));
+                setUsers(loadedUsers);
+                setDisplayedPersonnel(loadedUsers);
                 setHeavyEquipment(masterDataRes.data?.heavyEquipment ?? []);
                 setSafetyEquipment(safetyEquipmentsRes.data?.data?.map((e: { id: string; name: string; code: string }) => ({ id: e.id, name: e.name, code: e.code })) ?? []);
                 setDataReady(true);
@@ -267,6 +323,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
     // Set form data for edit mode
     useEffect(() => {
         if (certificateData && mode === 'edit' && dataReady) {
+            // When a custom name was stored, prefer it over personnelId so the user sees the
+            // name they originally typed. If only personnelId exists, use that.
+            const hasCustomName = !!certificateData.personnelName;
+            const pid = hasCustomName ? '' : (certificateData.personnelId || '');
+            const pname = hasCustomName ? certificateData.personnelName! : '';
+
             form.reset({
                 certificateNumber: certificateData.certificateNumber,
                 certificateName: certificateData.certificateName,
@@ -275,8 +337,8 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 validityDate: certificateData.validityDate.split('T')[0],
                 issuerName: certificateData.issuerName,
                 documentUrl: certificateData.documentUrl || '',
-                personnelId: certificateData.personnelId || '',
-                personnelName: certificateData.personnelName || '',
+                personnelId: pid,
+                personnelName: pname,
                 equipmentId: certificateData.equipmentId || '',
                 equipmentName: certificateData.equipmentName || '',
                 departmentId: certificateData.departmentId,
@@ -285,12 +347,17 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 isActive: certificateData.isActive,
             });
 
+            // After reset: clear search filters so directory + free: options match prefilled values on first paint
+            setPersonnelSearchQuery('');
+            setDisplayedPersonnel(users);
+            setEquipmentSearchQuery('');
+
             // Set uploaded file name if documentUrl exists
             if (certificateData.documentUrl) {
                 setUploadedFileName('Certificate Document');
             }
         }
-    }, [certificateData, mode, dataReady, form]);
+    }, [certificateData, mode, dataReady, form, users]);
 
     const handleFileUpload = async (file: File) => {
         if (!file) return;
@@ -365,6 +432,9 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         try {
             setIsLoading(true);
 
+            const hasPersonnelId = !!values.personnelId;
+            const hasPersonnelName = !!values.personnelName;
+
             const certificateData: CreateCertificateDTO | UpdateCertificateDTO = {
                 certificateNumber: values.certificateNumber,
                 certificateName: values.certificateName,
@@ -373,8 +443,10 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 validityDate: values.validityDate,
                 issuerName: values.issuerName,
                 documentUrl: values.documentUrl || undefined,
-                personnelId: values.personnelId || undefined,
-                personnelName: values.personnelName || undefined,
+                // Important: when switching between "listed personnel" and "custom name",
+                // explicitly clear the other field so the backend doesn't keep the previous value.
+                personnelId: hasPersonnelId ? values.personnelId : (hasPersonnelName ? null : undefined),
+                personnelName: hasPersonnelName ? values.personnelName : (hasPersonnelId ? null : undefined),
                 equipmentId: values.equipmentId || undefined,
                 equipmentName: values.equipmentName || undefined,
                 departmentId: values.departmentId,
@@ -435,7 +507,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="certificateNumber"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Certificate Number *</FormLabel>
+                                        <FormLabel>
+                                            Certificate Number{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <Input placeholder="Enter certificate number" {...field} />
                                         </FormControl>
@@ -449,7 +526,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="certificateName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Certificate Name *</FormLabel>
+                                        <FormLabel>
+                                            Certificate Name{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <Input placeholder="Enter certificate name" {...field} />
                                         </FormControl>
@@ -463,7 +545,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="categoryId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Category *</FormLabel>
+                                        <FormLabel>
+                                            Category{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={categoryOptions}
@@ -482,7 +569,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="issuedDate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Issued Date *</FormLabel>
+                                        <FormLabel>
+                                            Issued Date{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <DateTimePicker
                                                 mode="date"
@@ -501,7 +593,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="validityDate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Validity Date *</FormLabel>
+                                        <FormLabel>
+                                            Validity Date{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <DateTimePicker
                                                 mode="date"
@@ -520,7 +617,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="issuerName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Issuer Name *</FormLabel>
+                                        <FormLabel>
+                                            Issuer Name{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <Input placeholder="Enter issuer name" {...field} />
                                         </FormControl>
@@ -610,7 +712,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                             name="departmentId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Department *</FormLabel>
+                                    <FormLabel>
+                                        Department{' '}
+                                        <span className="text-destructive" aria-hidden="true">
+                                            *
+                                        </span>
+                                    </FormLabel>
                                     <FormControl>
                                         <SearchableSelect
                                             options={departmentOptions}
@@ -625,75 +732,51 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         />
 
                         {isPersonnelCertificate && (
-                            <>
-                                <FormField
-                                    control={form.control}
-                                    name="personnelId"
-                                    render={({ field }) => {
-                                        const personnelNameValue = form.watch('personnelName');
-                                        const isDisabled = !!personnelNameValue;
-
-                                        return (
-                                            <FormItem>
-                                                <FormLabel>Personnel</FormLabel>
-                                                <FormControl>
-                                                    <div className={isDisabled ? 'opacity-50 pointer-events-none' : ''}>
-                                                        <SearchableSelect
-                                                            options={userOptions}
-                                                            value={field.value}
-                                                            onValueChange={(value) => {
-                                                                field.onChange(value);
-                                                                // Clear personnelName when selecting from list
-                                                                if (value) {
-                                                                    form.setValue('personnelName', '');
-                                                                }
-                                                            }}
-                                                            placeholder="Select personnel from list"
-                                                        />
-                                                    </div>
-                                                </FormControl>
-                                                <FormDescription>
-                                                    Select personnel from list OR enter name manually below (not both)
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        );
-                                    }}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="personnelName"
-                                    render={({ field }) => {
-                                        const personnelIdValue = form.watch('personnelId');
-                                        const isDisabled = !!personnelIdValue;
-
-                                        return (
-                                            <FormItem>
-                                                <FormLabel>Personnel Name (if not in list)</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="Enter personnel name"
-                                                        {...field}
-                                                        disabled={isDisabled}
-                                                        onChange={(e) => {
-                                                            field.onChange(e);
-                                                            // Clear personnelId when entering name manually
-                                                            if (e.target.value) {
-                                                                form.setValue('personnelId', '');
-                                                            }
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                                <FormDescription>
-                                                    Enter personnel name if not available in the list above
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        );
-                                    }}
-                                />
-                            </>
+                            <FormField
+                                control={form.control}
+                                name="personnelId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            Personnel{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={personnelOptions}
+                                                value={personnelSelectValue}
+                                                onValueChange={(value) => {
+                                                    if (value.startsWith('free:')) {
+                                                        field.onChange('');
+                                                        form.setValue('personnelName', value.slice(5));
+                                                    } else {
+                                                        field.onChange(value);
+                                                        form.setValue('personnelName', '');
+                                                    }
+                                                    setDisplayedPersonnel(users);
+                                                    setPersonnelSearchQuery('');
+                                                }}
+                                                placeholder="Search personnel or add by name"
+                                                searchPlaceholder="Search personnel…"
+                                                emptyText="No personnel found"
+                                                onSearch={handlePersonnelSearch}
+                                                debounceMs={0}
+                                                onCreateNew={(searchQuery) => `free:${searchQuery}`}
+                                                createNewText="Use this name (not in list)"
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Open the field and type to search the directory. If the person does not
+                                            appear, keep typing their full name until the list is empty—then choose
+                                            &quot;Use this name (not in list)&quot; to save a name that is not in the
+                                            directory.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         )}
 
                         {isEquipmentCertificate && (
@@ -702,7 +785,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 name="equipmentName"
                                 render={() => (
                                     <FormItem>
-                                        <FormLabel>Equipment *</FormLabel>
+                                        <FormLabel>
+                                            Equipment{' '}
+                                            <span className="text-destructive" aria-hidden="true">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={equipmentOptions}

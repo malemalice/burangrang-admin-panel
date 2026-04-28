@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Edit, Trash2, Plus, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
     DropdownMenu,
@@ -22,25 +21,21 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
 
+const FILTER_PARAM_KEYS = ['name', 'code', 'status'] as const;
+
 export default function SafetyEquipmentTypesPage() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = usePermissions();
     const {
         types,
         totalTypes,
-        currentPage,
         isLoading,
         fetchTypes,
         deleteType,
     } = useSafetyEquipmentTypes();
-    const [pageIndex, setPageIndex] = useState(0);
-    const [limit, setLimit] = useState(10);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [typeToDelete, setTypeToDelete] = useState<SafetyEquipmentType | null>(null);
-    const [activeTab, setActiveTab] = useState('all');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = useMemo(() => [
@@ -65,26 +60,73 @@ export default function SafetyEquipmentTypesPage() {
         },
     ], []);
 
+    const pageIndex = useMemo(() => {
+        const raw = searchParams.get('page');
+        const page = raw ? Number(raw) : 1;
+        if (!Number.isFinite(page) || page <= 0) return 0;
+        return Math.floor(page) - 1;
+    }, [searchParams]);
+
+    const limit = useMemo(() => {
+        const raw = searchParams.get('limit');
+        const parsed = raw ? Number(raw) : 10;
+        if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+        return Math.floor(parsed);
+    }, [searchParams]);
+
+    const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+    const activeFilters = useMemo(() => {
+        const out: Record<string, { value: unknown; label: string }> = {};
+        const status = searchParams.get('status');
+        if (status === 'active' || status === 'inactive') {
+            out.status = { value: status, label: status === 'active' ? 'Active' : 'Inactive' };
+        }
+        const name = searchParams.get('name');
+        if (name) out.name = { value: name, label: name };
+        const code = searchParams.get('code');
+        if (code) out.code = { value: code, label: code };
+        return out;
+    }, [searchParams]);
+
+    const sorting = useMemo((): { id: string; desc: boolean } | null => {
+        const sortBy = searchParams.get('sortBy');
+        const sortOrder = searchParams.get('sortOrder');
+        if (!sortBy) return null;
+        return { id: sortBy, desc: sortOrder !== 'asc' };
+    }, [searchParams]);
+
+    const updateSearchParams = useCallback(
+        (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+            const next = new URLSearchParams(searchParams);
+            updater(next);
+            setSearchParams(next, options);
+        },
+        [searchParams, setSearchParams]
+    );
+
     const fetchData = useCallback(async () => {
+        const trimmed = searchTerm.trim();
         const params: PaginationParams = {
             page: pageIndex + 1,
             limit,
-            search: searchTerm,
-            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'name',
-            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'asc',
+            search: trimmed.length > 0 ? trimmed : undefined,
+            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'updatedAt',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             filters: {
-                // Exclude status filter, only include other filters
                 ...Object.entries(activeFilters)
                     .filter(([key]) => key !== 'status')
                     .reduce((acc, [key, item]) => ({
                         ...acc,
-                        [key]: item.value
+                        [key]: item.value,
                     }), {}),
-                // Explicitly set isActive based on status filter
-                isActive: activeFilters.status?.value === 'active' ? true :
-                    activeFilters.status?.value === 'inactive' ? false :
-                        undefined
-            }
+                isActive:
+                    activeFilters.status?.value === 'active'
+                        ? true
+                        : activeFilters.status?.value === 'inactive'
+                          ? false
+                          : undefined,
+            },
         };
         await fetchTypes(params);
     }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchTypes]);
@@ -95,7 +137,7 @@ export default function SafetyEquipmentTypesPage() {
 
     const handleDeleteClick = useCallback((type: SafetyEquipmentType, event?: React.MouseEvent) => {
         event?.stopPropagation();
-        setOpenDropdownId(null); // Explicitly close the dropdown
+        setOpenDropdownId(null);
         setTypeToDelete(type);
         setDeleteDialogOpen(true);
     }, []);
@@ -104,7 +146,7 @@ export default function SafetyEquipmentTypesPage() {
         if (!typeToDelete) return;
         try {
             await deleteType(typeToDelete.id);
-            setOpenDropdownId(null); // Ensure dropdown is closed
+            setOpenDropdownId(null);
             fetchData();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -117,49 +159,85 @@ export default function SafetyEquipmentTypesPage() {
     const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setTypeToDelete(null);
-        setOpenDropdownId(null); // Ensure dropdown is closed
+        setOpenDropdownId(null);
     }, []);
 
-    const handleSearch = useCallback((term: string) => {
-        setSearchTerm(term);
-        setPageIndex(0);
-    }, []);
+    const handleSearch = useCallback(
+        (term: string) => {
+            const trimmed = term.trim();
+            updateSearchParams((next) => {
+                if (trimmed) next.set('search', trimmed);
+                else next.delete('search');
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
 
-    const handleApplyFilters = useCallback((filters: any[]) => {
-        const newActiveFilters: Record<string, { value: any; label: string }> = {};
-        filters.forEach((filter: any) => {
-            if (filter.id === 'status') {
-                newActiveFilters[filter.id] = {
-                    value: filter.value,
-                    label: filter.value === 'active' ? 'Active' : 'Inactive'
-                };
-            } else {
-                newActiveFilters[filter.id] = {
-                    value: filter.value,
-                    label: String(filter.value)
-                };
-            }
+    const handleApplyFilters = useCallback(
+        (filters: FilterValue[]) => {
+            updateSearchParams((next) => {
+                FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+                filters.forEach((filter: FilterValue) => {
+                    if (filter.id === 'status') {
+                        next.set('status', String(filter.value));
+                    } else if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+                        next.set(filter.id, String(filter.value));
+                    }
+                });
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
+
+    const handleSortingChange = useCallback(
+        (newSorting: { id: string; desc: boolean } | null) => {
+            updateSearchParams((next) => {
+                if (newSorting) {
+                    next.set('sortBy', newSorting.id);
+                    next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
+                } else {
+                    next.delete('sortBy');
+                    next.delete('sortOrder');
+                }
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
+
+    const handleTabChange = useCallback(
+        (value: string) => {
+            updateSearchParams((next) => {
+                FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+                if (value === 'active') next.set('status', 'active');
+                else if (value === 'inactive') next.set('status', 'inactive');
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
+
+    const handlePageChange = (page: number) => {
+        updateSearchParams((next) => {
+            next.set('page', String(page + 1));
         });
-        setActiveFilters(newActiveFilters);
-        setPageIndex(0);
-    }, []);
+    };
 
-    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
-        setSorting(newSorting);
-        setPageIndex(0);
-    }, []);
+    const handlePageSizeChange = (size: number) => {
+        updateSearchParams((next) => {
+            next.set('limit', String(size));
+            next.set('page', '1');
+        });
+    };
 
-    const handleTabChange = useCallback((value: string) => {
-        setActiveTab(value);
-        setPageIndex(0);
-        if (value === 'all') {
-            setActiveFilters({});
-        } else if (value === 'active') {
-            setActiveFilters({ status: { value: 'active', label: 'Active' } });
-        } else if (value === 'inactive') {
-            setActiveFilters({ status: { value: 'inactive', label: 'Inactive' } });
-        }
-    }, []);
+    const tabValue =
+        activeFilters.status?.value === 'active'
+            ? 'active'
+            : activeFilters.status?.value === 'inactive'
+              ? 'inactive'
+              : 'all';
 
     const columns = useMemo(() => [
         {
@@ -226,7 +304,7 @@ export default function SafetyEquipmentTypesPage() {
                 </DropdownMenu>
             ),
         },
-    ], [openDropdownId, navigate, handleDeleteClick, hasPermission]);
+    ], [openDropdownId, navigate, handleDeleteClick]);
 
     return (
         <>
@@ -241,7 +319,7 @@ export default function SafetyEquipmentTypesPage() {
                     </PermissionGuard>
                 }
             >
-                <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+                <Tabs value={tabValue} className="w-full" onValueChange={handleTabChange}>
                     <TabsList>
                         <TabsTrigger value="all">All Types</TabsTrigger>
                         <TabsTrigger value="active">Active</TabsTrigger>
@@ -258,9 +336,9 @@ export default function SafetyEquipmentTypesPage() {
                     pageIndex,
                     limit,
                     pageCount: Math.ceil(totalTypes / limit),
-                    onPageChange: setPageIndex,
-                    onPageSizeChange: setLimit,
-                    total: totalTypes
+                    onPageChange: handlePageChange,
+                    onPageSizeChange: handlePageSizeChange,
+                    total: totalTypes,
                 }}
                 sorting={sorting}
                 onSortingChange={handleSortingChange}
@@ -268,6 +346,8 @@ export default function SafetyEquipmentTypesPage() {
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
                 activeFilters={activeFilters}
+                searchValue={searchTerm}
+                searchPlaceholder="Search by name, code, or description"
             />
 
             <ConfirmDialog
@@ -285,4 +365,3 @@ export default function SafetyEquipmentTypesPage() {
         </>
     );
 }
-

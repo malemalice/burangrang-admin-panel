@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -40,8 +41,8 @@ export class AuditElementsService {
   async create(
     createAuditElementDto: CreateAuditElementDto,
   ): Promise<AuditElementDto> {
-    const existingByCode = await this.prisma.auditElement.findUnique({
-      where: { code: createAuditElementDto.code },
+    const existingByCode = await this.prisma.auditElement.findFirst({
+      where: { code: createAuditElementDto.code, ...isNotDeleted },
     });
     if (existingByCode) {
       this.errorHandler.throwConflictCustom('Code already exist');
@@ -83,7 +84,7 @@ export class AuditElementsService {
       code,
     } = options || {};
 
-    const where: Prisma.AuditElementWhereInput = {};
+    const where: Prisma.AuditElementWhereInput = { ...isNotDeleted };
 
     if (search) {
       where.OR = [
@@ -125,8 +126,8 @@ export class AuditElementsService {
   }
 
   async findOne(id: string): Promise<AuditElementDto> {
-    const element = await this.prisma.auditElement.findUnique({
-      where: { id },
+    const element = await this.prisma.auditElement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditElement', id, element);
@@ -138,11 +139,23 @@ export class AuditElementsService {
     id: string,
     updateAuditElementDto: UpdateAuditElementDto,
   ): Promise<AuditElementDto> {
-    const existingElement = await this.prisma.auditElement.findUnique({
-      where: { id },
+    const existingElement = await this.prisma.auditElement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditElement', id, existingElement);
+
+    if (
+      updateAuditElementDto.code !== undefined &&
+      updateAuditElementDto.code !== existingElement.code
+    ) {
+      const dup = await this.prisma.auditElement.findFirst({
+        where: { code: updateAuditElementDto.code, ...isNotDeleted },
+      });
+      if (dup) {
+        this.errorHandler.throwConflictCustom('Code already exist');
+      }
+    }
 
     const updateData: Prisma.AuditElementUpdateInput = {};
 
@@ -167,21 +180,31 @@ export class AuditElementsService {
     return this.auditElementMapper(element);
   }
 
-  async remove(id: string): Promise<void> {
-    const existingElement = await this.prisma.auditElement.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy?: string): Promise<void> {
+    const existingElement = await this.prisma.auditElement.findFirst({
+      where: { id, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditElement', id, existingElement);
 
-    await this.prisma.auditElement.delete({
+    const childCount = await this.prisma.auditClause.count({
+      where: { auditElementId: id, ...isNotDeleted },
+    });
+    if (childCount > 0) {
+      this.errorHandler.throwConflictCustom(
+        'Cannot delete audit element while it has clauses. Remove or reassign clauses first.',
+      );
+    }
+
+    await this.prisma.auditElement.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
   async findByCode(code: string): Promise<AuditElementDto> {
-    const element = await this.prisma.auditElement.findUnique({
-      where: { code },
+    const element = await this.prisma.auditElement.findFirst({
+      where: { code, ...isNotDeleted },
     });
 
     this.errorHandler.throwIfNotFoundByField('AuditElement', 'code', code, element);

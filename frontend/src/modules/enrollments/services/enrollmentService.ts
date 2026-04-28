@@ -10,6 +10,7 @@ import {
   EnrollmentStatus,
   AssignCourseResponse,
 } from '../types/enrollment.types';
+import { LearningContext, QuizAttemptSummary } from '@/modules/courses/types/course.types';
 
 // Data transformation functions
 const mapEnrollmentDtoToEnrollment = (enrollmentDto: EnrollmentDTO): Enrollment => ({
@@ -33,6 +34,20 @@ const mapEnrollmentDtoToEnrollment = (enrollmentDto: EnrollmentDTO): Enrollment 
   assigner: enrollmentDto.assigner,
   createdAt: enrollmentDto.createdAt,
   updatedAt: enrollmentDto.updatedAt,
+});
+
+const mapQuizAttemptSummary = (attempt: any): QuizAttemptSummary => ({
+  id: attempt.id,
+  quizId: attempt.quizId,
+  attemptNumber: attempt.attemptNumber,
+  status: attempt.status,
+  score: attempt.score,
+  totalPoints: attempt.totalPoints,
+  earnedPoints: attempt.earnedPoints,
+  isPassed: attempt.isPassed,
+  startedAt: attempt.startedAt,
+  completedAt: attempt.completedAt,
+  timeSpent: attempt.timeSpent,
 });
 
 const enrollmentService = {
@@ -94,13 +109,14 @@ const enrollmentService = {
   },
 
   // GET learning context (enrollment + course + chapters + progress)
-  getLearningContext: async (id: string): Promise<any> => {
+  getLearningContext: async (id: string): Promise<LearningContext> => {
     const response = await api.get(`/enrollments/${id}/learning-context`);
     return {
       enrollment: mapEnrollmentDtoToEnrollment(response.data.enrollment),
       course: response.data.course,
       quizzes: response.data.quizzes,
       progress: response.data.progress,
+      quizAttempts: (response.data.quizAttempts || []).map(mapQuizAttemptSummary),
     };
   },
 

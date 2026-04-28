@@ -19,6 +19,7 @@ import { MonthlyFlowReport, PaginatedResponse, TreatmentPlant } from '../../type
 import { formatDate } from '@/core/utils/date';
 import { format } from 'date-fns';
 import { MonthlyFlowReportPDFTemplate } from '../../components/MonthlyFlowReportPDFTemplate';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 export default function MonthlyFlowReportsPage() {
   const navigate = useNavigate();
@@ -42,7 +43,11 @@ export default function MonthlyFlowReportsPage() {
     currentReportForPDF
       ? `${currentReportForPDF.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}-${exportIndex + 1}.pdf`
       : 'monthly-flow-report.pdf';
-  const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+  const { targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfFilename,
+    }),
+  );
 
   const page = useMemo(() => {
     const raw = searchParams.get('page');
@@ -186,7 +191,7 @@ export default function MonthlyFlowReportsPage() {
     const count = exportQueue.length;
     const timer = setTimeout(async () => {
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         if (exportIndex + 1 < count) {
           setExportIndex((i) => i + 1);
         } else {
@@ -203,7 +208,7 @@ export default function MonthlyFlowReportsPage() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [isExportingAllPDF, exportQueue.length, exportIndex, toPDF]);
+  }, [isExportingAllPDF, exportQueue.length, exportIndex, targetRef, pdfFilename]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -257,6 +262,18 @@ export default function MonthlyFlowReportsPage() {
       id: 'totalVolume',
       header: 'Total Volume',
       cell: (item: MonthlyFlowReport) => `${item.totalVolume?.toLocaleString()} m³`,
+      isSortable: true,
+    },
+    {
+      id: 'initialFlow',
+      header: 'Initial Flow',
+      cell: (item: MonthlyFlowReport) => `${item.initialFlow?.toLocaleString()} m³/day`,
+      isSortable: true,
+    },
+    {
+      id: 'finalFlow',
+      header: 'Final Flow',
+      cell: (item: MonthlyFlowReport) => `${item.finalFlow?.toLocaleString()} m³/day`,
       isSortable: true,
     },
     {

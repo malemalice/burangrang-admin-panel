@@ -12,6 +12,11 @@ function toDateTimeLocalString(date: Date): string {
   return format(date, "yyyy-MM-dd'T'HH:mm");
 }
 
+/** Format a Date for date input (local date only). */
+function toDateInputString(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
 /** Parse a filter value that may be date-only (yyyy-MM-dd) or full ISO. Date-only is parsed as local midnight to avoid UTC midnight displaying as 7:00 AM in GMT+7. */
 function parseFilterDate(value: string | Date | undefined): Date | null {
   if (value === undefined || value === null) return null;
@@ -25,7 +30,7 @@ function parseFilterDate(value: string | Date | undefined): Date | null {
 }
 
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { SearchableSelect, SearchableSelectOption, MultiSelectSearchable } from './searchable-select';
+import { SearchableSelect, MultiSelectSearchable } from './searchable-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { DateTimePicker } from './datetime-picker';
 
@@ -36,11 +41,18 @@ export type FilterField = {
   options?: { label: string; value: string | boolean }[];
   /** Optional placeholder for text fields; describes what the field searches/filters. */
   placeholder?: string;
+  /** Controls whether a date range field should use date-only or datetime inputs. */
+  dateRangeMode?: 'date' | 'datetime';
+};
+
+type DateRangeFilterValue = {
+  from?: string | Date;
+  to?: string | Date;
 };
 
 export type FilterValue = {
   id: string;
-  value: string | string[] | { from?: Date; to?: Date } | boolean;
+  value: string | string[] | DateRangeFilterValue | boolean;
 };
 
 interface FilterDrawerProps {
@@ -75,7 +87,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialValues]);
 
-  const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
+  const updateFilterValue = (id: string, value: string | string[] | DateRangeFilterValue | boolean) => {
     setFilterValues(prevFilters => {
       const existingFilterIndex = prevFilters.findIndex(filter => filter.id === id);
       if (existingFilterIndex >= 0) {
@@ -89,6 +101,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   const getFilterValue = (id: string) => {
     return filterValues.find(filter => filter.id === id)?.value;
+  };
+
+  const getDateRangeFilterValue = (id: string): DateRangeFilterValue => {
+    const value = getFilterValue(id);
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as DateRangeFilterValue;
+    }
+    return {};
   };
 
   const handleApplyFilters = () => {
@@ -288,24 +308,32 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       >
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                         {((): React.ReactNode => {
-                          const fromDate = parseFilterDate((getFilterValue(field.id) as any)?.from);
-                          return fromDate ? format(fromDate, 'PPp') : <span>From date/time...</span>;
+                          const fromDate = parseFilterDate(getDateRangeFilterValue(field.id).from);
+                          const isDateOnly = field.dateRangeMode === 'date';
+                          return fromDate
+                            ? format(fromDate, isDateOnly ? 'PPP' : 'PPp')
+                            : <span>{isDateOnly ? 'From date...' : 'From date/time...'}</span>;
                         })()}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-3" align="start">
                       <DateTimePicker
-                        type="datetime-local"
+                        type={field.dateRangeMode === 'date' ? 'date' : 'datetime-local'}
                         value={((): string => {
-                          const fromVal = (getFilterValue(field.id) as any)?.from;
+                          const fromVal = getDateRangeFilterValue(field.id).from;
                           const fromDate = parseFilterDate(fromVal);
-                          return fromDate ? toDateTimeLocalString(fromDate) : '';
+                          if (!fromDate) return '';
+                          return field.dateRangeMode === 'date'
+                            ? toDateInputString(fromDate)
+                            : toDateTimeLocalString(fromDate);
                         })()}
                         onChange={(value) => {
-                          const current = getFilterValue(field.id) as any || {};
+                          const current = getDateRangeFilterValue(field.id);
                           updateFilterValue(field.id, {
                             ...current,
-                            from: typeof value === 'string' && value ? new Date(value).toISOString() : undefined
+                            from: typeof value === 'string' && value
+                              ? (field.dateRangeMode === 'date' ? value : new Date(value).toISOString())
+                              : undefined
                           });
                         }}
                         className="w-full"
@@ -321,24 +349,32 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       >
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                         {((): React.ReactNode => {
-                          const toDate = parseFilterDate((getFilterValue(field.id) as any)?.to);
-                          return toDate ? format(toDate, 'PPp') : <span>To date/time...</span>;
+                          const toDate = parseFilterDate(getDateRangeFilterValue(field.id).to);
+                          const isDateOnly = field.dateRangeMode === 'date';
+                          return toDate
+                            ? format(toDate, isDateOnly ? 'PPP' : 'PPp')
+                            : <span>{isDateOnly ? 'To date...' : 'To date/time...'}</span>;
                         })()}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-3" align="start">
                       <DateTimePicker
-                        type="datetime-local"
+                        type={field.dateRangeMode === 'date' ? 'date' : 'datetime-local'}
                         value={((): string => {
-                          const toVal = (getFilterValue(field.id) as any)?.to;
+                          const toVal = getDateRangeFilterValue(field.id).to;
                           const toDate = parseFilterDate(toVal);
-                          return toDate ? toDateTimeLocalString(toDate) : '';
+                          if (!toDate) return '';
+                          return field.dateRangeMode === 'date'
+                            ? toDateInputString(toDate)
+                            : toDateTimeLocalString(toDate);
                         })()}
                         onChange={(value) => {
-                          const current = getFilterValue(field.id) as any || {};
+                          const current = getDateRangeFilterValue(field.id);
                           updateFilterValue(field.id, {
                             ...current,
-                            to: typeof value === 'string' && value ? new Date(value).toISOString() : undefined
+                            to: typeof value === 'string' && value
+                              ? (field.dateRangeMode === 'date' ? value : new Date(value).toISOString())
+                              : undefined
                           });
                         }}
                         className="w-full"
@@ -396,8 +432,9 @@ export const FilterBadges: React.FC<{
           const dateRange = filter.value as { from?: string | Date; to?: string | Date };
           const fromDate = parseFilterDate(dateRange.from as string | undefined);
           const toDate = parseFilterDate(dateRange.to as string | undefined);
-          const fromStr = fromDate ? format(fromDate, 'PPp') : '';
-          const toStr = toDate ? format(toDate, 'PPp') : '';
+          const dateFormat = field.dateRangeMode === 'date' ? 'PPP' : 'PPp';
+          const fromStr = fromDate ? format(fromDate, dateFormat) : '';
+          const toStr = toDate ? format(toDate, dateFormat) : '';
           displayValue = fromStr && toStr ? `${fromStr} - ${toStr}` : (fromStr || toStr);
         } else if (Array.isArray(filter.value)) {
           displayValue = filter.value.map(v => {

@@ -1,9 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { NotificationsService } from './notifications.service';
 import { MailService } from '../../mail/mail.service';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { PrismaModule } from '../../../core/prisma/prisma.module';
 import { SharedModule } from '../../../shared/shared.module';
+
+const mockConfigService = {
+  get: jest.fn((key: string) =>
+    key === 'app.frontendUrl' ? 'http://localhost:5173' : undefined,
+  ),
+};
 
 // Inline mail mock: no real email sent; assert call count and args
 const createMockMailService = () => ({
@@ -62,6 +69,7 @@ describe('NotificationsService (integration)', () => {
       providers: [
         NotificationsService,
         { provide: MailService, useValue: mockMailService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     })
       .overrideProvider(PrismaService)
@@ -119,8 +127,7 @@ describe('NotificationsService (integration)', () => {
           context: expect.objectContaining({
             title: 'Incident Approved',
             message: 'Your incident has been approved.',
-            context: 'incident',
-            contextId: 'incident-1',
+            actionUrl: expect.stringContaining('/incidents/incident-1'),
           }),
         }),
       );

@@ -1,92 +1,134 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
-  UnauthorizedException,
   ForbiddenException,
+  Injectable,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import * as crypto from 'crypto';
-import { SettingsHelperService } from '../../../shared/services/settings.service';
+import { ZohoConfigService } from '../services/zoho-config.service';
 
 @Injectable()
 export class ZohoWebhookGuard implements CanActivate {
   private readonly logger = new Logger(ZohoWebhookGuard.name);
 
-  constructor(private readonly settingsHelper: SettingsHelperService) {}
+  constructor(private readonly zohoConfigService: ZohoConfigService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
-
-    // Check if webhook security is enabled
-    const securityEnabled = await this.settingsHelper.getBoolean(
-      'zoho.webhook.security',
-      true, // Default to true for security
+    const enabled = await this.zohoConfigService.getBoolean(
+      'zoho.webhook.enabled',
+      true,
     );
-
-    if (!securityEnabled) {
-      this.logger.warn('Zoho webhook security is disabled - skipping signature verification');
-      return true;
+    if (!enabled) {
+      throw new ForbiddenException('Zoho webhook is disabled by configuration');
     }
 
-    // Get webhook secret from settings
-    const secret = await this.settingsHelper.get('zoho.secret');
+    const request = context.switchToHttp().getRequest<Request>();
+    const mode = await this.zohoConfigService.getWebhookAuthMode();
 
-    if (!secret) {
-      this.logger.error('Zoho webhook secret not configured in settings');
-      throw new UnauthorizedException('Webhook secret not configured');
+    if (mode === 'jwt') {
+      return this.validateJwtMode(request);
     }
 
-    // Get signature from header
-    const signature = request.headers['x-zoho-signature'] as string;
+    if (mode === 'signature') {
+      return this.validateSignatureMode(request);
+    }
+
+    return this.validateSecretMode(request);
+  }
+
+  private async validateSecretMode(request: Request): Promise<boolean> {
+    const expectedSecret = await this.zohoConfigService.getString(
+      'zoho.webhook.secret',
+      '',
+    );
+    const receivedSecret =
+      (request.headers['x-zoho-webhook-secret'] as string | undefined) ??
+      (request.headers['x-zoho-secret'] as string | undefined);
+
+    if (!expectedSecret) {
+      throw new UnauthorizedException('Webhook secret is not configured');
+    }
+
+    if (!receivedSecret) {
+      throw new UnauthorizedException('Missing webhook secret header');
+    }
+
+    if (!this.safeCompare(receivedSecret, expectedSecret)) {
+      throw new ForbiddenException('Invalid webhook secret');
+    }
+
+    return true;
+  }
+
+  private async validateJwtMode(request: Request): Promise<boolean> {
+    const expectedToken = await this.zohoConfigService.getString(
+      'zoho.webhook.jwt',
+      '',
+    );
+    const authorization = request.headers.authorization;
+
+    if (!expectedToken) {
+      throw new UnauthorizedException('Webhook JWT token is not configured');
+    }
+
+    if (!authorization?.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Missing bearer token');
+    }
+
+    const incomingToken = authorization.slice('Bearer '.length).trim();
+
+    if (!this.safeCompare(incomingToken, expectedToken)) {
+      throw new ForbiddenException('Invalid bearer token');
+    }
+
+    return true;
+  }
+
+  private async validateSignatureMode(request: Request): Promise<boolean> {
+    const expectedSecret = await this.zohoConfigService.getString(
+      'zoho.webhook.secret',
+      '',
+    );
+    const signature = request.headers['x-zoho-signature'] as string | undefined;
+    const rawBody = ((request as Request & { rawBody?: string }).rawBody ??
+      JSON.stringify(request.body ?? {})) as string;
+
+    if (!expectedSecret) {
+      throw new UnauthorizedException('Webhook secret is not configured');
+    }
 
     if (!signature) {
-      this.logger.warn('Missing X-Zoho-Signature header');
       throw new UnauthorizedException('Missing Zoho signature header');
     }
 
-    // Get raw body (must be available as string)
-    // The raw body should be attached by middleware in main.ts
-    const rawBody = (request as any).rawBody || JSON.stringify(request.body);
-
     if (!rawBody) {
-      this.logger.warn('Raw body not available for signature verification');
-      throw new UnauthorizedException('Raw body not available');
+      throw new UnauthorizedException('Raw body is not available');
     }
 
-    if (!rawBody) {
-      this.logger.warn('Raw body not available for signature verification');
-      throw new UnauthorizedException('Raw body not available');
+    const expectedSignature = crypto
+      .createHmac('sha256', expectedSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    if (!this.safeCompare(signature, expectedSignature)) {
+      throw new ForbiddenException('Invalid Zoho signature');
     }
 
-    try {
-      // Calculate expected signature using HMAC-SHA256
-      const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('hex');
+    return true;
+  }
 
-      // Constant-time comparison to prevent timing attacks
-      const isValid = crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expectedSignature),
-      );
+  private safeCompare(a: string, b: string): boolean {
+    const aBuffer = Buffer.from(a);
+    const bBuffer = Buffer.from(b);
 
-      if (!isValid) {
-        this.logger.warn('Invalid Zoho webhook signature');
-        throw new ForbiddenException('Invalid Zoho webhook signature');
-      }
-
-      this.logger.debug('Zoho webhook signature verified successfully');
-      return true;
-    } catch (error) {
-      if (error instanceof ForbiddenException || error instanceof UnauthorizedException) {
-        throw error;
-      }
-
-      this.logger.error(`Error verifying webhook signature: ${error.message}`, error.stack);
-      throw new ForbiddenException('Signature verification failed');
+    if (aBuffer.length !== bBuffer.length) {
+      this.logger.warn('Webhook auth value length mismatch');
+      return false;
     }
+
+    return crypto.timingSafeEqual(aBuffer, bBuffer);
   }
 }

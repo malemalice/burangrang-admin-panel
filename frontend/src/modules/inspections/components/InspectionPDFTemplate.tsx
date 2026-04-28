@@ -164,87 +164,86 @@ export const InspectionPDFTemplate = ({
         {items.length === 0 ? (
           <p className="text-sm text-gray-600">No inspection items found.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table
-              className="min-w-full border border-gray-300"
-              style={{ borderCollapse: 'collapse' }}
-            >
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    No
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Area
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Risk Category
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Risk
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Department
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Assignee
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Status
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Due Date
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                    Created At
-                  </th>
+          <table
+            data-pdf-table-splittable
+            className="min-w-full border border-gray-300"
+            style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
+          >
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '5%' }}>
+                  No
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '12%' }}>
+                  Area
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '13%' }}>
+                  Type of Hazard
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '13%' }}>
+                  Risk
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '12%' }}>
+                  Department
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '13%' }}>
+                  Assignee
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '10%' }}>
+                  Status
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '11%' }}>
+                  Due Date
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '11%' }}>
+                  Created At
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
+                    {index + 1}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.area?.name || item.areaId || 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.riskCategory?.name || 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.risk?.name || 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.assignedDepartment?.name || 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.assignee
+                      ? `${item.assignee.firstName} ${item.assignee.lastName}`
+                      : 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs">
+                    <span
+                      className={`font-medium ${getItemStatusTextClass(item.status)}`}
+                    >
+                      {getStatusLabel(item.status)}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.dueDateAt
+                      ? format(new Date(item.dueDateAt), 'dd MMM yyyy')
+                      : 'N/A'}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                    {item.createdAt
+                      ? format(new Date(item.createdAt), 'dd MMM yyyy')
+                      : 'N/A'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {index + 1}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.area?.name || item.areaId || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.riskCategory?.name || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.risk?.name || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.assignedDepartment?.name || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.assignee
-                        ? `${item.assignee.firstName} ${item.assignee.lastName}`
-                        : 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs">
-                      <span
-                        className={`font-medium ${getItemStatusTextClass(item.status)}`}
-                      >
-                        {getStatusLabel(item.status)}
-                      </span>
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.dueDateAt
-                        ? format(new Date(item.dueDateAt), 'dd MMM yyyy')
-                        : 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
-                      {item.createdAt
-                        ? format(new Date(item.createdAt), 'dd MMM yyyy')
-                        : 'N/A'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDecimal, IsInt, IsBoolean, IsUUID, IsArray, IsDateString } from 'class-validator';
-import { Expose, Transform } from 'class-transformer';
-import { Decimal } from '@prisma/client/runtime/library';
+import { IsString, IsOptional, IsInt, IsBoolean, IsArray, IsDateString } from 'class-validator';
+import { Expose } from 'class-transformer';
 
 export class CourseDto {
   @ApiProperty({ description: 'Course unique identifier' })
@@ -47,31 +46,6 @@ export class CourseDto {
   @IsInt()
   totalDuration: number;
 
-  @ApiProperty({ description: 'Course difficulty level', enum: ['beginner', 'intermediate', 'advanced'] })
-  @Expose()
-  @IsString()
-  difficulty: string;
-
-  @ApiProperty({ description: 'Course language' })
-  @Expose()
-  @IsString()
-  language: string;
-
-  @ApiProperty({ description: 'Course rating', type: 'number', format: 'decimal' })
-  @Expose()
-  @Transform(({ value }) => {
-    if (value === null || value === undefined) return 0;
-    if (typeof value === 'number') return value;
-    if (value instanceof Decimal) return Number(value.toString());
-    return Number(value);
-  })
-  rating: number;
-
-  @ApiProperty({ description: 'Number of reviews' })
-  @Expose()
-  @IsInt()
-  reviewCount: number;
-
   @ApiProperty({ description: 'Number of enrolled students' })
   @Expose()
   @IsInt()
@@ -81,11 +55,6 @@ export class CourseDto {
   @Expose()
   @IsString()
   instructorId: string;
-
-  @ApiProperty({ description: 'Course status', enum: ['draft', 'review', 'published', 'archived'] })
-  @Expose()
-  @IsString()
-  status: string;
 
   @ApiProperty({ description: 'Course published date', required: false })
   @Expose()

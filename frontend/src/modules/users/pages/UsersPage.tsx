@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase, KeyRound } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, MoreHorizontal, Briefcase, Building2, MapPin, KeyRound } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
@@ -16,6 +16,7 @@ import {
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
@@ -327,37 +328,54 @@ const UsersPage = () => {
       isSortable: true
     },
     {
-      id: 'office',
-      header: 'Office',
+      id: 'org',
+      header: 'Placement',
       cell: (user: User) => (
-        <div className="flex items-center gap-2">
-          <Building className="h-4 w-4 text-gray-500" />
-          <span>{user.office}</span>
+        <div className="flex items-start gap-2">
+          <div className="flex flex-col justify-center gap-0.5 mt-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Briefcase className="h-3.5 w-3.5 text-gray-500" />
+              </TooltipTrigger>
+              <TooltipContent>Job Position</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Building2 className="h-3.5 w-3.5 text-gray-500" />
+              </TooltipTrigger>
+              <TooltipContent>Department</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <MapPin className="h-3.5 w-3.5 text-gray-500" />
+              </TooltipTrigger>
+              <TooltipContent>Office</TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="flex flex-col leading-none">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs">{user.position || '-'}</span>
+              </TooltipTrigger>
+              <TooltipContent>Job Position</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs">{user.department || '-'}</span>
+              </TooltipTrigger>
+              <TooltipContent>Department</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs">{user.office || '-'}</span>
+              </TooltipTrigger>
+              <TooltipContent>Office</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       ),
-      isSortable: true
-    },
-    {
-      id: 'department',
-      header: 'Department',
-      cell: (user: User) => (
-        <div className="flex items-center gap-2">
-          <Building className="h-4 w-4 text-gray-500" />
-          <span>{user.department || '-'}</span>
-        </div>
-      ),
-      isSortable: true
-    },
-    {
-      id: 'position',
-      header: 'Job Position',
-      cell: (user: User) => (
-        <div className="flex items-center gap-2">
-          <Briefcase className="h-4 w-4 text-gray-500" />
-          <span>{user.position || '-'}</span>
-        </div>
-      ),
-      isSortable: true
+      cellClassName: 'p-2',
+      isSortable: false
     },
     {
       id: 'status',

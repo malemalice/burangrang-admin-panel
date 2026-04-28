@@ -7,8 +7,10 @@ import {
   Param,
   Delete,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -60,6 +62,8 @@ export class DepartmentsController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('code') code?: string,
   ): Promise<{ data: DepartmentDto[]; meta: { total: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -74,6 +78,8 @@ export class DepartmentsController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      name,
+      code,
     });
   }
 
@@ -115,8 +121,11 @@ export class DepartmentsController {
     description: 'The department has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Department not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.departmentsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.departmentsService.remove(id, req.user.id);
   }
 
   @Get('code/:code')

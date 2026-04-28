@@ -12,11 +12,27 @@ export class RiskControlDto {
 
   @ApiProperty({ required: false })
   @Expose()
-  transfer?: string;
+  eliminationControl?: string;
 
   @ApiProperty({ required: false })
   @Expose()
-  reduce?: string;
+  substitutionControl?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  engineeringControl?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  administrationControl?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  personalProtectiveEquipment?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  transfer?: string;
 
   @ApiProperty()
   @Expose()

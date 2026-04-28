@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 export async function seedNotificationTypes() {
   console.log('🌱 Seeding notification types...');

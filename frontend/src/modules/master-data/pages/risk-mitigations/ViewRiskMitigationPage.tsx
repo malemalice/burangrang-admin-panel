@@ -109,8 +109,12 @@ const ViewRiskMitigationPage = () => {
               </p>
             </div>
             <Section label="Eliminate" value={mitigation.eliminate ?? undefined} />
+            <Section label="Elimination Control" value={mitigation.eliminationControl ?? undefined} />
+            <Section label="Substitution Control" value={mitigation.substitutionControl ?? undefined} />
+            <Section label="Engineering Control" value={mitigation.engineeringControl ?? undefined} />
+            <Section label="Administration Control" value={mitigation.administrationControl ?? undefined} />
+            <Section label="Personal Protective Equipment" value={mitigation.personalProtectiveEquipment ?? undefined} />
             <Section label="Transfer" value={mitigation.transfer ?? undefined} />
-            <Section label="Reduce" value={mitigation.reduce ?? undefined} />
             <Section label="Accept" value={mitigation.accept ?? undefined} />
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Status</h3>

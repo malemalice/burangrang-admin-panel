@@ -8,7 +8,9 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RiskMitigationsService } from './risk-mitigations.service';
 import { CreateRiskMitigationDto } from './dto/create-risk-mitigation.dto';
 import { UpdateRiskMitigationDto } from './dto/update-risk-mitigation.dto';
@@ -19,6 +21,10 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('risk-mitigations')
 @Controller('risk-mitigations')
@@ -93,7 +99,7 @@ export class RiskMitigationsController {
   @ApiOperation({ summary: 'Delete a risk mitigation' })
   @ApiResponse({ status: 200, description: 'The risk mitigation has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk mitigation not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.riskMitigationsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.riskMitigationsService.remove(id, req.user.id);
   }
 }

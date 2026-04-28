@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsBoolean, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+  MaxLength,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   WorkPermitClassificationDto,
@@ -9,11 +17,11 @@ import {
   WorkPermitToolDto,
   WorkPermitMaterialDto,
   WorkPermitMachineDto,
-  WorkPermitProfessionDto,
   WorkPermitRequiredCourseDto,
   WorkPermitHazardDto,
   WorkPermitAttachmentDto,
 } from './create-work-permit.dto';
+import { WorkPermitClassificationSafetyGuidanceInputDto } from './work-permit-classification-safety-guidance.dto';
 
 export class UpdateWorkPermitDto {
   @ApiProperty({ description: 'Project name', required: false })
@@ -56,10 +64,15 @@ export class UpdateWorkPermitDto {
   @IsString()
   workRequirements?: string;
 
-  @ApiProperty({ description: 'Safety guideline', required: false })
+  @ApiProperty({
+    description:
+      'Required when work classification "Others" (code OTHERS) is selected — free-text description of the other work type',
+    required: false,
+  })
   @IsOptional()
   @IsString()
-  safetyGuideline?: string;
+  @MaxLength(2000)
+  workClassificationOtherDetail?: string;
 
   @ApiProperty({ description: 'Require course verification', required: false })
   @IsOptional()
@@ -72,6 +85,17 @@ export class UpdateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitClassificationDto)
   classifications?: WorkPermitClassificationDto[];
+
+  @ApiProperty({
+    description: 'Replace safety guidance for permit classification rows (omit if updating classifications in same request)',
+    type: [WorkPermitClassificationSafetyGuidanceInputDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkPermitClassificationSafetyGuidanceInputDto)
+  classificationSafetyGuidance?: WorkPermitClassificationSafetyGuidanceInputDto[];
 
   @ApiProperty({ description: 'Employees/PICs', type: [WorkPermitEmployeeDto], required: false })
   @IsOptional()
@@ -114,13 +138,6 @@ export class UpdateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitMachineDto)
   machines?: WorkPermitMachineDto[];
-
-  @ApiProperty({ description: 'Professions', type: [WorkPermitProfessionDto], required: false })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => WorkPermitProfessionDto)
-  professions?: WorkPermitProfessionDto[];
 
   @ApiProperty({ description: 'Required courses', type: [WorkPermitRequiredCourseDto], required: false })
   @IsOptional()

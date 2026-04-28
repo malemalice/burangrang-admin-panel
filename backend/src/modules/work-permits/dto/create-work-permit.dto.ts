@@ -10,8 +10,10 @@ import {
   IsInt,
   Min,
   ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WorkPermitClassificationSafetyGuidanceOnCreateDto } from './work-permit-classification-safety-guidance.dto';
 
 export class WorkPermitClassificationDto {
   @ApiProperty({ description: 'Work classification ID' })
@@ -43,25 +45,38 @@ export class WorkPermitEmployeeDto {
 }
 
 export class WorkPermitWorkerDto {
-  @ApiProperty({ description: 'User ID (worker with role Guest)' })
+  @ApiProperty({
+    description:
+      'User ID (contractor/guest worker). Profession and ID number come from the user profile. Certificate and health declaration URLs are stored on the worker profile (`t_worker`), not on the permit join row.',
+  })
   @IsString()
   @IsNotEmpty()
   userId: string;
 
-  @ApiProperty({ description: 'ID number', required: false })
-  @IsOptional()
-  @IsString()
-  idNumber?: string;
-
-  @ApiProperty({ description: 'Certificate URL', required: false })
+  @ApiProperty({
+    description: 'Certificate URL (persisted on worker profile)',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   certificateUrl?: string;
 
-  @ApiProperty({ description: 'Health declaration URL' })
+  @ApiProperty({
+    description:
+      'Legacy uploaded health declaration file URL (optional if healthScreeningId is set); persisted on worker profile',
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  healthDeclarationUrl: string;
+  healthDeclarationUrl?: string;
+
+  @ApiProperty({
+    description: 'Existing structured health screening id to link (optional if healthDeclarationUrl is set)',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  healthScreeningId?: string;
 
   @ApiProperty({ description: 'Order/sequence' })
   @IsInt()
@@ -137,23 +152,6 @@ export class WorkPermitMachineDto {
   order: number;
 }
 
-export class WorkPermitProfessionDto {
-  @ApiProperty({ description: 'Profession ID' })
-  @IsString()
-  @IsNotEmpty()
-  professionId: string;
-
-  @ApiProperty({ description: 'Quantity' })
-  @IsInt()
-  @Min(1)
-  quantity: number;
-
-  @ApiProperty({ description: 'Order/sequence' })
-  @IsInt()
-  @Min(0)
-  order: number;
-}
-
 export class WorkPermitRequiredCourseDto {
   @ApiProperty({ description: 'Course ID' })
   @IsString()
@@ -182,15 +180,15 @@ export class WorkPermitHazardDto {
   @IsNotEmpty()
   hazardName: string;
 
-  @ApiProperty({ description: 'Description', required: false })
+  @ApiProperty({ description: 'Activity', required: false })
   @IsOptional()
   @IsString()
-  description?: string;
+  activity?: string;
 
-  @ApiProperty({ description: 'Control measure', required: false })
+  @ApiProperty({ description: 'Mitigation', required: false })
   @IsOptional()
   @IsString()
-  controlMeasure?: string;
+  mitigation?: string;
 
   @ApiProperty({ description: 'Order/sequence' })
   @IsInt()
@@ -226,6 +224,15 @@ export class WorkPermitAttachmentDto {
 }
 
 export class CreateWorkPermitDto {
+  @ApiProperty({
+    description:
+      'Business applicant user ID (contractor). Required when creator is not CONTRACTOR; ignored/forced to self when creator is CONTRACTOR.',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  applicantUserId?: string;
+
   @ApiProperty({ description: 'Project name' })
   @IsString()
   @IsNotEmpty()
@@ -256,20 +263,25 @@ export class CreateWorkPermitDto {
   @IsNotEmpty()
   workStagesDescription: string;
 
-  @ApiProperty({ description: 'Job safety analysis' })
+  @ApiProperty({ description: 'Job safety analysis', required: false, default: '' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  jobSafetyAnalysis: string;
+  jobSafetyAnalysis?: string;
 
   @ApiProperty({ description: 'Work requirements', required: false })
   @IsOptional()
   @IsString()
   workRequirements?: string;
 
-  @ApiProperty({ description: 'Safety guideline', required: false })
+  @ApiProperty({
+    description:
+      'Required when work classification "Others" (code OTHERS) is selected — free-text description of the other work type',
+    required: false,
+  })
   @IsOptional()
   @IsString()
-  safetyGuideline?: string;
+  @MaxLength(2000)
+  workClassificationOtherDetail?: string;
 
   @ApiProperty({ description: 'Require course verification', default: false })
   @IsOptional()
@@ -282,6 +294,18 @@ export class CreateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitClassificationDto)
   classifications?: WorkPermitClassificationDto[];
+
+  @ApiProperty({
+    description:
+      'Optional overrides per classification line (matched by workClassificationId + order) after template copy',
+    type: [WorkPermitClassificationSafetyGuidanceOnCreateDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkPermitClassificationSafetyGuidanceOnCreateDto)
+  classificationSafetyGuidance?: WorkPermitClassificationSafetyGuidanceOnCreateDto[];
 
   @ApiProperty({ description: 'Employees/PICs', type: [WorkPermitEmployeeDto], required: false })
   @IsOptional()
@@ -324,13 +348,6 @@ export class CreateWorkPermitDto {
   @ValidateNested({ each: true })
   @Type(() => WorkPermitMachineDto)
   machines?: WorkPermitMachineDto[];
-
-  @ApiProperty({ description: 'Professions', type: [WorkPermitProfessionDto], required: false })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => WorkPermitProfessionDto)
-  professions?: WorkPermitProfessionDto[];
 
   @ApiProperty({ description: 'Required courses', type: [WorkPermitRequiredCourseDto], required: false })
   @IsOptional()

@@ -9,7 +9,9 @@ import {
   UseGuards,
   Query,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -30,6 +32,10 @@ import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Public } from 'src/shared/decorators/public.decorator';
 import { SETTINGS_KEYS } from './constants/settings-keys';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('settings')
 @ApiBearerAuth()
@@ -64,15 +70,35 @@ export class SettingsController {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Application name' },
+        logoPortraitUrl: { type: 'string', nullable: true, description: 'Portrait logo URL (icon)' },
+        logoLandscapeUrl: { type: 'string', nullable: true, description: 'Landscape logo URL (logo + title)' },
+        loginTagline: { type: 'string', nullable: true, description: 'Login page footer tagline' },
       },
     },
   })
   @Public()
-  async getAppSettings(): Promise<{ name: string }> {
-    const name = await this.settingsService.getValueByKey('app.name');
+  async getAppSettings(): Promise<{
+    name: string;
+    logoPortraitUrl: string | null;
+    logoLandscapeUrl: string | null;
+    loginTagline: string | null;
+  }> {
+    const [name, logoPortraitUrlRaw, logoLandscapeUrlRaw, loginTaglineRaw] = await Promise.all([
+      this.settingsService.getValueByKey('app.name'),
+      this.settingsService.getValueByKey('app.logo.portraitUrl'),
+      this.settingsService.getValueByKey('app.logo.landscapeUrl'),
+      this.settingsService.getValueByKey(SETTINGS_KEYS.APP_LOGIN_TAGLINE),
+    ]);
+
+    const logoPortraitUrl = logoPortraitUrlRaw?.trim() ? logoPortraitUrlRaw.trim() : null;
+    const logoLandscapeUrl = logoLandscapeUrlRaw?.trim() ? logoLandscapeUrlRaw.trim() : null;
+    const loginTagline = loginTaglineRaw?.trim() ? loginTaglineRaw.trim() : null;
 
     return {
       name: name || 'HSE System',
+      logoPortraitUrl,
+      logoLandscapeUrl,
+      loginTagline: loginTagline || 'made by your company',
     };
   }
 
@@ -322,13 +348,13 @@ export class SettingsController {
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.settingsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.settingsService.remove(id, req.user.id);
   }
 
   @Delete('by-key/:key')
   @Permissions('setting:delete')
-  removeByKey(@Param('key') key: string): Promise<void> {
-    return this.settingsService.removeByKey(key);
+  removeByKey(@Param('key') key: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.settingsService.removeByKey(key, req.user.id);
   }
 }

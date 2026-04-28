@@ -47,7 +47,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 </p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
+                <p className="text-sm font-medium text-muted-foreground">Type of Hazard</p>
                 <p className="text-sm">
                   {item.riskCategory
                     ? item.riskCategory.name
@@ -197,19 +197,35 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                   <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Transfer</p>
-                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer || 'N/A'}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Elimination Control</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminationControl || 'N/A'}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Reduce</p>
-                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce || 'N/A'}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Substitution Control</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.substitutionControl || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Engineering Control</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.engineeringControl || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Administration Control</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.administrationControl || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Personal Protective Equipment</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.personalProtectiveEquipment || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Transfer</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer || 'N/A'}</p>
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">Accept</p>
                   <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept || 'N/A'}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Legal Aspect</p>
+                  <p className="text-sm font-medium text-muted-foreground">Legal Aspect & Standard reference</p>
                   <p className="text-sm whitespace-pre-wrap">{item.mitigation.legalAspect || 'N/A'}</p>
                 </div>
               </div>

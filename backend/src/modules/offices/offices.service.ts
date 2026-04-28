@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateOfficeDto } from './dto/create-office.dto';
 import { UpdateOfficeDto } from './dto/update-office.dto';
@@ -6,6 +6,7 @@ import { OfficeDto } from './dto/office.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -13,6 +14,10 @@ interface FindAllOptions {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
+  search?: string;
+  name?: string;
+  code?: string;
+  address?: string;
 }
 
 @Injectable()
@@ -71,20 +76,36 @@ export class OfficesService {
 
   async create(createOfficeDto: CreateOfficeDto): Promise<OfficeDto> {
     const { parentId, ...data } = createOfficeDto;
-    const office = await this.prisma.office.create({
-      data: {
-        ...data,
-        ...(parentId && {
-          parent: {
-            connect: { id: parentId },
+
+    const existing = await this.prisma.office.findFirst({
+      where: {
+        code: data.code,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('office code already exist');
+    }
+
+    const office = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.office.create({
+          data: {
+            ...data,
+            ...(parentId && {
+              parent: {
+                connect: { id: parentId },
+              },
+            }),
+          },
+          include: {
+            children: true,
+            parent: true,
           },
         }),
-      },
-      include: {
-        children: true,
-        parent: true,
-      },
-    });
+      'creating office',
+    );
 
     return this.officeMapper(office);
   }
@@ -99,11 +120,30 @@ export class OfficesService {
       sortBy = 'name',
       sortOrder = 'asc',
       isActive,
+      search,
+      name,
+      code,
+      address,
     } = options || {};
 
-    const where: Prisma.OfficeWhereInput = {};
+    const where: Prisma.OfficeWhereInput = {
+      deletedAt: null,
+    };
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+    if (name) {
+      where.name = { contains: name, mode: 'insensitive' };
+    }
+    if (code) {
+      where.code = { contains: code, mode: 'insensitive' };
+    }
+    if (address) {
+      where.address = { contains: address, mode: 'insensitive' };
+    }
+    if (search) {
+      // Search is scoped to name only (per QA expectation)
+      where.name = { contains: search, mode: 'insensitive' };
     }
 
     const [offices, total] = await Promise.all([
@@ -129,8 +169,8 @@ export class OfficesService {
   }
 
   async findOne(id: string): Promise<OfficeDto> {
-    const office = await this.prisma.office.findUnique({
-      where: { id },
+    const office = await this.prisma.office.findFirst({
+      where: { id, deletedAt: null },
       include: {
         children: true,
         parent: true,
@@ -146,41 +186,60 @@ export class OfficesService {
     id: string,
     updateOfficeDto: UpdateOfficeDto,
   ): Promise<OfficeDto> {
-    const existingOffice = await this.prisma.office.findUnique({
-      where: { id },
+    const existingOffice = await this.prisma.office.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Office', id, existingOffice);
 
     const { parentId, ...data } = updateOfficeDto;
-    const office = await this.prisma.office.update({
-      where: { id },
-      data: {
-        ...data,
-        ...(parentId !== undefined && {
-          parent: parentId
-            ? { connect: { id: parentId } }
-            : { disconnect: true },
+    if (data.code) {
+      const existingByCode = await this.prisma.office.findFirst({
+        where: {
+          code: data.code,
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (existingByCode) {
+        throw new ConflictException('office code already exist');
+      }
+    }
+
+    const office = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.office.update({
+          where: { id },
+          data: {
+            ...data,
+            ...(parentId !== undefined && {
+              parent: parentId
+                ? { connect: { id: parentId } }
+                : { disconnect: true },
+            }),
+          },
+          include: {
+            children: true,
+            parent: true,
+          },
         }),
-      },
-      include: {
-        children: true,
-        parent: true,
-      },
-    });
+      'updating office',
+    );
 
     return this.officeMapper(office);
   }
 
-  async remove(id: string): Promise<void> {
-    const office = await this.prisma.office.findUnique({
-      where: { id },
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const office = await this.prisma.office.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Office', id, office);
 
-    await this.prisma.office.delete({
+    await this.prisma.office.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 
@@ -188,6 +247,7 @@ export class OfficesService {
     const offices = await this.prisma.office.findMany({
       where: {
         parentId: null,
+        deletedAt: null,
       },
       include: {
         children: {

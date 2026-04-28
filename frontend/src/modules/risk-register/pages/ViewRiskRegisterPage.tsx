@@ -169,7 +169,7 @@ const ViewRiskRegisterPage = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
+                <p className="text-sm font-medium text-muted-foreground">Type of Hazard</p>
                 <p className="text-sm">
                   {isRiskAssessment
                     ? source.riskAssessmentItem.mRiskCategory?.name || 'N/A'
@@ -232,19 +232,35 @@ const ViewRiskRegisterPage = () => {
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminate ?? '—'}</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold mb-2">Transfer</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.transfer ?? '—'}</p>
+              <h4 className="text-sm font-semibold mb-2">Elimination Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminationControl ?? '—'}</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold mb-2">Reduce</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.reduce ?? '—'}</p>
+              <h4 className="text-sm font-semibold mb-2">Substitution Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.substitutionControl ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Engineering Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.engineeringControl ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Administration Control</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.administrationControl ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Personal Protective Equipment</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.personalProtectiveEquipment ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Transfer</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.transfer ?? '—'}</p>
             </div>
             <div>
               <h4 className="text-sm font-semibold mb-2">Accept</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.accept ?? '—'}</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold mb-2">Legal Aspect</h4>
+              <h4 className="text-sm font-semibold mb-2">Legal Aspect & Standard reference</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.legalAspect ?? '—'}</p>
             </div>
           </CardContent>
@@ -273,7 +289,7 @@ const ViewRiskRegisterPage = () => {
                 <Field label="Status" value={<Badge variant="outline">{statusLabel}</Badge>} />
                 <Field label="Entity ID" value={source.riskAssessmentItem.id} />
                 <Field label="Risk" value={source.riskAssessmentItem.mRisk?.name} />
-                <Field label="Risk Category" value={source.riskAssessmentItem.mRiskCategory?.name} />
+                <Field label="Type of Hazard" value={source.riskAssessmentItem.mRiskCategory?.name} />
                 <Field label="Likelihood Level" value={source.riskAssessmentItem.likelihoodLevel} />
                 <Field label="Consequence Level" value={source.riskAssessmentItem.consequenceLevel} />
                 <Field label="Risk Matrix Rating" value={source.riskAssessmentItem.riskMatrixRating} />
@@ -289,7 +305,7 @@ const ViewRiskRegisterPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Field label="Entity ID" value={source.inspectionItem.id} />
                   <Field label="Risk" value={source.inspectionItem.risk?.name} />
-                  <Field label="Risk Category" value={source.inspectionItem.riskCategory?.name} />
+                  <Field label="Type of Hazard" value={source.inspectionItem.riskCategory?.name} />
                   <Field label="Status" value={<Badge variant="outline">{statusLabel}</Badge>} />
                   <div className="space-y-1.5 md:col-span-2">
                     <p className="text-sm font-medium text-muted-foreground">Findings</p>

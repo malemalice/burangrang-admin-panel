@@ -6,6 +6,7 @@ import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
 
 import api from '@/core/lib/api';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -69,9 +70,11 @@ const RiskAssessmentDetailPage = () => {
   }, [assessment]);
 
   // Initialize with a placeholder - we'll generate the actual filename at export time
-  const { toPDF, targetRef } = usePDF({ 
-    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` 
-  });
+  const { targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   // Dialog states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
@@ -182,13 +185,14 @@ const RiskAssessmentDetailPage = () => {
       }
       
       // Wait for React to re-render with new data
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Generate filename with current timestamp at export time
-      // Note: react-to-pdf uses the filename from usePDF initialization,
-      // so the timestamp will be from when the component rendered, not export time
-      // This is a limitation of the library - filename will still include code and timestamp
-      await toPDF();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);
@@ -478,8 +482,12 @@ const RiskAssessmentDetailPage = () => {
                 postInterpretation: editingItem.postInterpretation,
                 mitigation: editingItem.mitigation ? {
                   eliminate: editingItem.mitigation.eliminate,
+                  eliminationControl: (editingItem.mitigation as any).eliminationControl,
+                  substitutionControl: (editingItem.mitigation as any).substitutionControl,
+                  engineeringControl: (editingItem.mitigation as any).engineeringControl,
+                  administrationControl: (editingItem.mitigation as any).administrationControl,
+                  personalProtectiveEquipment: (editingItem.mitigation as any).personalProtectiveEquipment,
                   transfer: editingItem.mitigation.transfer,
-                  reduce: editingItem.mitigation.reduce,
                   accept: editingItem.mitigation.accept,
                   legalAspect: editingItem.mitigation.legalAspect,
                 } : undefined,
@@ -527,8 +535,12 @@ const RiskAssessmentDetailPage = () => {
                 postInterpretation: itemToUpdateAction.postInterpretation,
                 mitigation: itemToUpdateAction.mitigation ? {
                   eliminate: itemToUpdateAction.mitigation.eliminate,
+                  eliminationControl: (itemToUpdateAction.mitigation as any).eliminationControl,
+                  substitutionControl: (itemToUpdateAction.mitigation as any).substitutionControl,
+                  engineeringControl: (itemToUpdateAction.mitigation as any).engineeringControl,
+                  administrationControl: (itemToUpdateAction.mitigation as any).administrationControl,
+                  personalProtectiveEquipment: (itemToUpdateAction.mitigation as any).personalProtectiveEquipment,
                   transfer: itemToUpdateAction.mitigation.transfer,
-                  reduce: itemToUpdateAction.mitigation.reduce,
                   accept: itemToUpdateAction.mitigation.accept,
                   legalAspect: itemToUpdateAction.mitigation.legalAspect,
                 } : undefined,

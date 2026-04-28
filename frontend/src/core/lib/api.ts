@@ -38,9 +38,22 @@ const isTokenExpired = (token: string | null): boolean => {
   return expirationTime < (currentTime + 60000);
 };
 
+const apiBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: apiBaseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+/**
+ * Anonymous API (no Authorization header, no refresh → login redirect).
+ * Used for magic-link flows such as public health screening fill.
+ */
+export const publicApi = axios.create({
+  baseURL: apiBaseURL,
   headers: {
     'Content-Type': 'application/json',
   },

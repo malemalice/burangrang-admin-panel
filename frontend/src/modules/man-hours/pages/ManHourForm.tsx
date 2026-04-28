@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Save } from 'lucide-react';
-import { Button, ThemeButton } from '@/core/components/ui/button';
+import { Info, Save } from 'lucide-react';
+import { ThemeButton } from '@/core/components/ui/button';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import {
   Form,
   FormControl,
@@ -27,8 +28,25 @@ import { Card, CardContent } from '@/core/components/ui/card';
 import { getYearOptions, getCurrentYear } from '@/core/utils/date';
 import { ManHour, ManHourGroup, Month, MONTHS, MONTH_LABELS, GROUP_LABELS } from '../types/man-hour.types';
 import manHourService from '../services/manHourService';
+import { useState, useRef } from 'react';
 
-// Form validation schema
+/** Default working days in month used when empty/invalid. */
+const WORKING_DAYS_PER_MONTH = 22;
+
+function getInitialTotalWorkingDays(manHour?: ManHour): number {
+  if (!manHour) {
+    return 22;
+  }
+  const v = Number(manHour.totalWorkingDays) || 0;
+  if (v <= 0) {
+    return 22;
+  }
+  // Backward compatibility: some older records may have stored "capacity man-hours" here.
+  // We now treat this field as "working days in month", so only accept sane day-counts.
+  if (v > 31) return 22;
+  return Math.round(v);
+}
+
 const formSchema = z.object({
   name: z.string().min(1, 'Name / Class is required'),
   group: z.enum(['STUDENT', 'NON_STUDENT'], {
@@ -40,6 +58,9 @@ const formSchema = z.object({
     required_error: 'Month is required',
   }),
   year: z.coerce.number().min(2000, 'Year must be at least 2000').max(2100, 'Year cannot exceed 2100'),
+  totalWorkingDays: z.coerce.number().min(0, 'Total working days must be positive or zero'),
+  lostHour: z.coerce.number().min(0, 'Lost hours must be positive').default(0),
+  total: z.coerce.number().min(0, 'Total must be positive'),
   notes: z.string().optional(),
   isActive: z.boolean().optional(),
 });
@@ -56,6 +77,13 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const currentYear = getCurrentYear();
 
+  // Track which field the user last edited to avoid circular updates
+  const lastEditedField = useRef<'lostHour' | 'total' | null>(null);
+
+  const defaultTotalWorkingDays = getInitialTotalWorkingDays(manHour);
+  const defaultLostHour = manHour?.lostHour ?? 0;
+  const defaultTotal = manHour?.total ?? 0;
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -65,12 +93,58 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
       manHourPerDay: manHour?.manHourPerDay || 0,
       month: manHour?.month || 'JAN',
       year: manHour?.year || currentYear,
+      totalWorkingDays: defaultTotalWorkingDays,
+      lostHour: defaultLostHour,
+      total: defaultTotal,
       notes: manHour?.notes || '',
       isActive: manHour?.isActive ?? true,
     },
   });
 
   const yearOptions = getYearOptions();
+
+  const watchedQty = useWatch({ control: form.control, name: 'qty' });
+  const watchedManHourPerDay = useWatch({ control: form.control, name: 'manHourPerDay' });
+  const watchedTotalWorkingDays = useWatch({ control: form.control, name: 'totalWorkingDays' });
+  const watchedLostHour = useWatch({ control: form.control, name: 'lostHour' });
+  const watchedTotal = useWatch({ control: form.control, name: 'total' });
+
+  const dayCount = (Number(watchedTotalWorkingDays) || 0) > 0 ? Number(watchedTotalWorkingDays) : WORKING_DAYS_PER_MONTH;
+  const capacityForBalance = (Number(watchedQty) || 0) * (Number(watchedManHourPerDay) || 0) * dayCount;
+
+  // Auto-sync totals for both groups: capacity = qty × hrs/day × workingDays; total = capacity − lost
+  useEffect(() => {
+    const q = Number(watchedQty) || 0;
+    const m = Number(watchedManHourPerDay) || 0;
+    const d = Math.max(0, Number(form.getValues('totalWorkingDays')) || 0) || WORKING_DAYS_PER_MONTH;
+    const cap = q * m * d;
+
+    if (lastEditedField.current === 'total') {
+      const t = Number(form.getValues('total')) || 0;
+      form.setValue('lostHour', Math.max(0, cap - t), { shouldValidate: false });
+      return;
+    }
+
+    const lh = Number(form.getValues('lostHour')) || 0;
+    form.setValue('total', Math.max(0, cap - lh), { shouldValidate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedQty, watchedManHourPerDay, watchedTotalWorkingDays]);
+
+  // When lostHour changes, recompute total
+  useEffect(() => {
+    if (lastEditedField.current !== 'lostHour') return;
+    const lh = Number(watchedLostHour) || 0;
+    form.setValue('total', Math.max(0, capacityForBalance - lh), { shouldValidate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedLostHour, capacityForBalance]);
+
+  // When total changes, back-calculate lostHour
+  useEffect(() => {
+    if (lastEditedField.current !== 'total') return;
+    const t = Number(watchedTotal) || 0;
+    form.setValue('lostHour', Math.max(0, capacityForBalance - t), { shouldValidate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedTotal, capacityForBalance]);
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -83,6 +157,9 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
           manHourPerDay: data.manHourPerDay,
           month: data.month as Month,
           year: data.year,
+          totalWorkingDays: data.totalWorkingDays,
+          lostHour: data.lostHour,
+          total: data.total,
           notes: data.notes,
         });
         toast.success('Man hour created successfully');
@@ -94,6 +171,9 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
           manHourPerDay: data.manHourPerDay,
           month: data.month as Month,
           year: data.year,
+          totalWorkingDays: data.totalWorkingDays,
+          lostHour: data.lostHour,
+          total: data.total,
           notes: data.notes,
           isActive: data.isActive,
         });
@@ -112,6 +192,19 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
+        <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800/50 dark:bg-yellow-950/30">
+          <Info className="h-4 w-4 text-yellow-800 dark:text-yellow-400" aria-hidden />
+          <AlertDescription className="space-y-3 text-foreground">
+            <p className="font-medium">How totals work (this form)</p>
+            <p className="text-sm text-muted-foreground">
+              Capacity (man-hours) = Quantity (people) × Hours per day × Working days in month (defaults to{' '}
+              {WORKING_DAYS_PER_MONTH} when empty).
+              Total man hours = Capacity − Lost hours. Editing &quot;Total man hours&quot; or &quot;Lost hours&quot; adjusts the
+              other to match.
+            </p>
+          </AlertDescription>
+        </Alert>
+
         <Card>
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -137,7 +230,17 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Group *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) => {
+                        field.onChange(v);
+                        const twd = form.getValues('totalWorkingDays');
+                        const n = Number(twd);
+                        if (twd === undefined || twd === null || n <= 0) {
+                          form.setValue('totalWorkingDays', WORKING_DAYS_PER_MONTH, { shouldValidate: true });
+                        }
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select group" />
@@ -176,7 +279,13 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                   <FormItem>
                     <FormLabel>Hours per Day *</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.5" min="0" max="24" {...field} />
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="24"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -230,6 +339,76 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="totalWorkingDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Working days in month *</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="1" min="0" max="31" {...field} />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Man-hour capacity = {watchedQty || 0} people × {watchedManHourPerDay || 0} hrs/day ×{' '}
+                      {dayCount || WORKING_DAYS_PER_MONTH} days.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Lost Hour */}
+              <FormField
+                control={form.control}
+                name="lostHour"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lost Hours</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        {...field}
+                        onChange={(e) => {
+                          lastEditedField.current = 'lostHour';
+                          field.onChange(e);
+                        }}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">Hours lost due to absence, accidents, etc.</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Total */}
+              <FormField
+                control={form.control}
+                name="total"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Man Hours *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        {...field}
+                        onChange={(e) => {
+                          lastEditedField.current = 'total';
+                          field.onChange(e);
+                        }}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Capacity (see formulas above) − Lost hours. Editing this will auto-adjust Lost hours.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

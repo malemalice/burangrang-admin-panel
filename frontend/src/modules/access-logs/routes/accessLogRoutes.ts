@@ -1,6 +1,8 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import AccessLogsPage from '../pages/AccessLogsPage';
-import AccessLogDetailPage from '../pages/AccessLogDetailPage';
+
+const AccessLogsPage = lazy(() => import('../pages/AccessLogsPage'));
+const AccessLogDetailPage = lazy(() => import('../pages/AccessLogDetailPage'));
 
 /**
  * Access Logs module routes (Super Admin only via access-log:list / access-log:read).

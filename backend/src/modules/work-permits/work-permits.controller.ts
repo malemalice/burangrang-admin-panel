@@ -27,9 +27,14 @@ import { FindWorkPermitsDto } from './dto/find-work-permits.dto';
 import { SubmitWorkPermitDto } from './dto/submit-work-permit.dto';
 import { ApproveWorkPermitDto } from './dto/approve-work-permit.dto';
 import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
-import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
+import { SignSkWorkPermitDto } from './dto/sign-sk-work-permit.dto';
+import { CreateProfessionDto } from './dto/create-profession.dto';
+import { CreateToolDto } from './dto/create-tool.dto';
+import { CreateMaterialDto } from './dto/create-material.dto';
+import { CreateMachineDto } from './dto/create-machine.dto';
+import { CreateHeavyEquipmentDto } from './dto/create-heavy-equipment.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
@@ -62,7 +67,7 @@ export class WorkPermitsController {
     @Body() createWorkPermitDto: CreateWorkPermitDto,
     @Request() req,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.create(createWorkPermitDto, req.user.id);
+    return this.workPermitsService.create(createWorkPermitDto, req.user.id, req.userContext);
   }
 
   @Get()
@@ -208,12 +213,68 @@ export class WorkPermitsController {
         materials: { type: 'array' },
         machines: { type: 'array' },
         professions: { type: 'array' },
+        applicants: { type: 'array' },
       },
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMasterData() {
     return this.workPermitsService.getMasterData();
+  }
+
+  @Post('professions')
+  @Permissions('work-permit:create')
+  @ApiOperation({ summary: 'Create a profession (master data) for use on work permits' })
+  @ApiBody({ type: CreateProfessionDto })
+  @ApiResponse({ status: 201, description: 'Profession created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or duplicate code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createProfession(@Body() dto: CreateProfessionDto) {
+    return this.workPermitsService.createProfession(dto);
+  }
+
+  @Post('tools')
+  @Permissions('work-permit:create')
+  @ApiOperation({ summary: 'Create a tool (master data) for use on work permits' })
+  @ApiBody({ type: CreateToolDto })
+  @ApiResponse({ status: 201, description: 'Tool created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or duplicate code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createTool(@Body() dto: CreateToolDto) {
+    return this.workPermitsService.createTool(dto);
+  }
+
+  @Post('materials')
+  @Permissions('work-permit:create')
+  @ApiOperation({ summary: 'Create a material (master data) for use on work permits' })
+  @ApiBody({ type: CreateMaterialDto })
+  @ApiResponse({ status: 201, description: 'Material created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or duplicate code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createMaterial(@Body() dto: CreateMaterialDto) {
+    return this.workPermitsService.createMaterial(dto);
+  }
+
+  @Post('machines')
+  @Permissions('work-permit:create')
+  @ApiOperation({ summary: 'Create a machine (master data) for use on work permits' })
+  @ApiBody({ type: CreateMachineDto })
+  @ApiResponse({ status: 201, description: 'Machine created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or duplicate code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createMachine(@Body() dto: CreateMachineDto) {
+    return this.workPermitsService.createMachine(dto);
+  }
+
+  @Post('heavy-equipment')
+  @Permissions('work-permit:create')
+  @ApiOperation({ summary: 'Create heavy equipment (master data) for use on work permits' })
+  @ApiBody({ type: CreateHeavyEquipmentDto })
+  @ApiResponse({ status: 201, description: 'Heavy equipment created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or duplicate code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createHeavyEquipment(@Body() dto: CreateHeavyEquipmentDto, @Request() req: any) {
+    return this.workPermitsService.createHeavyEquipment(dto, req.user.id);
   }
 
   @Get(':id')
@@ -332,24 +393,26 @@ export class WorkPermitsController {
     return this.workPermitsService.reject(id, rejectDto, req.user.id, req.userContext);
   }
 
-  @Post(':id/request-info')
-  @ApiOperation({ summary: 'Request additional information from requester (HSE only)' })
+  @Post(':id/sign-sk')
+  @Permissions('work-permit:update')
+  @ApiOperation({ summary: 'Applicant acknowledges and signs HSE safety guideline (SK)' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
-  @ApiBody({ type: RequestInfoWorkPermitDto })
+  @ApiBody({ type: SignSkWorkPermitDto })
   @ApiResponse({
     status: 200,
-    description: 'Information request sent successfully',
+    description: 'Safety guideline signed successfully',
     type: WorkPermitDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid status for requesting info' })
+  @ApiResponse({ status: 400, description: 'Invalid status for signing SK' })
+  @ApiResponse({ status: 403, description: 'Only applicant can sign SK' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async requestInfo(
+  async signSk(
     @Param('id') id: string,
-    @Body() requestInfoDto: RequestInfoWorkPermitDto,
+    @Body() signSkDto: SignSkWorkPermitDto,
     @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.requestInfo(id, requestInfoDto, req.user.id, req.userContext);
+    return this.workPermitsService.signSk(id, signSkDto, req.user.id, req.userContext);
   }
 
   @Post(':id/extend')

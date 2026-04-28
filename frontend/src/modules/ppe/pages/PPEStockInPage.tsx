@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Eye, Edit, Package, Calendar, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -15,16 +15,14 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { usePPEStocks } from '../hooks/usePPE';
 import { PPEStock, PPEStockSearchParams, PPEStockStatus } from '../types/ppe.types';
-import { FilterField } from '@/core/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+
+const FILTER_PARAM_KEYS = ['stockCode', 'isActive', 'receivedDateFrom', 'receivedDateTo'] as const;
 
 const PPEStockInPage = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { stocks, totalStocks, isLoading, fetchStocks, deleteStock } = usePPEStocks();
-    const [pageIndex, setPageIndex] = useState(0);
-    const [limit, setLimit] = useState(10);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
-    const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [stockToDelete, setStockToDelete] = useState<PPEStock | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -32,7 +30,7 @@ const PPEStockInPage = () => {
     const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'stockCode',
-            label: 'Stock Code',
+            label: 'PO/PR Code',
             type: 'text',
         },
         {
@@ -56,23 +54,75 @@ const PPEStockInPage = () => {
         },
     ], []);
 
-    const loadStocks = useCallback(() => {
-        // Use stockCode filter if exists, otherwise use searchTerm
-        const searchValue = activeFilters.stockCode?.value || searchTerm;
+    const pageIndex = useMemo(() => {
+        const raw = searchParams.get('page');
+        const page = raw ? Number(raw) : 1;
+        if (!Number.isFinite(page) || page <= 0) return 0;
+        return Math.floor(page) - 1;
+    }, [searchParams]);
 
-        // Format date to ISO string (YYYY-MM-DD) if exists
+    const limit = useMemo(() => {
+        const raw = searchParams.get('limit');
+        const parsed = raw ? Number(raw) : 10;
+        if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+        return Math.floor(parsed);
+    }, [searchParams]);
+
+    const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+    const activeFilters = useMemo(() => {
+        const out: Record<string, { value: unknown; label: string }> = {};
+        const stockCode = searchParams.get('stockCode');
+        if (stockCode) out.stockCode = { value: stockCode, label: stockCode };
+        const isActive = searchParams.get('isActive');
+        if (isActive === 'true' || isActive === 'false') {
+            const field = filterFields.find((f) => f.id === 'isActive');
+            const opt = field?.options?.find((o) => o.value === isActive);
+            out.isActive = { value: isActive, label: opt?.label ?? isActive };
+        }
+        const receivedDateFrom = searchParams.get('receivedDateFrom');
+        if (receivedDateFrom) {
+            out.receivedDateFrom = { value: receivedDateFrom, label: 'Received Date From' };
+        }
+        const receivedDateTo = searchParams.get('receivedDateTo');
+        if (receivedDateTo) {
+            out.receivedDateTo = { value: receivedDateTo, label: 'Received Date To' };
+        }
+        return out;
+    }, [searchParams, filterFields]);
+
+    const sorting = useMemo((): { id: string; desc: boolean } | null => {
+        const sortBy = searchParams.get('sortBy');
+        const sortOrder = searchParams.get('sortOrder');
+        if (!sortBy) return null;
+        return { id: sortBy, desc: sortOrder !== 'asc' };
+    }, [searchParams]);
+
+    const updateSearchParams = useCallback(
+        (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+            const next = new URLSearchParams(searchParams);
+            updater(next);
+            setSearchParams(next, options);
+        },
+        [searchParams, setSearchParams]
+    );
+
+    const loadStocks = useCallback(() => {
+        const searchValue =
+            (typeof activeFilters.stockCode?.value === 'string' ? activeFilters.stockCode.value : '') || searchTerm;
+
         let receivedDateFrom: string | undefined;
         let receivedDateTo: string | undefined;
 
         if (activeFilters.receivedDateFrom?.value) {
-            const dateFrom = new Date(activeFilters.receivedDateFrom.value);
+            const dateFrom = new Date(activeFilters.receivedDateFrom.value as string);
             if (!isNaN(dateFrom.getTime())) {
                 receivedDateFrom = dateFrom.toISOString().split('T')[0];
             }
         }
 
         if (activeFilters.receivedDateTo?.value) {
-            const dateTo = new Date(activeFilters.receivedDateTo.value);
+            const dateTo = new Date(activeFilters.receivedDateTo.value as string);
             if (!isNaN(dateTo.getTime())) {
                 receivedDateTo = dateTo.toISOString().split('T')[0];
             }
@@ -81,10 +131,15 @@ const PPEStockInPage = () => {
         const params: PPEStockSearchParams = {
             page: pageIndex + 1,
             limit,
-            sortBy: sorting?.id === 'stockStatus' ? 'isActive' : (sorting?.id || 'receivedDate'),
+            sortBy: sorting?.id === 'stockStatus' ? 'isActive' : sorting?.id || 'updatedAt',
             sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
-            search: searchValue || undefined,
-            isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
+            search: searchValue.trim() || undefined,
+            isActive:
+                activeFilters.isActive?.value === 'true'
+                    ? true
+                    : activeFilters.isActive?.value === 'false'
+                      ? false
+                      : undefined,
             receivedDateFrom,
             receivedDateTo,
         };
@@ -95,52 +150,44 @@ const PPEStockInPage = () => {
         loadStocks();
     }, [loadStocks]);
 
-    const handleSearch = useCallback((term: string) => {
-        setSearchTerm(term);
-        setPageIndex(0);
-    }, []);
+    const handleSearch = useCallback(
+        (term: string) => {
+            const trimmed = term.trim();
+            updateSearchParams((next) => {
+                if (trimmed) next.set('search', trimmed);
+                else next.delete('search');
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
 
-    const handleApplyFilters = useCallback((filterValues: any[]) => {
-        const newFilters: Record<string, { value: any; label: string }> = {};
-        filterValues.forEach((filter) => {
-            // Skip empty values
-            if (filter.value === undefined || filter.value === null || filter.value === '') {
-                return;
-            }
-
-            // Get label from filterFields
-            const field = filterFields.find(f => f.id === filter.id);
-            const fieldLabel = field?.label || filter.id;
-
-            // For date filters, ensure ISO string format
-            if (filter.id === 'receivedDateFrom' || filter.id === 'receivedDateTo') {
-                if (typeof filter.value === 'string') {
-                    const date = new Date(filter.value);
-                    if (!isNaN(date.getTime())) {
-                        newFilters[filter.id] = {
-                            value: date.toISOString().split('T')[0],
-                            label: fieldLabel
-                        };
+    const handleApplyFilters = useCallback(
+        (filterValues: FilterValue[]) => {
+            updateSearchParams((next) => {
+                FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+                filterValues.forEach((filter) => {
+                    if (filter.value === undefined || filter.value === null || filter.value === '') return;
+                    if (filter.id === 'receivedDateFrom' || filter.id === 'receivedDateTo') {
+                        if (typeof filter.value === 'string') {
+                            const date = new Date(filter.value);
+                            if (!isNaN(date.getTime())) {
+                                next.set(filter.id, date.toISOString().split('T')[0]);
+                            }
+                        }
+                    } else {
+                        next.set(filter.id, String(filter.value));
                     }
-                }
-            } else if (filter.id === 'isActive') {
-                // For isActive filter, use the option label
-                const option = field?.options?.find(o => o.value === filter.value);
-                newFilters[filter.id] = {
-                    value: filter.value,
-                    label: fieldLabel
-                };
-            } else {
-                newFilters[filter.id] = { value: filter.value, label: fieldLabel };
-            }
-        });
-        setActiveFilters(newFilters);
-        setPageIndex(0);
-    }, [filterFields]);
+                });
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
 
     const handleDeleteClick = useCallback((stock: PPEStock, event?: React.MouseEvent) => {
         event?.stopPropagation();
-        setOpenDropdownId(null); // Explicitly close the dropdown
+        setOpenDropdownId(null);
         setStockToDelete(stock);
         setDeleteDialogOpen(true);
     }, []);
@@ -149,7 +196,7 @@ const PPEStockInPage = () => {
         if (!stockToDelete) return;
         try {
             await deleteStock(stockToDelete.id);
-            setOpenDropdownId(null); // Ensure dropdown is closed
+            setOpenDropdownId(null);
             loadStocks();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -162,13 +209,37 @@ const PPEStockInPage = () => {
     const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setStockToDelete(null);
-        setOpenDropdownId(null); // Ensure dropdown is closed
+        setOpenDropdownId(null);
     }, []);
 
-    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
-        setSorting(newSorting);
-        setPageIndex(0);
-    }, []);
+    const handleSortingChange = useCallback(
+        (newSorting: { id: string; desc: boolean } | null) => {
+            updateSearchParams((next) => {
+                if (newSorting) {
+                    next.set('sortBy', newSorting.id);
+                    next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
+                } else {
+                    next.delete('sortBy');
+                    next.delete('sortOrder');
+                }
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
+
+    const handlePageChange = (page: number) => {
+        updateSearchParams((next) => {
+            next.set('page', String(page + 1));
+        });
+    };
+
+    const handlePageSizeChange = (size: number) => {
+        updateSearchParams((next) => {
+            next.set('limit', String(size));
+            next.set('page', '1');
+        });
+    };
 
     const getAggregateStatus = useCallback((stock: PPEStock): { label: string; className: string } => {
         if (!stock.items || stock.items.length === 0) {
@@ -188,7 +259,6 @@ const PPEStockInPage = () => {
         const expiredCount = statusCounts[PPEStockStatus.EXPIRED] || 0;
         const disposedCount = statusCounts[PPEStockStatus.DISPOSED] || 0;
 
-        // Priority: EXPIRED > DISPOSED > ISSUED > RESERVED > AVAILABLE
         if (expiredCount > 0) {
             return { label: 'Has Expired Items', className: 'bg-red-100 text-red-800 border-0' };
         }
@@ -205,14 +275,13 @@ const PPEStockInPage = () => {
             return { label: 'Available', className: 'bg-green-100 text-green-800 border-0' };
         }
 
-        // Mixed status
         return { label: 'Mixed Status', className: 'bg-orange-100 text-orange-800 border-0' };
     }, []);
 
     const columns = useMemo(() => [
         {
             id: 'stockCode',
-            header: 'Stock Code',
+            header: 'PO/PR Code',
             cell: (stock: PPEStock) => (
                 <div className="font-medium">{stock.stockCode}</div>
             ),
@@ -313,8 +382,8 @@ const PPEStockInPage = () => {
                     pageIndex,
                     limit,
                     pageCount: Math.ceil(totalStocks / limit),
-                    onPageChange: setPageIndex,
-                    onPageSizeChange: setLimit,
+                    onPageChange: handlePageChange,
+                    onPageSizeChange: handlePageSizeChange,
                     total: totalStocks,
                 }}
                 sorting={sorting}
@@ -323,6 +392,8 @@ const PPEStockInPage = () => {
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
                 activeFilters={activeFilters}
+                searchValue={searchTerm}
+                searchPlaceholder="Search by PO/PR code"
             />
 
             <ConfirmDialog
@@ -342,4 +413,3 @@ const PPEStockInPage = () => {
 };
 
 export default PPEStockInPage;
-

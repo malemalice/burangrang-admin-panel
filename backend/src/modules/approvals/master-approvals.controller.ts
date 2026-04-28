@@ -289,8 +289,11 @@ export class MasterApprovalsController {
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.masterApprovalsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<void> {
+    return this.masterApprovalsService.remove(id, user.id);
   }
 
   @Post('approval')

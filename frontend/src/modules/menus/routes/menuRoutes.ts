@@ -1,8 +1,10 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import MenusPage from '../pages/MenusPage';
-import CreateMenuPage from '../pages/CreateMenuPage';
-import EditMenuPage from '../pages/EditMenuPage';
-import MenuDetailPage from '../pages/MenuDetailPage';
+
+const MenusPage = lazy(() => import('../pages/MenusPage'));
+const CreateMenuPage = lazy(() => import('../pages/CreateMenuPage'));
+const EditMenuPage = lazy(() => import('../pages/EditMenuPage'));
+const MenuDetailPage = lazy(() => import('../pages/MenuDetailPage'));
 
 /**
  * Menu management module routes
@@ -26,4 +28,4 @@ const menuRoutes: RouteConfig[] = [
   },
 ];
 
-export default menuRoutes; 
+export default menuRoutes;

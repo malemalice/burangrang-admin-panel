@@ -1,11 +1,13 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import InspectionsPage from '../pages/InspectionsPage';
-import CreateInspectionPage from '../pages/CreateInspectionPage';
-import EditInspectionPage from '../pages/EditInspectionPage';
-import InspectionDetailPage from '../pages/InspectionDetailPage';
-import InspectionItemsPage from '../inspection-items/pages/InspectionItemsPage';
-import ViewInspectionItemPage from '../inspection-items/pages/ViewInspectionItemPage';
-import EditInspectionItemPage from '../inspection-items/pages/EditInspectionItemPage';
+
+const InspectionsPage = lazy(() => import('../pages/InspectionsPage'));
+const CreateInspectionPage = lazy(() => import('../pages/CreateInspectionPage'));
+const EditInspectionPage = lazy(() => import('../pages/EditInspectionPage'));
+const InspectionDetailPage = lazy(() => import('../pages/InspectionDetailPage'));
+const InspectionItemsPage = lazy(() => import('../inspection-items/pages/InspectionItemsPage'));
+const ViewInspectionItemPage = lazy(() => import('../inspection-items/pages/ViewInspectionItemPage'));
+const EditInspectionItemPage = lazy(() => import('../inspection-items/pages/EditInspectionItemPage'));
 
 /**
  * Inspections module routes
@@ -43,4 +45,3 @@ const inspectionsRoutes: RouteConfig[] = [
 ];
 
 export default inspectionsRoutes;
-

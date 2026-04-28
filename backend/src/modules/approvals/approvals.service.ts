@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateApprovalDto, ApprovalStatus } from './dto/create-approval.dto';
 import { ApprovalResolverService } from './services/approval-resolver.service';
+import { isNotDeleted } from '../../shared/utils/soft-delete.util';
 
 @Injectable()
 export class ApprovalsService {
@@ -20,6 +21,7 @@ export class ApprovalsService {
       where: {
         entity: entityName,
         isActive: true,
+        ...isNotDeleted,
       },
       include: {
         items: {

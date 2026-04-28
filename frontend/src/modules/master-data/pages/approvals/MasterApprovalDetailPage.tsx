@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, CheckCircle2, ListChecks } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle2, ListChecks } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
-import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import masterApprovalService from '../../services/masterApprovalService';
 import { MasterApproval } from '@/core/lib/types';
 
@@ -15,8 +14,6 @@ const MasterApprovalDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [approval, setApproval] = useState<MasterApproval | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchApproval = async () => {
@@ -37,27 +34,6 @@ const MasterApprovalDetailPage = () => {
 
     fetchApproval();
   }, [id, navigate]);
-
-  const handleDeleteClick = () => {
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!approval) return;
-    
-    setIsDeleting(true);
-    try {
-      await masterApprovalService.delete(approval.id);
-      toast.success(`Approval "${approval.entity}" has been deleted`);
-      navigate('/master/approvals');
-    } catch (error) {
-      console.error('Failed to delete approval:', error);
-      toast.error('Failed to delete approval');
-    } finally {
-      setIsDeleting(false);
-      setDeleteDialogOpen(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -102,25 +78,17 @@ const MasterApprovalDetailPage = () => {
             <Button
               variant="outline"
               onClick={() => navigate('/master/approvals')}
-              disabled={isLoading || isDeleting}
+              disabled={isLoading}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Approvals
             </Button>
             <Button
               onClick={() => navigate(`/master/approvals/${id}/edit`)}
-              disabled={isLoading || isDeleting}
+              disabled={isLoading}
             >
               <Edit className="mr-2 h-4 w-4" />
               Edit Approval
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteClick}
-              disabled={isLoading || isDeleting}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Approval
             </Button>
           </div>
         }
@@ -223,15 +191,6 @@ const MasterApprovalDetailPage = () => {
           </CardContent>
         </Card>
       </div>
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Approval"
-        description={`Are you sure you want to delete "${approval.entity}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-        variant="destructive"
-      />
     </>
   );
 };

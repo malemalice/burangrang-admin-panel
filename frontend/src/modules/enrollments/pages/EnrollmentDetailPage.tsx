@@ -9,14 +9,16 @@ import { Label } from '@/core/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
 import PageHeader from '@/core/components/ui/PageHeader';
 import enrollmentService from '../services/enrollmentService';
-import { Enrollment } from '../types/enrollment.types';
+import { Enrollment, EnrollmentStatus } from '../types/enrollment.types';
 import { useAuth } from '@/core/lib/auth';
 import quizService from '@/modules/quizzes/services/quizService';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const EnrollmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +36,6 @@ const EnrollmentDetailPage = () => {
       needsGrading: boolean;
     }>
   >([]);
-
-  const isAdmin = currentUser?.role === 'Administrator' || currentUser?.role === 'Super Admin';
 
   useEffect(() => {
     const fetchEnrollment = async () => {
@@ -108,6 +108,18 @@ const EnrollmentDetailPage = () => {
     );
   }
 
+  const isEnrolledUser = Boolean(currentUser?.id && enrollment.userId === currentUser.id);
+  const canTakeCourse =
+    isEnrolledUser &&
+    hasPermission('enrollment:read') &&
+    Boolean(enrollment.course?.id) &&
+    (enrollment.status === EnrollmentStatus.INVITED ||
+      enrollment.status === EnrollmentStatus.ACTIVE ||
+      enrollment.status === EnrollmentStatus.COMPLETED);
+  const canEditEnrollment =
+    hasPermission('enrollment:update') &&
+    (enrollment.status === EnrollmentStatus.INVITED || enrollment.status === EnrollmentStatus.ACTIVE);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -122,7 +134,7 @@ const EnrollmentDetailPage = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            {(enrollment.status === 'INVITED' || enrollment.status === 'ACTIVE' || enrollment.status === 'COMPLETED') && enrollment.course?.id && (
+            {canTakeCourse && (
               <Button
                 onClick={() => navigate(`/courses/${enrollment.course?.id}/learn`)}
               >
@@ -130,7 +142,7 @@ const EnrollmentDetailPage = () => {
                 Take Course
               </Button>
             )}
-            {(enrollment.status === 'INVITED' || enrollment.status === 'ACTIVE') && (
+            {canEditEnrollment && (
               <Button
                 onClick={() => navigate(`/enrollments/${enrollment.id}/edit`)}
               >

@@ -6,6 +6,7 @@ import { JobPositionDto } from './dto/job-position.dto';
 import { Prisma } from '@prisma/client';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { buildSoftDeleteDataWithInactive } from '../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -14,6 +15,9 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
+  level?: number;
 }
 
 @Injectable()
@@ -54,19 +58,44 @@ export class JobPositionsService {
       sortOrder = 'asc',
       isActive,
       search,
+      name,
+      code,
+      level,
     } = options || {};
 
-    const where: Prisma.JobPositionWhereInput = {};
+    const where: Prisma.JobPositionWhereInput = {
+      deletedAt: null,
+    };
+
+    const and: Prisma.JobPositionWhereInput[] = [];
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-      ];
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (name) {
+      and.push({ name: { contains: name, mode: 'insensitive' } });
+    }
+
+    if (code) {
+      and.push({ code: { contains: code, mode: 'insensitive' } });
+    }
+
+    if (level !== undefined) {
+      and.push({ level: { equals: level } });
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      and.push({ isActive });
+    }
+
+    if (and.length > 0) {
+      where.AND = and;
     }
 
     const [jobPositions, total] = await Promise.all([
@@ -88,8 +117,8 @@ export class JobPositionsService {
   }
 
   async findOne(id: string): Promise<JobPositionDto> {
-    const jobPosition = await this.prisma.jobPosition.findUnique({
-      where: { id },
+    const jobPosition = await this.prisma.jobPosition.findFirst({
+      where: { id, deletedAt: null },
     });
 
     this.errorHandler.throwIfNotFoundById('Job position', id, jobPosition);
@@ -101,6 +130,10 @@ export class JobPositionsService {
     id: string,
     updateJobPositionDto: UpdateJobPositionDto,
   ): Promise<JobPositionDto> {
+    const existing = await this.prisma.jobPosition.findFirst({
+      where: { id, deletedAt: null },
+    });
+    this.errorHandler.throwIfNotFoundById('Job position', id, existing);
     const jobPosition = await this.prisma.jobPosition.update({
       where: { id },
       data: updateJobPositionDto,
@@ -109,9 +142,14 @@ export class JobPositionsService {
     return this.jobPositionMapper(jobPosition);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.prisma.jobPosition.delete({
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const existing = await this.prisma.jobPosition.findFirst({
+      where: { id, deletedAt: null },
+    });
+    this.errorHandler.throwIfNotFoundById('Job position', id, existing);
+    await this.prisma.jobPosition.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 

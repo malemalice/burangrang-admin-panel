@@ -10,6 +10,7 @@ import {
 import { RiskMatrixDto } from '../dto/risk-matrix.dto';
 import { CreateRiskMatrixDto } from '../dto/create-risk-matrix.dto';
 import { UpdateRiskMatrixDto } from '../dto/update-risk-matrix.dto';
+import { buildSoftDeleteDataWithInactive, isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
 interface FindAllOptions {
   page?: number;
@@ -61,6 +62,7 @@ export class RiskMatrixService {
         likelihoodLevel: likelihoodLevel,
         consequenceLevel: consequenceLevel,
         isActive: true,
+        ...isNotDeleted,
       },
     });
 
@@ -140,7 +142,8 @@ export class RiskMatrixService {
         consequenceDesc?: { contains: string; mode: 'insensitive' };
       }>;
       isActive?: boolean;
-    } = {};
+      deletedAt?: null;
+    } = { ...isNotDeleted };
 
     if (search) {
       where.OR = [
@@ -179,8 +182,8 @@ export class RiskMatrixService {
   }
 
   async findOneRiskMatrix(id: string): Promise<RiskMatrixDto> {
-    const riskMatrix = await this.prisma.riskMatrix.findUnique({
-      where: { id },
+    const riskMatrix = await this.prisma.riskMatrix.findFirst({
+      where: { id, ...isNotDeleted },
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, riskMatrix);
     return this.riskMatrixMapper(riskMatrix);
@@ -190,8 +193,8 @@ export class RiskMatrixService {
     id: string,
     updateRiskMatrixDto: UpdateRiskMatrixDto,
   ): Promise<RiskMatrixDto> {
-    const existing = await this.prisma.riskMatrix.findUnique({
-      where: { id },
+    const existing = await this.prisma.riskMatrix.findFirst({
+      where: { id, ...isNotDeleted },
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, existing);
 
@@ -207,13 +210,14 @@ export class RiskMatrixService {
     return this.riskMatrixMapper(updated);
   }
 
-  async removeRiskMatrix(id: string): Promise<void> {
-    const riskMatrix = await this.prisma.riskMatrix.findUnique({
-      where: { id },
+  async removeRiskMatrix(id: string, deletedBy?: string): Promise<void> {
+    const riskMatrix = await this.prisma.riskMatrix.findFirst({
+      where: { id, ...isNotDeleted },
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, riskMatrix);
-    await this.prisma.riskMatrix.delete({
+    await this.prisma.riskMatrix.update({
       where: { id },
+      data: buildSoftDeleteDataWithInactive(deletedBy),
     });
   }
 }

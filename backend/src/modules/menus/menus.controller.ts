@@ -215,8 +215,11 @@ export class MenusController {
   })
   @ApiResponse({ status: 404, description: 'Menu not found.' })
   
-  remove(@Param('id') id: string) {
-    return this.menusService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.menusService.remove(id, String(req.user?.id));
   }
 
   @Put('order')

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, PanelLeft } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/core/components/ui/sheet';
 import enrollmentService from '@/modules/enrollments/services/enrollmentService';
+import { useIsMobile } from '@/core/hooks/useIsMobile';
 import ChapterSidebar from '../components/ChapterSidebar';
 import ChapterContent from '../components/ChapterContent';
 import QuizPlayer from '../components/QuizPlayer';
@@ -25,6 +27,8 @@ const CoursePlayerPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentChapterId, setCurrentChapterId] = useState<string>('');
   const [currentQuizId, setCurrentQuizId] = useState<string>('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const loadContext = async () => {
     try {
@@ -58,9 +62,14 @@ const CoursePlayerPage = () => {
 
       if (context) {
         // 3. Determine initial chapter if not set via params
+        const quizParam = searchParams.get('quiz');
         const chapterParam = searchParams.get('chapter');
-        if (chapterParam) {
+        if (quizParam) {
+          setCurrentQuizId(quizParam);
+          setCurrentChapterId('');
+        } else if (chapterParam) {
           setCurrentChapterId(chapterParam);
+          setCurrentQuizId('');
         } else if (!currentChapterId && !currentQuizId) {
           // Find first incomplete chapter
           const chapters = context.course.chapters || [];
@@ -85,8 +94,13 @@ const CoursePlayerPage = () => {
     }
   }, [courseId]);
 
-  // Update URL when chapter changes
+  // Update URL when chapter or quiz changes
   useEffect(() => {
+    if (currentQuizId) {
+      setSearchParams({ quiz: currentQuizId });
+      return;
+    }
+
     if (currentChapterId) {
       setSearchParams({ chapter: currentChapterId });
 
@@ -114,16 +128,18 @@ const CoursePlayerPage = () => {
         }
       }
     }
-  }, [currentChapterId]);
+  }, [currentChapterId, currentQuizId, learningContext, setSearchParams]);
 
   const handleChapterSelect = (chapterId: string) => {
     setCurrentChapterId(chapterId);
     setCurrentQuizId('');
+    setSidebarOpen(false);
   };
 
   const handleQuizSelect = (quizId: string) => {
     setCurrentQuizId(quizId);
     setCurrentChapterId('');
+    setSidebarOpen(false);
   };
 
   const handleComplete = async () => {
@@ -185,20 +201,16 @@ const CoursePlayerPage = () => {
           {learningContext.course.title}
         </h1>
         <div className="ml-auto flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <PanelLeft className="mr-2 h-4 w-4" /> Menu
+          </Button>
           {(() => {
-            const chapters = learningContext.course.chapters || [];
-            const completedChapters = learningContext.progress.filter(
-              p => p.status === ProgressStatus.COMPLETED
-            ).length;
-            const totalQuizzes = learningContext.quizzes?.length || 0;
-            const passedQuizIds = new Set(
-              (learningContext.quizAttempts || [])
-                .filter(a => a.status === 'COMPLETED' && a.isPassed)
-                .map(a => a.quizId)
-            );
-            const totalItems = chapters.length + totalQuizzes;
-            const completedItems = completedChapters + passedQuizIds.size;
-            const progressPct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+            const progressPct = Math.round(Number(learningContext.enrollment.progress || 0));
 
             return (
               <>
@@ -216,8 +228,28 @@ const CoursePlayerPage = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Hidden on mobile by default (TODO: Add mobile drawer) */}
-        <aside className="hidden w-80 flex-col border-r md:flex">
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" className="w-full max-w-sm p-0 lg:hidden">
+            <SheetHeader className="border-b px-4 py-3">
+              <SheetTitle>Course navigation</SheetTitle>
+            </SheetHeader>
+            <div className="h-[calc(100vh-57px)] overflow-hidden">
+              <ChapterSidebar
+                chapters={learningContext.course.chapters || []}
+                quizzes={learningContext.quizzes || []}
+                progress={learningContext.progress}
+                quizAttempts={learningContext.quizAttempts || []}
+                currentChapterId={currentChapterId}
+                currentQuizId={currentQuizId}
+                onChapterSelect={handleChapterSelect}
+                onQuizSelect={handleQuizSelect}
+                title={learningContext.course.title}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <aside className="hidden w-80 flex-col border-r lg:flex">
           <ChapterSidebar
             chapters={learningContext.course.chapters || []}
             quizzes={learningContext.quizzes || []}
@@ -232,7 +264,7 @@ const CoursePlayerPage = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
+        <main className={`flex-1 overflow-y-auto bg-muted/20 p-6 ${isMobile ? 'pb-24' : ''}`}>
           <div className="mx-auto max-w-4xl">
             {currentChapter ? (
               <div className="space-y-6">

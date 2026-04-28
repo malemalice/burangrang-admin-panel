@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Edit, Trash2, Plus, Shield, MoreHorizontal, Eye } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Edit, Trash2, Plus, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
     DropdownMenu,
@@ -16,13 +16,23 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { PaginationParams } from '@/core/lib/types';
 import { useSafetyEquipments } from '../hooks/useSafetyEquipments';
-import { SafetyEquipment, SafetyEquipmentCategory } from '../types/ppe-master-data.types';
+import { SafetyEquipment, SafetyEquipmentCategory, SafetyEquipmentType } from '../types/ppe-master-data.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
+import safetyEquipmentTypeService from '../services/safetyEquipmentTypeService';
+
+const FILTER_PARAM_KEYS = ['name', 'code', 'category', 'safetyEquipmentTypeId', 'status'] as const;
+
+const CATEGORY_FILTER_OPTIONS = [
+    { label: 'Personal Protective Equipment', value: SafetyEquipmentCategory.PERSONAL_PROTECTIVE_EQUIPMENT },
+    { label: 'Safety Equipment', value: SafetyEquipmentCategory.SAFETY_EQUIPMENT },
+    { label: 'Emergency Equipment', value: SafetyEquipmentCategory.EMERGENCY_EQUIPMENT },
+] as const;
 
 export default function SafetyEquipmentsPage() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = usePermissions();
     const {
         equipments,
@@ -32,15 +42,31 @@ export default function SafetyEquipmentsPage() {
         fetchEquipments,
         deleteEquipment,
     } = useSafetyEquipments();
-    const [pageIndex, setPageIndex] = useState(0);
-    const [limit, setLimit] = useState(10);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [equipmentToDelete, setEquipmentToDelete] = useState<SafetyEquipment | null>(null);
-    const [activeTab, setActiveTab] = useState('all');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    const [equipmentTypes, setEquipmentTypes] = useState<SafetyEquipmentType[]>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadTypes = async () => {
+            try {
+                const response = await safetyEquipmentTypeService.getSafetyEquipmentTypes({
+                    page: 1,
+                    limit: 1000,
+                    filters: { isActive: true },
+                    options: true,
+                });
+                if (!cancelled) setEquipmentTypes(response.data ?? []);
+            } catch {
+                if (!cancelled) setEquipmentTypes([]);
+            }
+        };
+        loadTypes();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filterFields: FilterField[] = useMemo(() => [
         {
@@ -56,12 +82,17 @@ export default function SafetyEquipmentsPage() {
         {
             id: 'category',
             label: 'Category',
-            type: 'select',
-            options: [
-                { label: 'Personal Protective Equipment', value: SafetyEquipmentCategory.PERSONAL_PROTECTIVE_EQUIPMENT },
-                { label: 'Safety Equipment', value: SafetyEquipmentCategory.SAFETY_EQUIPMENT },
-                { label: 'Emergency Equipment', value: SafetyEquipmentCategory.EMERGENCY_EQUIPMENT },
-            ],
+            type: 'searchableSelect',
+            options: [...CATEGORY_FILTER_OPTIONS],
+        },
+        {
+            id: 'safetyEquipmentTypeId',
+            label: 'Equipment Type',
+            type: 'searchableSelect',
+            options: equipmentTypes.map((t) => ({
+                label: `${t.name} (${t.code})`,
+                value: t.id,
+            })),
         },
         {
             id: 'status',
@@ -72,10 +103,67 @@ export default function SafetyEquipmentsPage() {
                 { label: 'Inactive', value: 'inactive' },
             ],
         },
-    ], []);
+    ], [equipmentTypes]);
+
+    const pageIndex = useMemo(() => {
+        const raw = searchParams.get('page');
+        const page = raw ? Number(raw) : 1;
+        if (!Number.isFinite(page) || page <= 0) return 0;
+        return Math.floor(page) - 1;
+    }, [searchParams]);
+
+    const limit = useMemo(() => {
+        const raw = searchParams.get('limit');
+        const parsed = raw ? Number(raw) : 10;
+        if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+        return Math.floor(parsed);
+    }, [searchParams]);
+
+    const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+    const activeFilters = useMemo(() => {
+        const out: Record<string, { value: unknown; label: string }> = {};
+        const status = searchParams.get('status');
+        if (status === 'active' || status === 'inactive') {
+            out.status = { value: status, label: status === 'active' ? 'Active' : 'Inactive' };
+        }
+        const name = searchParams.get('name');
+        if (name) out.name = { value: name, label: name };
+        const code = searchParams.get('code');
+        if (code) out.code = { value: code, label: code };
+        const category = searchParams.get('category');
+        if (category) {
+            const categoryOption = CATEGORY_FILTER_OPTIONS.find((opt) => opt.value === category);
+            out.category = { value: category, label: categoryOption?.label || category };
+        }
+        const safetyEquipmentTypeId = searchParams.get('safetyEquipmentTypeId');
+        if (safetyEquipmentTypeId) {
+            const t = equipmentTypes.find((x) => x.id === safetyEquipmentTypeId);
+            out.safetyEquipmentTypeId = {
+                value: safetyEquipmentTypeId,
+                label: t ? `${t.name} (${t.code})` : safetyEquipmentTypeId,
+            };
+        }
+        return out;
+    }, [searchParams, equipmentTypes]);
+
+    const sorting = useMemo((): { id: string; desc: boolean } | null => {
+        const sortBy = searchParams.get('sortBy');
+        const sortOrder = searchParams.get('sortOrder');
+        if (!sortBy) return null;
+        return { id: sortBy, desc: sortOrder !== 'asc' };
+    }, [searchParams]);
+
+    const updateSearchParams = useCallback(
+        (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+            const next = new URLSearchParams(searchParams);
+            updater(next);
+            setSearchParams(next, options);
+        },
+        [searchParams, setSearchParams]
+    );
 
     const fetchData = useCallback(async () => {
-        // Only include search if it's not empty or only spaces
         const trimmedSearch = searchTerm.trim();
         const finalSearch = trimmedSearch.length > 0 ? trimmedSearch : undefined;
 
@@ -83,20 +171,20 @@ export default function SafetyEquipmentsPage() {
             page: pageIndex + 1,
             limit,
             search: finalSearch,
-            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'name',
-            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'asc',
+            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'updatedAt',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             filters: {
-                ...Object.entries(activeFilters).reduce((acc: any, [key, item]) => {
+                ...Object.entries(activeFilters).reduce((acc: Record<string, unknown>, [key, item]) => {
                     if (key === 'status') {
                         return {
                             ...acc,
-                            isActive: item.value === 'active' ? 'true' : 'false'
+                            isActive: item.value === 'active' ? 'true' : 'false',
                         };
                     }
                     acc[key] = item.value;
                     return acc;
                 }, {}),
-            }
+            },
         };
         await fetchEquipments(params);
     }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchEquipments]);
@@ -107,7 +195,7 @@ export default function SafetyEquipmentsPage() {
 
     const handleDeleteClick = (equipment: SafetyEquipment, event?: React.MouseEvent) => {
         event?.stopPropagation();
-        setOpenDropdownId(null); // Explicitly close the dropdown
+        setOpenDropdownId(null);
         setEquipmentToDelete(equipment);
         setDeleteDialogOpen(true);
     };
@@ -116,7 +204,7 @@ export default function SafetyEquipmentsPage() {
         if (!equipmentToDelete) return;
         try {
             await deleteEquipment(equipmentToDelete.id);
-            setOpenDropdownId(null); // Ensure dropdown is closed
+            setOpenDropdownId(null);
             fetchData();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -129,60 +217,83 @@ export default function SafetyEquipmentsPage() {
     const handleDialogCancel = () => {
         setDeleteDialogOpen(false);
         setEquipmentToDelete(null);
-        setOpenDropdownId(null); // Ensure dropdown is closed
+        setOpenDropdownId(null);
     };
 
     const handleSearch = (term: string) => {
-        // Trim the search term to avoid issues with whitespace
         const trimmedTerm = term.trim();
-        setSearchTerm(trimmedTerm);
-        setPageIndex(0);
+        updateSearchParams((next) => {
+            if (trimmedTerm) next.set('search', trimmedTerm);
+            else next.delete('search');
+            next.set('page', '1');
+        });
     };
 
     const handleApplyFilters = (filters: FilterValue[]) => {
-        const newActiveFilters: Record<string, { value: any; label: string }> = {};
-        filters.forEach((filter: FilterValue) => {
-            if (filter.id === 'status') {
-                newActiveFilters[filter.id] = {
-                    value: filter.value,
-                    label: filter.value === 'active' ? 'Active' : 'Inactive'
-                };
-            } else if (filter.id === 'category') {
-                // Handle category label from filterFields options
-                const categoryOption = filterFields.find(f => f.id === 'category')?.options?.find(
-                    opt => opt.value === filter.value
-                );
-                newActiveFilters[filter.id] = {
-                    value: filter.value,
-                    label: categoryOption?.label || String(filter.value)
-                };
-            } else {
-                newActiveFilters[filter.id] = {
-                    value: filter.value,
-                    label: String(filter.value)
-                };
-            }
+        updateSearchParams((next) => {
+            FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+            filters.forEach((filter: FilterValue) => {
+                if (filter.id === 'status') {
+                    next.set('status', String(filter.value));
+                } else if (filter.id === 'category') {
+                    next.set('category', String(filter.value));
+                } else if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+                    next.set(filter.id, String(filter.value));
+                }
+            });
+            next.set('page', '1');
         });
-        setActiveFilters(newActiveFilters);
-        setPageIndex(0);
     };
 
-    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
-        setSorting(newSorting);
-        setPageIndex(0);
-    }, []);
+    const handleSortingChange = useCallback(
+        (newSorting: { id: string; desc: boolean } | null) => {
+            updateSearchParams((next) => {
+                if (newSorting) {
+                    next.set('sortBy', newSorting.id);
+                    next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
+                } else {
+                    next.delete('sortBy');
+                    next.delete('sortOrder');
+                }
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
 
     const handleTabChange = (value: string) => {
-        setActiveTab(value);
-        setPageIndex(0);
-        if (value === 'all') {
-            setActiveFilters({});
-        } else if (value === 'active') {
-            setActiveFilters({ status: { value: 'active', label: 'Active' } });
-        } else if (value === 'inactive') {
-            setActiveFilters({ status: { value: 'inactive', label: 'Inactive' } });
-        }
+        updateSearchParams((next) => {
+            FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+            if (value === 'all') {
+                // cleared above
+            } else if (value === 'active') {
+                next.set('status', 'active');
+            } else if (value === 'inactive') {
+                next.set('status', 'inactive');
+            }
+            next.set('page', '1');
+        });
     };
+
+    const handlePageChange = (page: number) => {
+        updateSearchParams((next) => {
+            next.set('page', String(page + 1));
+        });
+    };
+
+    const handlePageSizeChange = (size: number) => {
+        updateSearchParams((next) => {
+            next.set('limit', String(size));
+            next.set('page', '1');
+        });
+    };
+
+    const tabValue =
+        activeFilters.status?.value === 'active'
+            ? 'active'
+            : activeFilters.status?.value === 'inactive'
+              ? 'inactive'
+              : 'all';
 
     const getCategoryLabel = (category: SafetyEquipmentCategory) => {
         switch (category) {
@@ -310,7 +421,7 @@ export default function SafetyEquipmentsPage() {
                     </PermissionGuard>
                 }
             >
-                <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+                <Tabs value={tabValue} className="w-full" onValueChange={handleTabChange}>
                     <TabsList>
                         <TabsTrigger value="all">All Equipment</TabsTrigger>
                         <TabsTrigger value="active">Active</TabsTrigger>
@@ -327,9 +438,9 @@ export default function SafetyEquipmentsPage() {
                     pageIndex,
                     limit,
                     pageCount: Math.ceil(totalEquipments / limit),
-                    onPageChange: setPageIndex,
-                    onPageSizeChange: setLimit,
-                    total: totalEquipments
+                    onPageChange: handlePageChange,
+                    onPageSizeChange: handlePageSizeChange,
+                    total: totalEquipments,
                 }}
                 sorting={sorting}
                 onSortingChange={handleSortingChange}
@@ -337,6 +448,8 @@ export default function SafetyEquipmentsPage() {
                 activeFilters={activeFilters}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+                searchValue={searchTerm}
+                searchPlaceholder="Search by name, code, or size"
             />
 
             <ConfirmDialog

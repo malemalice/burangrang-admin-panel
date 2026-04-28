@@ -1,6 +1,14 @@
+import { lazy } from 'react';
 import { RouteConfig } from './types';
 import coreRoutes from './modules/coreRoutes';
 import moduleRoutes from './modules/moduleRoutes';
+
+const PublicHealthScreeningFillPage = lazy(
+  () => import('@/modules/health-screenings/pages/PublicHealthScreeningFillPage'),
+);
+const PublicWorkPermitPage = lazy(
+  () => import('@/modules/work-permits/pages/PublicWorkPermitPage'),
+);
 import { settingsRoutes } from '@/modules/settings';
 import { accessLogRoutes } from '@/modules/access-logs';
 import { userRoutes } from '@/modules/users';
@@ -13,6 +21,8 @@ import { courseRoutes } from '@/modules/courses';
 import { reminderRoutes } from '@/modules/reminders';
 import { enrollmentRoutes } from '@/modules/enrollments';
 import { quizRoutes } from '@/modules/quizzes';
+import { healthQuizRoutes } from '@/modules/health-quiz';
+import { healthScreeningRoutes } from '@/modules/health-screenings';
 import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 import { riskMatrixRoutes } from '@/modules/risk-matrix';
 import { manHourRoutes } from '@/modules/man-hours';
@@ -44,6 +54,8 @@ const routes: RouteConfig[] = [
   ...reminderRoutes,
   ...enrollmentRoutes,
   ...quizRoutes,
+  ...healthQuizRoutes,
+  ...healthScreeningRoutes,
   ...certificateRoutes,
   ...riskMatrixRoutes,
   ...manHourRoutes,
@@ -63,6 +75,14 @@ const routes: RouteConfig[] = [
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
   coreRoutes.find(route => route.path === '/reset-password')!,
+  {
+    path: '/health-screenings/public/:token',
+    component: PublicHealthScreeningFillPage,
+  },
+  {
+    path: '/work-permits/public/:token',
+    component: PublicWorkPermitPage,
+  },
 ];
 
 // Not Found route

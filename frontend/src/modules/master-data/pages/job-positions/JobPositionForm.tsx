@@ -89,7 +89,7 @@ const JobPositionForm = ({ jobPosition, mode }: JobPositionFormProps) => {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Name *</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter position name" {...field} />
                     </FormControl>
@@ -103,7 +103,7 @@ const JobPositionForm = ({ jobPosition, mode }: JobPositionFormProps) => {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Code</FormLabel>
+                    <FormLabel>Code *</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter position code" {...field} />
                     </FormControl>

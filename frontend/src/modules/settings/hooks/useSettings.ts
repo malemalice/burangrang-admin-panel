@@ -116,6 +116,73 @@ export const useSettings = () => {
   };
 };
 
+export interface AppBrandingSettings {
+  name: string;
+  logoPortraitUrl: string | null;
+  logoLandscapeUrl: string | null;
+  loginTagline: string | null;
+}
+
+export const withCacheBust = (url: string, version?: number) => {
+  if (!url) return url;
+  if (!version) return url;
+  const hasQuery = url.includes('?');
+  return `${url}${hasQuery ? '&' : '?'}v=${version}`;
+};
+
+/**
+ * Custom hook for app branding (name + logos).
+ * Uses the public `/settings/app` endpoint so it can be used on Login page too.
+ */
+export const useAppBranding = (options?: { cacheBustVersion?: number }) => {
+  const [branding, setBranding] = useState<AppBrandingSettings>({
+    name: 'HSE System',
+    logoPortraitUrl: null,
+    logoLandscapeUrl: null,
+    loginTagline: 'made by your company',
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBranding = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const app = await settingsService.getAppSettings();
+      setBranding(app);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch app branding';
+      setError(errorMessage);
+      console.warn('Failed to load app branding from backend:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranding();
+  }, []);
+
+  const cacheBustVersion = options?.cacheBustVersion;
+  const logoPortraitUrl = branding.logoPortraitUrl
+    ? withCacheBust(branding.logoPortraitUrl, cacheBustVersion)
+    : null;
+  const logoLandscapeUrl = branding.logoLandscapeUrl
+    ? withCacheBust(branding.logoLandscapeUrl, cacheBustVersion)
+    : null;
+
+  return {
+    branding,
+    appName: branding.name,
+    logoPortraitUrl,
+    logoLandscapeUrl,
+    loginTagline: branding.loginTagline || 'made by your company',
+    isLoading,
+    error,
+    fetchBranding,
+  };
+};
+
 /**
  * Custom hook for managing app name setting
  */

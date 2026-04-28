@@ -5,16 +5,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { RichEditor } from '@/core/components/ui/rich-editor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Play, FileText, Youtube, Clock, ArrowLeft, FileQuestion, Plus, ExternalLink, Image as ImageIcon, Music } from 'lucide-react';
@@ -25,6 +26,7 @@ import courseService from '../services/courseService';
 import quizService from '@/modules/quizzes/services/quizService';
 import { Quiz } from '@/modules/quizzes/types/quiz.types';
 import { ImageUpload, uploadService } from '@/modules/uploads';
+import { extractYoutubeVideoId } from '@/core/lib/media-utils';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -35,6 +37,20 @@ const formSchema = z.object({
   contentUrl: z.string().optional(),
   youtubeVideoId: z.string().optional(),
   content: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.contentType !== 'youtube') {
+    return;
+  }
+
+  const normalizedVideoId = extractYoutubeVideoId(data.youtubeVideoId);
+
+  if (!normalizedVideoId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['youtubeVideoId'],
+      message: 'Enter a valid YouTube URL.',
+    });
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -102,7 +118,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
         duration: chapter.duration,
         contentType: chapter.contentType as 'video' | 'youtube' | 'text' | 'pdf' | 'image' | 'audio',
         contentUrl: chapter.contentUrl || '',
-        youtubeVideoId: chapter.youtubeVideoId || '',
+        youtubeVideoId: chapter.youtubeVideoId || chapter.contentUrl || '',
         content: chapter.content || '',
       });
     }
@@ -136,6 +152,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
       setIsSubmitting(true);
 
       let contentUrl = data.contentUrl;
+      const normalizedYoutubeVideoId =
+        data.contentType === 'youtube' ? extractYoutubeVideoId(data.youtubeVideoId) : null;
 
       // Handle file upload if present
       if (uploadFile) {
@@ -155,7 +173,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
           duration: data.duration,
           contentType: data.contentType,
           contentUrl: contentUrl || undefined,
-          youtubeVideoId: data.youtubeVideoId || undefined,
+          youtubeVideoId: normalizedYoutubeVideoId || undefined,
           content: data.content || undefined,
           isFree: false, // Default to false
           isPublished: false, // Default to false
@@ -169,7 +187,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
           duration: data.duration,
           contentType: data.contentType,
           contentUrl: contentUrl || undefined,
-          youtubeVideoId: data.youtubeVideoId || undefined,
+          youtubeVideoId: normalizedYoutubeVideoId || undefined,
           content: data.content || undefined,
           // Maintain existing values or defaults
           isFree: chapter?.isFree,
@@ -218,8 +236,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => navigate(`/courses/${courseId}`)}
           >
@@ -230,8 +248,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
               {mode === 'create' ? 'Create New Chapter' : 'Edit Chapter'}
             </h1>
             <p className="text-gray-600">
-              {mode === 'create' 
-                ? 'Add a new chapter to your course' 
+              {mode === 'create'
+                ? 'Add a new chapter to your course'
                 : 'Update the chapter information'
               }
             </p>
@@ -276,10 +294,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Brief description of this chapter" 
+                          <Textarea
+                            placeholder="Brief description of this chapter"
                             rows={3}
-                            {...field} 
+                            {...field}
                           />
                         </FormControl>
                         <FormMessage />
@@ -295,7 +313,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Order *</FormLabel>
                           <FormControl>
-                            <Input 
+                            <Input
                               type="number"
                               min="1"
                               placeholder="1"
@@ -315,7 +333,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Duration (minutes) *</FormLabel>
                           <FormControl>
-                            <Input 
+                            <Input
                               type="number"
                               min="0"
                               placeholder="0"
@@ -409,15 +427,15 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                               onFileSelect={setUploadFile}
                               mediaType={
                                 form.watch('contentType') === 'video' ? 'video/' :
-                                form.watch('contentType') === 'audio' ? 'audio/' :
-                                form.watch('contentType') === 'image' ? 'image/' :
-                                'application/pdf'
+                                  form.watch('contentType') === 'audio' ? 'audio/' :
+                                    form.watch('contentType') === 'image' ? 'image/' :
+                                      'application/pdf'
                               }
                               allowedTypes={
                                 form.watch('contentType') === 'video' ? ['video/mp4', 'video/webm'] :
-                                form.watch('contentType') === 'audio' ? ['audio/mpeg', 'audio/mp3', 'audio/wav'] :
-                                form.watch('contentType') === 'image' ? ['image/jpeg', 'image/png', 'image/webp'] :
-                                ['application/pdf']
+                                  form.watch('contentType') === 'audio' ? ['audio/mpeg', 'audio/mp3', 'audio/wav'] :
+                                    form.watch('contentType') === 'image' ? ['image/jpeg', 'image/png', 'image/webp'] :
+                                      ['application/pdf']
                               }
                               placeholder={`Upload ${form.watch('contentType')} file`}
                             />
@@ -434,11 +452,11 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                       name="youtubeVideoId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>YouTube Video ID</FormLabel>
+                          <FormLabel>YouTube URL</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="dQw4w9WgXcQ" 
-                              {...field} 
+                            <Input
+                              placeholder="https://youtu.be/dQw4w9WgXcQ"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -455,10 +473,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                         <FormItem>
                           <FormLabel>Text Content</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              placeholder="Enter the text content for this chapter" 
-                              rows={8}
-                              {...field} 
+                            <RichEditor
+                              value={field.value || '<p></p>'}
+                              onChange={field.onChange}
+                              disabled={isSubmitting}
                             />
                           </FormControl>
                           <FormMessage />
@@ -472,7 +490,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              
+
               {/* Course Information */}
               {course && (
                 <Card>
@@ -550,29 +568,29 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                           Add Quiz
                         </Button>
                       </div>
-                      ) : (
-                        // Show all linked quizzes
-                        <div className="space-y-2">
-                          {chapterQuizzes.map((quiz) => (
-                            <div key={quiz.id} className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{quiz.title}</p>
-                                <p className="text-xs text-gray-500">
-                                  {quiz.questions?.length || 0} questions
-                                </p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => navigate(`/quizzes/${quiz.id}`)}
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
+                    ) : (
+                      // Show all linked quizzes
+                      <div className="space-y-2">
+                        {chapterQuizzes.map((quiz) => (
+                          <div key={quiz.id} className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{quiz.title}</p>
+                              <p className="text-xs text-gray-500">
+                                {quiz.questions?.length || 0} questions
+                              </p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

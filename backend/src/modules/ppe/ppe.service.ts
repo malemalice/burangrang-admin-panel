@@ -26,14 +26,19 @@ import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
 import { FindMovementsDto } from './dto/find-movements.dto';
 import { StockMovementDto } from './dto/stock-movement.dto';
 import {
-  PPEStockStatusEnum,
-  PPEWithdrawalStatusEnum,
-  Prisma,
+    PPEStockStatusEnum,
+    PPEWithdrawalStatusEnum,
+    Prisma,
 } from '@prisma/client';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
+import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
+import { MailService } from '../mail/mail.service';
+import { PpePdfService } from './ppe-pdf.service';
+import { ConfigService } from '@nestjs/config';
+import { format } from 'date-fns';
 
 @Injectable()
 export class PPEService {
@@ -58,7 +63,11 @@ export class PPEService {
         private readonly dtoMapper: DtoMapperService,
         private readonly dataScopeService: DataScopeService,
         private readonly masterApprovalsService: MasterApprovalsService,
+        private readonly approvalAccessService: ApprovalAccessService,
         private readonly notificationsService: NotificationsService,
+        private readonly mailService: MailService,
+        private readonly ppePdfService: PpePdfService,
+        private readonly config: ConfigService,
     ) {
         // Initialize mappers
         this.ppeStockMapper = this.dtoMapper.createSimpleMapper(PPEStockDto);
@@ -216,7 +225,19 @@ export class PPEService {
      * Create new stock entry with items
      */
     async createStock(createStockDto: CreatePPEStockDto, createdBy: string): Promise<PPEStockDto> {
-        const stockCode = await this.generateStockCode();
+        const trimmedCode = createStockDto.stockCode?.trim();
+        let stockCode: string;
+        if (trimmedCode) {
+            const existing = await this.prisma['pPEStock'].findFirst({
+                where: { stockCode: trimmedCode, deletedAt: null },
+            });
+            if (existing) {
+                this.errorHandler.throwConflict('PO/PR code', trimmedCode);
+            }
+            stockCode = trimmedCode;
+        } else {
+            stockCode = await this.generateStockCode();
+        }
 
         return await this.prisma.$transaction(async (tx) => {
             // Create stock header
@@ -276,7 +297,7 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'receivedDate',
+            sortBy = 'updatedAt',
             sortOrder = 'desc',
             isActive,
             search,
@@ -381,14 +402,38 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEStock', id, existingStock);
 
         return await this.prisma.$transaction(async (tx) => {
+            const headerData: {
+                receivedDate?: Date;
+                notes?: string | null;
+                isActive?: boolean;
+                stockCode?: string;
+            } = {
+                receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
+                notes: updateStockDto.notes,
+                isActive: updateStockDto.isActive,
+            };
+
+            if (updateStockDto.stockCode !== undefined) {
+                const trimmedCode = updateStockDto.stockCode.trim();
+                if (trimmedCode !== existingStock.stockCode) {
+                    const duplicate = await tx['pPEStock'].findFirst({
+                        where: {
+                            stockCode: trimmedCode,
+                            deletedAt: null,
+                            id: { not: id },
+                        },
+                    });
+                    if (duplicate) {
+                        this.errorHandler.throwConflict('PO/PR code', trimmedCode);
+                    }
+                }
+                headerData.stockCode = trimmedCode;
+            }
+
             // Update stock header
             const stock = await tx["pPEStock"].update({
                 where: { id },
-                data: {
-                    receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
-                    notes: updateStockDto.notes,
-                    isActive: updateStockDto.isActive,
-                },
+                data: headerData,
             });
 
             // Handle items update if provided
@@ -1004,15 +1049,28 @@ export class PPEService {
 
     /**
      * Ensure current user can access the PPE withdrawal (data-level). Throws 403 if not.
+     * Access is granted if the user owns/is-in-dept of the record (dataScope)
+     * OR if the user is a configured approver for PPE_WITHDRAWAL and the record is
+     * currently in an approval-pending status (approvalLineMatch).
      */
     private async ensureCanAccessPPEWithdrawal(id: string, userContext: UserContext | undefined): Promise<void> {
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: { id, deletedAt: null },
-            select: { requestedBy: true, requestedFor: true, createdBy: true, departmentId: true },
+            select: { requestedBy: true, requestedFor: true, createdBy: true, departmentId: true, status: true },
         });
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
-        if (!this.dataScopeService.canAccessRecord(userContext, 'PPEWithdrawal', withdrawal)) {
-            this.errorHandler.throwForbidden('You do not have access to this record');
+
+        const ownAccess = this.dataScopeService.canAccessRecord(userContext, 'PPEWithdrawal', withdrawal);
+        if (!ownAccess) {
+            const approverAccess = await this.approvalAccessService.canViewAsApprover(
+                APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                id,
+                userContext,
+                withdrawal.status,
+            );
+            if (!approverAccess) {
+                this.errorHandler.throwForbidden('You do not have access to this record');
+            }
         }
     }
 
@@ -1104,7 +1162,7 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'createdAt',
+            sortBy = 'updatedAt',
             sortOrder = 'desc',
             isActive,
             search,
@@ -1147,11 +1205,30 @@ export class PPEService {
             }
         }
 
-        // Data-level scope: hide rows user is not allowed to see
+        // Data-level scope: hide rows user is not allowed to see.
+        // Approver exception: if the user is a configured approver for PPE_WITHDRAWAL,
+        // also include all records that are currently in an approval-pending status.
         const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'PPEWithdrawal', where);
-        const finalWhere =
-            scopeWhere && Object.keys(scopeWhere).length > 0
-                ? { AND: [where, scopeWhere] }
+        const { isApprover, pendingStatuses } = await this.approvalAccessService.isApproverForEntityType(
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+            userContext,
+        );
+
+        let accessWhere: Prisma.PPEWithdrawalWhereInput;
+        if (isApprover && pendingStatuses.length > 0) {
+            const approverBranch: Prisma.PPEWithdrawalWhereInput = { status: { in: pendingStatuses as any } };
+            accessWhere =
+                scopeWhere && Object.keys(scopeWhere).length > 0
+                    ? { OR: [scopeWhere, approverBranch] }
+                    : approverBranch;
+        } else {
+            accessWhere =
+                scopeWhere && Object.keys(scopeWhere).length > 0 ? scopeWhere : {};
+        }
+
+        const finalWhere: Prisma.PPEWithdrawalWhereInput =
+            Object.keys(accessWhere).length > 0
+                ? { AND: [where, accessWhere] }
                 : where;
 
         const orderBy: Prisma.PPEWithdrawalOrderByWithRelationInput = {};
@@ -1230,7 +1307,33 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         // Populate requestedForName from requestedForUser if not already set
-        return this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawal));
+        const mapped = this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawal));
+
+        // Enrich with approval action flags so the frontend can render buttons without extra calls
+        if (userContext?.userId) {
+            try {
+                const user = await this.getFullUser(userContext.userId);
+                const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+                    id,
+                    user,
+                    APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                );
+                const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+                    id,
+                    APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                );
+                mapped.canApprove = approvalRights.canApprove;
+                mapped.canReject = approvalRights.canApprove;
+                mapped.nextApprover = approvalStatus.nextApprover ?? null;
+            } catch {
+                // Approval config may not exist for older records — degrade gracefully
+                mapped.canApprove = false;
+                mapped.canReject = false;
+                mapped.nextApprover = null;
+            }
+        }
+
+        return mapped;
     }
 
     /**
@@ -1336,7 +1439,93 @@ export class PPEService {
                 creator: true,
             },
         });
-        return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
+        const withdrawalDto = this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
+
+        if (updatedWithdrawal!.status === PPEWithdrawalStatusEnum.APPROVED) {
+            this.sendWithdrawalApprovalEmail(withdrawalDto, user).catch((err) => {
+                console.error('Failed to send PPE withdrawal approval email:', err);
+            });
+        }
+
+        return withdrawalDto;
+    }
+
+    /**
+     * Fire-and-forget: send approval email + PDF to the withdrawal creator
+     * when the withdrawal reaches the final APPROVED status.
+     */
+    private async sendWithdrawalApprovalEmail(
+        withdrawal: PPEWithdrawalDto,
+        approver: { id: string; department?: { id: string; name: string }; jobPosition?: { id: string; name: string } },
+    ): Promise<void> {
+        const creatorUser = await this.prisma.user.findUnique({
+            where: { id: withdrawal.createdBy },
+            select: { email: true, firstName: true, lastName: true },
+        });
+
+        if (!creatorUser?.email) return;
+
+        const approverUser = await this.prisma.user.findUnique({
+            where: { id: approver.id },
+            select: { firstName: true, lastName: true },
+        });
+        const approverName = approverUser
+            ? `${approverUser.firstName || ''} ${approverUser.lastName || ''}`.trim()
+            : 'Unknown';
+
+        const approvalHistory = await this.masterApprovalsService.checkApprovalStatus(
+            withdrawal.id,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+
+        const frontendUrl = this.config.get<string>('app.frontendUrl') ?? '';
+        const viewUrl = frontendUrl
+            ? `${frontendUrl}/ppe/withdrawals/${withdrawal.id}`
+            : `/ppe/withdrawals/${withdrawal.id}`;
+
+        // Generate PDF
+        let pdfAttachment: { filename: string; content: Buffer; contentType: string } | null = null;
+        try {
+            const pdfBuffer = await this.ppePdfService.generateWithdrawalPdf(withdrawal, approvalHistory, viewUrl);
+            pdfAttachment = {
+                filename: `ppe-withdrawal-${withdrawal.withdrawalCode ?? withdrawal.id}-${format(new Date(), 'yyyyMMdd')}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf',
+            };
+        } catch (err) {
+            console.error('PDF generation failed for PPE withdrawal email:', err);
+        }
+
+        const emailItems = (withdrawal.items ?? []).map((item) => ({
+            name: item.stockItemEquipmentName || item.stockItemId || '—',
+            type: item.stockItemEquipmentType || null,
+            size: item.stockItemEquipmentSize || null,
+            requestedQuantity: item.requestedQuantity,
+            approvedQuantity: item.approvedQuantity,
+        }));
+
+        const context: Record<string, unknown> = {
+            withdrawalCode: withdrawal.withdrawalCode,
+            withdrawalDate: withdrawal.withdrawalDate
+                ? format(new Date(withdrawal.withdrawalDate), 'dd MMMM yyyy')
+                : '—',
+            requestedByName: withdrawal.createdByName || withdrawal.createdBy || '—',
+            requestedForName: withdrawal.requestedForName || '—',
+            departmentName: withdrawal.departmentName || withdrawal.departmentId || '—',
+            jobPositionName: withdrawal.jobPositionName || null,
+            approvedByName: approverName,
+            approvedAt: format(new Date(), 'dd MMMM yyyy HH:mm'),
+            notes: withdrawal.notes || null,
+            items: emailItems,
+            viewUrl,
+        };
+
+        await this.mailService.sendTemplatedMail({
+            email: creatorUser.email,
+            template: 'ppe-withdrawal-approved',
+            context,
+            attachments: pdfAttachment ? [pdfAttachment] : undefined,
+        });
     }
 
     /**
@@ -1890,8 +2079,8 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'name',
-            sortOrder = 'asc',
+            sortBy = 'updatedAt',
+            sortOrder = 'desc',
             isActive,
             search,
             name,
@@ -1930,9 +2119,9 @@ export class PPEService {
         // Build order by clause
         const orderBy: Prisma.SafetyEquipmentTypeOrderByWithRelationInput = {};
         if (sortBy) {
-            orderBy[sortBy] = sortOrder || 'asc';
+            orderBy[sortBy] = sortOrder || 'desc';
         } else {
-            orderBy.name = 'asc';
+            orderBy.updatedAt = 'desc';
         }
 
         // Get total count
@@ -2070,8 +2259,8 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'name',
-            sortOrder = 'asc',
+            sortBy = 'updatedAt',
+            sortOrder = 'desc',
             isActive,
             search,
             category,
@@ -2123,9 +2312,9 @@ export class PPEService {
         // Build order by clause
         const orderBy: Prisma.SafetyEquipmentOrderByWithRelationInput = {};
         if (sortBy) {
-            orderBy[sortBy] = sortOrder || 'asc';
+            orderBy[sortBy] = sortOrder || 'desc';
         } else {
-            orderBy.name = 'asc';
+            orderBy.updatedAt = 'desc';
         }
 
         // Get total count
@@ -2438,7 +2627,7 @@ export class PPEService {
             currentBalance += m.quantity;
             if (m.quantity > 0) totalIn += m.quantity;
             else totalOut += Math.abs(m.quantity);
-            
+
             return {
                 ...m,
                 runningBalance: currentBalance,

@@ -2,15 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye, FileDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, FileDown } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/core/components/ui/dropdown-menu';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
@@ -34,6 +28,8 @@ import {
   type WaterQualityLabReportAggregateData,
 } from '../../utils/water-quality-lab-report-export';
 import { WaterQualityLabReportAggregatePDFTemplate } from '../../components/WaterQualityLabReportAggregatePDFTemplate';
+import { WaterQualityLabReportPDFTemplate } from '../../components/WaterQualityLabReportPDFTemplate';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 
 export default function WaterQualityLabReportsPage() {
   const navigate = useNavigate();
@@ -46,14 +42,22 @@ export default function WaterQualityLabReportsPage() {
   const [aggregateForPDF, setAggregateForPDF] =
     useState<WaterQualityLabReportAggregateData | null>(null);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
+  const [reportForSinglePdf, setReportForSinglePdf] = useState<WaterQualityLabReport | null>(null);
+  const [exportingSinglePdfId, setExportingSinglePdfId] = useState<string | null>(null);
   const pdfFilename = useMemo(
     () =>
-      aggregateForPDF
-        ? `water-quality-lab-reports-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
-        : 'water-quality-lab-reports.pdf',
-    [aggregateForPDF],
+      reportForSinglePdf
+        ? `${reportForSinglePdf.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+        : aggregateForPDF
+          ? `water-quality-lab-reports-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+          : 'water-quality-lab-reports.pdf',
+    [aggregateForPDF, reportForSinglePdf],
   );
-  const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+  const { targetRef } = usePDF(
+    buildPdfOptions({
+      filename: pdfFilename,
+    }),
+  );
 
   const page = useMemo(() => {
     const raw = searchParams.get('page');
@@ -211,7 +215,7 @@ export default function WaterQualityLabReportsPage() {
     if (!aggregateForPDF || !isExportingAllPDF) return;
     const timer = setTimeout(async () => {
       try {
-        await toPDF();
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
         toast.success('Exported as PDF');
       } catch (err) {
         toast.error('Failed to export PDF');
@@ -221,7 +225,36 @@ export default function WaterQualityLabReportsPage() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [aggregateForPDF, isExportingAllPDF, toPDF]);
+  }, [aggregateForPDF, isExportingAllPDF, targetRef, pdfFilename]);
+
+  const handleExportSinglePDF = useCallback(async (id: string) => {
+    try {
+      setExportingSinglePdfId(id);
+      const response = await waterQualityLabReportService.getById(id);
+      setReportForSinglePdf(response.data as WaterQualityLabReport);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load report for export');
+      setExportingSinglePdfId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!reportForSinglePdf || !exportingSinglePdfId || reportForSinglePdf.id !== exportingSinglePdfId)
+      return;
+    const timer = setTimeout(async () => {
+      try {
+        await generateTableAwarePdf(targetRef, buildPdfOptions({ filename: pdfFilename }));
+        toast.success('PDF exported successfully');
+      } catch (err) {
+        toast.error('Failed to export PDF');
+      } finally {
+        setReportForSinglePdf(null);
+        setExportingSinglePdfId(null);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [reportForSinglePdf, exportingSinglePdfId, targetRef, pdfFilename]);
 
   const handleSearch = (term: string) => {
     updateSearchParams((next) => {
@@ -299,32 +332,59 @@ export default function WaterQualityLabReportsPage() {
     {
       id: 'actions',
       header: 'Actions',
+      headerClassName: 'justify-center',
+      cellClassName: 'text-center align-middle',
       cell: (item: WaterQualityLabReport) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}/edit`)}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeleteId(item.id)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="View details"
+            onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}`)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="Export PDF"
+            disabled={exportingSinglePdfId === item.id}
+            onClick={() => handleExportSinglePDF(item.id)}
+          >
+            <FileDown className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="Edit"
+            onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}/edit`)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+            aria-label="Delete"
+            onClick={() => setDeleteId(item.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
 
   return (
     <>
-      {aggregateForPDF && (
+      {(aggregateForPDF || reportForSinglePdf) && (
         <div
           ref={targetRef}
           style={{
@@ -335,7 +395,12 @@ export default function WaterQualityLabReportsPage() {
           }}
           aria-hidden="true"
         >
-          <WaterQualityLabReportAggregatePDFTemplate data={aggregateForPDF} />
+          {aggregateForPDF && (
+            <WaterQualityLabReportAggregatePDFTemplate data={aggregateForPDF} />
+          )}
+          {reportForSinglePdf && (
+            <WaterQualityLabReportPDFTemplate report={reportForSinglePdf} />
+          )}
         </div>
       )}
       <PageHeader

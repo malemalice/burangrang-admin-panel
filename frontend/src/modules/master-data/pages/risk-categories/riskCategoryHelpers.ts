@@ -3,12 +3,12 @@ import { riskCategoryService } from '@/modules/master-data';
 import { RiskCategory } from '@/core/lib/types';
 
 /**
- * Creates a new risk category from a search query.
+ * Creates a new type of hazard from a search query.
  * Generates a code automatically from the name.
  * 
- * @param searchQuery - The name for the new risk category
+ * @param searchQuery - The name for the new type of hazard
  * @param onSuccess - Optional callback when creation succeeds, receives the new category
- * @returns Promise resolving to the new risk category ID
+ * @returns Promise resolving to the new type of hazard record ID
  */
 export const createRiskCategoryFromQuery = async (
   searchQuery: string,
@@ -17,16 +17,16 @@ export const createRiskCategoryFromQuery = async (
   try {
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) {
-      throw new Error('Risk category name cannot be empty');
+      throw new Error('Type of hazard name cannot be empty');
     }
 
-    // Generate code from name (uppercase, replace spaces with underscores)
-    const code = trimmedQuery.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+    // Generate code from name (uppercase, replace spaces with hyphens)
+    const code = trimmedQuery.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
 
     const newCategory = await riskCategoryService.create({
       name: trimmedQuery,
       code,
-      description: `Risk category: ${trimmedQuery}`,
+      description: `Type of hazard: ${trimmedQuery}`,
       isActive: true,
     });
 
@@ -34,7 +34,7 @@ export const createRiskCategoryFromQuery = async (
       onSuccess(newCategory);
     }
 
-    toast.success(`Risk category "${trimmedQuery}" created successfully`);
+    toast.success(`Type of hazard "${trimmedQuery}" created successfully`);
     return newCategory.id;
   } catch (error) {
     const errorMessage = 
@@ -44,7 +44,7 @@ export const createRiskCategoryFromQuery = async (
        ? String(error.response.data.message)
        : error instanceof Error 
        ? error.message 
-       : 'Failed to create risk category');
+       : 'Failed to create type of hazard');
     toast.error(errorMessage);
     throw error;
   }

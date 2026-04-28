@@ -84,9 +84,12 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
     label: `${user.firstName} ${user.lastName}`
   }));
 
-  // Filter status options to only show SCHEDULED and DONE for inspections
+  // Filter status options to only show SCHEDULED, OPEN and DONE for inspections
   const inspectionStatusOptions = GENERAL_STATUS_OPTIONS.filter(
-    option => option.value === GeneralStatusEnum.SCHEDULED || option.value === GeneralStatusEnum.DONE
+    option =>
+      option.value === GeneralStatusEnum.SCHEDULED ||
+      option.value === GeneralStatusEnum.OPEN ||
+      option.value === GeneralStatusEnum.DONE
   );
 
   // Helper function to determine default status based on inspection date
@@ -150,10 +153,13 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
         code: inspection.code,
         areaIds,
         inspectionDate: inspectionDateStr,
-        // Ensure status is either SCHEDULED or DONE
-        status: inspection.status === GeneralStatusEnum.SCHEDULED || inspection.status === GeneralStatusEnum.DONE
-          ? inspection.status
-          : getDefaultStatus(inspectionDateStr),
+        // Ensure status is SCHEDULED, OPEN or DONE
+        status:
+          inspection.status === GeneralStatusEnum.SCHEDULED ||
+          inspection.status === GeneralStatusEnum.OPEN ||
+          inspection.status === GeneralStatusEnum.DONE
+            ? inspection.status
+            : getDefaultStatus(inspectionDateStr),
         isActive: inspection.isActive,
         inspectorIds,
       });

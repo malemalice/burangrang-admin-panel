@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -9,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { EmailTemplateBodyPreviewSection } from '../components/EmailTemplateBodyPreviewSection';
 import emailTemplateService from '../services/emailTemplateService';
 import { CreateEmailTemplateDTO, UpdateEmailTemplateDTO, EmailTemplate } from '../types/email-template.types';
 import { Switch } from '@/core/components/ui/switch';
@@ -42,6 +43,8 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
       isActive: true,
     },
   });
+
+  const bodyHtml = useWatch({ control: form.control, name: 'body' }) ?? '';
 
   useEffect(() => {
     if (template) {
@@ -142,7 +145,16 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
                 <FormItem>
                   <FormLabel>Body <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Email body (supports handlebars)" className="min-h-[200px]" {...field} />
+                    <EmailTemplateBodyPreviewSection
+                      html={bodyHtml}
+                      codeSlot={
+                        <Textarea
+                          placeholder="Email body HTML (supports handlebars)"
+                          className="min-h-[200px] font-mono text-sm"
+                          {...field}
+                        />
+                      }
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

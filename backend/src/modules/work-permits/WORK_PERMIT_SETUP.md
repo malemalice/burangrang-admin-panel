@@ -53,7 +53,6 @@ npm run seed notification-types
 
 The following notification types are available:
 - `WORK_PERMIT_SUBMITTED` - When a work permit is submitted for review
-- `WORK_PERMIT_NEED_INFO` - When HSE requests additional information
 - `WORK_PERMIT_APPROVED` - When a work permit is approved
 - `WORK_PERMIT_REJECTED` - When a work permit is rejected
 - `WORK_PERMIT_EXTENDED` - When a work permit is extended
@@ -69,22 +68,20 @@ The Work Permit module supports the following statuses:
 2. **WAITING_APPROVAL** - Submitted, waiting for HSE review
 3. **IN_REVIEW_HSE** - Under HSE review
 4. **IN_REVIEW_SECURITY** - Under Security review
-5. **NEED_INFO** - HSE requested additional information
-6. **APPROVED** - Approved by both HSE and Security
-7. **REJECTED** - Rejected during approval process
-8. **CLOSED** - Work completed, permit closed
-9. **EXTENDED** - Permit end date extended
+5. **APPROVED** - Approved by both HSE and Security
+6. **REJECTED** - Rejected during approval process
+7. **CLOSED** - Work completed, permit closed
+8. **EXTENDED** - Permit end date extended
 
 ## Business Rules
 
-1. **Editing**: Only permits with status `DRAFT` or `NEED_INFO` can be edited
-2. **Submission**: Only `DRAFT` permits can be submitted
+1. **Editing**: Only permits with status `DRAFT` or `REJECTED` can be edited
+2. **Submission**: Only `DRAFT` or `REJECTED` permits can be submitted
 3. **Approval**: 
    - HSE can approve/reject when status is `WAITING_APPROVAL` or `IN_REVIEW_HSE`
    - Security can approve/reject when status is `IN_REVIEW_SECURITY`
-4. **Request Info**: Only HSE can request additional information when status is `WAITING_APPROVAL` or `IN_REVIEW_HSE`
-5. **Extension**: Only `APPROVED` permits can be extended
-6. **Closure**: Only `APPROVED` or `EXTENDED` permits can be closed
+4. **Extension**: Only `APPROVED` permits can be extended
+5. **Closure**: Only `APPROVED` or `EXTENDED` permits can be closed
 
 ## API Endpoints
 
@@ -99,7 +96,6 @@ The Work Permit module supports the following statuses:
 - `POST /work-permits/:id/submit` - Submit for approval
 - `POST /work-permits/:id/approve` - Approve (HSE/Security)
 - `POST /work-permits/:id/reject` - Reject with reason
-- `POST /work-permits/:id/request-info` - Request additional information
 - `POST /work-permits/:id/extend` - Extend permit end date
 - `POST /work-permits/:id/close` - Close completed permit
 - `GET /work-permits/:id/timeline` - Get approval timeline
@@ -167,11 +163,10 @@ npx ts-node prisma/seed.ts work-permits
 - [ ] Create work permit (DRAFT)
 - [ ] List work permits with filters
 - [ ] Get work permit details with all relations
-- [ ] Update work permit (DRAFT/NEED_INFO only)
+- [ ] Update work permit (DRAFT/REJECTED only)
 - [ ] Submit work permit for approval
 - [ ] HSE approve work permit
 - [ ] HSE reject work permit
-- [ ] HSE request additional information
 - [ ] Security approve work permit
 - [ ] Security reject work permit
 - [ ] Extend work permit
@@ -186,13 +181,12 @@ npx ts-node prisma/seed.ts work-permits
 - [ ] Create form validates required fields
 - [ ] Create form saves work permit correctly
 - [ ] Edit form loads existing data
-- [ ] Edit form validates status (DRAFT/NEED_INFO only)
+- [ ] Edit form validates status (DRAFT/REJECTED only)
 - [ ] Detail page displays all information
 - [ ] Action buttons appear based on status and role
 - [ ] Submit action works
 - [ ] Approve dialog works
 - [ ] Reject dialog validates reason
-- [ ] Request info dialog works
 - [ ] Extend dialog validates date
 - [ ] Close dialog works
 - [ ] Timeline displays correctly
@@ -205,8 +199,8 @@ npx ts-node prisma/seed.ts work-permits
 - [ ] Business rules enforced correctly
 
 ### Edge Cases
-- [ ] Cannot edit non-DRAFT/NEED_INFO permits
-- [ ] Cannot submit non-DRAFT permits
+- [ ] Cannot edit non-DRAFT/REJECTED permits
+- [ ] Cannot submit non-DRAFT/REJECTED permits
 - [ ] Cannot approve/reject without proper role
 - [ ] Cannot extend before current end date
 - [ ] Cannot close non-APPROVED/EXTENDED permits

@@ -52,24 +52,6 @@ export class FindCoursesOptions {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiProperty({
-    description: 'Filter by course status',
-    required: false,
-    enum: ['draft', 'review', 'published', 'archived']
-  })
-  @IsOptional()
-  @IsEnum(['draft', 'review', 'published', 'archived'])
-  status?: string;
-
-  @ApiProperty({
-    description: 'Filter by difficulty level',
-    required: false,
-    enum: ['beginner', 'intermediate', 'advanced']
-  })
-  @IsOptional()
-  @IsEnum(['beginner', 'intermediate', 'advanced'])
-  difficulty?: string;
-
   @ApiProperty({ description: 'Filter by instructor ID', required: false })
   @IsOptional()
   @IsString()
@@ -80,8 +62,4 @@ export class FindCoursesOptions {
   @IsString()
   categoryId?: string;
 
-  @ApiProperty({ description: 'Filter by language', required: false })
-  @IsOptional()
-  @IsString()
-  language?: string;
 }

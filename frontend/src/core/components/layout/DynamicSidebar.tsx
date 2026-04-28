@@ -9,7 +9,7 @@ import { cn } from '@/core/lib/utils';
 import { Icon } from '@/core/components/ui/icon';
 import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
-import { useAppName } from '@/modules/settings/hooks/useSettings';
+import { useAppBranding } from '@/modules/settings/hooks/useSettings';
 import { useSidebarMenus } from '@/modules/menus';
 import { SidebarMenu } from '@/modules/menus/types/menu.types';
 import { useIsMobile } from '@/core/hooks/useIsMobile';
@@ -307,6 +307,7 @@ const SidebarContent = ({
   currentThemeColor, 
   textColor, 
   appName, 
+  logoPortraitUrl,
   isDark, 
   sidebarMenus, 
   isLoading, 
@@ -316,6 +317,7 @@ const SidebarContent = ({
   currentThemeColor: string;
   textColor: string;
   appName: string;
+  logoPortraitUrl?: string | null;
   isDark: boolean;
   sidebarMenus: SidebarMenu[];
   isLoading: boolean;
@@ -350,12 +352,21 @@ const SidebarContent = ({
           "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
           "border-sidebar-border"
         )}>
-          <h1
-            className="text-xl font-bold"
-            style={{ color: textColor }}
-          >
-            {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
-          </h1>
+          <div className={cn("w-full flex items-center justify-center", isOpen ? "gap-3" : "")}>
+            {logoPortraitUrl ? (
+              <img
+                src={logoPortraitUrl}
+                alt={`${appName} logo`}
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : null}
+            <h1 className="text-xl font-bold" style={{ color: textColor }}>
+              {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
+            </h1>
+          </div>
         </div>
         <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
           <div className="flex items-center justify-center h-8">
@@ -373,12 +384,21 @@ const SidebarContent = ({
           "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
           "border-sidebar-border"
         )}>
-          <h1
-            className="text-xl font-bold"
-            style={{ color: textColor }}
-          >
-            {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
-          </h1>
+          <div className={cn("w-full flex items-center justify-center", isOpen ? "gap-3" : "")}>
+            {logoPortraitUrl ? (
+              <img
+                src={logoPortraitUrl}
+                alt={`${appName} logo`}
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : null}
+            <h1 className="text-xl font-bold" style={{ color: textColor }}>
+              {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
+            </h1>
+          </div>
         </div>
         <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
           <div className="text-center text-sm" style={{ color: textColor }}>
@@ -395,12 +415,21 @@ const SidebarContent = ({
         "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
         isDark ? "border-gray-800" : "border-white/10"
       )}>
-        <h1
-          className="text-xl font-bold"
-          style={{ color: textColor }}
-        >
-          {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
-        </h1>
+        <div className={cn("w-full flex items-center justify-center", isOpen ? "gap-3" : "")}>
+          {logoPortraitUrl ? (
+            <img
+              src={logoPortraitUrl}
+              alt={`${appName} logo`}
+              className="h-8 w-8 object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : null}
+          <h1 className="text-xl font-bold" style={{ color: textColor }}>
+            {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
+          </h1>
+        </div>
       </div>
 
       <div className="relative flex-1 min-h-0 flex flex-col">
@@ -447,7 +476,7 @@ const SidebarContent = ({
 
 const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
   const { isDark, theme } = useTheme();
-  const { appName } = useAppName();
+  const { appName, logoPortraitUrl } = useAppBranding();
   const { sidebarMenus, isLoading, error } = useSidebarMenus();
   const isMobile = useIsMobile();
 
@@ -477,6 +506,7 @@ const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
               currentThemeColor={currentThemeColor}
               textColor={textColor}
               appName={appName}
+              logoPortraitUrl={logoPortraitUrl}
               isDark={isDark}
               sidebarMenus={sidebarMenus}
               isLoading={isLoading}
@@ -505,6 +535,7 @@ const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
         currentThemeColor={currentThemeColor}
         textColor={textColor}
         appName={appName}
+        logoPortraitUrl={logoPortraitUrl}
         isDark={isDark}
         sidebarMenus={sidebarMenus}
         isLoading={isLoading}

@@ -26,7 +26,6 @@ import { WorkPermitStatus } from '../types/work-permit.types';
  * - Error (REJECTED): red colors representing error/destructive state
  * - Info (CLOSED): blue colors representing informational state
  * - Warning (WAITING_APPROVAL, IN_REVIEW_*): yellow colors representing warning/pending state
- * - Warning variant (NEED_INFO): orange colors representing warning state variant
  * - Neutral (DRAFT, OPEN, EXTENDED): muted colors representing neutral state
  * 
  * @param status - Work permit status
@@ -48,14 +47,15 @@ export const getWorkPermitStatusColor = (status: WorkPermitStatus): string => {
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
 
     case 'WAITING_APPROVAL':
+    case 'IN_REVIEW_PROJECT_OWNER':
     case 'IN_REVIEW_HSE':
     case 'IN_REVIEW_SECURITY':
       // Warning state - semantic warning colors (yellow)
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
 
-    case 'NEED_INFO':
-      // Warning state variant - semantic warning colors (orange)
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+    case 'WAITING_APPLICANT_SIGN':
+      // Info/action-required state for applicant acknowledgment
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
 
     case 'DRAFT':
     case 'OPEN':
@@ -79,10 +79,12 @@ export const getWorkPermitStatusType = (status: WorkPermitStatus): 'success' | '
     case 'CLOSED':
       return 'info';
     case 'WAITING_APPROVAL':
+    case 'IN_REVIEW_PROJECT_OWNER':
     case 'IN_REVIEW_HSE':
     case 'IN_REVIEW_SECURITY':
-    case 'NEED_INFO':
       return 'warning';
+    case 'WAITING_APPLICANT_SIGN':
+      return 'info';
     case 'DRAFT':
     case 'OPEN':
     case 'EXTENDED':

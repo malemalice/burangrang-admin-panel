@@ -16,6 +16,15 @@ import { ApprovalStatus } from '@/core/lib/types';
 import { approvalService, APPROVAL_ENTITIES } from '@/modules/master-data';
 import { toast } from 'sonner';
 
+function getSubmitApprovalErrorMessage(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('response' in error)) return undefined;
+  const data = (error as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+  const msg = data?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  if (typeof msg === 'string') return msg;
+  return undefined;
+}
+
 interface ApprovalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,11 +57,12 @@ export const ApprovalDialog = ({
 
     try {
       setIsSubmitting(true);
+      const trimmedNotes = approvalNotes.trim();
       await approvalService.submitApproval({
         dataId: assessmentId,
         entity: APPROVAL_ENTITIES.RISK_ASSESSMENT,
         status: approvalStatus,
-        notes: approvalNotes,
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       });
 
       toast.success('Approval submitted successfully');
@@ -60,7 +70,9 @@ export const ApprovalDialog = ({
       setApprovalNotes('');
       onApprovalSubmitted();
     } catch (error) {
-      toast.error('Failed to submit approval');
+      toast.error(
+        getSubmitApprovalErrorMessage(error) ?? 'Failed to submit approval',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -102,10 +114,12 @@ export const ApprovalDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">
+              Notes{approvalStatus === ApprovalStatus.REJECTED && <span className="text-red-500"> *</span>}
+            </Label>
             <Textarea
               id="notes"
-              placeholder="Enter your approval notes..."
+              placeholder={approvalStatus === ApprovalStatus.REJECTED ? "Enter reason for rejection..." : "Enter your approval notes (optional)..."}
               value={approvalNotes}
               onChange={(e) => setApprovalNotes(e.target.value)}
               className="min-h-[100px]"
@@ -122,7 +136,7 @@ export const ApprovalDialog = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !approvalNotes.trim()}
+            disabled={isSubmitting || (approvalStatus === ApprovalStatus.REJECTED && !approvalNotes.trim())}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Approval'}
           </Button>

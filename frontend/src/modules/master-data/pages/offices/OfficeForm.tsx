@@ -24,10 +24,15 @@ import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/s
 
 const formSchema = z.object({
   name: z.string().min(1, 'Office name is required'),
-  code: z.string().optional(),
+  code: z.string().min(1, 'Office Code is required'),
   description: z.string().optional(),
   address: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .optional()
+    .refine((value) => !value || /^\+?[0-9]*$/.test(value), {
+      message: 'Phone number can only contain digits and an optional leading +',
+    }),
   email: z.string().email('Valid email is required').optional().or(z.literal('')),
   parentId: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -46,6 +51,15 @@ const OfficeForm = ({ office, mode }: OfficeFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataReady, setDataReady] = useState(false);
+
+  const sanitizePhone = (raw: string) => {
+    const trimmed = raw.trim();
+    const allowed = trimmed.replace(/[^0-9+]/g, '');
+    if (!allowed.includes('+')) return allowed;
+    // Keep at most one '+' and only at the start
+    const digitsOnly = allowed.replace(/\+/g, '');
+    return allowed.startsWith('+') ? `+${digitsOnly}` : digitsOnly;
+  };
 
   // Convert parent offices to SearchableSelectOption format
   const parentOfficeOptions: SearchableSelectOption[] = parentOffices.map(office => ({
@@ -107,7 +121,7 @@ const OfficeForm = ({ office, mode }: OfficeFormProps) => {
             phone: office.phone || '',
             email: office.email || '',
             parentId: office.parentId || 'none',
-            isActive: office.isActive || true,
+            isActive: office.isActive ?? true,
           });
         }
 
@@ -211,7 +225,7 @@ const OfficeForm = ({ office, mode }: OfficeFormProps) => {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Office Code</FormLabel>
+                    <FormLabel>Office Code *</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter office code" {...field} />
                     </FormControl>
@@ -243,7 +257,12 @@ const OfficeForm = ({ office, mode }: OfficeFormProps) => {
                   <FormItem>
                     <FormLabel>Phone Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter phone number" {...field} />
+                      <Input
+                        placeholder="Enter phone number"
+                        inputMode="tel"
+                        {...field}
+                        onChange={(e) => field.onChange(sanitizePhone(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

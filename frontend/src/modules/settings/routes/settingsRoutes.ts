@@ -1,6 +1,8 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import SettingsPage from '../pages/SettingsPage';
-import SettingsManagementPage from '../pages/SettingsManagementPage';
+
+const SettingsPage = lazy(() => import('../pages/SettingsPage'));
+const SettingsManagementPage = lazy(() => import('../pages/SettingsManagementPage'));
 
 /**
  * Settings module routes

@@ -123,6 +123,8 @@ export interface UpdatePPEStockItemDTO {
 }
 
 export interface CreatePPEStockDTO {
+    /** PO/PR code; omit or leave empty for auto-generated code */
+    stockCode?: string;
     receivedDate: string;
     notes?: string;
     isActive?: boolean;
@@ -130,6 +132,7 @@ export interface CreatePPEStockDTO {
 }
 
 export interface UpdatePPEStockDTO {
+    stockCode?: string;
     receivedDate?: string;
     notes?: string;
     isActive?: boolean;

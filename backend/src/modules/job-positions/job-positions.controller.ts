@@ -6,9 +6,11 @@ import {
   Patch,
   Param,
   Delete,
+  Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -91,11 +93,15 @@ export class JobPositionsController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('code') code?: string,
+    @Query('level') level?: string,
   ): Promise<{ data: JobPositionDto[]; meta: { total: number } }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
     const isActiveBoolean =
       isActive === undefined ? undefined : isActive === 'true';
+    const levelNumber = level ? Number(level) : undefined;
 
     return this.jobPositionsService.findAll({
       page: pageNumber,
@@ -104,6 +110,9 @@ export class JobPositionsController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      name,
+      code,
+      level: levelNumber !== undefined && !Number.isNaN(levelNumber) ? levelNumber : undefined,
     });
   }
 
@@ -152,7 +161,10 @@ export class JobPositionsController {
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
   
-  remove(@Param('id') id: string): Promise<void> {
-    return this.jobPositionsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.jobPositionsService.remove(id, req.user.id);
   }
 }

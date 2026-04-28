@@ -2,8 +2,9 @@
  * Incident seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient, Incident, Room } from '@prisma/client';
 import {
+  Incident,
+  Room,
   IncidentTypeEnum,
   IncidentClassificationEnum,
   IncidentActivitiesEnum,
@@ -20,8 +21,7 @@ import {
   TypeOfInjuryEnum,
   MechanismOfInjuryEnum,
 } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 // Helper function to generate incident code: INC-YYYYMMDD-XXXX (general)
 const generateIncidentCode = async (dateStr: string): Promise<string> => {
@@ -64,6 +64,7 @@ export const seedIncidents = async () => {
     const riskCategories = await prisma.riskCategory.findMany({
       where: { isActive: true },
     });
+    const securityRiskCategories = riskCategories.filter((c) => c.code.startsWith('SEC-'));
     const departments = await prisma.department.findMany({
       where: { isActive: true },
     });
@@ -75,7 +76,7 @@ export const seedIncidents = async () => {
       throw new Error('No areas found. Please seed areas first.');
     }
     if (riskCategories.length === 0) {
-      throw new Error('No risk categories found. Please seed risk categories first.');
+      throw new Error('No types of hazard found. Please run the risk-categories seed first.');
     }
     if (departments.length === 0) {
       throw new Error('No departments found. Please seed departments first.');
@@ -1139,7 +1140,8 @@ export const seedIncidents = async () => {
       console.log(`✅ Created incident: ${incident.code} - ${t.subject}`);
     }
 
-    // Create security incidents (type: SECURITY)
+    // Create security incidents (type: SECURITY) — use only SEC- prefixed types of hazard
+    const categoriesForSecurity = securityRiskCategories.length > 0 ? securityRiskCategories : riskCategories;
     for (const t of securityIncidentTemplates) {
       const incidentDate = generateDateInMonth(t.year, t.month);
       const dueDate = new Date(incidentDate);
@@ -1156,7 +1158,7 @@ export const seedIncidents = async () => {
           usedRoomIds.add(room.id);
         }
       }
-      const riskCategory = randomItem(riskCategories);
+      const riskCategory = randomItem(categoriesForSecurity);
       const requester = randomItem(users);
       const reporter = randomItem(users);
       const technician = Math.random() > 0.5 ? randomItem(techniciansList) : null;

@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Info,
+  Plus,
 } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
@@ -84,6 +85,7 @@ const InspectionItemsPage = () => {
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [isCreateWithInspectionDialogOpen, setIsCreateWithInspectionDialogOpen] = useState(false);
   const [inspectionItemApprovalLines, setInspectionItemApprovalLines] = useState<MasterApprovalItem[] | null>(null);
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
 
@@ -197,7 +199,7 @@ const InspectionItemsPage = () => {
     },
     {
       id: 'riskCategoryId',
-      label: 'Risk Category',
+      label: 'Type of Hazard',
       type: 'searchableSelect',
       options: riskCategories.map(category => ({
         label: category.name,
@@ -212,7 +214,7 @@ const InspectionItemsPage = () => {
   ], [departments, users, risks, riskCategories]);
 
   const activeFilters = useMemo(() => {
-    const filters: Record<string, { value: any; label: string }> = {};
+    const filters: Record<string, { value: unknown; label: string }> = {};
 
     const status = searchParams.get('status');
     if (status) {
@@ -643,22 +645,30 @@ const InspectionItemsPage = () => {
         title="Inspection Items"
         subtitle="View and manage inspection items"
         actions={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsWorkflowInfoDialogOpen(true)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Info className="h-4 w-4" />
-                <span className="sr-only">View workflow information</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>View Inspection Item Workflow</p>
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setIsCreateWithInspectionDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create new inspection
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsWorkflowInfoDialogOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Info className="h-4 w-4" />
+                  <span className="sr-only">View workflow information</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View Inspection Item Workflow</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         }
       />
 
@@ -681,6 +691,28 @@ const InspectionItemsPage = () => {
         onSearch={handleSearch}
         searchPlaceholder="Search by inspection code, risk, description..."
       />
+
+      {/* Create new inspection (with first item) Dialog */}
+      <Dialog open={isCreateWithInspectionDialogOpen} onOpenChange={setIsCreateWithInspectionDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create new inspection</DialogTitle>
+            <DialogDescription>
+              Create a new inspection and add the first inspection item.
+            </DialogDescription>
+          </DialogHeader>
+          <InspectionItemForm
+            createWithInspection={true}
+            onSubmit={async () => {
+              setIsCreateWithInspectionDialogOpen(false);
+              await fetchItems();
+            }}
+            onCancel={() => setIsCreateWithInspectionDialogOpen(false)}
+            showCard={false}
+            formMode="creator"
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Item Dialog */}
       <Dialog open={isEditItemDialogOpen} onOpenChange={(open) => {
@@ -728,8 +760,12 @@ const InspectionItemsPage = () => {
                 })),
                 mitigation: editingItem.mitigation ? {
                   eliminate: editingItem.mitigation.eliminate,
+                  eliminationControl: (editingItem.mitigation as any).eliminationControl,
+                  substitutionControl: (editingItem.mitigation as any).substitutionControl,
+                  engineeringControl: (editingItem.mitigation as any).engineeringControl,
+                  administrationControl: (editingItem.mitigation as any).administrationControl,
+                  personalProtectiveEquipment: (editingItem.mitigation as any).personalProtectiveEquipment,
                   transfer: editingItem.mitigation.transfer,
-                  reduce: editingItem.mitigation.reduce,
                   accept: editingItem.mitigation.accept,
                   legalAspect: editingItem.mitigation.legalAspect,
                 } : undefined,
@@ -784,7 +820,7 @@ const InspectionItemsPage = () => {
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
-                  Records the finding and initial details (area, risk category, risk, assigned department, assignee, due date). Editable until submitted for verification.
+                  Records the finding and initial details (area, type of hazard, risk, assigned department, assignee, due date). Editable until submitted for verification.
                 </p>
               </div>
 

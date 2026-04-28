@@ -55,9 +55,10 @@ const EnrollmentsPage = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const prevFiltersStringRef = useRef<string>('');
 
-  // Check if user is admin or super admin
   const isAdmin = currentUser?.role === 'Administrator' || currentUser?.role === 'Super Admin';
-  const userRole = typeof currentUser?.role === 'string' ? currentUser.role : currentUser?.role?.name || '';
+  const canAssignCourses = hasPermission('enrollment:create');
+  /** Load user list for filters and assign dialog when admin or when user can assign (non-admin managers). */
+  const needsUserDirectory = isAdmin || canAssignCourses;
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -76,11 +77,13 @@ const EnrollmentsPage = () => {
       try {
         const [coursesResponse, usersResponse] = await Promise.all([
           courseService.getCourses({ page: 1, limit: 100 }),
-          isAdmin ? userService.getUsers({ page: 1, limit: 100, options: true }) : Promise.resolve({ data: [], meta: { total: 0 } }),
+          needsUserDirectory
+            ? userService.getUsers({ page: 1, limit: 100, options: true })
+            : Promise.resolve({ data: [], meta: { total: 0 } }),
         ]);
 
         setCourses(coursesResponse.data.map(c => ({ id: c.id, title: c.title })));
-        if (isAdmin) {
+        if (needsUserDirectory) {
           setUsers(usersResponse.data.map(u => ({
             id: u.id,
             name: u.name || `${u.firstName} ${u.lastName}`,
@@ -88,6 +91,8 @@ const EnrollmentsPage = () => {
             firstName: u.firstName,
             lastName: u.lastName,
           })));
+        } else {
+          setUsers([]);
         }
       } catch (error) {
         console.error('Failed to fetch filter options:', error);
@@ -96,7 +101,7 @@ const EnrollmentsPage = () => {
     };
 
     fetchFilterOptions();
-  }, [isAdmin]);
+  }, [needsUserDirectory]);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -109,7 +114,7 @@ const EnrollmentsPage = () => {
         value: course.id,
       })),
     },
-    ...(isAdmin ? [{
+    ...(needsUserDirectory ? [{
       id: 'userId',
       label: 'User',
       type: 'searchableSelect' as const,
@@ -435,13 +440,12 @@ const EnrollmentsPage = () => {
         onApplyFilters={handleApplyFilters}
       />
 
-      {isAdmin && (
+      {canAssignCourses && (
         <AssignCourseDialog
           open={assignDialogOpen}
           onOpenChange={setAssignDialogOpen}
           onSuccess={() => {
             setAssignDialogOpen(false);
-            // Refresh data by incrementing refresh key
             setRefreshKey(prev => prev + 1);
           }}
         />

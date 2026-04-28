@@ -34,11 +34,14 @@ import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
+import { HealthQuizzesModule } from './modules/health-quizzes/health-quizzes.module';
+import { HealthScreeningsModule } from './modules/health-screenings/health-screenings.module';
 import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
 import { AreasModule } from './modules/areas/areas.module';
 import { AssetsModule } from './modules/assets/assets.module';
+import { CompaniesModule } from './modules/companies/companies.module';
 
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
@@ -86,11 +89,14 @@ import { AccessLogsModule } from './modules/access-logs/access-logs.module';
     ProgressModule,
     RemindersModule,
     QuizzesModule,
+    HealthQuizzesModule,
+    HealthScreeningsModule,
     CertificatesModule,
     WorkPermitsModule,
     RoomsModule,
     EnvironmentalMeasurementsModule,
     AreasModule,
+    CompaniesModule,
     AssetsModule,
     // Waste Management Module (consolidated - includes all waste-related features)
     WasteManagementModule,
@@ -128,4 +134,4 @@ import { AccessLogsModule } from './modules/access-logs/access-logs.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

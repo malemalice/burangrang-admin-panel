@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import axios from 'axios';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -43,6 +44,26 @@ interface AreaFormProps {
   mode: 'create' | 'edit';
 }
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const responseMessage = (error.response?.data as { message?: string | string[] } | undefined)?.message;
+
+    if (typeof responseMessage === 'string' && responseMessage.trim() !== '') {
+      return responseMessage;
+    }
+
+    if (Array.isArray(responseMessage) && responseMessage.length > 0) {
+      return responseMessage.join(', ');
+    }
+  }
+
+  if (error instanceof Error && error.message.trim() !== '') {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 const AreaForm = ({ area, mode }: AreaFormProps) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -72,17 +93,6 @@ const AreaForm = ({ area, mode }: AreaFormProps) => {
           options: true
         });
         setOffices(officesResponse.data);
-
-        // Set form data for edit mode
-        if (area && mode === 'edit') {
-          form.reset({
-            name: area.name,
-            code: area.code,
-            description: area.description || '',
-            officeId: area.officeId || '', // Handle null/undefined
-            isActive: area.isActive,
-          });
-        }
       } catch (error) {
         console.error('Error fetching form data:', error);
         toast.error('Failed to load form data');
@@ -92,6 +102,18 @@ const AreaForm = ({ area, mode }: AreaFormProps) => {
     };
 
     fetchData();
+  }, [form]);
+
+  useEffect(() => {
+    if (area && mode === 'edit') {
+      form.reset({
+        name: area.name,
+        code: area.code,
+        description: area.description || '',
+        officeId: area.officeId || '',
+        isActive: area.isActive,
+      });
+    }
   }, [area, mode, form]);
 
   const onSubmit = async (data: FormValues) => {
@@ -121,8 +143,7 @@ const AreaForm = ({ area, mode }: AreaFormProps) => {
       navigate('/master/areas');
     } catch (error: unknown) {
       console.error('Error saving area:', error);
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} area`;
-      toast.error(errorMessage);
+      toast.error(getApiErrorMessage(error, `Failed to ${mode} area`));
     } finally {
       setIsLoading(false);
     }

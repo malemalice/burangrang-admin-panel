@@ -19,6 +19,16 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
+import { ModalMultiSelect } from '@/core/components/ui/modal-multi-select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
+import { Switch } from '@/core/components/ui/switch';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +39,8 @@ import {
 } from '@/core/components/ui/dialog';
 import { Label } from '@/core/components/ui/label';
 
-import { CreateInspectionItemDTO, InspectionImageTypeEnum } from '../types/inspection.types';
+import { CreateInspectionItemDTO, CreateInspectionDTO, InspectionImageTypeEnum } from '../types/inspection.types';
+import inspectionsService from '../services/inspectionsService';
 import { riskCategoryService, riskService } from '@/modules/master-data';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { userService } from '@/modules/users';
@@ -39,9 +50,10 @@ import { Department } from '@/core/lib/types';
 import areaService from '@/modules/master-data/services/areaService';
 import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
-import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import riskMitigationService, { type RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 import inspectionItemsService from '../inspection-items/services/inspectionItemsService';
+import { generateInspectionCode, getDefaultInspectionStatus } from '../utils/inspection-form.utils';
 
 // Inspection item status options - using GeneralStatusEnum (OPEN, WAITING_APPROVAL, CLOSE)
 
@@ -58,17 +70,31 @@ interface ImageUpload {
 // Mitigation schema for validation
 const mitigationSchema = z.object({
   eliminate: z.string().optional(),
+  eliminationControl: z.string().optional(),
+  substitutionControl: z.string().optional(),
+  engineeringControl: z.string().optional(),
+  administrationControl: z.string().optional(),
+  personalProtectiveEquipment: z.string().optional(),
   transfer: z.string().optional(),
-  reduce: z.string().optional(),
   accept: z.string().optional(),
   legalAspect: z.string().optional(),
 });
 
-// Form schema for validation
-const formSchema = z.object({
+// Inspection fields schema (when creating inspection + item from Inspection Items page)
+const inspectionFieldsSchema = z.object({
+  code: z.string().min(1, 'Code is required'),
+  areaIds: z.array(z.string()).min(1, 'At least one area is required'),
+  inspectionDate: z.string().min(1, 'Inspection date is required'),
+  inspectionStatus: z.nativeEnum(GeneralStatusEnum),
+  isActive: z.boolean().default(true),
+  inspectorIds: z.array(z.string()).optional(),
+});
+
+// Base item form schema (object only, for merging with inspection schema)
+const baseItemFormSchema = z.object({
   areaId: z.string().min(1, 'Area is required'),
   status: z.nativeEnum(GeneralStatusEnum),
-  riskCategoryId: z.string().min(1, 'Risk Category is required'),
+  riskCategoryId: z.string().min(1, 'Type of Hazard is required'),
   riskId: z.string().min(1, 'Risk is required'),
   assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
   assigneeId: z.string().optional(),
@@ -78,8 +104,9 @@ const formSchema = z.object({
   dueDateAt: z.string().optional(),
   mitigation: mitigationSchema.optional(),
   approvalNotes: z.string().optional(), // Notes field for approver/verifier
-}).superRefine((data, ctx) => {
-  // Status validation: inspection items can be OPEN, WAITING_APPROVAL, or CLOSE
+});
+
+const itemFormRefinement = (data: z.infer<typeof baseItemFormSchema>, ctx: z.RefinementCtx) => {
   const validStatuses = [GeneralStatusEnum.OPEN, GeneralStatusEnum.WAITING_APPROVAL, GeneralStatusEnum.CLOSE];
   if (!validStatuses.includes(data.status)) {
     ctx.addIssue({
@@ -88,16 +115,17 @@ const formSchema = z.object({
       path: ['status'],
     });
   }
-  
-  // If a risk is selected, at least one mitigation field must be filled
   if (data.riskId && data.mitigation) {
     const hasMitigation = !!(
       (data.mitigation.eliminate && data.mitigation.eliminate.trim()) ||
+      (data.mitigation.eliminationControl && data.mitigation.eliminationControl.trim()) ||
+      (data.mitigation.substitutionControl && data.mitigation.substitutionControl.trim()) ||
+      (data.mitigation.engineeringControl && data.mitigation.engineeringControl.trim()) ||
+      (data.mitigation.administrationControl && data.mitigation.administrationControl.trim()) ||
+      (data.mitigation.personalProtectiveEquipment && data.mitigation.personalProtectiveEquipment.trim()) ||
       (data.mitigation.transfer && data.mitigation.transfer.trim()) ||
-      (data.mitigation.reduce && data.mitigation.reduce.trim()) ||
       (data.mitigation.accept && data.mitigation.accept.trim())
     );
-    
     if (!hasMitigation) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -106,9 +134,13 @@ const formSchema = z.object({
       });
     }
   }
-});
+};
+
+const formSchema = baseItemFormSchema.superRefine(itemFormRefinement);
+const formSchemaWithInspection = inspectionFieldsSchema.merge(baseItemFormSchema).superRefine(itemFormRefinement);
 
 type FormValues = z.infer<typeof formSchema>;
+type FormValuesWithInspection = z.infer<typeof formSchemaWithInspection>;
 
 type FormMode = 'creator' | 'updater' | 'verifier';
 
@@ -169,11 +201,13 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
 interface InspectionItemFormProps {
   inspectionId?: string;
   initialItem?: Partial<CreateInspectionItemDTO & { id?: string }>;
-  onSubmit?: (item: CreateInspectionItemDTO) => void;
+  onSubmit?: (item?: CreateInspectionItemDTO) => void;
   onCancel?: () => void;
   showCard?: boolean;
   inspectionStatus?: GeneralStatusEnum;
   formMode?: FormMode; // 'creator' | 'updater' | 'verifier'
+  /** When true, show inspection fields and create inspection first, then item (single submit). */
+  createWithInspection?: boolean;
 }
 
 // Read-only field display component
@@ -227,6 +261,7 @@ const InspectionItemForm = ({
   showCard = true,
   inspectionStatus,
   formMode = 'creator',
+  createWithInspection = false,
 }: InspectionItemFormProps) => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
@@ -285,9 +320,21 @@ const InspectionItemForm = ({
     label: `${user.firstName} ${user.lastName}`
   }));
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const inspectionDefaults = createWithInspection
+    ? {
+        code: generateInspectionCode(),
+        areaIds: [] as string[],
+        inspectionDate: new Date().toISOString().split('T')[0],
+        inspectionStatus: getDefaultInspectionStatus(new Date().toISOString().split('T')[0]),
+        isActive: true,
+        inspectorIds: [] as string[],
+      }
+    : {};
+
+  const form = useForm<FormValues | FormValuesWithInspection>({
+    resolver: zodResolver(createWithInspection ? formSchemaWithInspection : formSchema),
     defaultValues: {
+      ...inspectionDefaults,
       areaId: initialItem?.areaId || '',
       status:
         formMode === 'updater' && initialItem?.status === GeneralStatusEnum.REJECTED
@@ -303,8 +350,12 @@ const InspectionItemForm = ({
       dueDateAt: initialItem?.dueDateAt ? new Date(initialItem.dueDateAt).toISOString().split('T')[0] : '',
       mitigation: initialItem?.mitigation || {
         eliminate: '',
+        eliminationControl: '',
+        substitutionControl: '',
+        engineeringControl: '',
+        administrationControl: '',
+        personalProtectiveEquipment: '',
         transfer: '',
-        reduce: '',
         accept: '',
         legalAspect: '',
       },
@@ -314,6 +365,31 @@ const InspectionItemForm = ({
 
   // Watch selected risk ID
   const selectedRiskId = form.watch('riskId');
+
+  // Inspection status options (SCHEDULED, OPEN, DONE) when createWithInspection
+  const inspectionStatusOptions = GENERAL_STATUS_OPTIONS.filter(
+    (option) =>
+      option.value === GeneralStatusEnum.SCHEDULED ||
+      option.value === GeneralStatusEnum.OPEN ||
+      option.value === GeneralStatusEnum.DONE
+  );
+
+  // Auto-set inspectionStatus when inspectionDate changes (createWithInspection only)
+  useEffect(() => {
+    if (!createWithInspection) return;
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'inspectionDate' && value && 'inspectionDate' in value) {
+        const dateVal = value.inspectionDate as string;
+        if (dateVal) {
+          const newStatus = getDefaultInspectionStatus(dateVal);
+          if (newStatus === GeneralStatusEnum.SCHEDULED) {
+            form.setValue('inspectionStatus', GeneralStatusEnum.SCHEDULED, { shouldValidate: true });
+          }
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [createWithInspection, form]);
 
   // Fetch reference data
   useEffect(() => {
@@ -344,9 +420,9 @@ const InspectionItemForm = ({
         
         // Fetch users separately with error handling - this endpoint requires ADMIN/SUPER_ADMIN role
         // If user doesn't have permission, we'll just skip it (assignee field is optional)
-        // Only fetch users if assigneeId field is editable in current form mode
+        // Fetch users when assigneeId is editable or when creating with inspection (for inspectors dropdown)
         const assigneePermission = FIELD_PERMISSIONS[formMode]?.assigneeId;
-        if (assigneePermission === 'editable') {
+        if (assigneePermission === 'editable' || createWithInspection) {
           try {
             const usersResponse = await userService.getAll({ page: 1, limit: 1000, options: true });
             setUsers(usersResponse.data);
@@ -377,7 +453,7 @@ const InspectionItemForm = ({
     };
 
     fetchData();
-  }, [formMode]);
+  }, [formMode, createWithInspection]);
 
   // Initialize images from initialItem when editing
   useEffect(() => {
@@ -443,8 +519,12 @@ const InspectionItemForm = ({
         // Only do this if the risk has changed (not on initial load with existing data)
         const hasExistingMitigation = initialItem?.mitigation && (
           initialItem.mitigation.eliminate ||
+          (initialItem as any).mitigation.eliminationControl ||
+          (initialItem as any).mitigation.substitutionControl ||
+          (initialItem as any).mitigation.engineeringControl ||
+          (initialItem as any).mitigation.administrationControl ||
+          (initialItem as any).mitigation.personalProtectiveEquipment ||
           initialItem.mitigation.transfer ||
-          initialItem.mitigation.reduce ||
           initialItem.mitigation.accept
         );
         
@@ -452,8 +532,12 @@ const InspectionItemForm = ({
           // Combine all mitigations into a single object (in case there are multiple)
           const combinedMitigation = {
             eliminate: mitigations.map(m => m.eliminate).filter(Boolean).join('\n') || '',
+            eliminationControl: mitigations.map(m => (m as any).eliminationControl).filter(Boolean).join('\n') || '',
+            substitutionControl: mitigations.map(m => (m as any).substitutionControl).filter(Boolean).join('\n') || '',
+            engineeringControl: mitigations.map(m => (m as any).engineeringControl).filter(Boolean).join('\n') || '',
+            administrationControl: mitigations.map(m => (m as any).administrationControl).filter(Boolean).join('\n') || '',
+            personalProtectiveEquipment: mitigations.map(m => (m as any).personalProtectiveEquipment).filter(Boolean).join('\n') || '',
             transfer: mitigations.map(m => m.transfer).filter(Boolean).join('\n') || '',
-            reduce: mitigations.map(m => m.reduce).filter(Boolean).join('\n') || '',
             accept: mitigations.map(m => m.accept).filter(Boolean).join('\n') || '',
           };
           
@@ -724,32 +808,116 @@ const InspectionItemForm = ({
     return uploadedImages;
   };
 
-  const handleSubmit = async (data: FormValues) => {
+  const handleSubmit = async (data: FormValues | FormValuesWithInspection) => {
     if (!onSubmit) return;
 
     try {
       setIsSubmitting(true);
-      
-      // Upload images first if any
+
+      // When creating with inspection: create inspection first, then item (single user submit)
+      if (createWithInspection && 'code' in data && 'areaIds' in data && 'inspectionDate' in data && 'inspectionStatus' in data) {
+        const inspectionData: CreateInspectionDTO = {
+          code: data.code,
+          areaIds: data.areaIds,
+          inspectionDate: new Date(data.inspectionDate),
+          status: data.inspectionStatus,
+          isActive: data.isActive ?? true,
+          ...(data.inspectorIds && data.inspectorIds.length > 0 && {
+            inspectors: data.inspectorIds.map((inspectorId, index) => ({
+              inspectorId,
+              order: index + 1,
+            })),
+          }),
+        };
+        let created;
+        try {
+          created = await inspectionsService.create(inspectionData);
+        } catch (err: unknown) {
+          const isConflict =
+            (err && typeof err === 'object' && 'response' in err && (err as { response: { status: number } }).response?.status === 409) ||
+            (err instanceof Error && (err.message.toLowerCase().includes('code') || err.message.toLowerCase().includes('already exists')));
+          if (isConflict) {
+            const newCode = generateInspectionCode();
+            inspectionData.code = newCode;
+            form.setValue('code', newCode);
+            created = await inspectionsService.create(inspectionData);
+          } else {
+            throw err;
+          }
+        }
+        toast.success('Inspection created');
+
+        // Upload images and build item payload, then create item
+        let uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
+        if (beforeImages.length > 0 || afterImages.length > 0) {
+          uploadedImages = await uploadImages();
+        }
+        const followUpNotes = data.followUpNotes || undefined;
+        const hasMitigation = data.mitigation && (
+          data.mitigation.eliminate ||
+          (data as any).mitigation.eliminationControl ||
+          (data as any).mitigation.substitutionControl ||
+          (data as any).mitigation.engineeringControl ||
+          (data as any).mitigation.administrationControl ||
+          (data as any).mitigation.personalProtectiveEquipment ||
+          data.mitigation.transfer ||
+          data.mitigation.accept ||
+          data.mitigation.legalAspect
+        );
+        const itemData: CreateInspectionItemDTO = {
+          areaId: data.areaId,
+          status: data.status,
+          riskCategoryId: data.riskCategoryId,
+          riskId: data.riskId,
+          assignedDepartmentId: data.assignedDepartmentId,
+          assigneeId: data.assigneeId || undefined,
+          description: data.description || undefined,
+          followUpNotes: followUpNotes,
+          findings: data.findings || undefined,
+          dueDateAt: data.dueDateAt || undefined,
+          images: uploadedImages,
+          mitigation: hasMitigation
+            ? {
+                eliminate: data.mitigation?.eliminate || undefined,
+                eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
+                substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
+                engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
+                administrationControl: (data as any).mitigation?.administrationControl || undefined,
+                personalProtectiveEquipment: (data as any).mitigation?.personalProtectiveEquipment || undefined,
+                transfer: data.mitigation?.transfer || undefined,
+                accept: data.mitigation?.accept || undefined,
+                legalAspect: data.mitigation?.legalAspect || undefined,
+              }
+            : undefined,
+        };
+        await inspectionsService.createItem(created.id, itemData);
+        toast.success('Inspection item created successfully');
+        [...beforeImages, ...afterImages].forEach((img) => {
+          if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+        });
+        onSubmit();
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Standard flow: upload images and submit item only
       let uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
       if (beforeImages.length > 0 || afterImages.length > 0) {
         uploadedImages = await uploadImages();
       }
-      
       const followUpNotes = data.followUpNotes || undefined;
-
-      // Only include mitigation if at least one field has content
       const hasMitigation = data.mitigation && (
         data.mitigation.eliminate ||
+        (data as any).mitigation.eliminationControl ||
+        (data as any).mitigation.substitutionControl ||
+        (data as any).mitigation.engineeringControl ||
+        (data as any).mitigation.administrationControl ||
+        (data as any).mitigation.personalProtectiveEquipment ||
         data.mitigation.transfer ||
-        data.mitigation.reduce ||
         data.mitigation.accept ||
         data.mitigation.legalAspect
       );
-
-      // For updater mode, set status to WAITING_APPROVAL when submitting
       const finalStatus = formMode === 'updater' ? GeneralStatusEnum.WAITING_APPROVAL : data.status;
-
       const itemData: CreateInspectionItemDTO = {
         areaId: data.areaId,
         status: finalStatus,
@@ -761,23 +929,24 @@ const InspectionItemForm = ({
         followUpNotes: followUpNotes,
         findings: data.findings || undefined,
         dueDateAt: data.dueDateAt || undefined,
-        images: uploadedImages, // Add images to DTO
-        mitigation: hasMitigation ? {
-          eliminate: data.mitigation?.eliminate || undefined,
-          transfer: data.mitigation?.transfer || undefined,
-          reduce: data.mitigation?.reduce || undefined,
-          accept: data.mitigation?.accept || undefined,
-          legalAspect: data.mitigation?.legalAspect || undefined,
-        } : undefined,
+        images: uploadedImages,
+        mitigation: hasMitigation
+          ? {
+              eliminate: data.mitigation?.eliminate || undefined,
+              eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
+              substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
+              engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
+              administrationControl: (data as any).mitigation?.administrationControl || undefined,
+              personalProtectiveEquipment: (data as any).mitigation?.personalProtectiveEquipment || undefined,
+              transfer: data.mitigation?.transfer || undefined,
+              accept: data.mitigation?.accept || undefined,
+              legalAspect: data.mitigation?.legalAspect || undefined,
+            }
+          : undefined,
       };
-      
       await onSubmit(itemData);
-      
-      // Clean up blob URLs
-      [...beforeImages, ...afterImages].forEach(img => {
-        if (img.url.startsWith('blob:')) {
-          URL.revokeObjectURL(img.url);
-        }
+      [...beforeImages, ...afterImages].forEach((img) => {
+        if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
       });
     } catch (error) {
       console.error('Failed to submit inspection item:', error);
@@ -932,7 +1101,133 @@ const InspectionItemForm = ({
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Section 1: Creator Section - Area, Risk, Risk Category, Findings, Description, Due Date, Risk Mitigation */}
+        {/* Inspection section: when creating from Inspection Items page (no existing inspection) */}
+        {createWithInspection && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Inspection</h3>
+              <p className="text-sm text-muted-foreground">Enter the inspection details.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Inspection Code <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter inspection code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="areaIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Areas <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <ModalMultiSelect
+                        options={areaOptions}
+                        value={field.value ?? []}
+                        onValueChange={field.onChange}
+                        placeholder="Select areas"
+                        searchPlaceholder="Search areas..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="inspectionDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Inspection Date <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <DateTimePicker mode="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="inspectionStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Status <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {inspectionStatusOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="inspectorIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Inspectors</FormLabel>
+                    <FormControl>
+                      <ModalMultiSelect
+                        options={userOptions}
+                        value={field.value ?? []}
+                        onValueChange={field.onChange}
+                        placeholder="Select inspectors"
+                        searchPlaceholder="Search inspectors..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Active Status</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Section 1: Creator Section - Area, Risk, Type of Hazard, Findings, Description, Due Date, Risk Mitigation */}
         {showCreatorSection && (
           <>
             <div className="space-y-4">
@@ -1016,7 +1311,7 @@ const InspectionItemForm = ({
                   formMode={formMode}
                   readOnlyComponent={
                     <ReadOnlyField
-                      label="Risk Category"
+                      label="Type of Hazard"
                       value={getDisplayValue('riskCategoryId', form.watch('riskCategoryId'))}
                       required
                     />
@@ -1028,7 +1323,7 @@ const InspectionItemForm = ({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Risk Category <span className="text-destructive">*</span>
+                          Type of Hazard <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <ModalCombobox
@@ -1039,8 +1334,8 @@ const InspectionItemForm = ({
                               // Clear risk when category changes
                               form.setValue('riskId', '');
                             }}
-                            placeholder="Select risk category"
-                            searchPlaceholder="Search risk category..."
+                            placeholder="Select type of hazard"
+                            searchPlaceholder="Search type of hazard..."
                           />
                         </FormControl>
                         <FormMessage />
@@ -1073,9 +1368,9 @@ const InspectionItemForm = ({
                             options={filteredRiskOptions}
                             value={field.value}
                             onValueChange={field.onChange}
-                            placeholder={selectedRiskCategoryId ? "Select risk" : "Select risk category first"}
+                            placeholder={selectedRiskCategoryId ? "Select risk" : "Select type of hazard first"}
                             searchPlaceholder="Search risk..."
-                            emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a risk category first"}
+                            emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a type of hazard first"}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1284,13 +1579,33 @@ const InspectionItemForm = ({
                             multiline
                           />
                           <ReadOnlyField
-                            label="Transfer"
-                            value={form.watch('mitigation.transfer')}
+                            label="Elimination Control"
+                            value={form.watch('mitigation.eliminationControl')}
                             multiline
                           />
                           <ReadOnlyField
-                            label="Reduce"
-                            value={form.watch('mitigation.reduce')}
+                            label="Substitution Control"
+                            value={form.watch('mitigation.substitutionControl')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Engineering Control"
+                            value={form.watch('mitigation.engineeringControl')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Administration Control"
+                            value={form.watch('mitigation.administrationControl')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Personal Protective Equipment"
+                            value={form.watch('mitigation.personalProtectiveEquipment')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Transfer"
+                            value={form.watch('mitigation.transfer')}
                             multiline
                           />
                           <ReadOnlyField
@@ -1299,7 +1614,7 @@ const InspectionItemForm = ({
                             multiline
                           />
                           <ReadOnlyField
-                            label="Legal Aspect"
+                            label="Legal Aspect & Standard reference"
                             value={form.watch('mitigation.legalAspect')}
                             multiline
                           />
@@ -1328,13 +1643,13 @@ const InspectionItemForm = ({
                         />
                         <FormField
                           control={form.control}
-                          name="mitigation.transfer"
+                          name="mitigation.eliminationControl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                              <FormLabel className="text-sm font-medium">Elimination Control</FormLabel>
                               <FormControl>
                                 <Textarea
-                                  placeholder="Describe transfer strategy..."
+                                  placeholder="Describe elimination control measures..."
                                   className="min-h-[120px] resize-y"
                                   {...field}
                                   value={field.value || ''}
@@ -1347,13 +1662,89 @@ const InspectionItemForm = ({
                         />
                         <FormField
                           control={form.control}
-                          name="mitigation.reduce"
+                          name="mitigation.substitutionControl"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-medium">Reduce</FormLabel>
+                              <FormLabel className="text-sm font-medium">Substitution Control</FormLabel>
                               <FormControl>
                                 <Textarea
-                                  placeholder="Describe reduction strategy..."
+                                  placeholder="Describe substitution control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.engineeringControl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Engineering Control</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe engineering control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.administrationControl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Administration Control</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe administration control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.personalProtectiveEquipment"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Personal Protective Equipment</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe PPE control measures..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.transfer"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe transfer strategy..."
                                   className="min-h-[120px] resize-y"
                                   {...field}
                                   value={field.value || ''}
@@ -1388,7 +1779,7 @@ const InspectionItemForm = ({
                           name="mitigation.legalAspect"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
+                              <FormLabel className="text-sm font-medium">Legal Aspect & Standard reference</FormLabel>
                               <FormControl>
                                 <Textarea
                                   placeholder="Enter legal aspect (filled by approver)..."

@@ -8,13 +8,8 @@ export interface Course {
   thumbnailUrl?: string;
   totalChapters: number;
   totalDuration: number;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  language: string;
-  rating: number;
-  reviewCount: number;
   studentCount: number;
   instructorId: string;
-  status: 'draft' | 'review' | 'published' | 'archived';
   publishedAt?: string;
   isActive: boolean;
   createdAt: string;
@@ -72,13 +67,8 @@ export interface CourseDTO {
   thumbnailUrl?: string;
   totalChapters: number;
   totalDuration: number;
-  difficulty: string;
-  language: string;
-  rating: number;
-  reviewCount: number;
   studentCount: number;
   instructorId: string;
-  status: string;
   publishedAt?: string;
   isActive: boolean;
   createdAt: string;
@@ -134,10 +124,7 @@ export interface CreateCourseDTO {
   description?: string;
   shortDescription?: string;
   thumbnailUrl?: string;
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  language?: string;
   instructorId: string;
-  status?: 'draft' | 'review' | 'published' | 'archived';
   categoryIds?: string[];
 }
 
@@ -173,11 +160,9 @@ export interface CourseSearchParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
-  status?: 'draft' | 'review' | 'published' | 'archived';
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
   instructorId?: string;
   categoryId?: string;
-  language?: string;
+  title?: string;
 }
 
 export interface ChapterSearchParams {
@@ -210,19 +195,6 @@ export type { PaginationParams } from '@/core/lib/types';
 
 export interface CourseStats {
   total: number;
-  published: number;
-  draft: number;
-  byDifficulty: {
-    beginner: number;
-    intermediate: number;
-    advanced: number;
-  };
-  byStatus: {
-    draft: number;
-    review: number;
-    published: number;
-    archived: number;
-  };
 }
 
 // Form data types
@@ -232,10 +204,7 @@ export interface CourseFormData {
   description: string;
   shortDescription: string;
   thumbnailUrl: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  language: string;
   instructorId: string;
-  status: 'draft' | 'review' | 'published' | 'archived';
   categoryIds: string[];
 }
 
@@ -254,11 +223,8 @@ export interface ChapterFormData {
 
 // Filter types
 export interface CourseFilters {
-  status?: 'draft' | 'review' | 'published' | 'archived';
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
   instructorId?: string;
   categoryId?: string;
-  language?: string;
 }
 
 export interface ChapterFilters {
@@ -299,6 +265,7 @@ export interface Quiz {
   description?: string;
   duration?: number;
   passingScore: number;
+  maxAttempts?: number;
   entity: 'COURSE' | 'CHAPTER';
   entityId: string;
   isPublished: boolean;
@@ -325,4 +292,6 @@ export interface LearningContext {
   quizzes: Quiz[];
   progress: Progress[];
   quizAttempts: QuizAttemptSummary[];
+  /** Suggested first incomplete chapter (from server learning context) */
+  currentChapterId?: string;
 }

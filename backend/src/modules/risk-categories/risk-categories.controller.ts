@@ -8,7 +8,9 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RiskCategoriesService } from './risk-categories.service';
 import { CreateRiskCategoryDto } from './dto/create-risk-category.dto';
 import { UpdateRiskCategoryDto } from './dto/update-risk-category.dto';
@@ -20,7 +22,11 @@ import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
-@ApiTags('risk-categories')
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
+
+@ApiTags('Types of hazard')
 @Controller('risk-categories')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RiskCategoriesController {
@@ -28,8 +34,8 @@ export class RiskCategoriesController {
 
   @Post()
   @Permissions('risk-category:create')
-  @ApiOperation({ summary: 'Create a new risk category' })
-  @ApiResponse({ status: 201, description: 'The risk category has been successfully created.', type: RiskCategoryDto })
+  @ApiOperation({ summary: 'Create a new type of hazard' })
+  @ApiResponse({ status: 201, description: 'The type of hazard has been successfully created.', type: RiskCategoryDto })
   create(@Body() createRiskCategoryDto: CreateRiskCategoryDto): Promise<RiskCategoryDto> {
     return this.riskCategoriesService.create(createRiskCategoryDto);
   }
@@ -37,8 +43,8 @@ export class RiskCategoriesController {
   @Get()
   @AllowOptionsBypass()
   @Permissions('risk-category:list')
-  @ApiOperation({ summary: 'Get all risk categories with pagination' })
-  @ApiResponse({ status: 200, description: 'Return all risk categories.', type: [RiskCategoryDto] })
+  @ApiOperation({ summary: 'Get all types of hazard with pagination' })
+  @ApiResponse({ status: 200, description: 'Return all types of hazard.', type: [RiskCategoryDto] })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
@@ -69,18 +75,18 @@ export class RiskCategoriesController {
 
   @Get(':id')
   @Permissions('risk-category:read')
-  @ApiOperation({ summary: 'Get a risk category by id' })
-  @ApiResponse({ status: 200, description: 'Return the risk category.', type: RiskCategoryDto })
-  @ApiResponse({ status: 404, description: 'Risk category not found.' })
+  @ApiOperation({ summary: 'Get a type of hazard by id' })
+  @ApiResponse({ status: 200, description: 'Return the type of hazard.', type: RiskCategoryDto })
+  @ApiResponse({ status: 404, description: 'Type of hazard not found.' })
   findOne(@Param('id') id: string): Promise<RiskCategoryDto> {
     return this.riskCategoriesService.findOne(id);
   }
 
   @Patch(':id')
   @Permissions('risk-category:update')
-  @ApiOperation({ summary: 'Update a risk category' })
-  @ApiResponse({ status: 200, description: 'The risk category has been successfully updated.', type: RiskCategoryDto })
-  @ApiResponse({ status: 404, description: 'Risk category not found.' })
+  @ApiOperation({ summary: 'Update a type of hazard' })
+  @ApiResponse({ status: 200, description: 'The type of hazard has been successfully updated.', type: RiskCategoryDto })
+  @ApiResponse({ status: 404, description: 'Type of hazard not found.' })
   update(
     @Param('id') id: string,
     @Body() updateRiskCategoryDto: UpdateRiskCategoryDto,
@@ -90,10 +96,10 @@ export class RiskCategoriesController {
 
   @Delete(':id')
   @Permissions('risk-category:delete')
-  @ApiOperation({ summary: 'Delete a risk category' })
-  @ApiResponse({ status: 200, description: 'The risk category has been successfully deleted.' })
-  @ApiResponse({ status: 404, description: 'Risk category not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.riskCategoriesService.remove(id);
+  @ApiOperation({ summary: 'Delete a type of hazard' })
+  @ApiResponse({ status: 200, description: 'The type of hazard has been successfully deleted.' })
+  @ApiResponse({ status: 404, description: 'Type of hazard not found.' })
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.riskCategoriesService.remove(id, req.user.id);
   }
 } 

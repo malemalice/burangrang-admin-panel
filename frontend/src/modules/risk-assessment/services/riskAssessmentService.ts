@@ -3,8 +3,12 @@ import api from '@/core/lib/api';
 
 export interface RiskMitigationData {
   eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
   transfer?: string;
-  reduce?: string;
   accept?: string;
   legalAspect?: string;
 }
@@ -47,8 +51,12 @@ export interface CreateRiskAssessmentDTO {
 
 export interface CreateRiskControlDTO {
   eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
   transfer?: string;
-  reduce?: string;
   isOpen?: boolean;
   isAccept?: boolean;
   isActive?: boolean;

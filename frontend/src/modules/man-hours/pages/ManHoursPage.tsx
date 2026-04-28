@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Clock, MoreHorizontal } from 'lucide-react';
-import { format } from 'date-fns';
+import { Edit, Eye, Trash2, Plus, MoreHorizontal } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -190,7 +189,19 @@ export default function ManHoursPage() {
       id: 'name',
       header: 'Name',
       cell: (manHour: ManHour) => (
-        <div className="font-medium">{manHour.name}</div>
+        <div className="font-medium">
+          {hasPermission('man-hour:read') ? (
+            <button
+              type="button"
+              className="text-left hover:underline text-primary"
+              onClick={() => navigate(`/man-hours/${manHour.id}`)}
+            >
+              {manHour.name}
+            </button>
+          ) : (
+            manHour.name
+          )}
+        </div>
       ),
     },
     {
@@ -273,6 +284,14 @@ export default function ManHoursPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {hasPermission('man-hour:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/man-hours/${manHour.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View
+              </DropdownMenuItem>
+            )}
+            {hasPermission('man-hour:read') && hasPermission('man-hour:update') && (
+              <DropdownMenuSeparator />
+            )}
             {hasPermission('man-hour:update') && (
               <DropdownMenuItem onClick={() => navigate(`/man-hours/${manHour.id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit

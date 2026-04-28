@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import axios from 'axios';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -26,7 +28,9 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
-import environmentalMeasurementService from '../services/environmentalMeasurementService';
+import environmentalMeasurementService, {
+  type EnvironmentalMeasurementRegulatoryLimits,
+} from '../services/environmentalMeasurementService';
 import roomService from '@/modules/master-data/services/roomService';
 import {
   EnvironmentalMeasurement,
@@ -48,6 +52,30 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const responseMessage = error.response?.data?.message;
+
+    if (typeof responseMessage === 'string' && responseMessage.trim() !== '') {
+      return responseMessage;
+    }
+
+    if (Array.isArray(responseMessage) && responseMessage.length > 0) {
+      return responseMessage.join(', ');
+    }
+  }
+
+  if (error instanceof Error && error.message.trim() !== '') {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function formatRegulatoryLimitReadOnly(limit: number | null | undefined): string {
+  return limit != null && Number.isFinite(limit) ? String(limit) : '—';
+}
+
 interface EnvironmentalMeasurementFormProps {
   measurement?: EnvironmentalMeasurement;
   mode: 'create' | 'edit';
@@ -58,6 +86,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [rooms, setRooms] = useState<RoomDTO[]>([]);
+  const [regulatoryLimits, setRegulatoryLimits] = useState<EnvironmentalMeasurementRegulatoryLimits | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -78,9 +107,13 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
       try {
         setIsLoadingData(true);
 
-        // Fetch rooms for dropdown
-        const roomsResponse = await roomService.getRooms({ isActive: true, limit: 100, options: true });
+        // Fetch rooms for dropdown and regulatory limits (read-only reference)
+        const [roomsResponse, limits] = await Promise.all([
+          roomService.getRooms({ isActive: true, limit: 100, options: true }),
+          environmentalMeasurementService.getRegulatoryLimits(),
+        ]);
         setRooms(roomsResponse.data);
+        setRegulatoryLimits(limits);
 
         // Set form data for edit mode
         if (measurement && mode === 'edit') {
@@ -122,15 +155,15 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
 
       if (mode === 'create') {
         await environmentalMeasurementService.createMeasurement(measurementData as CreateEnvironmentalMeasurementDTO);
-        toast.success('Environmental measurement created successfully');
+        toast.success('Environmental Measurements created successfully');
       } else if (measurement) {
         await environmentalMeasurementService.updateMeasurement(measurement.id, measurementData as UpdateEnvironmentalMeasurementDTO);
-        toast.success('Environmental measurement updated successfully');
+        toast.success('Environmental Measurements updated successfully');
       }
       navigate('/environmental-measurements');
     } catch (error: unknown) {
       console.error('Error saving measurement:', error);
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} environmental measurement`;
+      const errorMessage = getApiErrorMessage(error, `Failed to ${mode} environmental measurement`);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -216,6 +249,9 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.lighting.limit)}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -237,6 +273,9 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.noise.limit)}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -258,6 +297,9 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.humidity.limit)}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -279,6 +321,9 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Quality Standard Value: {formatRegulatoryLimitReadOnly(regulatoryLimits?.temperature.limit)}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -299,27 +344,6 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel>Active Status</FormLabel>
-                    <div className="text-sm text-gray-500">
-                      Set whether this measurement record is active
-                    </div>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
                 </FormItem>
               )}
             />

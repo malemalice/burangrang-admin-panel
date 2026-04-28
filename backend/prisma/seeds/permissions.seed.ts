@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Permission } from '@prisma/client';
+import { notDeleted } from './not-deleted';
 
 export const permissions = [
   // User Management
@@ -106,6 +107,13 @@ export const permissions = [
   { name: 'area:delete', description: 'Delete areas' },
   { name: 'area:list', description: 'List all areas' },
 
+  // Company Management
+  { name: 'company:create', description: 'Create new companies' },
+  { name: 'company:read', description: 'View company information' },
+  { name: 'company:update', description: 'Update company information' },
+  { name: 'company:delete', description: 'Delete companies' },
+  { name: 'company:list', description: 'List all companies' },
+
   // Asset Management
   { name: 'asset:create', description: 'Create new assets' },
   { name: 'asset:read', description: 'View asset information' },
@@ -127,9 +135,24 @@ export const permissions = [
   { name: 'quiz:delete', description: 'Delete quizzes' },
   { name: 'quiz:list', description: 'List all quizzes' },
   { name: 'quiz:publish', description: 'Publish/unpublish quizzes' },
+  { name: 'quiz:assign', description: 'Assign quizzes to users' },
+  { name: 'quiz:attempt', description: 'Start, resume, and submit quiz attempts' },
   { name: 'quiz:grade', description: 'Grade essay questions in quizzes' },
   { name: 'quiz:adjust-score', description: 'Manually adjust quiz attempt scores' },
   { name: 'quiz:view-attempts', description: 'View all quiz attempts for grading' },
+
+  // Health questionnaire (master) — distinct from LMS quizzes
+  { name: 'health-quiz:create', description: 'Create health declaration questionnaires' },
+  { name: 'health-quiz:read', description: 'View health questionnaire templates' },
+  { name: 'health-quiz:update', description: 'Update health questionnaire templates' },
+  { name: 'health-quiz:delete', description: 'Deactivate health questionnaire templates' },
+  { name: 'health-quiz:list', description: 'List health questionnaire templates' },
+
+  // Health screening (worker filling)
+  { name: 'health-screening:start', description: 'Start a health screening / declaration' },
+  { name: 'health-screening:list', description: 'List health screenings (scoped)' },
+  { name: 'health-screening:read', description: 'View health screening details' },
+  { name: 'health-screening:submit', description: 'Submit answers and complete health screening' },
 
   // Incident Management
   { name: 'incident:create', description: 'Create new incidents' },
@@ -250,12 +273,12 @@ export const permissions = [
   { name: 'risk-matrix:delete', description: 'Delete risk matrix entries' },
   { name: 'risk-matrix:list', description: 'List all risk matrix entries' },
 
-  // Risk Category Management
-  { name: 'risk-category:create', description: 'Create new risk categories' },
-  { name: 'risk-category:read', description: 'View risk category information' },
-  { name: 'risk-category:update', description: 'Update risk category information' },
-  { name: 'risk-category:delete', description: 'Delete risk categories' },
-  { name: 'risk-category:list', description: 'List all risk categories' },
+  // Type of Hazard Management (permission keys unchanged for compatibility)
+  { name: 'risk-category:create', description: 'Create new types of hazard' },
+  { name: 'risk-category:read', description: 'View type of hazard information' },
+  { name: 'risk-category:update', description: 'Update type of hazard information' },
+  { name: 'risk-category:delete', description: 'Delete types of hazard' },
+  { name: 'risk-category:list', description: 'List all types of hazard' },
 
   // Reminder Management
   { name: 'reminder:create', description: 'Create new reminders' },
@@ -355,15 +378,19 @@ export const permissions = [
 
 export async function seedPermissions(prisma: PrismaClient) {
   console.log('Creating permissions...');
-  const createdPermissions = await Promise.all(
-    permissions.map((permission) =>
-      prisma.permission.upsert({
-        where: { name: permission.name },
-        update: permission,
-        create: permission,
-      })
-    )
-  );
+  const createdPermissions: Permission[] = [];
+  for (const permission of permissions) {
+    const existing = await prisma.permission.findFirst({
+      where: { name: permission.name, ...notDeleted },
+    });
+    const result = existing
+      ? await prisma.permission.update({
+          where: { id: existing.id },
+          data: permission,
+        })
+      : await prisma.permission.create({ data: permission });
+    createdPermissions.push(result);
+  }
   console.log(`Created/Updated ${createdPermissions.length} permissions`);
   return createdPermissions;
 } 

@@ -118,7 +118,7 @@ export default function WaterQualityParameterDetailPage() {
                                     <p className="font-medium text-lg">{data.standardLimit ?? '-'}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-sm font-medium text-muted-foreground">Regulatory Limit</span>
+                                    <span className="text-sm font-medium text-muted-foreground">Quality Standard Value</span>
                                     <p className="font-medium text-lg">{data.regulatoryLimit ?? '-'}</p>
                                 </div>
                             </div>

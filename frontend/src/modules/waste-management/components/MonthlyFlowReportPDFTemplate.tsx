@@ -11,9 +11,9 @@ interface MonthlyFlowReportPDFTemplateProps {
 export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTemplateProps) {
   const getStatusBadge = (status: ReportStatusEnum) => {
     return (
-      <Badge variant={status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
+      <div className="flex min-h-12 items-center">
         {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-      </Badge>
+      </div>
     );
   };
 
@@ -30,7 +30,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
 
       {/* Document Information */}
       <div className="mt-6 space-y-4">
-        <Table>
+        <Table data-pdf-table-splittable="">
           <TableBody>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Report Number</TableHead>
@@ -38,7 +38,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Treatment Plant</TableHead>
-              <TableCell>{report.treatmentPlant?.name || '-'}</TableCell>
+              <TableCell className="break-words">{report.treatmentPlant?.name || '-'}</TableCell>
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Report Date</TableHead>
@@ -48,7 +48,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Status</TableHead>
-              <TableCell className="align-middle">{getStatusBadge(report.status)}</TableCell>
+              <TableCell className="align-middle py-2">{getStatusBadge(report.status)}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -59,7 +59,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
       {/* Flow Details */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold uppercase border-b border-border pb-2">Flow Data</h2>
-        <Table>
+        <Table data-pdf-table-splittable="">
           <TableBody>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Total Volume</TableHead>
@@ -69,19 +69,19 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Average Daily Flow</TableHead>
-              <TableCell>{report.averageDailyFlow.toLocaleString('en-US')} m³/day</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableHead className="w-1/3 bg-muted/50 font-semibold">Peak Flow</TableHead>
               <TableCell>
-                {report.peakFlow ? `${report.peakFlow.toLocaleString('en-US')} m³/day` : '-'}
+                {report.averageDailyFlow != null
+                  ? `${report.averageDailyFlow.toLocaleString('en-US')} m³/day`
+                  : '-'}
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableHead className="w-1/3 bg-muted/50 font-semibold">Minimum Flow</TableHead>
-              <TableCell>
-                {report.minimumFlow ? `${report.minimumFlow.toLocaleString('en-US')} m³/day` : '-'}
-              </TableCell>
+              <TableHead className="w-1/3 bg-muted/50 font-semibold">Initial Flow</TableHead>
+              <TableCell>{report.initialFlow.toLocaleString('en-US')} m³/day</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableHead className="w-1/3 bg-muted/50 font-semibold">Final Flow</TableHead>
+              <TableCell>{report.finalFlow.toLocaleString('en-US')} m³/day</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -94,7 +94,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
         <h2 className="text-xl font-semibold uppercase border-b border-border pb-2">
           Prepared By
         </h2>
-        <Table>
+        <Table data-pdf-table-splittable="">
           <TableBody>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Submitted By</TableHead>

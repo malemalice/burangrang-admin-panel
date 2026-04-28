@@ -66,8 +66,8 @@ export class CreateWaterQualityParameterDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-04-03T00:00:00.000Z' })
   @IsDateString()
   @IsNotEmpty()
-  dateSampleTaken: Date;
+  dateSampleTaken: string;
 }

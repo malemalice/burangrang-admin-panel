@@ -1,24 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsObject, IsString, IsOptional } from 'class-validator';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 
 export class ZohoWebhookDto {
   @ApiProperty({
-    description: 'Zoho event data',
-    type: Object,
-    additionalProperties: true,
-  })
-  @IsObject()
-  data: Record<string, any>;
-
-  @ApiProperty({
     required: false,
-    description: 'Additional metadata',
+    description: 'Zoho event data (direct payload format)',
     type: Object,
     additionalProperties: true,
   })
   @IsOptional()
   @IsObject()
-  meta?: Record<string, any>;
+  data?: Record<string, unknown>;
+
+  @ApiProperty({
+    required: false,
+    description: 'Additional metadata (direct payload format)',
+    type: Object,
+    additionalProperties: true,
+  })
+  @IsOptional()
+  @IsObject()
+  meta?: Record<string, unknown>;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Zoho SDP wrapped payload format. Contains { data, meta } under body',
+    type: Object,
+    additionalProperties: true,
+  })
+  @IsOptional()
+  @IsObject()
+  body?: Record<string, unknown>;
 }
 
 export class ZohoWebhookResponseDto {
@@ -29,4 +42,8 @@ export class ZohoWebhookResponseDto {
   @ApiProperty({ description: 'Response message' })
   @IsString()
   message: string;
+
+  @ApiProperty({ description: 'Correlation identifier for tracing' })
+  @IsString()
+  correlationId: string;
 }

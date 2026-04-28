@@ -1,11 +1,14 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import CertificatesPage from '../pages/CertificatesPage';
-import CreateCertificatePage from '../pages/CreateCertificatePage';
-import EditCertificatePage from '../pages/EditCertificatePage';
-import CertificateDetailPage from '../pages/CertificateDetailPage';
-import CertificateCategoriesPage from '../pages/CertificateCategoriesPage';
-import CreateCertificateCategoryPage from '../pages/CreateCertificateCategoryPage';
-import EditCertificateCategoryPage from '../pages/EditCertificateCategoryPage';
+
+const CertificatesPage = lazy(() => import('../pages/CertificatesPage'));
+const CreateCertificatePage = lazy(() => import('../pages/CreateCertificatePage'));
+const EditCertificatePage = lazy(() => import('../pages/EditCertificatePage'));
+const CertificateDetailPage = lazy(() => import('../pages/CertificateDetailPage'));
+const CertificateCategoriesPage = lazy(() => import('../pages/CertificateCategoriesPage'));
+const CreateCertificateCategoryPage = lazy(() => import('../pages/CreateCertificateCategoryPage'));
+const EditCertificateCategoryPage = lazy(() => import('../pages/EditCertificateCategoryPage'));
+const CertificateCategoryDetailPage = lazy(() => import('../pages/CertificateCategoryDetailPage'));
 
 const certificateRoutes: RouteConfig[] = [
     {
@@ -33,10 +36,13 @@ const certificateRoutes: RouteConfig[] = [
         component: EditCertificateCategoryPage,
     },
     {
+        path: '/master/certificate-categories/:id',
+        component: CertificateCategoryDetailPage,
+    },
+    {
         path: '/master/certificate-categories',
         component: CertificateCategoriesPage,
     },
 ];
 
 export default certificateRoutes;
-

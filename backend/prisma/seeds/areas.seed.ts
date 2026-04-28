@@ -4,9 +4,7 @@
  * Note: This seed doesn't delete existing areas to avoid FK constraint violations
  * since areas may already be created by work-permits seed
  */
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { seedPrisma as prisma } from './prisma-seed-client';
 
 export const seedAreas = async () => {
   console.log('🌱 Seeding areas...');

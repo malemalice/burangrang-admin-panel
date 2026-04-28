@@ -1,5 +1,7 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import AuditResultsPage from '../pages/AuditResultsPage';
+
+const AuditResultsPage = lazy(() => import('../pages/AuditResultsPage'));
 
 /**
  * Audit Results module routes

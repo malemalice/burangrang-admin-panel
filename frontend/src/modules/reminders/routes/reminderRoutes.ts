@@ -1,8 +1,10 @@
+import { lazy } from 'react';
 import { RouteConfig } from '@/core/routes/types';
-import RemindersPage from '../pages/RemindersPage';
-import CreateReminderPage from '../pages/CreateReminderPage';
-import EditReminderPage from '../pages/EditReminderPage';
-import ReminderDetailPage from '../pages/ReminderDetailPage';
+
+const RemindersPage = lazy(() => import('../pages/RemindersPage'));
+const CreateReminderPage = lazy(() => import('../pages/CreateReminderPage'));
+const EditReminderPage = lazy(() => import('../pages/EditReminderPage'));
+const ReminderDetailPage = lazy(() => import('../pages/ReminderDetailPage'));
 
 /**
  * Reminder management module routes
@@ -27,4 +29,3 @@ const reminderRoutes: RouteConfig[] = [
 ];
 
 export default reminderRoutes;
-

@@ -3,6 +3,7 @@ import { useEmailTemplate } from '../hooks/useEmailTemplates';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { EmailTemplateBodyPreviewSection } from '../components/EmailTemplateBodyPreviewSection';
 
 const EmailTemplateDetailPage = () => {
   const { templateId } = useParams();
@@ -40,14 +41,17 @@ const EmailTemplateDetailPage = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">Subject</div>
-              <div className="font-medium">{template.subject}</div>
+              <div className="text-xs text-muted-foreground mb-1">Body</div>
+              <EmailTemplateBodyPreviewSection
+                html={template.body}
+                codeSlot={
+                  <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-md">{template.body}</pre>
+                }
+              />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground mb-1">Body</div>
-              <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-md">
-{template.body}
-              </pre>
+              <div className="text-xs text-muted-foreground mb-1">Subject</div>
+              <div className="font-medium">{template.subject}</div>
             </div>
           </CardContent>
         </Card>

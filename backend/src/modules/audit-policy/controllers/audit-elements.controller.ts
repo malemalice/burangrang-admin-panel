@@ -8,7 +8,9 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuditElementsService } from '../services/audit-elements.service';
 import { CreateAuditElementDto } from '../dto/create-audit-element.dto';
 import { UpdateAuditElementDto } from '../dto/update-audit-element.dto';
@@ -19,6 +21,10 @@ import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { AuditElementDto } from '../dto/audit-element.dto';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('audit-elements')
 @ApiBearerAuth()
@@ -115,8 +121,8 @@ export class AuditElementsController {
     description: 'The audit element has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Audit element not found.' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.auditElementsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.auditElementsService.remove(id, req.user.id);
   }
 
   @Get('code/:code')

@@ -36,7 +36,7 @@ import { User } from '@/core/lib/types';
 import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 
 const formSchema = z.object({
-  riskCategoryId: z.string().min(1, 'Risk Category is required'),
+  riskCategoryId: z.string().min(1, 'Type of Hazard is required'),
   riskId: z.string().min(1, 'Risk is required'),
   assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
   assigneeId: z.string().optional(),
@@ -229,15 +229,15 @@ const EditInspectionItemPage = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Risk Category <span className="text-destructive">*</span>
+                          Type of Hazard <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <ModalCombobox
                             options={riskCategoryOptions}
                             value={field.value}
                             onValueChange={handleRiskCategoryChange}
-                            placeholder="Select risk category"
-                            searchPlaceholder="Search risk category..."
+                            placeholder="Select type of hazard"
+                            searchPlaceholder="Search type of hazard..."
                           />
                         </FormControl>
                         <FormMessage />
