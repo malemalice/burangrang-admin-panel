@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { toast } from 'sonner';
 import workPermitService from '../services/workPermitService';
 import {
@@ -11,7 +12,29 @@ import {
 } from '../types/work-permit.types';
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
-  if (
+  if (axios.isAxiosError(err)) {
+    if (!err.response) {
+      const code = err.code;
+      const msg = err.message || '';
+      if (
+        code === 'ERR_NETWORK' ||
+        code === 'ECONNABORTED' ||
+        /network/i.test(msg)
+      ) {
+        return 'Cannot reach the API server. Verify VITE_API_URL, that the API is reachable, and CORS_ORIGINS on the API includes this site.';
+      }
+      return msg.trim() || fallback;
+    }
+    const data = err.response.data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      const m = (data as { message?: unknown }).message;
+      if (typeof m === 'string' && m.trim()) return m;
+      if (Array.isArray(m)) {
+        const joined = m.map(String).filter(Boolean).join(', ');
+        if (joined.trim()) return joined;
+      }
+    }
+  } else if (
     err &&
     typeof err === 'object' &&
     'response' in err &&
@@ -48,7 +71,7 @@ export const useWorkPermits = () => {
       setTotalWorkPermits(response.meta.total);
       setCurrentPage(params.page || 1);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch work permits';
+      const errorMessage = getApiErrorMessage(err, 'Failed to fetch work permits');
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -77,7 +100,7 @@ export const useWorkPermits = () => {
       toast.success('Work permit updated successfully');
       return updatedWorkPermit;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update work permit';
+      const errorMessage = getApiErrorMessage(err, 'Failed to update work permit');
       toast.error(errorMessage);
       throw err;
     }
