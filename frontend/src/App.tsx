@@ -5,6 +5,7 @@ import { BrowserRouter, Routes } from "react-router-dom";
 import { TooltipProvider } from "@/core/components/ui/tooltip";
 import { AuthProvider } from "@/core/lib/auth";
 import { ThemeProvider } from "@/core/lib/theme";
+import { AppErrorBoundary } from "@/core/components/AppErrorBoundary";
 import routes, { publicRoutes, notFoundRoute } from "@/core/routes";
 import { renderRoutes, renderRoute } from "@/core/routes/renderRoutes";
 
@@ -47,18 +48,20 @@ const App = () => (
   <AppWrapper>
     <BrowserRouter>
       <AuthProvider>
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            {/* Public routes (login) */}
-            {renderRoutes(publicRoutes, false)}
-            
-            {/* Protected routes with layout */}
-            {renderRoutes(routes)}
-            
-            {/* Not found route */}
-            {renderRoute(notFoundRoute, false)}
-          </Routes>
-        </Suspense>
+        <AppErrorBoundary>
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              {/* Public routes (login) */}
+              {renderRoutes(publicRoutes, false)}
+
+              {/* Protected routes with layout */}
+              {renderRoutes(routes)}
+
+              {/* Not found route */}
+              {renderRoute(notFoundRoute, false)}
+            </Routes>
+          </Suspense>
+        </AppErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
     <Toaster position="bottom-right" />
