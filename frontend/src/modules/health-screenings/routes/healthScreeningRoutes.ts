@@ -1,9 +1,7 @@
 import { RouteConfig } from '@/core/routes/types';
-import { lazy } from 'react';
-
-const HealthScreeningsPage = lazy(() => import('../pages/HealthScreeningsPage'));
-const HealthScreeningFillPage = lazy(() => import('../pages/HealthScreeningFillPage'));
-const HealthScreeningDetailPage = lazy(() => import('../pages/HealthScreeningDetailPage'));
+import HealthScreeningsPage from '../pages/HealthScreeningsPage';
+import HealthScreeningFillPage from '../pages/HealthScreeningFillPage';
+import HealthScreeningDetailPage from '../pages/HealthScreeningDetailPage';
 
 const healthScreeningRoutes: RouteConfig[] = [
   { path: '/health-screenings', component: HealthScreeningsPage },
