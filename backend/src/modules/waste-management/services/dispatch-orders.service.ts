@@ -28,11 +28,10 @@ export class DispatchOrdersService {
   private attachmentMapper: (entity: any) => DispatchOrderAttachmentDto;
 
   private isUniqueDispatchCodeError(error: any): boolean {
-    return (
-      error?.code === 'P2002' &&
-      Array.isArray(error?.meta?.target) &&
-      error.meta.target.includes('dispatchCode')
-    );
+    if (error?.code !== 'P2002') return false;
+    const t = error?.meta?.target;
+    const fields = Array.isArray(t) ? t : t != null ? [t] : [];
+    return fields.includes('dispatchCode');
   }
 
   constructor(
@@ -76,21 +75,30 @@ export class DispatchOrdersService {
     });
   }
 
-  /** Unique document number, e.g. DO-2026-0001 (aligned with seed format). */
+  /**
+   * Unique document number, e.g. DO-2026-0001.
+   * Uses the maximum numeric suffix for the year prefix — not lexicographic order — so mixed
+   * padding (e.g. seed DO-2026-007 vs app DO-2026-0008) does not produce duplicate codes.
+   */
   private async generateDispatchCode(): Promise<string> {
     const prefix = 'DO';
     const year = new Date().getFullYear();
     const startsWith = `${prefix}-${year}-`;
-    const last = await this.prisma.dispatchOrder.findFirst({
+    const rows = await this.prisma.dispatchOrder.findMany({
       where: { dispatchCode: { startsWith } },
-      orderBy: { dispatchCode: 'desc' },
+      select: { dispatchCode: true },
     });
-    let sequence = 1;
-    if (last?.dispatchCode?.startsWith(startsWith)) {
-      const tail = last.dispatchCode.slice(startsWith.length);
+    let maxSeq = 0;
+    const digitsOnly = /^\d+$/;
+    for (const row of rows) {
+      const code = row.dispatchCode;
+      if (!code.startsWith(startsWith)) continue;
+      const tail = code.slice(startsWith.length);
+      if (!digitsOnly.test(tail)) continue;
       const n = parseInt(tail, 10);
-      if (!Number.isNaN(n)) sequence = n + 1;
+      if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
     }
+    const sequence = maxSeq + 1;
     return `${startsWith}${String(sequence).padStart(4, '0')}`;
   }
 
