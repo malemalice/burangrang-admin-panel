@@ -48,6 +48,7 @@ import { ManHoursModule } from './modules/man-hours/man-hours.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
 import { AuditSchedulesModule } from './modules/audit-schedules/audit-schedules.module';
+import { AuditPeriodsModule } from './modules/audit-periods/audit-periods.module';
 import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
@@ -108,6 +109,8 @@ import { AccessLogsModule } from './modules/access-logs/access-logs.module';
     AuditPolicyModule,
     // Audit Schedules Module
     AuditSchedulesModule,
+    // Audit Periods Module
+    AuditPeriodsModule,
     // Zoho Webhooks Module
     ZohoWebhooksModule,
     // Risk Register Module

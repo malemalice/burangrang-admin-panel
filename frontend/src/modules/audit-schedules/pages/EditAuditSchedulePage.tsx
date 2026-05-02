@@ -62,7 +62,7 @@ const EditAuditSchedulePage = () => {
   return (
     <>
       <PageHeader
-        title="Edit Audit Schedule"
+        title="Edit Audit"
         subtitle={`Modify the details of "${auditSchedule.code}"`}
         actions={
           <Button variant="outline" onClick={() => navigate('/audit-schedules')}>

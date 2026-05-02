@@ -10,7 +10,7 @@ const CreateAuditSchedulePage = () => {
   return (
     <>
       <PageHeader
-        title="Create Audit Schedule"
+        title="Create Audit"
         subtitle="Add a new audit schedule to the system"
         actions={
           <Button variant="outline" onClick={() => navigate('/audit-schedules')}>

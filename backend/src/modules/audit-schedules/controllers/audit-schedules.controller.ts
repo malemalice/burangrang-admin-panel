@@ -89,11 +89,13 @@ export class AuditSchedulesController {
     @Query('createdAtTo') createdAtTo?: string,
     @Query('auditDateFrom') auditDateFrom?: string,
     @Query('auditDateTo') auditDateTo?: string,
+    @Query('periodId') periodId?: string | string[],
   ) {
     // Normalize array parameters
     const areaIds = Array.isArray(areaId) ? areaId : areaId ? [areaId] : undefined;
     const auditElementIds = Array.isArray(auditElementId) ? auditElementId : auditElementId ? [auditElementId] : undefined;
     const normalizedAuditorIds = Array.isArray(auditorIds) ? auditorIds : auditorIds ? [auditorIds] : undefined;
+    const periodIds = Array.isArray(periodId) ? periodId : periodId ? [periodId] : undefined;
 
     return this.auditSchedulesService.findAll({
       page: page ? +page : undefined,
@@ -106,6 +108,7 @@ export class AuditSchedulesController {
       auditElementIds,
       auditorIds: normalizedAuditorIds,
       status,
+      periodIds,
       createdAtFrom: createdAtFrom ? new Date(createdAtFrom) : undefined,
       createdAtTo: createdAtTo ? new Date(createdAtTo) : undefined,
       auditDateFrom: auditDateFrom ? new Date(auditDateFrom) : undefined,

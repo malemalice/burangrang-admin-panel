@@ -168,6 +168,12 @@ export const permissions = [
   { name: 'incident-security:delete', description: 'Delete security incidents' },
   { name: 'incident-security:list', description: 'List all security incidents' },
 
+  // Audit Period Management
+  { name: 'audit-period:create', description: 'Create new audit periods' },
+  { name: 'audit-period:read', description: 'View audit period information' },
+  { name: 'audit-period:delete', description: 'Delete audit periods' },
+  { name: 'audit-period:list', description: 'List all audit periods' },
+
   // Audit Schedule Management
   { name: 'audit-schedule:create', description: 'Create new audit schedules' },
   { name: 'audit-schedule:read', description: 'View audit schedule information' },

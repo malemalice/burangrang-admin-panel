@@ -120,6 +120,7 @@ model User {
   auditsCreated                   Audit[]                 @relation("AuditCreator")
   auditItemsAssigned              AuditItemToUser[]       @relation("AuditItemAssignee")
   auditsAsAuditor                 AuditToUser[]           @relation("AuditAuditor")
+  auditPeriodsCreated             AuditPeriod[]           @relation("AuditPeriodCreator")
 
   // Incident Relations
   incidentsAsRequester            Incident[]              @relation("IncidentRequester")
@@ -2698,12 +2699,35 @@ enum CompliantStatusEnum {
   NOT_COMPLY_MINOR
 }
 
+// Audit Period - Transactional Data
+// Groups multiple audits (one per active AuditElement) into a month/year period.
+// Uniqueness of (month, year) is enforced at service level among non-deleted rows.
+model AuditPeriod {
+  id        String    @id @default(uuid())
+  month     Int                    // 1–12
+  year      Int                    // e.g. 2026
+  notes     String?   @db.Text
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String
+  deletedAt DateTime?
+  deletedBy String?
+
+  creator User    @relation("AuditPeriodCreator", fields: [createdBy], references: [id])
+  audits  Audit[]
+
+  @@index([year, month])
+  @@map("t_audit_periods")
+}
+
 // Audit - Transactional Data
 model Audit {
   id             String         @id @default(uuid())
   code           String         @unique
   auditDate      DateTime
   auditElementId String
+  periodId       String?        // nullable for backward-compat with pre-period rows
   status         GeneralStatusEnum
   isActive       Boolean        @default(true)
   createdAt      DateTime       @default(now())
@@ -2711,14 +2735,16 @@ model Audit {
   createdBy      String
 
   // Relations
-  areas       AuditToArea[]
-  auditElement AuditElement @relation(fields: [auditElementId], references: [id])
-  creator     User         @relation("AuditCreator", fields: [createdBy], references: [id])
-  items       AuditItem[]
-  auditors    AuditToUser[]
+  areas        AuditToArea[]
+  auditElement AuditElement  @relation(fields: [auditElementId], references: [id])
+  creator      User          @relation("AuditCreator", fields: [createdBy], references: [id])
+  items        AuditItem[]
+  auditors     AuditToUser[]
+  period       AuditPeriod?  @relation(fields: [periodId], references: [id])
 
   @@index([auditElementId])
   @@index([status])
+  @@index([periodId])
   @@map("t_audits")
 }
 

@@ -39,6 +39,7 @@ interface FindAllOptions {
   auditElementIds?: string[];
   auditorIds?: string[];
   status?: GeneralStatusEnum;
+  periodIds?: string[];
   createdAtFrom?: Date;
   createdAtTo?: Date;
   auditDateFrom?: Date;
@@ -90,6 +91,10 @@ export class AuditSchedulesService {
         auditors: {
           mapper: (auditor: any) => auditor.user || auditor,
           isArray: true,
+        },
+        period: {
+          mapper: (period: any) => period,
+          isArray: false,
         },
       },
     );
@@ -143,7 +148,7 @@ export class AuditSchedulesService {
     createAuditScheduleDto: CreateAuditScheduleDto,
     userId: string,
   ): Promise<AuditScheduleDto> {
-    const { areaIds, auditorIds, ...data } = createAuditScheduleDto;
+    const { areaIds, auditorIds, auditPeriodId, ...data } = createAuditScheduleDto;
 
     // Auto-determine status based on audit date
     // If status is provided, validate it first, then auto-determine (status always auto-changes)
@@ -160,6 +165,7 @@ export class AuditSchedulesService {
         ...data,
         status: finalStatus,
         createdBy: userId,
+        ...(auditPeriodId && { periodId: auditPeriodId }),
         ...(areaIds && areaIds.length > 0 && {
           areas: {
             create: areaIds.map((areaId) => ({
@@ -189,6 +195,7 @@ export class AuditSchedulesService {
           },
         },
         items: true,
+        period: true,
       },
     });
 
@@ -209,6 +216,8 @@ export class AuditSchedulesService {
       ...mapped,
       areaIds: audit.areas.map((aa: any) => aa.area.id),
       auditors: audit.auditors.map((au: any) => au.user),
+      auditPeriodId: audit.periodId ?? undefined,
+      period: audit.period ?? undefined,
     };
   }
 
@@ -227,6 +236,7 @@ export class AuditSchedulesService {
       auditElementIds,
       auditorIds,
       status,
+      periodIds,
       createdAtFrom,
       createdAtTo,
       auditDateFrom,
@@ -279,6 +289,9 @@ export class AuditSchedulesService {
     if (status) {
       where.status = status;
     }
+    if (periodIds && periodIds.length > 0) {
+      where.periodId = { in: periodIds };
+    }
     if (createdAtFrom || createdAtTo) {
       where.createdAt = {};
       if (createdAtFrom) {
@@ -326,6 +339,7 @@ export class AuditSchedulesService {
             orderBy: { createdAt: 'asc' },
           },
           items: true,
+          period: true,
         },
         orderBy: {
           [safeSortBy]: safeSortOrder,
@@ -343,6 +357,8 @@ export class AuditSchedulesService {
           ...mapped,
           areaIds: audit.areas.map((aa: any) => aa.area.id),
           auditors: audit.auditors.map((au: any) => au.user),
+          auditPeriodId: audit.periodId ?? undefined,
+          period: audit.period ?? undefined,
         };
       }),
       meta: { total, page, limit },
@@ -367,6 +383,7 @@ export class AuditSchedulesService {
           orderBy: { createdAt: 'asc' },
         },
         items: true,
+        period: true,
       },
     });
 
@@ -378,6 +395,8 @@ export class AuditSchedulesService {
       ...mapped,
       areaIds: audit.areas.map((aa: any) => aa.area.id),
       auditors: audit.auditors.map((au: any) => au.user),
+      auditPeriodId: audit.periodId ?? undefined,
+      period: audit.period ?? undefined,
     };
   }
 
@@ -385,7 +404,7 @@ export class AuditSchedulesService {
     id: string,
     updateAuditScheduleDto: UpdateAuditScheduleDto,
   ): Promise<AuditScheduleDto> {
-    const { areaIds, auditorIds, ...data } = updateAuditScheduleDto;
+    const { areaIds, auditorIds, auditPeriodId, ...data } = updateAuditScheduleDto;
 
     // First, find the audit to update
     const existingAudit = await this.prisma.audit.findUnique({
@@ -432,6 +451,7 @@ export class AuditSchedulesService {
       data: {
         ...data,
         status: finalStatus,
+        ...(auditPeriodId !== undefined && { periodId: auditPeriodId }),
         ...(areaIds !== undefined && {
           areas: {
             deleteMany: {},
@@ -464,6 +484,7 @@ export class AuditSchedulesService {
           orderBy: { createdAt: 'asc' },
         },
         items: true,
+        period: true,
       },
     });
 
@@ -501,6 +522,8 @@ export class AuditSchedulesService {
       ...mapped,
       areaIds: audit.areas.map((aa: any) => aa.area.id),
       auditors: audit.auditors.map((au: any) => au.user),
+      auditPeriodId: audit.periodId ?? undefined,
+      period: audit.period ?? undefined,
     };
   }
 

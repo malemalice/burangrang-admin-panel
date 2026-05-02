@@ -66,6 +66,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-mitigation',
     'risk-category',
     'risk-matrix',
+    'audit-period',
   ];
   const quizPermissions = [
     'quiz:create',

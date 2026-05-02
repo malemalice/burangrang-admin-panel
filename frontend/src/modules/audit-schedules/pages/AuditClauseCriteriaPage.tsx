@@ -600,7 +600,7 @@ const AuditClauseCriteriaPage = () => {
         </p>
         <Button onClick={() => navigate(`/audit-schedules/${id}`)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Audit Schedule
+          Back to Audit
         </Button>
       </div>
     );
@@ -880,11 +880,11 @@ const AuditClauseCriteriaPage = () => {
     <div className="space-y-6">
       <PageHeader
         title={`Audit Clause: ${auditClause.name}`}
-        subtitle={`From Audit Schedule: ${auditSchedule.code}`}
+        subtitle={`From Audit: ${auditSchedule.code}`}
         actions={
           <Button variant="outline" onClick={() => navigate(`/audit-schedules/${id}`)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Audit Schedule
+            Back to Audit
           </Button>
         }
       />

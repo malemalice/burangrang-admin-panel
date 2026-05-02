@@ -134,6 +134,7 @@ async function main() {
       await prisma.auditToUser.deleteMany();
       await prisma.auditToArea.deleteMany();
       await prisma.audit.deleteMany();
+      await prisma.auditPeriod.deleteMany();
       // Clear Environmental Measurements and Rooms
       await prisma.environmentalMeasurement.deleteMany();
       await prisma.room.deleteMany();
@@ -470,6 +471,7 @@ async function main() {
           await prisma.auditToUser.deleteMany();
           await prisma.auditToArea.deleteMany();
           await prisma.audit.deleteMany();
+          await prisma.auditPeriod.deleteMany();
           break;
         case 'work_permit_approvals':
         case 'work-permit-approvals':

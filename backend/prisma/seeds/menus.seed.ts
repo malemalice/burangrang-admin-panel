@@ -387,14 +387,34 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Schedules submenu
+    // Audit Periods submenu (primary entry point)
     await prisma.menu.create({
       data: {
-        name: 'Audit Schedules',
+        name: 'Audit Periods',
+        path: '/audit-periods',
+        icon: 'CalendarRange',
+        parentId: auditMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit',
         path: '/audit-schedules',
         icon: 'Calendar',
         parentId: auditMenu.id,
-        order: 1,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -414,7 +434,7 @@ export const seedMenus = async () => {
         path: '/audit-results',
         icon: 'FileCheck2',
         parentId: auditMenu.id,
-        order: 2,
+        order: 3,
         isActive: true,
         roles: {
           connect: [
@@ -434,7 +454,7 @@ export const seedMenus = async () => {
         path: '/audit-policy',
         icon: 'FileCheck',
         parentId: auditMenu.id,
-        order: 3,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -454,7 +474,7 @@ export const seedMenus = async () => {
         path: '/audit-criteria',
         icon: 'ClipboardList',
         parentId: auditMenu.id,
-        order: 4,
+        order: 5,
         isActive: true,
         roles: {
           connect: [
@@ -1414,7 +1434,7 @@ export const seedMenus = async () => {
     console.log(`   - Risk Assessment submenus: 5`);
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
-    console.log(`   - Audit submenus: 4`);
+    console.log(`   - Audit submenus: 5`);
     console.log(`   - Inspection submenus: 2`);
     console.log(`   - PPE Management submenus: 2`);
     console.log(`   - Certificate Management submenus: 2`);
