@@ -182,6 +182,25 @@ export const seedMenus = async () => {
       },
     });
 
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Report',
+        path: '/audit-report',
+        icon: 'BarChart3',
+        parentId: dashboardMenu.id,
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Risk Assessment menu group (risk-related modules except Risk Register)
     const riskAssessmentMenu = await prisma.menu.create({
       data: {
@@ -475,26 +494,6 @@ export const seedMenus = async () => {
         icon: 'ClipboardList',
         parentId: auditMenu.id,
         order: 5,
-        isActive: true,
-        roles: {
-          connect: [
-            { id: superAdminRole.id },
-            { id: adminRole.id },
-            { id: managerRole.id },
-            { id: userRole.id },
-          ],
-        },
-      },
-    });
-
-    // Audit Report submenu
-    await prisma.menu.create({
-      data: {
-        name: 'Audit Report',
-        path: '/audit-report',
-        icon: 'BarChart3',
-        parentId: auditMenu.id,
-        order: 6,
         isActive: true,
         roles: {
           connect: [
