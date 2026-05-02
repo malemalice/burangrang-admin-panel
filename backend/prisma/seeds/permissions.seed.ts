@@ -209,6 +209,10 @@ export const permissions = [
   { name: 'certificate:delete', description: 'Delete certificates' },
   { name: 'certificate:list', description: 'List all certificates' },
 
+  // Audit Report
+  { name: 'audit-report:list', description: 'View audit report summary' },
+  { name: 'audit-report:read', description: 'Access audit report detail' },
+
   // Audit Policy Management
   { name: 'audit-policy:create', description: 'Create new audit policies' },
   { name: 'audit-policy:read', description: 'View audit policy information' },

@@ -93,6 +93,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'dashboard',
     'audit-policy',
     'audit-criteria',
+    'audit-report',
     'certificate-category', // category dropdowns on certificate forms (GET /certificates/categories)
     'environmental-measurement',
     'waste-management',

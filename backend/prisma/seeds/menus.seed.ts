@@ -487,6 +487,26 @@ export const seedMenus = async () => {
       },
     });
 
+    // Audit Report submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Report',
+        path: '/audit-report',
+        icon: 'BarChart3',
+        parentId: auditMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Incidents menu (top-level)
     await prisma.menu.create({
       data: {

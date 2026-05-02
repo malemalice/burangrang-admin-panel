@@ -29,6 +29,7 @@ import {
   AuditResultDto,
   ApproveAuditItemDto,
   RejectAuditItemDto,
+  AuditReportDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -148,6 +149,18 @@ export class AuditSchedulesController {
       status,
       search: search?.trim() || undefined,
     });
+  }
+
+  // Audit Report endpoint - must be before :id route
+  @Get('report')
+  @AllowOptionsBypass()
+  @Permissions('audit-report:list')
+  @ApiOperation({ summary: 'Get audit report summary grouped by TransitionType for a period' })
+  @ApiQuery({ name: 'periodId', required: false, type: String })
+  async getAuditReport(
+    @Query('periodId') periodId?: string,
+  ): Promise<AuditReportDto> {
+    return this.auditSchedulesService.getAuditReport(periodId);
   }
 
   @Get(':id')

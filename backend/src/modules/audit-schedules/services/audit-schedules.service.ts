@@ -9,9 +9,10 @@ import { AuditScheduleDto } from '../dto/audit-schedule.dto';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { AuditItemDto } from '../dto/audit-item.dto';
 import { AuditResultDto } from '../dto/audit-result.dto';
+import { AuditReportDto } from '../dto/audit-report.dto';
 import { ApproveAuditItemDto } from '../dto/approve-audit-item.dto';
 import { RejectAuditItemDto } from '../dto/reject-audit-item.dto';
-import { Prisma, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
+import { Prisma, GeneralStatusEnum, CompliantStatusEnum, TransitionTypeEnum } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
@@ -1360,5 +1361,147 @@ export class AuditSchedulesService {
 
     // Return as any to satisfy MasterApprovalsService which expects specific User interface
     return user;
+  }
+
+  async getAuditReport(periodId?: string): Promise<AuditReportDto> {
+
+    // Resolve period
+    let period: { id: string; month: number; year: number } | null = null;
+    if (periodId) {
+      const found = await this.prisma.auditPeriod.findFirst({
+        where: { id: periodId, deletedAt: null },
+        select: { id: true, month: true, year: true },
+      });
+      if (found) period = found;
+    } else {
+      const latest = await this.prisma.auditPeriod.findFirst({
+        where: { deletedAt: null },
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        select: { id: true, month: true, year: true },
+      });
+      if (latest) period = latest;
+    }
+
+    // Fetch all active elements with their criteria hierarchy
+    const elements = await this.prisma.auditElement.findMany({
+      where: { isActive: true, deletedAt: null },
+      orderBy: { code: 'asc' },
+      include: {
+        clauses: {
+          where: { deletedAt: null },
+          include: {
+            criteria: {
+              where: { isActive: true, deletedAt: null },
+              select: { id: true, transitionType: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Fetch all audits for this period with items and their criteria transitionType
+    const audits = period
+      ? await this.prisma.audit.findMany({
+          where: { periodId: period.id },
+          include: {
+            items: {
+              select: {
+                auditCriteriaId: true,
+                compliantStatus: true,
+                auditCriteria: { select: { transitionType: true } },
+              },
+            },
+          },
+        })
+      : [];
+
+    const auditByElementId = new Map(audits.map((a) => [a.auditElementId, a]));
+
+    const emptyGroup = () => ({
+      total: 0,
+      comply: 0,
+      notComplyMinor: 0,
+      notComplyMajor: 0,
+      notAssessed: 0,
+    });
+
+    const addGroups = (
+      a: ReturnType<typeof emptyGroup>,
+      b: ReturnType<typeof emptyGroup>,
+    ) => ({
+      total: a.total + b.total,
+      comply: a.comply + b.comply,
+      notComplyMinor: a.notComplyMinor + b.notComplyMinor,
+      notComplyMajor: a.notComplyMajor + b.notComplyMajor,
+      notAssessed: a.notAssessed + b.notAssessed,
+    });
+
+    const summaryInitial = emptyGroup();
+    const summaryTransition = emptyGroup();
+    const summaryAdvance = emptyGroup();
+
+    const reportElements = elements.map((el) => {
+      const allCriteria = el.clauses.flatMap((c) => c.criteria);
+      const audit = auditByElementId.get(el.id);
+      const hasAudit = !!audit;
+
+      // Count criteria by transitionType
+      const totalByType = { INITIAL: 0, TRANSITION_LEVEL: 0, ADVANCE_LEVEL: 0 };
+      for (const c of allCriteria) totalByType[c.transitionType]++;
+
+      const initial = emptyGroup();
+      const transitionLevel = emptyGroup();
+      const advanceLevel = emptyGroup();
+      initial.total = totalByType.INITIAL;
+      transitionLevel.total = totalByType.TRANSITION_LEVEL;
+      advanceLevel.total = totalByType.ADVANCE_LEVEL;
+
+      if (hasAudit && audit) {
+        for (const item of audit.items) {
+          const type = item.auditCriteria.transitionType;
+          const target =
+            type === TransitionTypeEnum.INITIAL
+              ? initial
+              : type === TransitionTypeEnum.TRANSITION_LEVEL
+                ? transitionLevel
+                : advanceLevel;
+
+          if (item.compliantStatus === CompliantStatusEnum.COMPLY) target.comply++;
+          else if (item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR) target.notComplyMinor++;
+          else if (item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR) target.notComplyMajor++;
+        }
+      }
+
+      initial.notAssessed = initial.total - initial.comply - initial.notComplyMinor - initial.notComplyMajor;
+      transitionLevel.notAssessed =
+        transitionLevel.total - transitionLevel.comply - transitionLevel.notComplyMinor - transitionLevel.notComplyMajor;
+      advanceLevel.notAssessed =
+        advanceLevel.total - advanceLevel.comply - advanceLevel.notComplyMinor - advanceLevel.notComplyMajor;
+
+      // Accumulate summary
+      Object.assign(summaryInitial, addGroups(summaryInitial, initial));
+      Object.assign(summaryTransition, addGroups(summaryTransition, transitionLevel));
+      Object.assign(summaryAdvance, addGroups(summaryAdvance, advanceLevel));
+
+      return {
+        elementId: el.id,
+        elementCode: el.code,
+        elementName: el.name,
+        hasAudit,
+        initial,
+        transitionLevel,
+        advanceLevel,
+      };
+    });
+
+    return {
+      period,
+      elements: reportElements,
+      summary: {
+        initial: summaryInitial,
+        transitionLevel: summaryTransition,
+        advanceLevel: summaryAdvance,
+      },
+    };
   }
 }
