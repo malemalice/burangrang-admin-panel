@@ -1,9 +1,22 @@
+export interface AuditReportCriteriaInfo {
+  criteriaId: string;
+  criteriaCode: string;
+  criteriaName: string;
+  criteriaDescription: string | null;
+  clauseCode: string;
+  clauseName: string;
+}
+
 export interface AuditReportCriteriaGroup {
   total: number;
   comply: number;
   notComplyMinor: number;
   notComplyMajor: number;
   notAssessed: number;
+  complyItems: AuditReportCriteriaInfo[];
+  notComplyMinorItems: AuditReportCriteriaInfo[];
+  notComplyMajorItems: AuditReportCriteriaInfo[];
+  notAssessedItems: AuditReportCriteriaInfo[];
 }
 
 export interface AuditReportElement {

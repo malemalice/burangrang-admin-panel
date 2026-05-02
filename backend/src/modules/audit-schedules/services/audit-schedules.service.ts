@@ -1382,24 +1382,32 @@ export class AuditSchedulesService {
       if (latest) period = latest;
     }
 
-    // Fetch all active elements with their criteria hierarchy
+    // Fetch all active elements with their criteria hierarchy (include name/description/code for popover)
     const elements = await this.prisma.auditElement.findMany({
       where: { isActive: true, deletedAt: null },
       orderBy: { code: 'asc' },
       include: {
         clauses: {
           where: { deletedAt: null },
+          orderBy: { order: 'asc' },
           include: {
             criteria: {
               where: { isActive: true, deletedAt: null },
-              select: { id: true, transitionType: true },
+              orderBy: { order: 'asc' },
+              select: {
+                id: true,
+                transitionType: true,
+                code: true,
+                name: true,
+                description: true,
+              },
             },
           },
         },
       },
     });
 
-    // Fetch all audits for this period with items and their criteria transitionType
+    // Fetch all audits for this period with items and their criteria info
     const audits = period
       ? await this.prisma.audit.findMany({
           where: { periodId: period.id },
@@ -1408,7 +1416,16 @@ export class AuditSchedulesService {
               select: {
                 auditCriteriaId: true,
                 compliantStatus: true,
-                auditCriteria: { select: { transitionType: true } },
+                auditCriteria: {
+                  select: {
+                    transitionType: true,
+                    id: true,
+                    code: true,
+                    name: true,
+                    description: true,
+                    auditClause: { select: { code: true, name: true } },
+                  },
+                },
               },
             },
           },
@@ -1417,12 +1434,25 @@ export class AuditSchedulesService {
 
     const auditByElementId = new Map(audits.map((a) => [a.auditElementId, a]));
 
+    type CriteriaInfo = {
+      criteriaId: string;
+      criteriaCode: string;
+      criteriaName: string;
+      criteriaDescription: string | null;
+      clauseCode: string;
+      clauseName: string;
+    };
+
     const emptyGroup = () => ({
       total: 0,
       comply: 0,
       notComplyMinor: 0,
       notComplyMajor: 0,
       notAssessed: 0,
+      complyItems: [] as CriteriaInfo[],
+      notComplyMinorItems: [] as CriteriaInfo[],
+      notComplyMajorItems: [] as CriteriaInfo[],
+      notAssessedItems: [] as CriteriaInfo[],
     });
 
     const addGroups = (
@@ -1434,6 +1464,10 @@ export class AuditSchedulesService {
       notComplyMinor: a.notComplyMinor + b.notComplyMinor,
       notComplyMajor: a.notComplyMajor + b.notComplyMajor,
       notAssessed: a.notAssessed + b.notAssessed,
+      complyItems: [...a.complyItems, ...b.complyItems],
+      notComplyMinorItems: [...a.notComplyMinorItems, ...b.notComplyMinorItems],
+      notComplyMajorItems: [...a.notComplyMajorItems, ...b.notComplyMajorItems],
+      notAssessedItems: [...a.notAssessedItems, ...b.notAssessedItems],
     });
 
     const summaryInitial = emptyGroup();
@@ -1441,42 +1475,69 @@ export class AuditSchedulesService {
     const summaryAdvance = emptyGroup();
 
     const reportElements = elements.map((el) => {
-      const allCriteria = el.clauses.flatMap((c) => c.criteria);
       const audit = auditByElementId.get(el.id);
       const hasAudit = !!audit;
 
-      // Count criteria by transitionType
-      const totalByType = { INITIAL: 0, TRANSITION_LEVEL: 0, ADVANCE_LEVEL: 0 };
-      for (const c of allCriteria) totalByType[c.transitionType]++;
+      // Build map of criteriaId → compliantStatus from audit items
+      const assessedMap = new Map<string, { compliantStatus: CompliantStatusEnum; info: CriteriaInfo }>();
+      if (audit) {
+        for (const item of audit.items) {
+          const c = item.auditCriteria;
+          assessedMap.set(item.auditCriteriaId, {
+            compliantStatus: item.compliantStatus,
+            info: {
+              criteriaId: c.id,
+              criteriaCode: c.code,
+              criteriaName: c.name,
+              criteriaDescription: c.description,
+              clauseCode: c.auditClause.code,
+              clauseName: c.auditClause.name,
+            },
+          });
+        }
+      }
 
       const initial = emptyGroup();
       const transitionLevel = emptyGroup();
       const advanceLevel = emptyGroup();
-      initial.total = totalByType.INITIAL;
-      transitionLevel.total = totalByType.TRANSITION_LEVEL;
-      advanceLevel.total = totalByType.ADVANCE_LEVEL;
 
-      if (hasAudit && audit) {
-        for (const item of audit.items) {
-          const type = item.auditCriteria.transitionType;
+      // Walk all criteria and bucket them
+      for (const clause of el.clauses) {
+        for (const c of clause.criteria) {
           const target =
-            type === TransitionTypeEnum.INITIAL
+            c.transitionType === TransitionTypeEnum.INITIAL
               ? initial
-              : type === TransitionTypeEnum.TRANSITION_LEVEL
+              : c.transitionType === TransitionTypeEnum.TRANSITION_LEVEL
                 ? transitionLevel
                 : advanceLevel;
 
-          if (item.compliantStatus === CompliantStatusEnum.COMPLY) target.comply++;
-          else if (item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR) target.notComplyMinor++;
-          else if (item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR) target.notComplyMajor++;
+          target.total++;
+
+          const assessed = assessedMap.get(c.id);
+          const info: CriteriaInfo = assessed?.info ?? {
+            criteriaId: c.id,
+            criteriaCode: c.code,
+            criteriaName: c.name,
+            criteriaDescription: c.description,
+            clauseCode: clause.code,
+            clauseName: clause.name,
+          };
+
+          if (!assessed) {
+            target.notAssessed++;
+            target.notAssessedItems.push(info);
+          } else if (assessed.compliantStatus === CompliantStatusEnum.COMPLY) {
+            target.comply++;
+            target.complyItems.push(info);
+          } else if (assessed.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR) {
+            target.notComplyMinor++;
+            target.notComplyMinorItems.push(info);
+          } else {
+            target.notComplyMajor++;
+            target.notComplyMajorItems.push(info);
+          }
         }
       }
-
-      initial.notAssessed = initial.total - initial.comply - initial.notComplyMinor - initial.notComplyMajor;
-      transitionLevel.notAssessed =
-        transitionLevel.total - transitionLevel.comply - transitionLevel.notComplyMinor - transitionLevel.notComplyMajor;
-      advanceLevel.notAssessed =
-        advanceLevel.total - advanceLevel.comply - advanceLevel.notComplyMinor - advanceLevel.notComplyMajor;
 
       // Accumulate summary
       Object.assign(summaryInitial, addGroups(summaryInitial, initial));

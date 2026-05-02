@@ -1,11 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class AuditReportCriteriaInfoDto {
+  @ApiProperty() criteriaId: string;
+  @ApiProperty() criteriaCode: string;
+  @ApiProperty() criteriaName: string;
+  @ApiPropertyOptional({ nullable: true }) criteriaDescription: string | null;
+  @ApiProperty() clauseCode: string;
+  @ApiProperty() clauseName: string;
+}
+
 export class AuditReportCriteriaGroupDto {
   @ApiProperty() total: number;
   @ApiProperty() comply: number;
   @ApiProperty() notComplyMinor: number;
   @ApiProperty() notComplyMajor: number;
   @ApiProperty() notAssessed: number;
+  @ApiProperty({ type: [AuditReportCriteriaInfoDto] }) complyItems: AuditReportCriteriaInfoDto[];
+  @ApiProperty({ type: [AuditReportCriteriaInfoDto] }) notComplyMinorItems: AuditReportCriteriaInfoDto[];
+  @ApiProperty({ type: [AuditReportCriteriaInfoDto] }) notComplyMajorItems: AuditReportCriteriaInfoDto[];
+  @ApiProperty({ type: [AuditReportCriteriaInfoDto] }) notAssessedItems: AuditReportCriteriaInfoDto[];
 }
 
 export class AuditReportElementDto {

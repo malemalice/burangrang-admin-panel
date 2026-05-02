@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { BarChart3, CalendarRange } from 'lucide-react';
@@ -20,17 +20,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/core/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/core/components/ui/popover';
 
 import auditReportService from '../services/auditReportService';
 import {
   AuditReport,
   AuditReportCriteriaGroup,
+  AuditReportCriteriaInfo,
   AuditPeriodOption,
 } from '../types/audit-report.types';
 
-const formatPeriodLabel = (month: number, year: number): string => {
-  return format(new Date(year, month - 1, 1), 'MMMM yyyy');
-};
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+const formatPeriodLabel = (month: number, year: number): string =>
+  format(new Date(year, month - 1, 1), 'MMMM yyyy');
 
 const compliancePercent = (group: AuditReportCriteriaGroup): number => {
   const assessed = group.total - group.notAssessed;
@@ -38,24 +41,145 @@ const compliancePercent = (group: AuditReportCriteriaGroup): number => {
   return Math.round((group.comply / assessed) * 100);
 };
 
-const cellClass = (group: AuditReportCriteriaGroup, subKey: keyof AuditReportCriteriaGroup): string => {
-  const base = 'text-center tabular-nums text-xs font-medium px-2 py-2';
-  if (group.total === 0) return `${base} text-muted-foreground`;
-  if (subKey === 'comply' && group.comply > 0) return `${base} bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300`;
-  if (subKey === 'notComplyMinor' && group.notComplyMinor > 0) return `${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300`;
-  if (subKey === 'notComplyMajor' && group.notComplyMajor > 0) return `${base} bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300`;
-  if (subKey === 'notAssessed' && group.notAssessed > 0) return `${base} text-muted-foreground`;
-  return `${base} text-muted-foreground`;
+// ─── CriteriaPopoverCell ─────────────────────────────────────────────────────
+
+interface CriteriaPopoverCellProps {
+  count: number;
+  items: AuditReportCriteriaInfo[];
+  colorClass: string;
+  label: string;
+}
+
+const CriteriaPopoverCell = ({ count, items, colorClass, label }: CriteriaPopoverCellProps) => {
+  const [open, setOpen] = useState(false);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = () => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    if (count > 0) setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    leaveTimer.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  const handleContentMouseEnter = () => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+  };
+
+  const handleContentMouseLeave = () => {
+    leaveTimer.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  const handleClick = () => {
+    if (count > 0) setOpen((prev) => !prev);
+  };
+
+  if (count === 0) {
+    return (
+      <TableCell className="text-center tabular-nums text-xs text-muted-foreground px-2 py-2">
+        —
+      </TableCell>
+    );
+  }
+
+  return (
+    <TableCell className={`text-center tabular-nums text-xs font-medium px-2 py-2 ${colorClass}`}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="w-full h-full cursor-pointer underline-offset-2 hover:underline focus:outline-none"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onClick={handleClick}
+            aria-label={`${count} ${label} criteria — click to see list`}
+          >
+            {count}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-[420px] p-0"
+          side="right"
+          align="start"
+          sideOffset={8}
+          onMouseEnter={handleContentMouseEnter}
+          onMouseLeave={handleContentMouseLeave}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="px-3 py-2 border-b bg-muted/40">
+            <p className="text-xs font-semibold text-foreground">
+              {count} {label} {count === 1 ? 'Criterion' : 'Criteria'}
+            </p>
+          </div>
+          <div className="overflow-y-auto max-h-72">
+            <ul className="divide-y divide-border">
+              {items.map((item) => (
+                <li key={item.criteriaId} className="px-3 py-2.5 space-y-0.5">
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-mono text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                      {item.criteriaCode}
+                    </span>
+                    <span className="text-[11px] font-medium text-foreground leading-snug">
+                      {item.clauseName}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug pl-0">
+                    {item.criteriaName}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </TableCell>
+  );
 };
+
+// ─── GroupCells ──────────────────────────────────────────────────────────────
+
+interface GroupCellsProps {
+  group: AuditReportCriteriaGroup;
+  borderRight?: boolean;
+}
+
+const GroupCells = ({ group, borderRight = false }: GroupCellsProps) => (
+  <>
+    <CriteriaPopoverCell
+      count={group.comply}
+      items={group.complyItems}
+      colorClass="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+      label="Comply"
+    />
+    <CriteriaPopoverCell
+      count={group.notComplyMinor}
+      items={group.notComplyMinorItems}
+      colorClass="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300"
+      label="Minor Non-Comply"
+    />
+    <CriteriaPopoverCell
+      count={group.notComplyMajor}
+      items={group.notComplyMajorItems}
+      colorClass="bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+      label="Major Non-Comply"
+    />
+    <TableCell
+      className={`text-center text-xs text-muted-foreground px-2 py-2${borderRight ? ' border-r' : ''}`}
+    >
+      {group.total}
+    </TableCell>
+  </>
+);
+
+// ─── SummaryCard ─────────────────────────────────────────────────────────────
 
 const SummaryCard = ({
   title,
   group,
-  icon,
 }: {
   title: string;
   group: AuditReportCriteriaGroup;
-  icon: React.ReactNode;
 }) => {
   const pct = compliancePercent(group);
   const assessed = group.total - group.notAssessed;
@@ -63,12 +187,12 @@ const SummaryCard = ({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon}
+        <BarChart3 className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{pct}%</div>
         <p className="text-xs text-muted-foreground mt-1">
-          {group.comply} comply / {assessed} assessed / {group.total} total criteria
+          {group.comply} comply / {assessed} assessed / {group.total} total
         </p>
         <div className="flex gap-2 mt-2 text-xs">
           <span className="text-yellow-700 dark:text-yellow-400">{group.notComplyMinor} minor</span>
@@ -80,11 +204,15 @@ const SummaryCard = ({
   );
 };
 
+// ─── LoadingSpinner ───────────────────────────────────────────────────────────
+
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center h-24">
     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
   </div>
 );
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const AuditReportPage = () => {
   const [periods, setPeriods] = useState<AuditPeriodOption[]>([]);
@@ -93,16 +221,13 @@ const AuditReportPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPeriodsLoading, setIsPeriodsLoading] = useState(true);
 
-  // Fetch periods on mount and auto-select the most recent one
   useEffect(() => {
     const fetchPeriods = async () => {
       setIsPeriodsLoading(true);
       try {
         const data = await auditReportService.getPeriods();
         setPeriods(data);
-        if (data.length > 0) {
-          setSelectedPeriodId(data[0].id);
-        }
+        if (data.length > 0) setSelectedPeriodId(data[0].id);
       } catch {
         toast.error('Failed to load audit periods');
       } finally {
@@ -125,14 +250,8 @@ const AuditReportPage = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedPeriodId) {
-      fetchReport(selectedPeriodId);
-    }
+    if (selectedPeriodId) fetchReport(selectedPeriodId);
   }, [selectedPeriodId, fetchReport]);
-
-  const handlePeriodChange = (value: string) => {
-    setSelectedPeriodId(value);
-  };
 
   return (
     <>
@@ -149,7 +268,7 @@ const AuditReportPage = () => {
         </div>
         <Select
           value={selectedPeriodId ?? ''}
-          onValueChange={handlePeriodChange}
+          onValueChange={setSelectedPeriodId}
           disabled={isPeriodsLoading}
         >
           <SelectTrigger className="w-[200px]">
@@ -178,21 +297,9 @@ const AuditReportPage = () => {
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <SummaryCard
-            title="Initial Level"
-            group={report.summary.initial}
-            icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
-          />
-          <SummaryCard
-            title="Transition Level"
-            group={report.summary.transitionLevel}
-            icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
-          />
-          <SummaryCard
-            title="Advance Level"
-            group={report.summary.advanceLevel}
-            icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
-          />
+          <SummaryCard title="Initial Level" group={report.summary.initial} />
+          <SummaryCard title="Transition Level" group={report.summary.transitionLevel} />
+          <SummaryCard title="Advance Level" group={report.summary.advanceLevel} />
         </div>
       ) : null}
 
@@ -218,17 +325,14 @@ const AuditReportPage = () => {
               </TableHead>
             </TableRow>
             <TableRow className="text-xs">
-              {/* Initial sub-cols */}
               <TableHead className="text-center text-[10px] bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 px-2 py-1">Comply</TableHead>
               <TableHead className="text-center text-[10px] bg-green-50 dark:bg-green-950/30 text-yellow-700 dark:text-yellow-400 px-2 py-1">Minor</TableHead>
               <TableHead className="text-center text-[10px] bg-green-50 dark:bg-green-950/30 text-red-700 dark:text-red-400 px-2 py-1">Major</TableHead>
               <TableHead className="text-center text-[10px] bg-green-50 dark:bg-green-950/30 text-muted-foreground border-r px-2 py-1">Total</TableHead>
-              {/* Transition sub-cols */}
               <TableHead className="text-center text-[10px] bg-yellow-50 dark:bg-yellow-950/30 text-green-700 dark:text-green-400 px-2 py-1">Comply</TableHead>
               <TableHead className="text-center text-[10px] bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400 px-2 py-1">Minor</TableHead>
               <TableHead className="text-center text-[10px] bg-yellow-50 dark:bg-yellow-950/30 text-red-700 dark:text-red-400 px-2 py-1">Major</TableHead>
               <TableHead className="text-center text-[10px] bg-yellow-50 dark:bg-yellow-950/30 text-muted-foreground border-r px-2 py-1">Total</TableHead>
-              {/* Advance sub-cols */}
               <TableHead className="text-center text-[10px] bg-blue-50 dark:bg-blue-950/30 text-green-700 dark:text-green-400 px-2 py-1">Comply</TableHead>
               <TableHead className="text-center text-[10px] bg-blue-50 dark:bg-blue-950/30 text-yellow-700 dark:text-yellow-400 px-2 py-1">Minor</TableHead>
               <TableHead className="text-center text-[10px] bg-blue-50 dark:bg-blue-950/30 text-red-700 dark:text-red-400 px-2 py-1">Major</TableHead>
@@ -264,45 +368,27 @@ const AuditReportPage = () => {
                         <span className="text-[10px] text-muted-foreground italic">No audit this period</span>
                       )}
                     </TableCell>
-
-                    {/* Initial */}
-                    <TableCell className={cellClass(el.initial, 'comply')}>{el.initial.comply || '—'}</TableCell>
-                    <TableCell className={cellClass(el.initial, 'notComplyMinor')}>{el.initial.notComplyMinor || '—'}</TableCell>
-                    <TableCell className={cellClass(el.initial, 'notComplyMajor')}>{el.initial.notComplyMajor || '—'}</TableCell>
-                    <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{el.initial.total}</TableCell>
-
-                    {/* Transition */}
-                    <TableCell className={cellClass(el.transitionLevel, 'comply')}>{el.transitionLevel.comply || '—'}</TableCell>
-                    <TableCell className={cellClass(el.transitionLevel, 'notComplyMinor')}>{el.transitionLevel.notComplyMinor || '—'}</TableCell>
-                    <TableCell className={cellClass(el.transitionLevel, 'notComplyMajor')}>{el.transitionLevel.notComplyMajor || '—'}</TableCell>
-                    <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{el.transitionLevel.total}</TableCell>
-
-                    {/* Advance */}
-                    <TableCell className={cellClass(el.advanceLevel, 'comply')}>{el.advanceLevel.comply || '—'}</TableCell>
-                    <TableCell className={cellClass(el.advanceLevel, 'notComplyMinor')}>{el.advanceLevel.notComplyMinor || '—'}</TableCell>
-                    <TableCell className={cellClass(el.advanceLevel, 'notComplyMajor')}>{el.advanceLevel.notComplyMajor || '—'}</TableCell>
-                    <TableCell className="text-center text-xs text-muted-foreground px-2 py-2">{el.advanceLevel.total}</TableCell>
+                    <GroupCells group={el.initial} borderRight />
+                    <GroupCells group={el.transitionLevel} borderRight />
+                    <GroupCells group={el.advanceLevel} />
                   </TableRow>
                 ))}
 
-                {/* Summary / totals row */}
+                {/* Totals row — plain numbers, no popovers */}
                 {report.summary && (
-                  <TableRow className="bg-muted/40 font-semibold border-t-2">
+                  <TableRow className="bg-muted/40 border-t-2">
                     <TableCell className="text-center border-r sticky left-0 bg-muted/40 z-10" />
                     <TableCell className="text-xs border-r sticky left-8 bg-muted/40 z-10 font-semibold">
                       Total
                     </TableCell>
-                    {/* Initial totals */}
                     <TableCell className="text-center text-xs text-green-800 dark:text-green-300 font-semibold px-2 py-2">{report.summary.initial.comply}</TableCell>
                     <TableCell className="text-center text-xs text-yellow-800 dark:text-yellow-300 font-semibold px-2 py-2">{report.summary.initial.notComplyMinor}</TableCell>
                     <TableCell className="text-center text-xs text-red-800 dark:text-red-300 font-semibold px-2 py-2">{report.summary.initial.notComplyMajor}</TableCell>
                     <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{report.summary.initial.total}</TableCell>
-                    {/* Transition totals */}
                     <TableCell className="text-center text-xs text-green-800 dark:text-green-300 font-semibold px-2 py-2">{report.summary.transitionLevel.comply}</TableCell>
                     <TableCell className="text-center text-xs text-yellow-800 dark:text-yellow-300 font-semibold px-2 py-2">{report.summary.transitionLevel.notComplyMinor}</TableCell>
                     <TableCell className="text-center text-xs text-red-800 dark:text-red-300 font-semibold px-2 py-2">{report.summary.transitionLevel.notComplyMajor}</TableCell>
                     <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{report.summary.transitionLevel.total}</TableCell>
-                    {/* Advance totals */}
                     <TableCell className="text-center text-xs text-green-800 dark:text-green-300 font-semibold px-2 py-2">{report.summary.advanceLevel.comply}</TableCell>
                     <TableCell className="text-center text-xs text-yellow-800 dark:text-yellow-300 font-semibold px-2 py-2">{report.summary.advanceLevel.notComplyMinor}</TableCell>
                     <TableCell className="text-center text-xs text-red-800 dark:text-red-300 font-semibold px-2 py-2">{report.summary.advanceLevel.notComplyMajor}</TableCell>
@@ -314,6 +400,10 @@ const AuditReportPage = () => {
           </TableBody>
         </Table>
       </div>
+
+      <p className="text-[11px] text-muted-foreground mt-2">
+        Hover or tap a number to see the list of criteria in that category.
+      </p>
     </>
   );
 };
