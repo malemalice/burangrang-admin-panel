@@ -47,7 +47,7 @@ export default function InspectionChecklistsPage() {
     fetchData();
   }, [fetchData]);
 
-  const allCategories = tree.flatMap((checklist) => checklist.children ?? []);
+  const allCategories = tree;
 
   const filteredCategories = searchTerm
     ? allCategories.filter(
@@ -96,9 +96,6 @@ export default function InspectionChecklistsPage() {
         actions={
           <div className="flex items-center gap-2">
             <PermissionGuard permission="inspection-checklist:create">
-              <Button variant="outline" onClick={() => openCreate(0)}>
-                <Plus className="mr-2 h-4 w-4" /> Add Checklist
-              </Button>
               <ThemeButton onClick={() => openCreate(1)}>
                 <Plus className="mr-2 h-4 w-4" /> Add Category
               </ThemeButton>
@@ -228,7 +225,6 @@ export default function InspectionChecklistsPage() {
         depth={formState.depth}
         parentId={formState.parentId}
         initialData={formState.initialData}
-        checklists={tree}
         onSuccess={() => {
           fetchData();
           setFormState(INITIAL_FORM);

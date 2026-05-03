@@ -1,13 +1,10 @@
 /**
  * Seed: Master Inspection Checklists
  *
- * Creates one template "General HSE Inspection Checklist" with 9 categories
- * and their leaf items. Idempotent — skips creation if the template code
- * already exists.
+ * Creates 9 root-level categories and their leaf items directly (no parent template).
+ * Idempotent — skips creation if the first category code already exists at root level.
  */
 import { seedPrisma as prisma } from './prisma-seed-client';
-
-const TEMPLATE_CODE = 'GENERAL-HSE-INSPECTION';
 
 interface LeafItem {
   code: string;
@@ -148,36 +145,22 @@ export const seedInspectionChecklists = async () => {
   console.log('🌱 Seeding inspection checklists...');
 
   try {
-    // Idempotent: skip if template already exists
+    // Idempotent: skip if root categories already exist
     const existing = await prisma.inspectionChecklist.findFirst({
-      where: { code: TEMPLATE_CODE, deletedAt: null },
+      where: { code: categories[0].code, parentId: null, deletedAt: null },
     });
 
     if (existing) {
-      console.log(`   ⚠️  Template "${TEMPLATE_CODE}" already exists (id: ${existing.id}). Skipping.`);
-      return existing;
+      console.log(`   ⚠️  Categories already seeded. Skipping.`);
+      return;
     }
-
-    // Create the root template (depth 0)
-    const template = await prisma.inspectionChecklist.create({
-      data: {
-        code: TEMPLATE_CODE,
-        name: 'General HSE Inspection Checklist',
-        description: 'Standard HSE inspection checklist covering documentation, facility conditions, PPE, environment, and 5S compliance.',
-        order: 1,
-        isActive: true,
-      },
-    });
-
-    console.log(`   ✅ Template created: "${template.name}" (${template.id})`);
 
     let totalLeaves = 0;
 
     for (const cat of categories) {
-      // Create category (depth 1)
+      // Create category at root level (no parent)
       const category = await prisma.inspectionChecklist.create({
         data: {
-          parentId: template.id,
           code: cat.code,
           name: cat.name,
           order: cat.order,
@@ -185,7 +168,7 @@ export const seedInspectionChecklists = async () => {
         },
       });
 
-      // Create leaf items (depth 2)
+      // Create leaf items
       for (const item of cat.items) {
         await prisma.inspectionChecklist.create({
           data: {
@@ -202,9 +185,7 @@ export const seedInspectionChecklists = async () => {
       console.log(`   📁 Category ${cat.code}. ${cat.name} — ${cat.items.length} items`);
     }
 
-    console.log(`   ✅ Done: 1 template, ${categories.length} categories, ${totalLeaves} leaf items`);
-
-    return template;
+    console.log(`   ✅ Done: ${categories.length} categories, ${totalLeaves} leaf items`);
   } catch (error) {
     console.error('❌ Error seeding inspection checklists:', error);
     throw error;
