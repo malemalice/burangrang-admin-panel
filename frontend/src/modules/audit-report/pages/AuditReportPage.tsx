@@ -286,64 +286,65 @@ const AuditReportPage = () => {
         subtitle="Summary of criteria compliance grouped by transition level"
       />
 
-      {/* Period filter */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CalendarRange className="h-4 w-4" />
-          <span>Audit Period</span>
-        </div>
-        <Select
-          value={selectedPeriodId ?? ''}
-          onValueChange={setSelectedPeriodId}
-          disabled={isPeriodsLoading}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select period..." />
-          </SelectTrigger>
-          <SelectContent>
-            {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {formatPeriodLabel(p.month, p.year)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          onClick={handleExportPDF}
-          disabled={!report || isLoading || isExportingPDF}
-          variant="outline"
-          size="sm"
-        >
-          <FileDown className="mr-2 h-4 w-4" />
-          {isExportingPDF ? 'Exporting...' : 'Export PDF'}
-        </Button>
-      </div>
-
-      {/* Summary cards */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="flex items-center justify-center h-28">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : report ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <SummaryCard title="Initial Level" group={report.summary.initial} />
-          <SummaryCard title="Transition Level" group={report.summary.transitionLevel} />
-          <SummaryCard title="Advance Level" group={report.summary.advanceLevel} />
-        </div>
-      ) : null}
-
-      {/* View tabs */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'summary' | 'detail')}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="detail">Detail</TabsTrigger>
-        </TabsList>
+        {/* Toolbar: period filter + view toggle + export — all on one row */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+            <CalendarRange className="h-4 w-4" />
+            <span>Audit Period</span>
+          </div>
+          <Select
+            value={selectedPeriodId ?? ''}
+            onValueChange={setSelectedPeriodId}
+            disabled={isPeriodsLoading}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select period..." />
+            </SelectTrigger>
+            <SelectContent>
+              {periods.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {formatPeriodLabel(p.month, p.year)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="ml-auto flex items-center gap-2">
+            <TabsList>
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="detail">Detail</TabsTrigger>
+            </TabsList>
+            <Button
+              onClick={handleExportPDF}
+              disabled={!report || isLoading || isExportingPDF}
+              variant="outline"
+              size="sm"
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary cards */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="flex items-center justify-center h-28">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : report ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <SummaryCard title="Initial Level" group={report.summary.initial} />
+            <SummaryCard title="Transition Level" group={report.summary.transitionLevel} />
+            <SummaryCard title="Advance Level" group={report.summary.advanceLevel} />
+          </div>
+        ) : null}
 
         {/* ── Summary tab: matrix ── */}
         <TabsContent value="summary">
@@ -512,32 +513,32 @@ const AuditReportPage = () => {
 
                         {/* Criteria rows */}
                         {group.rows.map((row) => (
-                            <TableRow key={row.key} className="hover:bg-muted/30">
-                              <TableCell className="border-r sticky left-0 bg-background z-10" />
-                              <TableCell className="border-r sticky left-8 bg-background z-10 py-2.5">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="font-mono text-[10px] font-semibold text-foreground bg-muted px-1 py-0.5 rounded">
-                                    {row.criteriaCode}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground">{row.clauseCode} · {row.clauseName}</span>
+                          <TableRow key={row.key} className="hover:bg-muted/30">
+                            <TableCell className="border-r sticky left-0 bg-background z-10" />
+                            <TableCell className="border-r sticky left-8 bg-background z-10 py-2.5">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="font-mono text-[10px] font-semibold text-foreground bg-muted px-1 py-0.5 rounded">
+                                  {row.criteriaCode}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">{row.clauseCode} · {row.clauseName}</span>
+                              </div>
+                              <div className="text-xs text-foreground leading-snug">{row.criteriaName}</div>
+                              {row.criteriaDescription && (
+                                <div className="text-[10px] text-muted-foreground leading-snug mt-0.5 italic">
+                                  {row.criteriaDescription}
                                 </div>
-                                <div className="text-xs text-foreground leading-snug">{row.criteriaName}</div>
-                                {row.criteriaDescription && (
-                                  <div className="text-[10px] text-muted-foreground leading-snug mt-0.5 italic">
-                                    {row.criteriaDescription}
-                                  </div>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-center px-2 py-2 border-r">
-                                <StatusBadge status={row.initial} />
-                              </TableCell>
-                              <TableCell className="text-center px-2 py-2 border-r">
-                                <StatusBadge status={row.transitionLevel} />
-                              </TableCell>
-                              <TableCell className="text-center px-2 py-2">
-                                <StatusBadge status={row.advanceLevel} />
-                              </TableCell>
-                            </TableRow>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center px-2 py-2 border-r">
+                              <StatusBadge status={row.initial} />
+                            </TableCell>
+                            <TableCell className="text-center px-2 py-2 border-r">
+                              <StatusBadge status={row.transitionLevel} />
+                            </TableCell>
+                            <TableCell className="text-center px-2 py-2">
+                              <StatusBadge status={row.advanceLevel} />
+                            </TableCell>
+                          </TableRow>
                         ))}
                       </React.Fragment>
                     );
