@@ -2,9 +2,7 @@ import {
   IsString,
   IsUUID,
   IsOptional,
-  IsInt,
   IsNotEmpty,
-  Min,
   IsArray,
   ValidateNested,
   IsEnum,
@@ -15,6 +13,7 @@ import { Type } from 'class-transformer';
 import { GeneralStatusEnum } from '@prisma/client';
 import { CreateInspectionImageDto } from './create-inspection-image.dto';
 import { RiskMitigationDataDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
+import { CreateInspectionChecklistResultDto } from './inspection-checklist-result.dto';
 
 export class CreateInspectionItemDto {
   @IsNotEmpty()
@@ -79,5 +78,17 @@ export class CreateInspectionItemDto {
   @Type(() => RiskMitigationDataDto)
   @ApiProperty({ type: RiskMitigationDataDto, required: false, description: 'Risk mitigation record' })
   mitigation?: RiskMitigationDataDto;
+
+  @IsOptional()
+  @IsUUID()
+  @ApiProperty({ required: false, description: 'Checklist template ID (depth-0 root node)' })
+  checklistId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInspectionChecklistResultDto)
+  @ApiProperty({ type: [CreateInspectionChecklistResultDto], required: false, description: 'Checklist results for leaf items' })
+  checklistResults?: CreateInspectionChecklistResultDto[];
 }
 

@@ -3,8 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Upload, Image as ImageIcon, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, X, Upload, Image as ImageIcon, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Separator } from '@/core/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 
 import { Button } from '@/core/components/ui/button';
 import {
@@ -39,9 +40,13 @@ import {
 } from '@/core/components/ui/dialog';
 import { Label } from '@/core/components/ui/label';
 
-import { CreateInspectionItemDTO, CreateInspectionDTO, InspectionImageTypeEnum } from '../types/inspection.types';
+import { CreateInspectionItemDTO, CreateInspectionDTO, InspectionImageTypeEnum, CreateInspectionChecklistResultDTO } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
 import { riskCategoryService, riskService } from '@/modules/master-data';
+import inspectionChecklistService from '@/modules/master-data/services/inspectionChecklistService';
+import { InspectionChecklistDTO } from '@/modules/master-data/types/master-data.types';
+import { InspectionRiskRateEnum, INSPECTION_RISK_RATE_OPTIONS, INSPECTION_RISK_RATE_BADGE_CLASSES, INSPECTION_RISK_RATE_PILL_CLASSES } from '@/shared/constants/inspection-risk-rate.enum';
+import { cn } from '@/core/lib/utils';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { userService } from '@/modules/users';
 import { User } from '@/core/lib/types';
@@ -165,6 +170,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     followUpNotes: 'hidden',
     afterImages: 'editable',
     beforeImages: 'editable',
+    checklist: 'editable',
   },
   updater: {
     areaId: 'readonly',
@@ -180,6 +186,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     followUpNotes: 'editable',
     afterImages: 'editable',
     beforeImages: 'hidden',
+    checklist: 'readonly',
   },
   verifier: {
     areaId: 'editable',
@@ -195,6 +202,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     followUpNotes: 'editable',
     afterImages: 'editable',
     beforeImages: 'editable',
+    checklist: 'readonly',
   },
 };
 
@@ -281,6 +289,12 @@ const InspectionItemForm = ({
   const [afterImages, setAfterImages] = useState<ImageUpload[]>([]);
   const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+
+  // Checklist states
+  const [checklistRoots, setChecklistRoots] = useState<InspectionChecklistDTO[]>([]);
+  const [checklistResults, setChecklistResults] = useState<Record<string, { riskRate?: string; notes?: string }>>({});
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Approval workflow states
   // Initialize isCheckingApprovalRights to true if we're in verifier mode with an item ID
@@ -561,6 +575,37 @@ const InspectionItemForm = ({
       isInitialMount.current = false;
     }
   }, [isLoading, risks.length, riskCategories.length]);
+
+  // Load full checklist tree on mount and auto-expand first category of first root
+  useEffect(() => {
+    const loadChecklist = async () => {
+      setIsLoadingChecklist(true);
+      try {
+        const roots = await inspectionChecklistService.getTree();
+        setChecklistRoots(roots);
+        // Auto-expand the first root
+        if (roots[0]) {
+          setExpandedGroups(new Set([roots[0].id]));
+        }
+      } catch (error) {
+        console.error('Failed to load checklist:', error);
+      } finally {
+        setIsLoadingChecklist(false);
+      }
+    };
+    loadChecklist();
+  }, []);
+
+  // Populate checklist results from initialItem when editing
+  useEffect(() => {
+    if (initialItem?.checklistResults && initialItem.checklistResults.length > 0) {
+      const resultsMap: Record<string, { riskRate?: string; notes?: string }> = {};
+      initialItem.checklistResults.forEach(r => {
+        resultsMap[r.checklistItemId] = { riskRate: r.riskRate, notes: r.notes };
+      });
+      setChecklistResults(resultsMap);
+    }
+  }, [initialItem?.checklistResults]);
 
   // Check approval rights when formMode is verifier and item has an id
   useEffect(() => {
@@ -864,6 +909,11 @@ const InspectionItemForm = ({
           data.mitigation.accept ||
           data.mitigation.legalAspect
         );
+        const checklistResultsPayload: CreateInspectionChecklistResultDTO[] = Object.entries(checklistResults).map(([checklistItemId, val]) => ({
+          checklistItemId,
+          riskRate: val.riskRate as InspectionRiskRateEnum | undefined,
+          notes: val.notes || undefined,
+        }));
         const itemData: CreateInspectionItemDTO = {
           areaId: data.areaId,
           status: data.status,
@@ -889,6 +939,7 @@ const InspectionItemForm = ({
                 legalAspect: data.mitigation?.legalAspect || undefined,
               }
             : undefined,
+          checklistResults: checklistResultsPayload.length > 0 ? checklistResultsPayload : undefined,
         };
         await inspectionsService.createItem(created.id, itemData);
         toast.success('Inspection item created successfully');
@@ -918,6 +969,11 @@ const InspectionItemForm = ({
         data.mitigation.legalAspect
       );
       const finalStatus = formMode === 'updater' ? GeneralStatusEnum.WAITING_APPROVAL : data.status;
+      const checklistResultsPayload: CreateInspectionChecklistResultDTO[] = Object.entries(checklistResults).map(([checklistItemId, val]) => ({
+        checklistItemId,
+        riskRate: val.riskRate as InspectionRiskRateEnum | undefined,
+        notes: val.notes || undefined,
+      }));
       const itemData: CreateInspectionItemDTO = {
         areaId: data.areaId,
         status: finalStatus,
@@ -943,6 +999,7 @@ const InspectionItemForm = ({
               legalAspect: data.mitigation?.legalAspect || undefined,
             }
           : undefined,
+        checklistResults: checklistResultsPayload.length > 0 ? checklistResultsPayload : undefined,
       };
       await onSubmit(itemData);
       [...beforeImages, ...afterImages].forEach((img) => {
@@ -1018,6 +1075,27 @@ const InspectionItemForm = ({
       setIsSubmittingApproval(false);
     }
   };
+
+  // Checklist helper functions
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const updateChecklistResult = (leafId: string, field: 'riskRate' | 'notes', value: string) => {
+    setChecklistResults(prev => ({
+      ...prev,
+      [leafId]: { ...prev[leafId], [field]: value },
+    }));
+  };
+
+  const leafItems = checklistRoots.flatMap(root => root.children || []);
+  const ratedCount = leafItems.filter(leaf => checklistResults[leaf.id]?.riskRate).length;
+  const totalCount = leafItems.length;
 
   // Determine which sections to show based on formMode
   // For verifier mode, only show sections if user has approval rights
@@ -1227,13 +1305,28 @@ const InspectionItemForm = ({
           </div>
         )}
 
-        {/* Section 1: Creator Section - Area, Risk, Type of Hazard, Findings, Description, Due Date, Risk Mitigation */}
+        {/* Tab layout: Item Details | Checklist | Updates */}
+        <Tabs defaultValue="item-details" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="item-details" className="flex-1">Item Details</TabsTrigger>
+            <TabsTrigger value="checklist" className="flex-1">
+              Checklist
+              {totalCount > 0 && (
+                <span className="ml-1.5 text-xs text-muted-foreground">({ratedCount}/{totalCount})</span>
+              )}
+            </TabsTrigger>
+            {showUpdaterSection && (
+              <TabsTrigger value="updates" className="flex-1">Updates</TabsTrigger>
+            )}
+          </TabsList>
+
+          {/* ── Tab 1: Item Details ── */}
+          <TabsContent value="item-details" className="mt-4">
         {showCreatorSection && (
-          <>
-            <div className="space-y-4">
+          <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold">
-                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Section 1: Inspection Item Details (Read Only)' : 'Inspection Item Details'}
+                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Inspection Item Details (Read Only)' : 'Inspection Item Details'}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {formMode === 'creator' && 'Fill in the inspection item details'}
@@ -1979,49 +2072,203 @@ const InspectionItemForm = ({
                   )}
                 </div>
               )}
-            </div>
-
-            <Separator />
-          </>
+          </div>
         )}
+          </TabsContent>
 
-        {/* Section 2: Updater Section - Image After and Follow-up Notes */}
-        {showUpdaterSection && (
-          <>
+          {/* ── Tab 2: Checklist ── */}
+          <TabsContent value="checklist" className="mt-4">
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold">
-                  {formMode === 'verifier' ? 'Section 2: Action Item Updates' : 'Update Action Item'}
-                </h3>
+                <h3 className="text-lg font-semibold">Checklist</h3>
                 <p className="text-sm text-muted-foreground">
-                  {formMode === 'updater' && 'Update the action item with progress and images'}
-                  {formMode === 'verifier' && 'Information filled by the action item updater'}
+                  {formMode === 'creator'
+                    ? 'Rate each checklist item below'
+                    : 'Checklist filled by the inspector'}
                 </p>
               </div>
 
-              <FormField
-                control={form.control}
-                name="followUpNotes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Follow-up Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter follow-up notes (optional)"
-                        rows={4}
-                        disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+              {/* Progress bar */}
+              {totalCount > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">{ratedCount}/{totalCount} items rated</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary rounded-full h-2 transition-all duration-300"
+                      style={{ width: `${totalCount ? (ratedCount / totalCount) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
-            <Separator />
-          </>
-        )}
+              {/* Checklist tree */}
+              {isLoadingChecklist ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading checklist...</span>
+                  </div>
+                </div>
+              ) : checklistRoots.length > 0 ? (
+                <div className="space-y-2">
+                  {checklistRoots.map(root => {
+                    const rootChildren = root.children || [];
+                    const ratedInRoot = rootChildren.filter(item => checklistResults[item.id]?.riskRate).length;
+                    const isExpanded = expandedGroups.has(root.id);
+                    const isComplete = rootChildren.length > 0 && ratedInRoot === rootChildren.length;
+
+                    return (
+                      <div key={root.id} className="border rounded-lg overflow-hidden">
+                        {/* Accordion header — the root item (e.g. "Required Documents") */}
+                        <button
+                          type="button"
+                          className="w-full flex items-center justify-between p-3 bg-muted/40 hover:bg-muted/70 text-left transition-colors"
+                          onClick={() => toggleGroup(root.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {root.code && (
+                              <span className="text-xs font-medium text-muted-foreground">{root.code}.</span>
+                            )}
+                            <span className="font-medium text-sm">{root.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-muted-foreground">
+                              {ratedInRoot}/{rootChildren.length}
+                            </span>
+                            {isComplete && <CheckCircle className="h-4 w-4 text-green-600" />}
+                            {isExpanded
+                              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            }
+                          </div>
+                        </button>
+
+                        {/* Checklist items (children of root) */}
+                        {isExpanded && (
+                          <div className="divide-y">
+                            {rootChildren.length === 0 ? (
+                              <div className="p-3 text-sm text-muted-foreground">No items in this section</div>
+                            ) : (
+                              rootChildren.map(item => {
+                                const result = checklistResults[item.id];
+                                const riskRateLabel = result?.riskRate
+                                  ? INSPECTION_RISK_RATE_OPTIONS.find(o => o.value === result.riskRate)?.label
+                                  : null;
+
+                                return (
+                                  <div key={item.id} className="p-3 space-y-2">
+                                    <div className="flex items-start gap-2">
+                                      {item.code && (
+                                        <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded shrink-0 mt-0.5">
+                                          {item.code}
+                                        </span>
+                                      )}
+                                      <span className="text-sm">{item.name}</span>
+                                    </div>
+
+                                    {getFieldPermission('checklist') === 'editable' ? (
+                                      <>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {INSPECTION_RISK_RATE_OPTIONS.map(opt => {
+                                            const isSelected = result?.riskRate === opt.value;
+                                            return (
+                                              <button
+                                                key={opt.value}
+                                                type="button"
+                                                disabled={isSubmitting}
+                                                onClick={() => updateChecklistResult(item.id, 'riskRate', isSelected ? '' : opt.value)}
+                                                className={cn(
+                                                  'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                                                  isSelected
+                                                    ? INSPECTION_RISK_RATE_PILL_CLASSES[opt.value as InspectionRiskRateEnum]
+                                                    : 'border-border text-muted-foreground hover:bg-muted'
+                                                )}
+                                              >
+                                                {opt.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                        <Textarea
+                                          placeholder="Notes (optional)"
+                                          value={result?.notes || ''}
+                                          onChange={(e) => updateChecklistResult(item.id, 'notes', e.target.value)}
+                                          rows={2}
+                                          className="text-sm resize-none"
+                                          disabled={isSubmitting}
+                                        />
+                                      </>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        {riskRateLabel ? (
+                                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${INSPECTION_RISK_RATE_BADGE_CLASSES[result!.riskRate as InspectionRiskRateEnum]}`}>
+                                            {riskRateLabel}
+                                          </span>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">Not rated</span>
+                                        )}
+                                        {result?.notes && (
+                                          <p className="text-sm text-muted-foreground">{result.notes}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <p className="text-sm text-muted-foreground">No checklist items configured.</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── Tab 3: Updates (updater + verifier only) ── */}
+          {showUpdaterSection && (
+            <TabsContent value="updates" className="mt-4">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {formMode === 'verifier' ? 'Section 2: Action Item Updates' : 'Update Action Item'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {formMode === 'updater' && 'Update the action item with progress and images'}
+                    {formMode === 'verifier' && 'Information filled by the action item updater'}
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="followUpNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Follow-up Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter follow-up notes (optional)"
+                          rows={4}
+                          disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
 
         {/* Submit Buttons */}
         <div className="flex justify-end gap-2">

@@ -8,6 +8,7 @@ import { UserDto } from 'src/modules/users/dto/user.dto';
 import { AreaDto } from 'src/modules/areas/dto/area.dto';
 import { InspectionImageDto } from './inspection-image.dto';
 import { RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
+import { InspectionChecklistResultDto } from './inspection-checklist-result.dto';
 
 export class InspectionItemDto {
   @ApiProperty()
@@ -109,6 +110,14 @@ export class InspectionItemDto {
   @ApiProperty({ type: RiskMitigationRecordDto, required: false, description: 'Risk mitigation record' })
   @Expose()
   mitigation?: RiskMitigationRecordDto;
+
+  @ApiProperty({ required: false, description: 'Checklist template ID' })
+  @Expose()
+  checklistId?: string;
+
+  @ApiProperty({ type: () => InspectionChecklistResultDto, isArray: true, required: false })
+  @Expose()
+  checklistResults?: InspectionChecklistResultDto[];
 
   constructor(partial: Partial<InspectionItemDto>) {
     Object.assign(this, partial);
