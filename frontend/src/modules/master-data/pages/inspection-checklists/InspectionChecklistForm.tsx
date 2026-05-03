@@ -23,6 +23,7 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
+import { ModalCombobox } from '@/core/components/ui/modal-combobox';
 import inspectionChecklistService from '../../services/inspectionChecklistService';
 import { InspectionChecklistDTO } from '../../types/master-data.types';
 
@@ -30,10 +31,10 @@ type Depth = 0 | 1 | 2;
 
 const DEPTH_LABELS: Record<Depth, { title: string; namePlaceholder: string; codePlaceholder: string; codeHint: string }> = {
   0: {
-    title: 'Checklist Template',
+    title: 'Inspection Checklist',
     namePlaceholder: 'e.g. Building Safety Weekly Checklist',
     codePlaceholder: 'e.g. BSW-001',
-    codeHint: 'Unique template code',
+    codeHint: 'Unique checklist code',
   },
   1: {
     title: 'Category',
@@ -65,6 +66,7 @@ interface InspectionChecklistFormProps {
   depth: Depth;
   parentId?: string;
   initialData?: InspectionChecklistDTO;
+  checklists?: InspectionChecklistDTO[];
   onSuccess: () => void;
 }
 
@@ -74,11 +76,19 @@ export default function InspectionChecklistForm({
   depth,
   parentId,
   initialData,
+  checklists = [],
   onSuccess,
 }: InspectionChecklistFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedChecklistId, setSelectedChecklistId] = useState('');
   const isEdit = !!initialData;
   const labels = DEPTH_LABELS[depth];
+  const needsChecklistPicker = depth === 1 && !isEdit;
+
+  const checklistOptions = checklists.map((c) => ({
+    value: c.id,
+    label: c.code ? `[${c.code}] ${c.name}` : c.name,
+  }));
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -103,11 +113,17 @@ export default function InspectionChecklistForm({
         });
       } else {
         form.reset({ name: '', code: '', description: '', order: 0, isActive: true });
+        setSelectedChecklistId('');
       }
     }
   }, [open, initialData, form]);
 
   const onSubmit = async (data: FormValues) => {
+    if (needsChecklistPicker && !selectedChecklistId) {
+      toast.error('Please select a parent inspection checklist');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -122,7 +138,8 @@ export default function InspectionChecklistForm({
         await inspectionChecklistService.update(initialData.id, payload);
         toast.success(`${labels.title} updated successfully`);
       } else {
-        await inspectionChecklistService.create({ ...payload, parentId });
+        const effectiveParentId = needsChecklistPicker ? selectedChecklistId : parentId;
+        await inspectionChecklistService.create({ ...payload, parentId: effectiveParentId });
         toast.success(`${labels.title} created successfully`);
       }
 
@@ -147,6 +164,20 @@ export default function InspectionChecklistForm({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {needsChecklistPicker && (
+              <FormItem>
+                <FormLabel>Inspection Checklist *</FormLabel>
+                <ModalCombobox
+                  options={checklistOptions}
+                  value={selectedChecklistId}
+                  onValueChange={setSelectedChecklistId}
+                  placeholder="Select inspection checklist"
+                  searchPlaceholder="Search checklists..."
+                  emptyText="No checklists found"
+                />
+              </FormItem>
+            )}
+
             <FormField
               control={form.control}
               name="name"

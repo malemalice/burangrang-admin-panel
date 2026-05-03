@@ -1737,15 +1737,15 @@ model Area {
 // ============================================================
 
 // Master Inspection Checklist - Self-referencing hierarchical tree
-// depth 0 (parentId=null): named template root — referenced by InspectionItem.checklistId
-// depth 1: numbered category headers (e.g. "1. Required Document")
+// depth 0 (parentId=null): checklist name/group — referenced by InspectionItem.checklistId
+// depth 1: numbered category headers (e.g. "1. Required Documents")
 // depth 2: lettered leaf items (e.g. "A. Work Permit") — receive result rows in t_inspection_checklist_results
 // Pattern follows Menu ("MenuHierarchy") and Office ("OfficeHierarchy")
 model InspectionChecklist {
   id          String    @id @default(uuid())
   parentId    String?
   name        String
-  code        String?   // template code (unique among root non-deleted rows); or display code "1", "A", etc.
+  code        String?   // unique code for root nodes; display number/letter ("1", "A") for depth 1/2
   description String?   @db.Text
   order       Int       @default(0)
   isActive    Boolean   @default(true)
