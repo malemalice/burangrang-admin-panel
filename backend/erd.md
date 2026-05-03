@@ -816,7 +816,38 @@ Table t_risk_assessment_item_images {
   }
 }
 
+//// -- INSPECTION CHECKLIST MASTER DATA --
+
+Enum InspectionRiskRateEnum {
+  SAFE            [note: 'Rate 1 - Safe, maintain safe condition']
+  LOW_HAZARD      [note: 'Rate 2 - Low hazard risk, take control measures']
+  MODERATE_HAZARD [note: 'Rate 3 - Moderate hazard risk, take control measures']
+  CRITICAL_HAZARD [note: 'Rate 4 - Serious/Critical hazard, STOP work / immediately take corrective action']
+}
+
+Table m_inspection_checklists {
+  id          varchar   [pk, default: `uuid()`]
+  parentId    varchar   [null, ref: > m_inspection_checklists.id, note: 'null = template root (depth 0); depth 1 = category; depth 2 = leaf item']
+  name        varchar   [not null, note: 'Template name (root) or item label (children)']
+  code        varchar   [null, note: 'Template code (unique among root non-deleted rows); or display code "1", "A" for items']
+  description text      [null]
+  order       int       [not null, default: 0, note: 'Ordering within the same parent scope']
+  isActive    boolean   [not null, default: true]
+  deletedAt   timestamp [null]
+  deletedBy   varchar   [null]
+  createdAt   timestamp [not null, default: `now()`]
+  updatedAt   timestamp [not null, default: `now()`]
+  Note: 'Unified inspection checklist tree — template + items in one self-referencing table. depth-0/parentId=null = named template (referenced by t_inspection_items.checklistId). depth-1 = numbered category headers. depth-2 = lettered leaf items (receive result rows). Pattern follows m_menus (MenuHierarchy).'
+  indexes {
+    code
+    parentId
+    (parentId, order)
+  }
+}
+
 //// -- INSPECTION SYSTEM --
+
+// NOTE: t_inspection_items modified to add optional checklistId FK (ref: m_inspection_checklists, onDelete: SetNull)
 
 Table t_inspections {
   id varchar [pk, default: `uuid()`]
@@ -2846,6 +2877,26 @@ Table _InspectionToArea {
   }
 }
 
+Table t_inspection_checklist_results {
+  id               varchar                 [pk, default: `uuid()`]
+  inspectionItemId varchar                 [not null, ref: > t_inspection_items.id, note: 'onDelete: Cascade']
+  checklistItemId  varchar                 [not null, ref: > m_inspection_checklists.id, note: 'leaf node only (depth=2), service enforced']
+  riskRate         InspectionRiskRateEnum  [null, note: 'null = not yet assessed (draft). SAFE=1, LOW_HAZARD=2, MODERATE_HAZARD=3, CRITICAL_HAZARD=4']
+  notes            text                    [null, note: 'Inspector observations/findings for this checklist item']
+  createdAt        timestamp               [not null, default: `now()`]
+  updatedAt        timestamp               [not null, default: `now()`]
+  createdBy        varchar                 [not null, ref: > t_users.id]
+  Note: 'Inspector-rated result per checklist leaf node per inspection item. One row per (inspectionItemId, checklistItemId). Service enforces results only for leaf items (depth=2).'
+  indexes {
+    (inspectionItemId, checklistItemId) [unique]
+    inspectionItemId
+    checklistItemId
+    riskRate
+  }
+}
+
+Ref: t_inspection_items.checklistId > m_inspection_checklists.id [delete: set null, note: 'points to root record only (parentId=null)']
+
 //// -- TABLE GROUPS --
 
 TableGroup user_management {
@@ -2895,6 +2946,7 @@ TableGroup risk_assessment {
 }
 
 TableGroup inspection_system {
+  m_inspection_checklists
   m_areas
   m_rooms
   t_inspections
@@ -2902,6 +2954,7 @@ TableGroup inspection_system {
   t_inspection_images
   t_inspection_inspectors
   _InspectionToArea
+  t_inspection_checklist_results
   t_environmental_measurements
 }
 

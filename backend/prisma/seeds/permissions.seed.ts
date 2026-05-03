@@ -202,6 +202,13 @@ export const permissions = [
   { name: 'inspection:delete', description: 'Delete inspections' },
   { name: 'inspection:list', description: 'List all inspections' },
 
+  // Inspection Checklist Management (master data — templates, categories, leaf items)
+  { name: 'inspection-checklist:create', description: 'Create inspection checklist templates and items' },
+  { name: 'inspection-checklist:read', description: 'View inspection checklist information' },
+  { name: 'inspection-checklist:update', description: 'Update inspection checklist templates and items' },
+  { name: 'inspection-checklist:delete', description: 'Delete inspection checklist templates and items' },
+  { name: 'inspection-checklist:list', description: 'List all inspection checklists' },
+
   // Certificate Management
   { name: 'certificate:create', description: 'Create new certificates' },
   { name: 'certificate:read', description: 'View certificate information' },

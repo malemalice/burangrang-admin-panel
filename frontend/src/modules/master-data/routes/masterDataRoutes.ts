@@ -37,6 +37,7 @@ const EditAreaPage = lazy(() => import('../pages/areas/EditAreaPage'));
 const CompaniesPage = lazy(() => import('../pages/companies/CompaniesPage'));
 const CreateCompanyPage = lazy(() => import('../pages/companies/CreateCompanyPage'));
 const EditCompanyPage = lazy(() => import('../pages/companies/EditCompanyPage'));
+const InspectionChecklistsPage = lazy(() => import('../pages/inspection-checklists/InspectionChecklistsPage'));
 
 /**
  * Master data module routes
@@ -185,6 +186,10 @@ const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/rooms/:id/edit',
     component: EditRoomPage,
+  },
+  {
+    path: '/master/inspection-checklists',
+    component: InspectionChecklistsPage,
   },
 ];
 

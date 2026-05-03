@@ -41,6 +41,7 @@ import {
   seedWorkClassificationRiskMitigations,
 } from './seeds/work-classifications.seed';
 import { seedWorkClassificationSafetyGuidelines } from './seeds/work-classification-safety-guidelines.seed';
+import { seedInspectionChecklists } from './seeds/inspection-checklists.seed';
 
 const dbUrl = process.env.DATABASE_URL ?? '';
 const dbUrlSep = dbUrl.includes('?') ? '&' : '?';
@@ -530,6 +531,10 @@ async function main() {
         case 'work_classifications':
           // Upsert-only; clearing would require removing work permits that reference classifications
           break;
+        case 'inspection-checklists':
+        case 'inspection_checklists':
+          // Idempotent upsert — no clear needed (linked to inspection items via FK)
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
@@ -594,6 +599,7 @@ async function main() {
       await seedRiskAssessmentsAndInspections(prisma);
       await seedIncidents();
       await seedKpiHseTargets();
+      await seedInspectionChecklists();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -853,6 +859,10 @@ async function main() {
         case 'waste-management':
         case 'waste-managements':
           await seedWasteManagement();
+          break;
+        case 'inspection-checklists':
+        case 'inspection_checklists':
+          await seedInspectionChecklists();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

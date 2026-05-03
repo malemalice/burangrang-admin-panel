@@ -93,9 +93,10 @@ model User {
   /// One-to-one worker profile (contractor / work-permit worker details).
   worker                      Worker?
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
-  inspectionsCreated           Inspection[]               @relation("InspectionCreator")
-  inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
-  inspectionInspectors         InspectionInspector[]      @relation("InspectionInspectorUser")
+  inspectionsCreated                Inspection[]                 @relation("InspectionCreator")
+  inspectionItemsAssigned           InspectionItem[]             @relation("InspectionItemAssignee")
+  inspectionInspectors              InspectionInspector[]        @relation("InspectionInspectorUser")
+  inspectionChecklistResultsCreated InspectionChecklistResult[]  @relation("InspectionChecklistResultCreator")
 
   // Waste Management Relations
   treatmentPlantsCreated          TreatmentPlant[]        @relation("TreatmentPlantCreator")
@@ -1732,6 +1733,39 @@ model Area {
 }
 
 // ============================================================
+// INSPECTION CHECKLIST MASTER DATA
+// ============================================================
+
+// Master Inspection Checklist - Self-referencing hierarchical tree
+// depth 0 (parentId=null): named template root — referenced by InspectionItem.checklistId
+// depth 1: numbered category headers (e.g. "1. Required Document")
+// depth 2: lettered leaf items (e.g. "A. Work Permit") — receive result rows in t_inspection_checklist_results
+// Pattern follows Menu ("MenuHierarchy") and Office ("OfficeHierarchy")
+model InspectionChecklist {
+  id          String    @id @default(uuid())
+  parentId    String?
+  name        String
+  code        String?   // template code (unique among root non-deleted rows); or display code "1", "A", etc.
+  description String?   @db.Text
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  parent          InspectionChecklist?        @relation("ChecklistHierarchy", fields: [parentId], references: [id])
+  children        InspectionChecklist[]       @relation("ChecklistHierarchy")
+  inspectionItems InspectionItem[]
+  results         InspectionChecklistResult[]
+
+  @@index([code])
+  @@index([parentId])
+  @@index([parentId, order])
+  @@map("m_inspection_checklists")
+}
+
+// ============================================================
 // INSPECTION SYSTEM
 // ============================================================
 
@@ -1760,29 +1794,33 @@ model Inspection {
 // Inspection Item - Transactional Data
 // Has 1-to-1 polymorphic relation with RiskMitigationRecord (entity='INSPECTION_ITEM', entityId=id)
 model InspectionItem {
-  id                  String   @id @default(uuid())
-  inspectionId        String
-  areaId              String
-  riskCategoryId      String
-  riskId              String
+  id                   String    @id @default(uuid())
+  inspectionId         String
+  areaId               String
+  riskCategoryId       String
+  riskId               String
   assignedDepartmentId String
-  assigneeId          String?
-  status              GeneralStatusEnum @default(OPEN)
-  findings            String?  @db.Text
-  description         String?  @db.Text
-  followUpNotes       String?  @db.Text
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  dueDateAt           DateTime?
+  assigneeId           String?
+  status               GeneralStatusEnum @default(OPEN)
+  findings             String?   @db.Text
+  description          String?   @db.Text
+  followUpNotes        String?   @db.Text
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  dueDateAt            DateTime?
+  /// Optional checklist template (depth-0 root record) to use for structured assessment.
+  checklistId          String?
 
   // Relations
-  inspection          Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  area                Area           @relation(fields: [areaId], references: [id])
-  riskCategory        RiskCategory   @relation(fields: [riskCategoryId], references: [id])
-  risk                Risk           @relation(fields: [riskId], references: [id])
-  assignedDepartment  Department     @relation(fields: [assignedDepartmentId], references: [id])
-  assignee            User?          @relation("InspectionItemAssignee", fields: [assigneeId], references: [id])
+  inspection          Inspection                  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  area                Area                        @relation(fields: [areaId], references: [id])
+  riskCategory        RiskCategory                @relation(fields: [riskCategoryId], references: [id])
+  risk                Risk                        @relation(fields: [riskId], references: [id])
+  assignedDepartment  Department                  @relation(fields: [assignedDepartmentId], references: [id])
+  assignee            User?                       @relation("InspectionItemAssignee", fields: [assigneeId], references: [id])
   images              InspectionImage[]
+  checklist           InspectionChecklist?        @relation(fields: [checklistId], references: [id], onDelete: SetNull)
+  checklistResults    InspectionChecklistResult[]
 
   @@index([inspectionId])
   @@index([areaId])
@@ -1791,6 +1829,7 @@ model InspectionItem {
   @@index([assignedDepartmentId])
   @@index([assigneeId])
   @@index([status])
+  @@index([checklistId])
   @@map("t_inspection_items")
 }
 
@@ -1846,6 +1885,30 @@ model InspectionToArea {
   @@index([inspectionId])
   @@index([areaId])
   @@map("_InspectionToArea")
+}
+
+// Inspection Checklist Result - Transactional Data
+// One row per (inspectionItem × checklist leaf node). Service enforces checklistItemId must be a leaf (no children).
+// riskRate is nullable to allow draft saves before the inspector rates all items.
+model InspectionChecklistResult {
+  id               String                  @id @default(uuid())
+  inspectionItemId String
+  checklistItemId  String
+  riskRate         InspectionRiskRateEnum?
+  notes            String?                 @db.Text
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  createdBy        String
+
+  inspectionItem InspectionItem      @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+  checklistItem  InspectionChecklist @relation(fields: [checklistItemId], references: [id])
+  creator        User                @relation("InspectionChecklistResultCreator", fields: [createdBy], references: [id])
+
+  @@unique([inspectionItemId, checklistItemId])
+  @@index([inspectionItemId])
+  @@index([checklistItemId])
+  @@index([riskRate])
+  @@map("t_inspection_checklist_results")
 }
 
 model Room {
@@ -2300,6 +2363,13 @@ enum RiskAssessmentItemImageTypeEnum {
   BEFORE  // Image taken before action plan
   AFTER   // Image taken after action plan
   GENERAL // General risk assessment item image
+}
+
+enum InspectionRiskRateEnum {
+  SAFE            // 1 – Safe, maintain safe condition
+  LOW_HAZARD      // 2 – Low hazard risk, take control measures
+  MODERATE_HAZARD // 3 – Moderate hazard risk, take control measures
+  CRITICAL_HAZARD // 4 – Serious/Critical hazard, STOP work immediately
 }
 
 // ============================================================

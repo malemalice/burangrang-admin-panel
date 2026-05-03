@@ -388,6 +388,25 @@ export const seedMenus = async () => {
       },
     });
 
+    // Inspection Checklists submenu (master data — templates for checklist-based item assessment)
+    await prisma.menu.create({
+      data: {
+        name: 'Inspection Checklists',
+        path: '/master/inspection-checklists',
+        icon: 'ListChecks',
+        parentId: inspectionMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
     // Audit menu group
     const auditMenu = await prisma.menu.create({
       data: {
@@ -1454,7 +1473,7 @@ export const seedMenus = async () => {
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - Audit submenus: 5`);
-    console.log(`   - Inspection submenus: 2`);
+    console.log(`   - Inspection submenus: 3`);
     console.log(`   - PPE Management submenus: 2`);
     console.log(`   - Certificate Management submenus: 2`);
     console.log(`   - Work Permit submenus: 5`);

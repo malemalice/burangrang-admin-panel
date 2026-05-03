@@ -65,6 +65,10 @@
 - **Inspection** (id, code, inspectorId, areaId, inspectionDate, hseCategoryId, findingIssue, description, assignedDepartmentId, assigneeId?, controlMeasure, followUpNotes, status, isActive, createdBy)
 - **InspectionPhoto** (id, inspectionId, photoUrl, caption, order)
 - **Inspection** ↔ **User** (many-to-many for multiple inspectors)
+- **InspectionChecklist** (id, parentId?, name, code?, description, order, isActive) — self-referencing tree: depth-0=template root, depth-1=category headers, depth-2=leaf items
+- **InspectionRiskRateEnum**: SAFE(1), LOW_HAZARD(2), MODERATE_HAZARD(3), CRITICAL_HAZARD(4)
+- **InspectionItem.checklistId** → **InspectionChecklist** (optional, points to root record only)
+- **InspectionChecklistResult** (id, inspectionItemId, checklistItemId, riskRate?, notes, createdBy) — one row per (item × leaf node)
 
 ### Audit System
 - **AuditCriteria** (id, name, code, description, isActive)
