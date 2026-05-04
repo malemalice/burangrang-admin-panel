@@ -24,6 +24,7 @@ export class InspectionItemDto {
   inspection?: {
     id: string;
     code: string;
+    finalInspectionValue?: number | null;
     creator?: {
       id: string;
       firstName: string;

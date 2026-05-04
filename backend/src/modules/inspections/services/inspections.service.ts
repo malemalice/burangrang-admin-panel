@@ -540,6 +540,39 @@ export class InspectionsService {
     });
   }
 
+  private async recomputeFinalInspectionValue(inspectionId: string): Promise<number | null> {
+    // Checklist is 2-level (root → leaves). The universe of leaves is ALL active depth-1 nodes
+    // across ALL active roots in the system — checklistResults can reference any leaf.
+    const [totalLeaves, ratedLeaves] = await Promise.all([
+      this.prisma.inspectionChecklist.count({
+        where: {
+          parentId: { not: null },
+          deletedAt: null,
+          isActive: true,
+          parent: { isActive: true, deletedAt: null },
+        },
+      }),
+      this.prisma.inspectionChecklistResult.count({
+        where: {
+          inspectionItem: { inspectionId },
+          riskRate: { not: null },
+        },
+      }),
+    ]);
+
+    const value =
+      totalLeaves > 0
+        ? Math.round((ratedLeaves / totalLeaves) * 100 * 100) / 100
+        : null;
+
+    await this.prisma.inspection.update({
+      where: { id: inspectionId },
+      data: { finalInspectionValue: value },
+    });
+
+    return value;
+  }
+
   // Inspection Items CRUD operations
   async createItem(
     inspectionId: string,
@@ -604,6 +637,16 @@ export class InspectionsService {
         },
         checklistResults: {
           orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -613,6 +656,8 @@ export class InspectionsService {
     if (mitigation) {
       mitigationRecord = await this.createMitigationRecord(item.id, mitigation);
     }
+
+    await this.recomputeFinalInspectionValue(inspectionId);
 
     return this.mapItemToDto(item, mitigationRecord);
   }
@@ -720,6 +765,19 @@ export class InspectionsService {
           images: {
             orderBy: { order: 'asc' },
           },
+          checklistResults: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              checklistItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  parent: { select: { id: true, name: true, code: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: {
           [validatedSortBy]: sortOrder,
@@ -772,6 +830,16 @@ export class InspectionsService {
         },
         checklistResults: {
           orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -857,6 +925,16 @@ export class InspectionsService {
         },
         checklistResults: {
           orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -872,6 +950,8 @@ export class InspectionsService {
     } else {
       mitigationRecord = await this.getMitigationRecord(itemId);
     }
+
+    await this.recomputeFinalInspectionValue(inspectionId);
 
     return this.mapItemToDto(item, mitigationRecord);
   }
@@ -1386,6 +1466,19 @@ export class InspectionsService {
           images: {
             orderBy: { order: 'asc' },
           },
+          checklistResults: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              checklistItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  parent: { select: { id: true, name: true, code: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: {
           [validatedSortBy]: sortOrder,
@@ -1426,6 +1519,7 @@ export class InspectionsService {
           select: {
             id: true,
             code: true,
+            finalInspectionValue: true,
             creator: {
               select: {
                 id: true,
@@ -1445,6 +1539,16 @@ export class InspectionsService {
         },
         checklistResults: {
           orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -1521,6 +1625,7 @@ export class InspectionsService {
           select: {
             id: true,
             code: true,
+            finalInspectionValue: true,
           },
         },
         riskCategory: true,
@@ -1532,6 +1637,16 @@ export class InspectionsService {
         },
         checklistResults: {
           orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -1546,6 +1661,13 @@ export class InspectionsService {
       }
     } else {
       mitigationRecord = await this.getMitigationRecord(itemId);
+    }
+
+    const freshValue = await this.recomputeFinalInspectionValue(existingItem.inspectionId);
+
+    // Patch the stale finalInspectionValue so the response reflects the just-computed value
+    if (item.inspection) {
+      item.inspection.finalInspectionValue = freshValue;
     }
 
     return this.mapItemToDto(item, mitigationRecord);
@@ -1576,6 +1698,20 @@ export class InspectionsService {
             notes: r.notes || undefined,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
+            checklistItem: r.checklistItem
+              ? {
+                  id: r.checklistItem.id,
+                  name: r.checklistItem.name,
+                  code: r.checklistItem.code ?? null,
+                  parent: r.checklistItem.parent
+                    ? {
+                        id: r.checklistItem.parent.id,
+                        name: r.checklistItem.parent.name,
+                        code: r.checklistItem.parent.code ?? null,
+                      }
+                    : null,
+                }
+              : undefined,
           }))
         : [],
     };

@@ -20,6 +20,38 @@ export class CreateInspectionChecklistResultDto {
   notes?: string;
 }
 
+export class ChecklistItemParentDto {
+  @ApiProperty()
+  @Expose()
+  id: string;
+
+  @ApiProperty()
+  @Expose()
+  name: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  code?: string | null;
+}
+
+export class ChecklistItemSummaryDto {
+  @ApiProperty()
+  @Expose()
+  id: string;
+
+  @ApiProperty()
+  @Expose()
+  name: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  code?: string | null;
+
+  @ApiProperty({ type: ChecklistItemParentDto, required: false, nullable: true })
+  @Expose()
+  parent?: ChecklistItemParentDto | null;
+}
+
 export class InspectionChecklistResultDto {
   @ApiProperty()
   @Expose()
@@ -48,6 +80,10 @@ export class InspectionChecklistResultDto {
   @ApiProperty()
   @Expose()
   updatedAt: Date;
+
+  @ApiProperty({ type: ChecklistItemSummaryDto, required: false })
+  @Expose()
+  checklistItem?: ChecklistItemSummaryDto;
 
   constructor(partial: Partial<InspectionChecklistResultDto>) {
     Object.assign(this, partial);

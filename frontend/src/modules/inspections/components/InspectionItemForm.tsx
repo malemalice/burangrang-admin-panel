@@ -60,7 +60,7 @@ import riskMitigationService, { type RiskMitigation } from '@/modules/risk-asses
 import inspectionItemsService from '../inspection-items/services/inspectionItemsService';
 import { generateInspectionCode, getDefaultInspectionStatus } from '../utils/inspection-form.utils';
 
-// Inspection item status options - using GeneralStatusEnum (OPEN, WAITING_APPROVAL, CLOSE)
+// Inspection Finding Monitoring status options - using GeneralStatusEnum (OPEN, WAITING_APPROVAL, CLOSE)
 
 // Image upload interface
 interface ImageUpload {
@@ -85,7 +85,7 @@ const mitigationSchema = z.object({
   legalAspect: z.string().optional(),
 });
 
-// Inspection fields schema (when creating inspection + item from Inspection Items page)
+// Inspection fields schema (when creating inspection + item from Inspection Finding Monitoring page)
 const inspectionFieldsSchema = z.object({
   code: z.string().min(1, 'Code is required'),
   areaIds: z.array(z.string()).min(1, 'At least one area is required'),
@@ -295,6 +295,7 @@ const InspectionItemForm = ({
   const [checklistResults, setChecklistResults] = useState<Record<string, { riskRate?: string; notes?: string }>>({});
   const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState('item-details');
 
   // Approval workflow states
   // Initialize isCheckingApprovalRights to true if we're in verifier mode with an item ID
@@ -623,7 +624,7 @@ const InspectionItemForm = ({
         
         // If user doesn't have approval rights, show error and prevent form usage
         if (!hasRights) {
-          toast.error('You do not have approval rights for this inspection item. Verifier mode is not available.');
+          toast.error('You do not have approval rights for this Inspection Finding Monitoring. Verifier mode is not available.');
         }
       } catch (error) {
         console.error('Failed to check approval rights:', error);
@@ -853,6 +854,32 @@ const InspectionItemForm = ({
     return uploadedImages;
   };
 
+  const itemDetailsFields = ['areaId', 'riskCategoryId', 'riskId', 'assignedDepartmentId', 'mitigation', 'status', 'description', 'findings', 'dueDateAt'];
+  const updatesFields = ['followUpNotes'];
+
+  const handleFormError = (errors: Record<string, unknown>) => {
+    const errorKeys = Object.keys(errors);
+    const hasItemDetailsError = errorKeys.some(k => itemDetailsFields.includes(k));
+    const hasUpdatesError = errorKeys.some(k => updatesFields.includes(k));
+
+    if (hasItemDetailsError) {
+      setActiveTab('item-details');
+    } else if (hasUpdatesError) {
+      setActiveTab('updates');
+    }
+
+    const hasMitigationError = !!errors.mitigation;
+    if (hasMitigationError) {
+      toast.error('Please fill at least one Risk Mitigation field', {
+        description: 'At least one mitigation strategy is required when a risk is selected.',
+      });
+    } else {
+      toast.error('Please complete all required fields', {
+        description: 'Check the highlighted tabs for fields that need attention.',
+      });
+    }
+  };
+
   const handleSubmit = async (data: FormValues | FormValuesWithInspection) => {
     if (!onSubmit) return;
 
@@ -939,10 +966,11 @@ const InspectionItemForm = ({
                 legalAspect: data.mitigation?.legalAspect || undefined,
               }
             : undefined,
+          checklistId: checklistRoots[0]?.id || undefined,
           checklistResults: checklistResultsPayload.length > 0 ? checklistResultsPayload : undefined,
         };
         await inspectionsService.createItem(created.id, itemData);
-        toast.success('Inspection item created successfully');
+        toast.success('Inspection Finding Monitoring created successfully');
         [...beforeImages, ...afterImages].forEach((img) => {
           if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
         });
@@ -999,6 +1027,7 @@ const InspectionItemForm = ({
               legalAspect: data.mitigation?.legalAspect || undefined,
             }
           : undefined,
+        checklistId: checklistRoots[0]?.id || undefined,
         checklistResults: checklistResultsPayload.length > 0 ? checklistResultsPayload : undefined,
       };
       await onSubmit(itemData);
@@ -1006,8 +1035,8 @@ const InspectionItemForm = ({
         if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
       });
     } catch (error) {
-      console.error('Failed to submit inspection item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to submit inspection item');
+      console.error('Failed to submit Inspection Finding Monitoring:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit Inspection Finding Monitoring');
     } finally {
       setIsSubmitting(false);
     }
@@ -1038,8 +1067,8 @@ const InspectionItemForm = ({
         onCancel();
       }
     } catch (error) {
-      console.error('Failed to approve inspection item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to approve inspection item');
+      console.error('Failed to approve Inspection Finding Monitoring:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to approve Inspection Finding Monitoring');
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -1060,7 +1089,7 @@ const InspectionItemForm = ({
       );
 
       // Keep status as OPEN (don't change it)
-      toast.success('Inspection item rejected');
+      toast.success('Inspection Finding Monitoring rejected');
       setRejectDialogOpen(false);
       setApprovalNotes('');
       
@@ -1069,8 +1098,8 @@ const InspectionItemForm = ({
         onCancel(); // This will close the form dialog
       }
     } catch (error) {
-      console.error('Failed to reject inspection item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to reject inspection item');
+      console.error('Failed to reject Inspection Finding Monitoring:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to reject Inspection Finding Monitoring');
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -1151,7 +1180,7 @@ const InspectionItemForm = ({
             <XCircle className="h-12 w-12 text-destructive mb-4" />
             <p className="text-lg font-semibold mb-2">You do not have approval rights</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Verifier mode is only available for users who have approval rights for this inspection item.
+              Verifier mode is only available for users who have approval rights for this Inspection Finding Monitoring.
             </p>
             {onCancel && (
               <Button variant="outline" onClick={onCancel}>
@@ -1176,10 +1205,17 @@ const InspectionItemForm = ({
     );
   }
 
+  const { errors: formErrors } = form.formState;
+  const itemDetailsHasErrors = !!(
+    formErrors.areaId || formErrors.riskCategoryId || formErrors.riskId ||
+    formErrors.assignedDepartmentId || formErrors.mitigation || formErrors.status
+  );
+  const updatesHasErrors = !!formErrors.followUpNotes;
+
   const formContent = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Inspection section: when creating from Inspection Items page (no existing inspection) */}
+      <form onSubmit={form.handleSubmit(handleSubmit, handleFormError)} className="space-y-6">
+        {/* Inspection section: when creating from Inspection Finding Monitoring page (no existing inspection) */}
         {createWithInspection && (
           <div className="space-y-4">
             <div>
@@ -1306,9 +1342,12 @@ const InspectionItemForm = ({
         )}
 
         {/* Tab layout: Item Details | Checklist | Updates */}
-        <Tabs defaultValue="item-details" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full">
-            <TabsTrigger value="item-details" className="flex-1">Item Details</TabsTrigger>
+            <TabsTrigger value="item-details" className="flex-1 gap-1.5">
+              Item Details
+              {itemDetailsHasErrors && <span className="h-2 w-2 rounded-full bg-destructive inline-block flex-shrink-0" />}
+            </TabsTrigger>
             <TabsTrigger value="checklist" className="flex-1">
               Checklist
               {totalCount > 0 && (
@@ -1316,7 +1355,10 @@ const InspectionItemForm = ({
               )}
             </TabsTrigger>
             {showUpdaterSection && (
-              <TabsTrigger value="updates" className="flex-1">Updates</TabsTrigger>
+              <TabsTrigger value="updates" className="flex-1 gap-1.5">
+                Updates
+                {updatesHasErrors && <span className="h-2 w-2 rounded-full bg-destructive inline-block flex-shrink-0" />}
+              </TabsTrigger>
             )}
           </TabsList>
 
@@ -1326,11 +1368,11 @@ const InspectionItemForm = ({
           <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold">
-                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Inspection Item Details (Read Only)' : 'Inspection Item Details'}
+                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Inspection Finding Monitoring Details (Read Only)' : 'Inspection Finding Monitoring Details'}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  {formMode === 'creator' && 'Fill in the inspection item details'}
-                  {formMode === 'updater' && 'Inspection item details (read-only)'}
+                  {formMode === 'creator' && 'Fill in the Inspection Finding Monitoring details'}
+                  {formMode === 'updater' && 'Inspection Finding Monitoring details (read-only)'}
                   {formMode === 'verifier' && 'Information filled by the creator'}
                 </p>
               </div>
@@ -1559,7 +1601,7 @@ const InspectionItemForm = ({
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter inspection item description (optional)"
+                          placeholder="Enter Inspection Finding Monitoring description (optional)"
                           rows={3}
                           {...field}
                           disabled={formMode === 'verifier' && !showVerifierSection}
@@ -1639,15 +1681,15 @@ const InspectionItemForm = ({
               {/* Risk Mitigation Section - only for creator and verifier */}
               <div>
                 <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
-                {form.formState.errors.mitigation && (
+                {formErrors.mitigation && (
                   <p className="text-sm font-medium text-destructive mb-4">
                     {(() => {
-                      const error = form.formState.errors.mitigation;
-                      const message = error && typeof error === 'object' && 'message' in error 
-                        ? String(error.message) 
+                      const error = formErrors.mitigation;
+                      const message = error && typeof error === 'object' && 'message' in error
+                        ? String(error.message)
                         : null;
-                      return message && message !== 'undefined' && message.trim() 
-                        ? message 
+                      return message && message !== 'undefined' && message.trim()
+                        ? message
                         : 'At least one risk mitigation field must be filled';
                     })()}
                   </p>
@@ -1890,7 +1932,7 @@ const InspectionItemForm = ({
                     </ConditionalField>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-sm text-muted-foreground">
+                  <div className={`text-center py-8 text-sm ${formErrors.mitigation ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                     Please select a risk to enter mitigation strategies.
                   </div>
                 )}
@@ -2321,9 +2363,9 @@ const InspectionItemForm = ({
     <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Approve Inspection Item</DialogTitle>
+          <DialogTitle>Approve Inspection Finding Monitoring</DialogTitle>
           <DialogDescription>
-            Approve this inspection item. The status will be set to Close.
+            Approve this Inspection Finding Monitoring. The status will be set to Close.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -2374,9 +2416,9 @@ const InspectionItemForm = ({
     <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reject Inspection Item</DialogTitle>
+          <DialogTitle>Reject Inspection Finding Monitoring</DialogTitle>
           <DialogDescription>
-            Reject this inspection item. The status will remain OPEN.
+            Reject this Inspection Finding Monitoring. The status will remain OPEN.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -2436,7 +2478,7 @@ const InspectionItemForm = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{initialItem ? 'Edit' : 'Add'} Inspection Item</CardTitle>
+          <CardTitle>{initialItem ? 'Edit' : 'Add'} Inspection Finding Monitoring</CardTitle>
         </CardHeader>
         <CardContent>{formWithDialogs}</CardContent>
       </Card>

@@ -59,6 +59,10 @@ export class InspectionDto {
   @Expose()
   inspectors: InspectionInspectorDto[];
 
+  @ApiProperty({ required: false, nullable: true, description: 'Percentage of checklist items rated (0–100), null if no checklists attached' })
+  @Expose()
+  finalInspectionValue: number | null;
+
   constructor(partial: Partial<InspectionDto>) {
     Object.assign(this, partial);
   }

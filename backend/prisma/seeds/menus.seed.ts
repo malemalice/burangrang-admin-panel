@@ -371,7 +371,7 @@ export const seedMenus = async () => {
     // Inspection Items submenu
     await prisma.menu.create({
       data: {
-        name: 'Inspection Items',
+        name: 'Inspection Finding Monitoring',
         path: '/inspections/items',
         icon: 'ClipboardList',
         parentId: inspectionMenu.id,

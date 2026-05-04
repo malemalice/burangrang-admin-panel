@@ -181,7 +181,7 @@ const InspectionDetailPage = () => {
     try {
       const rights = await inspectionItemsService.checkApprovalRights(item.id);
       if (!rights.canApprove) {
-        toast.error('You do not have approval rights for this inspection item');
+        toast.error('You do not have approval rights for this Inspection Finding Monitoring');
         return;
       }
       setEditingItem(item);
@@ -378,9 +378,9 @@ const InspectionDetailPage = () => {
         </CardContent>
       </Card>
 
-      {/* Inspection Items Section */}
+      {/* Inspection Finding Monitoring Section */}
       <div className="mt-6">
-        <h2 className="text-xl font-bold mb-4">Inspection Items</h2>
+        <h2 className="text-xl font-bold mb-4">Inspection Finding Monitoring</h2>
         <InspectionItemsTable
           items={items}
           isLoading={isLoadingItems}
@@ -417,9 +417,9 @@ const InspectionDetailPage = () => {
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Inspection Item</DialogTitle>
+            <DialogTitle>Add Inspection Finding Monitoring</DialogTitle>
             <DialogDescription>
-              Add a new inspection item to this inspection.
+              Add a new Inspection Finding Monitoring to this inspection.
             </DialogDescription>
           </DialogHeader>
           <InspectionItemForm
@@ -445,14 +445,14 @@ const InspectionDetailPage = () => {
             <DialogTitle>
               {editingFormMode === 'creator' && 'Edit as Creator'}
               {editingFormMode === 'updater' && 'Update Action Item'}
-              {editingFormMode === 'verifier' && 'Verify Inspection Item'}
-              {!editingFormMode && 'Edit Inspection Item'}
+              {editingFormMode === 'verifier' && 'Verify Inspection Finding Monitoring'}
+              {!editingFormMode && 'Edit Inspection Finding Monitoring'}
             </DialogTitle>
             <DialogDescription>
-              {editingFormMode === 'creator' && 'Edit inspection item details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
+              {editingFormMode === 'creator' && 'Edit Inspection Finding Monitoring details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
               {editingFormMode === 'updater' && 'Update action item progress (After Images, Follow-up Notes)'}
-              {editingFormMode === 'verifier' && 'Verify and adjust all inspection item fields'}
-              {!editingFormMode && 'Update the inspection item details.'}
+              {editingFormMode === 'verifier' && 'Verify and adjust all Inspection Finding Monitoring fields'}
+              {!editingFormMode && 'Update the Inspection Finding Monitoring details.'}
             </DialogDescription>
           </DialogHeader>
           {editingItem && (
@@ -487,6 +487,11 @@ const InspectionDetailPage = () => {
                   accept: editingItem.mitigation.accept,
                   legalAspect: editingItem.mitigation.legalAspect,
                 } : undefined,
+                checklistResults: editingItem.checklistResults?.map(r => ({
+                  checklistItemId: r.checklistItemId,
+                  riskRate: r.riskRate,
+                  notes: r.notes,
+                })),
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {

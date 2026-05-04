@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { Inspection, InspectionItem } from '../types/inspection.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { InspectionRiskRateEnum, INSPECTION_RISK_RATE_OPTIONS } from '@/shared/constants/inspection-risk-rate.enum';
 
 interface InspectionPDFTemplateProps {
   inspection: Inspection;
@@ -24,6 +25,17 @@ const getItemStatusTextClass = (status?: string) => {
   if (normalized === GeneralStatusEnum.WAITING_APPROVAL) return 'text-blue-700';
   if (normalized === GeneralStatusEnum.OPEN) return 'text-blue-700';
   return 'text-gray-700';
+};
+
+const getRiskRateLabel = (rate?: string) =>
+  INSPECTION_RISK_RATE_OPTIONS.find((o) => o.value === rate)?.label ?? rate ?? '—';
+
+const getRiskRateTextClass = (rate?: string): string => {
+  if (rate === InspectionRiskRateEnum.SAFE) return 'text-green-700';
+  if (rate === InspectionRiskRateEnum.LOW_HAZARD) return 'text-yellow-700';
+  if (rate === InspectionRiskRateEnum.MODERATE_HAZARD) return 'text-orange-600';
+  if (rate === InspectionRiskRateEnum.CRITICAL_HAZARD) return 'text-red-700';
+  return 'text-gray-600';
 };
 
 const getStatusLabel = (status?: string) => {
@@ -156,13 +168,13 @@ export const InspectionPDFTemplate = ({
         </div>
       </div>
 
-      {/* Inspection Items Section */}
+      {/* Inspection Finding Monitoring Section */}
       <div className="mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">
-          Inspection Items
+          Inspection Finding Monitoring
         </h2>
         {items.length === 0 ? (
-          <p className="text-sm text-gray-600">No inspection items found.</p>
+          <p className="text-sm text-gray-600">No Inspection Finding Monitoring found.</p>
         ) : (
           <table
             data-pdf-table-splittable
@@ -246,6 +258,67 @@ export const InspectionPDFTemplate = ({
           </table>
         )}
       </div>
+
+      {/* Checklist Results Section */}
+      {items.some((item) => (item.checklistResults?.length ?? 0) > 0) && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">
+            Checklist Results
+          </h2>
+          {items
+            .filter((item) => (item.checklistResults?.length ?? 0) > 0)
+            .map((item) => {
+              const itemNo = items.indexOf(item) + 1;
+              return (
+                <div key={item.id} className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                    Item #{itemNo} — {item.area?.name ?? 'N/A'} / {item.risk?.name ?? 'N/A'}
+                  </h3>
+                  <table
+                    data-pdf-table-splittable
+                    className="min-w-full border border-gray-300"
+                    style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
+                  >
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '25%' }}>
+                          Category
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '35%' }}>
+                          Checklist Item
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '18%' }}>
+                          Risk Rate
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ width: '22%' }}>
+                          Notes
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {item.checklistResults!.map((result) => (
+                        <tr key={result.id}>
+                          <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                            {result.checklistItem?.parent?.name ?? '—'}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                            {result.checklistItem?.name ?? result.checklistItemId}
+                          </td>
+                          <td className={`border border-gray-300 px-3 py-2 text-xs font-medium break-words ${getRiskRateTextClass(result.riskRate)}`}>
+                            {getRiskRateLabel(result.riskRate)}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900 break-words">
+                            {result.notes ?? '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+        </div>
+      )}
     </div>
   );
 };

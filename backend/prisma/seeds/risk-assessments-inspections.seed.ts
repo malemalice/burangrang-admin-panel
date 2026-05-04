@@ -2,7 +2,7 @@
  * Risk Assessment and Inspection seed data
  * Following seed.ts patterns for seed data
  */
-import { GeneralStatusEnum, PrismaClient, RiskRatingEnum } from '@prisma/client';
+import { GeneralStatusEnum, InspectionRiskRateEnum, PrismaClient, RiskRatingEnum } from '@prisma/client';
 import { seedPrisma as prisma } from './prisma-seed-client';
 
 /**
@@ -159,10 +159,23 @@ export const seedRiskAssessmentsAndInspections = async (
       return;
     }
 
+    const checklistCategories = await client.inspectionChecklist.findMany({
+      where: { parentId: null, isActive: true, deletedAt: null },
+      include: {
+        children: { where: { isActive: true, deletedAt: null }, orderBy: { order: 'asc' } },
+      },
+      orderBy: { order: 'asc' },
+    });
+
+    if (checklistCategories.length === 0) {
+      console.log('⚠️  No inspection checklists found — skipping checklist results. Run inspection-checklists seed first.');
+    }
+
     // Clear existing data
     console.log('Clearing existing risk assessments and inspections...');
     await client.inspectionImage.deleteMany();
     await client.inspectionInspector.deleteMany();
+    await client.inspectionChecklistResult.deleteMany();
     // Clear mitigation records before items (foreign key dependency)
     await client.riskMitigationRecord.deleteMany({
       where: {
@@ -431,6 +444,9 @@ export const seedRiskAssessmentsAndInspections = async (
         const area = areas[j % areas.length];
         const department = departments[j % departments.length];
         const assignee = j % 3 === 0 ? users[j % users.length] : null; // Assign every 3rd item
+        const checklistCategory = checklistCategories.length > 0
+          ? checklistCategories[(i * 6 + j) % checklistCategories.length]
+          : null;
 
         // Only OPEN or CLOSE status for inspection items
         const itemStatuses: GeneralStatusEnum[] = [
@@ -474,8 +490,36 @@ export const seedRiskAssessmentsAndInspections = async (
             description,
             followUpNotes,
             dueDateAt: dueDate,
+            checklistId: checklistCategory?.id ?? null,
           },
         });
+
+        if (checklistCategory && checklistCategory.children.length > 0) {
+          const riskRates = [
+            InspectionRiskRateEnum.SAFE,
+            InspectionRiskRateEnum.LOW_HAZARD,
+            InspectionRiskRateEnum.MODERATE_HAZARD,
+            InspectionRiskRateEnum.CRITICAL_HAZARD,
+          ];
+
+          for (let k = 0; k < checklistCategory.children.length; k++) {
+            const leaf = checklistCategory.children[k];
+            const riskRate = riskRates[(j + k) % riskRates.length];
+            const leafNotes = riskRate !== InspectionRiskRateEnum.SAFE
+              ? `Inspector note for ${leaf.name}: action required.`
+              : null;
+
+            await client.inspectionChecklistResult.create({
+              data: {
+                inspectionItemId: item.id,
+                checklistItemId: leaf.id,
+                riskRate,
+                notes: leafNotes,
+                createdBy: adminUser.id,
+              },
+            });
+          }
+        }
 
         // Create risk mitigation record for this inspection item (at least one field filled)
         const mitigationOptions = [
@@ -585,6 +629,8 @@ export const seedRiskAssessmentsAndInspections = async (
       },
     });
 
+    const checklistResultCount = await client.inspectionChecklistResult.count();
+
     console.log('\n📋 Summary:');
     console.log(`   - Risk Assessments: ${riskAssessments.length}`);
     console.log(`   - Risk Assessment Items: ${totalRiskItems}`);
@@ -592,6 +638,7 @@ export const seedRiskAssessmentsAndInspections = async (
     console.log(`   - Inspection Items: ${totalInspectionItems}`);
     console.log(`   - Total Items: ${totalRiskItems + totalInspectionItems}`);
     console.log(`   - Risk Mitigation Records: ${mitigationRecords.length} (one per item)`);
+    console.log(`   - Inspection Checklist Results: ${checklistResultCount}`);
 
     if (totalRiskItems >= 20 && totalInspectionItems >= 20) {
       console.log('✅ Minimum requirements met (20+ items each)');

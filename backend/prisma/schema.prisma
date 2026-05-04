@@ -1779,7 +1779,8 @@ model Inspection {
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
   createdBy      String
-  doneAt         DateTime?
+  doneAt               DateTime?
+  finalInspectionValue Float?
 
   // Relations
   creator    User                   @relation("InspectionCreator", fields: [createdBy], references: [id])

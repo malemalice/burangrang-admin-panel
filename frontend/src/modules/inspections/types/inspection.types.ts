@@ -34,6 +34,12 @@ export interface InspectionChecklistResult {
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  checklistItem?: {
+    id: string;
+    name: string;
+    code?: string | null;
+    parent?: { id: string; name: string; code?: string | null } | null;
+  };
 }
 
 export interface CreateInspectionChecklistResultDTO {
@@ -123,6 +129,7 @@ export interface Inspection {
   creator?: User;
   items?: InspectionItem[];
   inspectors?: InspectionInspector[];
+  finalInspectionValue?: number | null;
 }
 
 export interface CreateInspectionItemDTO {
