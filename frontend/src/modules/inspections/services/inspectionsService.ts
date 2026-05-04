@@ -1,4 +1,4 @@
-import { Inspection, CreateInspectionDTO, UpdateInspectionDTO, CreateInspectionItemDTO, UpdateInspectionItemDTO, CreateInspectionImageDTO, UpdateInspectionImageDTO, CreateInspectionInspectorDTO, UpdateInspectionInspectorDTO, InspectionItem, InspectionImage, InspectionInspector } from '../types/inspection.types';
+import { Inspection, CreateInspectionDTO, UpdateInspectionDTO, CreateInspectionItemDTO, UpdateInspectionItemDTO, CreateInspectionImageDTO, UpdateInspectionImageDTO, CreateInspectionInspectorDTO, UpdateInspectionInspectorDTO, InspectionItem, InspectionImage, InspectionInspector, InspectionChecklistResult } from '../types/inspection.types';
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import api from '@/core/lib/api';
 

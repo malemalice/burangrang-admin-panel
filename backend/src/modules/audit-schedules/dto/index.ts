@@ -7,3 +7,4 @@ export { AuditItemDto } from './audit-item.dto';
 export { AuditResultDto } from './audit-result.dto';
 export { ApproveAuditItemDto } from './approve-audit-item.dto';
 export { RejectAuditItemDto } from './reject-audit-item.dto';
+export { AuditReportDto, AuditReportElementDto, AuditReportCriteriaGroupDto } from './audit-report.dto';

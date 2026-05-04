@@ -526,9 +526,9 @@ const ViewAuditCriteriaPage = () => {
                 </div>
               </div>
 
-              {/* Audit Schedule */}
+              {/* Audit */}
               <div className="space-y-2 pt-2 border-t">
-                <label className="text-sm font-medium text-muted-foreground">Audit Schedule</label>
+                <label className="text-sm font-medium text-muted-foreground">Audit</label>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-mono text-muted-foreground">
                     {auditSchedule.code}

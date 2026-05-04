@@ -11,6 +11,10 @@ import {
 import { Separator } from '@/core/components/ui/separator';
 import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection.types';
 import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
+import { InspectionRiskRateEnum, INSPECTION_RISK_RATE_OPTIONS, INSPECTION_RISK_RATE_BADGE_CLASSES } from '@/shared/constants/inspection-risk-rate.enum';
+
+const getRiskRateLabel = (rate?: InspectionRiskRateEnum) =>
+  INSPECTION_RISK_RATE_OPTIONS.find((o) => o.value === rate)?.label ?? rate ?? '—';
 
 interface ViewItemDialogProps {
   open: boolean;
@@ -25,9 +29,9 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Inspection Item Details</DialogTitle>
+          <DialogTitle>Inspection Finding Monitoring Details</DialogTitle>
           <DialogDescription>
-            View detailed information about this inspection item.
+            View detailed information about this Inspection Finding Monitoring.
           </DialogDescription>
         </DialogHeader>
 
@@ -185,6 +189,48 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 )}
               </div>
             </div>
+          </div>
+
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-4">Checklist Results</h3>
+            {!item.checklistResults || item.checklistResults.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No checklist results</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(
+                  item.checklistResults.reduce<Record<string, NonNullable<typeof item.checklistResults>>>((acc, r) => {
+                    const cat = r.checklistItem?.parent?.name ?? 'Uncategorized';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat]!.push(r);
+                    return acc;
+                  }, {})
+                ).map(([category, results]) => (
+                  <div key={category}>
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">{category}</h4>
+                    <div className="space-y-2">
+                      {results.map((result) => (
+                        <div key={result.id} className="flex flex-col gap-1 rounded-md border bg-muted/30 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm">{result.checklistItem?.name ?? result.checklistItemId}</span>
+                            {result.riskRate ? (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${INSPECTION_RISK_RATE_BADGE_CLASSES[result.riskRate]}`}>
+                                {getRiskRateLabel(result.riskRate)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Not rated</span>
+                            )}
+                          </div>
+                          {result.notes && (
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{result.notes}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <Separator />

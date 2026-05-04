@@ -391,7 +391,7 @@ const InspectionsPage = () => {
     <>
       <PageHeader
         title="Inspections"
-        subtitle="Create and manage inspections with associated inspection items"
+        subtitle="Create and manage inspections with associated Inspection Finding Monitoring"
         actions={
           <PermissionGuard permission="inspection:create">
             <ThemeButton onClick={() => navigate('/inspections/new')}>

@@ -1,8 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { GeneralStatusEnum } from '@prisma/client';
 import { AreaDto } from 'src/modules/areas/dto/area.dto';
 import { UserDto } from 'src/modules/users/dto/user.dto';
+
+export class AuditPeriodSummaryDto {
+  @ApiProperty()
+  @Expose()
+  id: string;
+
+  @ApiProperty()
+  @Expose()
+  month: number;
+
+  @ApiProperty()
+  @Expose()
+  year: number;
+}
 
 export class AuditElementDto {
   @ApiProperty()
@@ -86,6 +100,15 @@ export class AuditScheduleDto {
   @ApiProperty({ type: [UserDto], description: 'Array of auditors' })
   @Expose()
   auditors: UserDto[];
+
+  @ApiProperty({ required: false })
+  @Expose()
+  auditPeriodId?: string;
+
+  @ApiProperty({ type: AuditPeriodSummaryDto, required: false })
+  @Type(() => AuditPeriodSummaryDto)
+  @Expose()
+  period?: AuditPeriodSummaryDto;
 
   constructor(partial: Partial<AuditScheduleDto>) {
     Object.assign(this, partial);

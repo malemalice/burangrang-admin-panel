@@ -17,3 +17,6 @@ export { InspectionImageDto } from './inspection-image.dto';
 export { CreateInspectionInspectorDto } from './create-inspection-inspector.dto';
 export { UpdateInspectionInspectorDto } from './update-inspection-inspector.dto';
 export { InspectionInspectorDto } from './inspection-inspector.dto';
+
+// Inspection Checklist Result DTOs
+export { CreateInspectionChecklistResultDto, InspectionChecklistResultDto } from './inspection-checklist-result.dto';

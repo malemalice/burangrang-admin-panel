@@ -68,7 +68,7 @@ export const useInspectionDetail = (id: string | undefined) => {
       setTotalItems(response.meta.total);
     } catch (error) {
       console.error('Failed to fetch items:', error);
-      toast.error('Failed to load inspection items');
+      toast.error('Failed to load Inspection Finding Monitorings');
     } finally {
       setIsLoadingItems(false);
     }
@@ -93,13 +93,13 @@ export const useInspectionDetail = (id: string | undefined) => {
 
     try {
       await inspectionsService.createItem(id, itemData);
-      toast.success('Inspection item created successfully');
+      toast.success('Inspection Finding Monitoring created successfully');
       await fetchItems();
       await refreshInspection();
       return true;
     } catch (error) {
       console.error('Failed to create item:', error);
-      toast.error('Failed to create inspection item');
+      toast.error('Failed to create Inspection Finding Monitoring');
       return false;
     }
   }, [id, fetchItems, refreshInspection]);
@@ -109,13 +109,13 @@ export const useInspectionDetail = (id: string | undefined) => {
 
     try {
       await inspectionsService.updateItem(id, itemId, itemData);
-      toast.success('Inspection item updated successfully');
+      toast.success('Inspection Finding Monitoring updated successfully');
       await fetchItems();
       await refreshInspection();
       return true;
     } catch (error) {
       console.error('Failed to update item:', error);
-      toast.error('Failed to update inspection item');
+      toast.error('Failed to update Inspection Finding Monitoring');
       return false;
     }
   }, [id, fetchItems, refreshInspection]);
@@ -125,13 +125,13 @@ export const useInspectionDetail = (id: string | undefined) => {
 
     try {
       await inspectionsService.deleteItem(id, itemId);
-      toast.success('Inspection item deleted successfully');
+      toast.success('Inspection Finding Monitoring deleted successfully');
       await fetchItems();
       await refreshInspection();
       return true;
     } catch (error) {
       console.error('Failed to delete item:', error);
-      toast.error('Failed to delete inspection item');
+      toast.error('Failed to delete Inspection Finding Monitoring');
       return false;
     }
   }, [id, fetchItems, refreshInspection]);

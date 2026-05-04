@@ -3,9 +3,26 @@
  */
 
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { InspectionRiskRateEnum } from '@/shared/constants/inspection-risk-rate.enum';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
+
+export interface InspectionChecklistResult {
+  id: string;
+  inspectionItemId: string;
+  checklistItemId: string;
+  riskRate?: InspectionRiskRateEnum;
+  notes?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  checklistItem?: {
+    id: string;
+    name: string;
+    code?: string | null;
+    parent?: { id: string; name: string; code?: string | null } | null;
+  };
+}
 
 export interface RiskMitigationData {
   eliminate?: string;
@@ -34,6 +51,7 @@ export interface InspectionItem {
   inspection?: {
     id: string;
     code: string;
+    finalInspectionValue?: number | null;
     creator?: {
       id: string;
       firstName: string;
@@ -74,6 +92,8 @@ export interface InspectionItem {
   updatedAt: Date;
   images?: InspectionItemImage[];
   mitigation?: RiskMitigationRecord;
+  checklistId?: string;
+  checklistResults?: InspectionChecklistResult[];
 }
 
 export enum InspectionImageTypeEnum {

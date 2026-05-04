@@ -29,7 +29,9 @@ import { manHourRoutes } from '@/modules/man-hours';
 import { emailTemplateRoutes } from '@/modules/mail-templates';
 import { auditCriteriaRoutes } from '@/modules/audit-criteria';
 import auditSchedulesRoutes from '@/modules/audit-schedules/routes/auditSchedulesRoutes';
+import auditPeriodsRoutes from '@/modules/audit-periods/routes/auditPeriodsRoutes';
 import auditResultsRoutes from '@/modules/audit-results/routes/auditResultsRoutes';
+import auditReportRoutes from '@/modules/audit-report/routes/auditReportRoutes';
 import { kpiFrequencyRateRoutes } from '@/modules/kpi-frequency-rate';
 import { kpiHseTargetRoutes } from '@/modules/kpi-hse-target';
 import { incidentProfileAnalyticRoutes } from '@/modules/incident-profile-analytic';
@@ -63,7 +65,9 @@ const routes: RouteConfig[] = [
   ...emailTemplateRoutes,
   ...auditCriteriaRoutes,
   ...auditSchedulesRoutes,
+  ...auditPeriodsRoutes,
   ...auditResultsRoutes,
+  ...auditReportRoutes,
   ...kpiFrequencyRateRoutes,
   ...kpiHseTargetRoutes,
   ...incidentProfileAnalyticRoutes,

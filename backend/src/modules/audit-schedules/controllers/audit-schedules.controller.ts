@@ -29,6 +29,7 @@ import {
   AuditResultDto,
   ApproveAuditItemDto,
   RejectAuditItemDto,
+  AuditReportDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -89,11 +90,13 @@ export class AuditSchedulesController {
     @Query('createdAtTo') createdAtTo?: string,
     @Query('auditDateFrom') auditDateFrom?: string,
     @Query('auditDateTo') auditDateTo?: string,
+    @Query('periodId') periodId?: string | string[],
   ) {
     // Normalize array parameters
     const areaIds = Array.isArray(areaId) ? areaId : areaId ? [areaId] : undefined;
     const auditElementIds = Array.isArray(auditElementId) ? auditElementId : auditElementId ? [auditElementId] : undefined;
     const normalizedAuditorIds = Array.isArray(auditorIds) ? auditorIds : auditorIds ? [auditorIds] : undefined;
+    const periodIds = Array.isArray(periodId) ? periodId : periodId ? [periodId] : undefined;
 
     return this.auditSchedulesService.findAll({
       page: page ? +page : undefined,
@@ -106,6 +109,7 @@ export class AuditSchedulesController {
       auditElementIds,
       auditorIds: normalizedAuditorIds,
       status,
+      periodIds,
       createdAtFrom: createdAtFrom ? new Date(createdAtFrom) : undefined,
       createdAtTo: createdAtTo ? new Date(createdAtTo) : undefined,
       auditDateFrom: auditDateFrom ? new Date(auditDateFrom) : undefined,
@@ -145,6 +149,18 @@ export class AuditSchedulesController {
       status,
       search: search?.trim() || undefined,
     });
+  }
+
+  // Audit Report endpoint - must be before :id route
+  @Get('report')
+  @AllowOptionsBypass()
+  @Permissions('audit-report:list')
+  @ApiOperation({ summary: 'Get audit report summary grouped by TransitionType for a period' })
+  @ApiQuery({ name: 'periodId', required: false, type: String })
+  async getAuditReport(
+    @Query('periodId') periodId?: string,
+  ): Promise<AuditReportDto> {
+    return this.auditSchedulesService.getAuditReport(periodId);
   }
 
   @Get(':id')

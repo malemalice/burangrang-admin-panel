@@ -50,4 +50,9 @@ export class CreateAuditScheduleDto {
   @IsOptional()
   @ApiProperty({ type: [String], description: 'Array of auditor user IDs', required: false })
   auditorIds?: string[];
+
+  @IsNotEmpty()
+  @IsUUID()
+  @ApiProperty({ description: 'Audit Period ID' })
+  auditPeriodId: string;
 }

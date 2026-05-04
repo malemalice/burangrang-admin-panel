@@ -290,7 +290,7 @@ export const InspectionItemsTable = ({
     <>
       {!hideHeader && (
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Inspection Items</h2>
+          <h2 className="text-2xl font-bold">Inspection Finding Monitoring</h2>
           {!hideActions && (
             <ThemeButton onClick={onAddItem}>
               <Plus className="mr-2 h-4 w-4" /> Add Item
@@ -324,8 +324,8 @@ export const InspectionItemsTable = ({
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={onDeleteDialogChange}
-        title="Delete Inspection Item"
-        description={`Are you sure you want to delete this inspection item? This action cannot be undone.`}
+        title="Delete Inspection Finding Monitoring"
+        description={`Are you sure you want to delete this Inspection Finding Monitoring? This action cannot be undone.`}
         onConfirm={onDeleteConfirm}
         variant="destructive"
       />
