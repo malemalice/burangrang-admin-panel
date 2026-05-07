@@ -152,6 +152,11 @@ export class CreateIncidentDto {
   @ApiProperty({ required: false })
   resolution?: string;
 
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false, default: false, description: 'Set true when HSE flags incident for further investigation' })
+  needFurtherInvestigation?: boolean;
+
   @IsNotEmpty()
   @IsUUID()
   @ApiProperty()

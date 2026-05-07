@@ -24,7 +24,7 @@ const inspectionChecklistService = {
   },
 
   async getTree(): Promise<InspectionChecklistDTO[]> {
-    const response = await api.get('/inspection-checklists/tree');
+    const response = await api.get('/inspection-checklists/tree?options=true');
     return response.data;
   },
 

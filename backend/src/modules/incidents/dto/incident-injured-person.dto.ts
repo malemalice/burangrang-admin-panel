@@ -42,6 +42,10 @@ export class IncidentInjuredPersonDto {
   @Expose()
   mechanismOfInjury: MechanismOfInjuryEnum;
 
+  @ApiProperty({ required: false, description: 'Job position/title at time of incident' })
+  @Expose()
+  position?: string;
+
   @ApiProperty({ required: false })
   @Expose()
   departmentId?: string;

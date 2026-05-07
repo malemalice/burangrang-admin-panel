@@ -378,9 +378,7 @@ const InspectionDetailPage = () => {
         </CardContent>
       </Card>
 
-      {/* Inspection Finding Monitoring Section */}
       <div className="mt-6">
-        <h2 className="text-xl font-bold mb-4">Inspection Finding Monitoring</h2>
         <InspectionItemsTable
           items={items}
           isLoading={isLoadingItems}

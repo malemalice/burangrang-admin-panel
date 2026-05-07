@@ -60,6 +60,23 @@ export class InspectionChecklistsService {
       }
     }
 
+    if (dto.code) {
+      const codeConflict = await this.prisma.inspectionChecklist.findFirst({
+        where: {
+          code: dto.code,
+          parentId: dto.parentId ?? null,
+          deletedAt: null,
+        },
+      });
+      if (codeConflict) {
+        throw new BadRequestException(
+          dto.parentId
+            ? `Code "${dto.code}" is already used by another item in this category`
+            : `Code "${dto.code}" is already used by another checklist`,
+        );
+      }
+    }
+
     const record = await this.prisma.inspectionChecklist.create({
       data: {
         name: dto.name,
@@ -143,11 +160,11 @@ export class InspectionChecklistsService {
       where: { parentId: null, deletedAt: null, isActive: true },
       include: {
         children: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, isActive: true },
           orderBy: { order: 'asc' },
           include: {
             children: {
-              where: { deletedAt: null },
+              where: { deletedAt: null, isActive: true },
               orderBy: { order: 'asc' },
             },
           },
@@ -188,6 +205,25 @@ export class InspectionChecklistsService {
     });
 
     this.errorHandler.throwIfNotFoundById('Inspection checklist', id, existing);
+
+    if (dto.code !== undefined && dto.code !== null && dto.code !== existing.code) {
+      const targetParentId = dto.parentId !== undefined ? dto.parentId : existing.parentId;
+      const codeConflict = await this.prisma.inspectionChecklist.findFirst({
+        where: {
+          code: dto.code,
+          parentId: targetParentId ?? null,
+          deletedAt: null,
+          NOT: { id },
+        },
+      });
+      if (codeConflict) {
+        throw new BadRequestException(
+          targetParentId
+            ? `Code "${dto.code}" is already used by another item in this category`
+            : `Code "${dto.code}" is already used by another checklist`,
+        );
+      }
+    }
 
     if (dto.parentId !== undefined && dto.parentId !== existing.parentId) {
       if (dto.parentId === null) {

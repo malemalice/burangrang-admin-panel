@@ -1271,6 +1271,9 @@ export class DashboardService {
     [MechanismOfInjuryEnum.HAND_TOOLS]: 'Got cut due to sharp edge material',
     [MechanismOfInjuryEnum.FALL_FROM_HEIGHT]: 'Fall from height',
     [MechanismOfInjuryEnum.FLYING_OBJECT]: 'Eye injury caused by flying particles',
+    [MechanismOfInjuryEnum.SHARP_OBJECTS]: 'Got cut due to sharp objects',
+    [MechanismOfInjuryEnum.HEAT_COLD]: 'Heat or cold exposure',
+    [MechanismOfInjuryEnum.MANUAL_HANDLING]: 'Manual handling injury',
     [MechanismOfInjuryEnum.OTHER]: 'Other',
   };
 

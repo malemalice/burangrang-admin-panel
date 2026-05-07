@@ -240,6 +240,7 @@ export class UsersController {
     @Query('jobPositionId') jobPositionId?: string,
     @Query('companyId') companyId?: string,
     @Query('roleCode') roleCode?: string,
+    @Query('options') optionsMode?: string,
   ): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -272,11 +273,11 @@ export class UsersController {
             companyId: req.user.companyId ?? null,
           }
         : undefined,
+      optionsMode === 'true',
     );
   }
 
   @Get('me')
-  @Permissions('user:read')
   @ApiOperation({ summary: 'Get current user profile' })
   
   @ApiResponse({

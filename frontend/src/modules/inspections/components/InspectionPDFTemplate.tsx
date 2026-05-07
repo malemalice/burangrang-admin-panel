@@ -44,7 +44,7 @@ const getStatusLabel = (status?: string) => {
     [GeneralStatusEnum.DRAFT]: 'Draft',
     [GeneralStatusEnum.OPEN]: 'Open',
     [GeneralStatusEnum.WAITING_APPROVAL]: 'Waiting Verification',
-    [GeneralStatusEnum.DONE]: 'Done',
+    [GeneralStatusEnum.DONE]: 'Complete',
     [GeneralStatusEnum.REJECTED]: 'Rejected',
     [GeneralStatusEnum.CLOSE]: 'Close',
   };

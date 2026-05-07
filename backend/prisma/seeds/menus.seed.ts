@@ -563,6 +563,25 @@ export const seedMenus = async () => {
       },
     });
 
+    // Investigation Reports menu (top-level)
+    await prisma.menu.create({
+      data: {
+        name: 'Investigation Reports',
+        path: '/investigation-reports',
+        icon: 'ClipboardCheck',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Environmental Measurements menu
     await prisma.menu.create({
       data: {

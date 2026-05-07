@@ -52,6 +52,8 @@ export enum TreatmentEnum {
   MEDICAL_TREATMENT = 'MEDICAL_TREATMENT',
   HOSPITALIZATION = 'HOSPITALIZATION',
   NO_TREATMENT = 'NO_TREATMENT',
+  SELF = 'SELF',
+  HEALTH_SERVICES = 'HEALTH_SERVICES',
   OTHER = 'OTHER',
 }
 
@@ -108,6 +110,11 @@ export enum TypeOfInjuryEnum {
   STRAIN = 'STRAIN',
   LACERATION = 'LACERATION',
   CONCUSSION = 'CONCUSSION',
+  DERMATITIS = 'DERMATITIS',
+  PARALYSIS = 'PARALYSIS',
+  AMPUTATION = 'AMPUTATION',
+  CRUSH = 'CRUSH',
+  ABRASION = 'ABRASION',
   OTHER = 'OTHER',
 }
 
@@ -125,6 +132,9 @@ export enum MechanismOfInjuryEnum {
   HAND_TOOLS = 'HAND_TOOLS',
   FALL_FROM_HEIGHT = 'FALL_FROM_HEIGHT',
   FLYING_OBJECT = 'FLYING_OBJECT',
+  SHARP_OBJECTS = 'SHARP_OBJECTS',
+  HEAT_COLD = 'HEAT_COLD',
+  MANUAL_HANDLING = 'MANUAL_HANDLING',
   OTHER = 'OTHER',
 }
 
@@ -138,6 +148,7 @@ export interface IncidentInjuredPerson {
   injuredBodyPart: InjuredBodyPartEnum;
   typeOfInjury: TypeOfInjuryEnum;
   mechanismOfInjury: MechanismOfInjuryEnum;
+  position?: string;
   departmentId?: string;
   department?: Department;
   order: number;
@@ -150,6 +161,7 @@ export interface IncidentWitness {
   incidentId: string;
   witnessName?: string;
   gender?: GenderEnum;
+  position?: string;
   departmentId?: string;
   department?: Department;
   order: number;
@@ -246,6 +258,7 @@ export interface Incident {
   treatmentDescription?: string;
   absence: AbsenceEnum;
   resolution?: string;
+  needFurtherInvestigation: boolean;
   assignedDepartmentId: string;
   assignedDepartment?: Department;
   assigneeId?: string;
@@ -272,6 +285,7 @@ export interface CreateIncidentInjuredPersonDTO {
   injuredBodyPart?: InjuredBodyPartEnum;
   typeOfInjury?: TypeOfInjuryEnum;
   mechanismOfInjury?: MechanismOfInjuryEnum;
+  position?: string;
   departmentId?: string;
   order: number;
 }
@@ -279,6 +293,7 @@ export interface CreateIncidentInjuredPersonDTO {
 export interface CreateIncidentWitnessDTO {
   witnessName?: string;
   gender?: GenderEnum;
+  position?: string;
   departmentId?: string;
   order: number;
 }
@@ -327,6 +342,7 @@ export interface CreateIncidentDTO {
   treatmentDescription?: string;
   absence?: AbsenceEnum;
   resolution?: string;
+  needFurtherInvestigation?: boolean;
   assignedDepartmentId: string;
   assigneeId?: string;
   status: GeneralStatusEnum;

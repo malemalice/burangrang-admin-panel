@@ -36,7 +36,7 @@ const GroupDataCells = ({ group }: { group: AuditReportCriteriaGroup }) => (
     <td className="text-center text-[10px] px-1 py-1 border text-green-800 font-medium">{group.comply || '—'}</td>
     <td className="text-center text-[10px] px-1 py-1 border text-yellow-800 font-medium">{group.notComplyMinor || '—'}</td>
     <td className="text-center text-[10px] px-1 py-1 border text-red-800 font-medium">{group.notComplyMajor || '—'}</td>
-    <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{group.total}</td>
+    <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{group.total - group.notAssessed || '—'}</td>
   </>
 );
 
@@ -157,15 +157,15 @@ export function AuditReportSummaryPDFTemplate({ report, periodLabel }: Props) {
             <td className="text-center text-[10px] px-1 py-1 border text-green-800">{report.summary.initial.comply}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-yellow-800">{report.summary.initial.notComplyMinor}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-red-800">{report.summary.initial.notComplyMajor}</td>
-            <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{report.summary.initial.total}</td>
+            <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{report.summary.initial.total - report.summary.initial.notAssessed}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-green-800">{report.summary.transitionLevel.comply}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-yellow-800">{report.summary.transitionLevel.notComplyMinor}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-red-800">{report.summary.transitionLevel.notComplyMajor}</td>
-            <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{report.summary.transitionLevel.total}</td>
+            <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{report.summary.transitionLevel.total - report.summary.transitionLevel.notAssessed}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-green-800">{report.summary.advanceLevel.comply}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-yellow-800">{report.summary.advanceLevel.notComplyMinor}</td>
             <td className="text-center text-[10px] px-1 py-1 border text-red-800">{report.summary.advanceLevel.notComplyMajor}</td>
-            <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{report.summary.advanceLevel.total}</td>
+            <td className="text-center text-[10px] px-1 py-1 border text-gray-500">{report.summary.advanceLevel.total - report.summary.advanceLevel.notAssessed}</td>
           </tr>
         </tbody>
       </table>

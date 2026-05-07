@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import incidentsService from '../services/incidentsService';
+import investigationReportsService from '@/modules/investigation-reports/services/investigationReportsService';
+import type { InvestigationReport } from '@/modules/investigation-reports/types/investigation-report.types';
 import { 
   Incident, 
   StopActivityEnum, 
@@ -33,6 +35,7 @@ const IncidentDetailPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [investigationReport, setInvestigationReport] = useState<InvestigationReport | null>(null);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -53,6 +56,23 @@ const IncidentDetailPage = () => {
 
     fetchIncident();
   }, [id, navigate]);
+
+  // Look up linked investigation report (if any)
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    investigationReportsService
+      .getByIncidentId(id)
+      .then((report) => {
+        if (!cancelled) setInvestigationReport(report);
+      })
+      .catch(() => {
+        if (!cancelled) setInvestigationReport(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   // Fetch approval status/history
   useEffect(() => {
@@ -175,6 +195,25 @@ const IncidentDetailPage = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Incidents
             </Button>
+            {investigationReport ? (
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/investigation-reports/${investigationReport.id}`)}
+              >
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                View Investigation Report
+              </Button>
+            ) : (
+              incident.needFurtherInvestigation && (
+                <Button
+                  onClick={() => navigate(`/investigation-reports/new?incidentId=${id}`)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Create Investigation Report
+                </Button>
+              )
+            )}
             {(incident.status !== GeneralStatusEnum.WAITING_APPROVAL && incident.status !== GeneralStatusEnum.CLOSE) && (
               <>
                 <Button

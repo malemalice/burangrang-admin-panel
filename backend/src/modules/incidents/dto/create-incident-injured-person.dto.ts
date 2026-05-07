@@ -48,6 +48,11 @@ export class CreateIncidentInjuredPersonDto {
   @ApiProperty({ enum: MechanismOfInjuryEnum, default: 'NOT_SPECIFIED' })
   mechanismOfInjury?: MechanismOfInjuryEnum;
 
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false, description: 'Job position/title at time of incident' })
+  position?: string;
+
   @IsUUID()
   @IsOptional()
   @ApiProperty({ required: false })
