@@ -148,6 +148,10 @@ export class IncidentDto {
   @Expose()
   resolution?: string;
 
+  @ApiProperty({ description: 'Whether incident requires further investigation by HSE' })
+  @Expose()
+  needFurtherInvestigation: boolean;
+
   @ApiProperty()
   @Expose()
   assignedDepartmentId: string;

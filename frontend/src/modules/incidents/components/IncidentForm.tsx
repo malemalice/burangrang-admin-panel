@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { Badge } from '@/core/components/ui/badge';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
@@ -92,6 +93,7 @@ const injuredPersonSchema = z.object({
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
   mechanismOfInjury: z.nativeEnum(MechanismOfInjuryEnum).default(MechanismOfInjuryEnum.NOT_SPECIFIED),
+  position: z.string().optional(),
   departmentId: z.string().optional(),
 });
 
@@ -99,6 +101,7 @@ const injuredPersonSchema = z.object({
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
   gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
+  position: z.string().optional(),
   departmentId: z.string().optional(),
 });
 
@@ -144,6 +147,7 @@ const formSchema = z.object({
   treatmentDescription: z.string().optional(),
   absence: z.nativeEnum(AbsenceEnum).default(AbsenceEnum.NOT_SPECIFIED),
   resolution: z.string().optional(),
+  needFurtherInvestigation: z.boolean().default(false),
   assignedDepartmentId: z.string().min(1, 'Assigned department is required'),
   assigneeId: z.string().optional(),
   status: z.nativeEnum(GeneralStatusEnum),
@@ -217,6 +221,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       treatmentDescription: '',
       absence: AbsenceEnum.NOT_SPECIFIED,
       resolution: '',
+      needFurtherInvestigation: false,
       assignedDepartmentId: '',
       assigneeId: '',
       status: GeneralStatusEnum.DRAFT,
@@ -405,6 +410,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             treatmentDescription: incident.treatmentDescription || '',
             absence: incident.absence,
             resolution: incident.resolution || '',
+            needFurtherInvestigation: incident.needFurtherInvestigation ?? false,
             assignedDepartmentId: incident.assignedDepartmentId,
             assigneeId: incident.assigneeId || '',
             status: incident.status,
@@ -418,12 +424,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 injuredBodyPart: p.injuredBodyPart,
                 typeOfInjury: p.typeOfInjury,
                 mechanismOfInjury: p.mechanismOfInjury,
+                position: p.position || '',
                 departmentId: p.departmentId || '',
               })) || [],
             witnesses:
               incident.witnesses?.map((w) => ({
                 witnessName: w.witnessName || '',
                 gender: w.gender ?? undefined,
+                position: w.position || '',
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
@@ -842,6 +850,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       treatmentDescription: data.treatmentDescription || undefined,
       absence: data.absence,
       resolution: data.resolution || undefined,
+      needFurtherInvestigation: data.needFurtherInvestigation ?? false,
       assignedDepartmentId: data.assignedDepartmentId,
       assigneeId: data.assigneeId || undefined,
       status: statusOverride ?? data.status,
@@ -855,6 +864,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           injuredBodyPart: p.injuredBodyPart,
           typeOfInjury: p.typeOfInjury,
           mechanismOfInjury: p.mechanismOfInjury,
+          position: p.position || undefined,
           departmentId: p.departmentId || undefined,
           order: index,
         })) || undefined,
@@ -862,6 +872,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         data.witnesses?.map((w, index) => ({
           witnessName: w.witnessName || undefined,
           gender: w.gender,
+          position: w.position || undefined,
           departmentId: w.departmentId || undefined,
           order: index,
         })) || undefined,
@@ -993,6 +1004,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         treatmentDescription: data.treatmentDescription || undefined,
         absence: data.absence,
         resolution: data.resolution || undefined,
+        needFurtherInvestigation: data.needFurtherInvestigation ?? false,
         assignedDepartmentId: data.assignedDepartmentId,
         assigneeId: data.assigneeId || undefined,
         status: statusToSet,
@@ -1006,6 +1018,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             injuredBodyPart: p.injuredBodyPart,
             typeOfInjury: p.typeOfInjury,
             mechanismOfInjury: p.mechanismOfInjury,
+            position: p.position || undefined,
             departmentId: p.departmentId || undefined,
             order: index,
           })) || undefined,
@@ -1013,6 +1026,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           data.witnesses?.map((w, index) => ({
             witnessName: w.witnessName || undefined,
             gender: w.gender,
+            position: w.position || undefined,
             departmentId: w.departmentId || undefined,
             order: index,
           })) || undefined,
@@ -1485,6 +1499,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         injuredBodyPart: InjuredBodyPartEnum.NOT_SPECIFIED,
                         typeOfInjury: TypeOfInjuryEnum.NOT_SPECIFIED,
                         mechanismOfInjury: MechanismOfInjuryEnum.NOT_SPECIFIED,
+                        position: '',
                         departmentId: '',
                       })
                     }
@@ -1559,6 +1574,20 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
                               </SelectContent>
                             </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Engineer, Operator" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1674,6 +1703,11 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={TypeOfInjuryEnum.LACERATION}>
                                   Laceration
                                 </SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.DERMATITIS}>Dermatitis</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.PARALYSIS}>Paralysis</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.AMPUTATION}>Amputation</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.CRUSH}>Crush</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.ABRASION}>Abrasion</SelectItem>
                                 <SelectItem value={TypeOfInjuryEnum.CONCUSSION}>
                                   Concussion
                                 </SelectItem>
@@ -1728,6 +1762,9 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={MechanismOfInjuryEnum.FALL_FROM_HEIGHT}>
                                   Fall From Height
                                 </SelectItem>
+                                <SelectItem value={MechanismOfInjuryEnum.SHARP_OBJECTS}>Sharp Objects</SelectItem>
+                                <SelectItem value={MechanismOfInjuryEnum.HEAT_COLD}>Heat / Cold</SelectItem>
+                                <SelectItem value={MechanismOfInjuryEnum.MANUAL_HANDLING}>Manual Handling</SelectItem>
                                 <SelectItem value={MechanismOfInjuryEnum.FLYING_OBJECT}>
                                   Flying Object
                                 </SelectItem>
@@ -1771,6 +1808,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                       appendWitness({
                         witnessName: '',
                         gender: undefined,
+                        position: '',
                         departmentId: '',
                       })
                     }
@@ -1845,6 +1883,20 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
                               </SelectContent>
                             </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Engineer, Operator" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -2315,6 +2367,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                           <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
                           <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
                           <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.SELF}>Self</SelectItem>
+                          <SelectItem value={TreatmentEnum.HEALTH_SERVICES}>Health Services (Outpatient)</SelectItem>
                           <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -2446,6 +2500,32 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                           readOnly={isFieldDisabled('resolution')}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="needFurtherInvestigation"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isFieldDisabled('resolution')}
+                          className="mt-0.5"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-medium cursor-pointer">
+                          Need further investigation
+                        </FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Tick to allow HSE to create a formal Investigation Report (BSJ/F/H-3-3.5C) for this incident.
+                        </p>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -119,6 +119,11 @@ export class AuthService {
   }
 
   async login(user: AuthenticatedUser) {
+    if (!user.role) {
+      throw new UnauthorizedException(
+        'Account has no role assigned. Please contact your administrator.',
+      );
+    }
     const payload = { email: user.email, sub: user.id, role: user.role.name };
     const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour in seconds
     const refreshToken = await this.createRefreshToken(user.id);
@@ -233,6 +238,13 @@ export class AuthService {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _password, ...user } = refreshToken.user;
+
+    if (!user.role) {
+      throw new UnauthorizedException(
+        'Account has no role assigned. Please contact your administrator.',
+      );
+    }
+
     const accessToken = this.jwtService.sign({
       email: user.email,
       sub: user.id,

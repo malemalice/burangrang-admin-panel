@@ -2130,6 +2130,24 @@ const InspectionItemForm = ({
                 </p>
               </div>
 
+              {/* Hazard rating legend */}
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                  <p className="font-medium text-sm">Rating Legend</p>
+                  <div className="space-y-1">
+                    {[
+                      { color: 'border-green-500', label: 'Safe', labelColor: 'text-green-700', desc: 'No risk of incidents.' },
+                      { color: 'border-yellow-500', label: 'Low Hazard', labelColor: 'text-yellow-700', desc: 'Risk of an incident occurring without a lost-time injury (the injured person can still continue the activity).' },
+                      { color: 'border-orange-500', label: 'Moderate Hazard', labelColor: 'text-orange-700', desc: 'Risk of an incident occurring with a lost-time injury (the injured person cannot continue the activity).' },
+                      { color: 'border-red-500', label: 'Critical Hazard', labelColor: 'text-red-700', desc: 'Risk of an incident occurring with a lost-time injury that could result in death or permanent disability, or cause large and extensive environmental damage, and lead to the stoppage of work processes/activities.' },
+                    ].map(({ color, label, labelColor, desc }) => (
+                      <div key={label} className={`flex items-center gap-3 border-l-4 ${color} pl-3 py-1`}>
+                        <span className={`w-32 shrink-0 text-xs font-semibold ${labelColor}`}>{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+              </div>
+
               {/* Progress bar */}
               {totalCount > 0 && (
                 <div className="space-y-1">

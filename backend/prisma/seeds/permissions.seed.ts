@@ -168,6 +168,13 @@ export const permissions = [
   { name: 'incident-security:delete', description: 'Delete security incidents' },
   { name: 'incident-security:list', description: 'List all security incidents' },
 
+  // Investigation Report Management
+  { name: 'investigation-report:create', description: 'Create new investigation reports' },
+  { name: 'investigation-report:read', description: 'View investigation report information' },
+  { name: 'investigation-report:update', description: 'Update investigation report information' },
+  { name: 'investigation-report:delete', description: 'Delete investigation reports' },
+  { name: 'investigation-report:list', description: 'List all investigation reports' },
+
   // Audit Period Management
   { name: 'audit-period:create', description: 'Create new audit periods' },
   { name: 'audit-period:read', description: 'View audit period information' },

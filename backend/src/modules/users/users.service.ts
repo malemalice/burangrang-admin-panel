@@ -282,6 +282,7 @@ export class UsersService {
   async findAll(
     options?: FindUsersOptions,
     requester?: { role: string; companyId: string | null },
+    isOptions?: boolean,
   ): Promise<{
     data: UserDto[];
     meta: { total: number; page: number; limit: number };
@@ -303,7 +304,7 @@ export class UsersService {
 
     let companyId = companyIdFromQuery;
 
-    if (requester) {
+    if (!isOptions && requester) {
       if (requester.role !== (Role.SUPER_ADMIN as string)) {
         if (!requester.companyId) {
           return {

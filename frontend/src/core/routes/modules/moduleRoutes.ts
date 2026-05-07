@@ -10,6 +10,7 @@ import { auditPolicyRoutes } from '@/modules/audit-policy';
 import riskRegisterRoutes from '@/modules/risk-register/routes/riskRegisterRoutes';
 import incidentsRoutes from '@/modules/incidents/routes/incidentsRoutes';
 import incidentSecurityRoutes from '@/modules/incident-security/routes/incidentSecurityRoutes';
+import investigationReportsRoutes from '@/modules/investigation-reports/routes/investigationReportsRoutes';
 
 /**
  * Module routes for operational components
@@ -26,6 +27,7 @@ const moduleRoutes: RouteConfig[] = [
   ...riskRegisterRoutes,
   ...incidentsRoutes,
   ...incidentSecurityRoutes,
+  ...investigationReportsRoutes,
 ];
 
 export default moduleRoutes;

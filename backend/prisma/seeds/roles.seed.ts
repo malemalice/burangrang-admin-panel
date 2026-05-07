@@ -52,6 +52,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'inspection',
     'incident',
     'incident-security',
+    'investigation-report',
     'ppe',
     'safety-equipment',
     'safety-equipment-type',
@@ -67,6 +68,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-category',
     'risk-matrix',
     'audit-period',
+    'inspection-checklist',
   ];
   const quizPermissions = [
     'quiz:create',

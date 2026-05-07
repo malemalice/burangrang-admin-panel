@@ -132,6 +132,11 @@ model User {
   permissions                     Permission[]             @relation("PermissionToUser")
   hseTargetsCreated               HseTarget[]              @relation("HseTargetCreator")
 
+  // Investigation Report Relations
+  investigationReportsCreated     InvestigationReport[]    @relation("InvestigationReportCreator")
+  investigationReportsHsSigned    InvestigationReport[]    @relation("InvestigationReportHsSigner")
+  investigationActionPlansVerified InvestigationActionPlan[] @relation("InvestigationActionPlanVerifier")
+
   @@index([email])
   @@map("t_users")
 }
@@ -2445,6 +2450,11 @@ enum TypeOfInjuryEnum {
   STRAIN
   LACERATION
   CONCUSSION
+  DERMATITIS
+  PARALYSIS
+  AMPUTATION
+  CRUSH
+  ABRASION
   OTHER
 }
 
@@ -2462,6 +2472,9 @@ enum MechanismOfInjuryEnum {
   HAND_TOOLS
   FALL_FROM_HEIGHT
   FLYING_OBJECT
+  SHARP_OBJECTS
+  HEAT_COLD
+  MANUAL_HANDLING
   OTHER
 }
 
@@ -2477,6 +2490,8 @@ enum TreatmentEnum {
   MEDICAL_TREATMENT
   HOSPITALIZATION
   NO_TREATMENT
+  SELF
+  HEALTH_SERVICES
   OTHER
 }
 
@@ -2542,6 +2557,7 @@ model Incident {
   treatmentDescription  String?                  @db.Text
   absence               AbsenceEnum              @default(NOT_SPECIFIED)
   resolution            String?                  @db.Text
+  needFurtherInvestigation Boolean               @default(false)
   assignedDepartmentId  String
   assigneeId            String?
   status                GeneralStatusEnum
@@ -2566,6 +2582,7 @@ model Incident {
   assets                IncidentAsset[]
   images                IncidentImage[]
   attachments           IncidentAttachment[]
+  investigationReport   InvestigationReport?
 
   @@index([code])
   @@index([roomId])
@@ -2592,6 +2609,7 @@ model IncidentInjuredPerson {
   injuredBodyPart   InjuredBodyPartEnum   @default(NOT_SPECIFIED)
   typeOfInjury      TypeOfInjuryEnum      @default(NOT_SPECIFIED)
   mechanismOfInjury MechanismOfInjuryEnum  @default(NOT_SPECIFIED)
+  position          String?                @db.VarChar(255)
   departmentId      String?
   order             Int
   createdAt         DateTime              @default(now())
@@ -2612,6 +2630,7 @@ model IncidentWitness {
   incidentId String
   witnessName String?
   gender      GenderEnum?
+  position    String?       @db.VarChar(255)
   departmentId String?
   order       Int
   createdAt   DateTime      @default(now())
@@ -3335,4 +3354,147 @@ model HseTarget {
 
   @@index([type, year])
   @@map("t_hse_targets")
+}
+
+// ============================================================
+// INVESTIGATION REPORT MODULE
+// 1-to-1 extension of Incident — see docs/investigation-report-prd.md
+// ============================================================
+
+enum InvestigationStatusEnum {
+  DRAFT
+  COMPLETE
+}
+
+enum InvestigationCauseSectionEnum {
+  LATENT_FAILURE
+  ACTIVE_FAILURE
+}
+
+enum InvestigationSignatoryRoleEnum {
+  LEAD_INVESTIGATOR
+  INVESTIGATOR_2
+  INVESTIGATOR_3
+  RELATED_MANAGER
+  SECURITY
+}
+
+model InvestigationReport {
+  id                            String                   @id @default(uuid())
+  incidentId                    String                   @unique
+  reportNumber                  String                   @unique
+  taskBeingPerformed            String?                  @db.Text
+  equipmentUsed                 String?                  @db.Text
+  status                        InvestigationStatusEnum  @default(DRAFT)
+
+  hsComments                    String?                  @db.Text
+  hsCommentSignedBy             String?
+  hsCommentSignedAt             DateTime?
+
+  distributionSafetyCommittee   Boolean                  @default(false)
+  distributionHeadOfBusinessOp  Boolean                  @default(false)
+  distributionRelatedDepartment Boolean                  @default(false)
+
+  isActive                      Boolean                  @default(true)
+  createdBy                     String
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+
+  incident                      Incident                 @relation(fields: [incidentId], references: [id])
+  creator                       User                     @relation("InvestigationReportCreator", fields: [createdBy], references: [id])
+  hsSigner                      User?                    @relation("InvestigationReportHsSigner", fields: [hsCommentSignedBy], references: [id])
+
+  cost                          InvestigationCost?
+  causes                        InvestigationCause[]
+  actionPlans                   InvestigationActionPlan[]
+  signatories                   InvestigationSignatory[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([isActive])
+  @@map("t_investigation_reports")
+}
+
+model InvestigationCost {
+  id                    String   @id @default(uuid())
+  investigationReportId String   @unique
+  currency              String   @default("IDR") @db.VarChar(3)
+  medicalCost           Decimal? @db.Decimal(15, 2)
+  lostTimeCost          Decimal? @db.Decimal(15, 2)
+  damageCost            Decimal? @db.Decimal(15, 2)
+  repairCost            Decimal? @db.Decimal(15, 2)
+  compensationCost      Decimal? @db.Decimal(15, 2)
+  otherCost             Decimal? @db.Decimal(15, 2)
+  isNotYetKnown         Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  investigationReport   InvestigationReport @relation(fields: [investigationReportId], references: [id], onDelete: Cascade)
+
+  @@map("t_investigation_costs")
+}
+
+model InvestigationCause {
+  id                    String                          @id @default(uuid())
+  investigationReportId String
+  section               InvestigationCauseSectionEnum
+  tier1                 String                          @db.VarChar(64)
+  tier2                 String                          @db.VarChar(64)
+  causeKey              String                          @db.VarChar(16)
+  causeName             String                          @db.VarChar(256)
+  isSelected            Boolean                         @default(true)
+  customNotes           String?                         @db.Text
+  order                 Int                             @default(0)
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
+
+  investigationReport   InvestigationReport @relation(fields: [investigationReportId], references: [id], onDelete: Cascade)
+
+  @@unique([investigationReportId, causeKey])
+  @@index([investigationReportId])
+  @@index([investigationReportId, section])
+  @@index([isSelected])
+  @@map("t_investigation_causes")
+}
+
+model InvestigationActionPlan {
+  id                    String    @id @default(uuid())
+  investigationReportId String
+  actionPlan            String    @db.Text
+  responsiblePerson     String?   @db.VarChar(512)
+  targetDate            DateTime?
+  targetDateNotes       String?   @db.Text
+  verificationDate      DateTime?
+  verifiedBy            String?
+  order                 Int
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  investigationReport   InvestigationReport @relation(fields: [investigationReportId], references: [id], onDelete: Cascade)
+  verifier              User?               @relation("InvestigationActionPlanVerifier", fields: [verifiedBy], references: [id])
+
+  @@index([investigationReportId])
+  @@index([investigationReportId, order])
+  @@index([verifiedBy])
+  @@index([targetDate])
+  @@map("t_investigation_action_plans")
+}
+
+model InvestigationSignatory {
+  id                    String                          @id @default(uuid())
+  investigationReportId String
+  signatoryRole         InvestigationSignatoryRoleEnum
+  roleName              String?                         @db.VarChar(128)
+  name                  String?                         @db.VarChar(256)
+  signatureUrl          String?                         @db.VarChar(512)
+  signedAt              DateTime?
+  order                 Int                             @default(0)
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
+
+  investigationReport   InvestigationReport @relation(fields: [investigationReportId], references: [id], onDelete: Cascade)
+
+  @@unique([investigationReportId, signatoryRole])
+  @@index([investigationReportId])
+  @@map("t_investigation_signatories")
 }
