@@ -167,7 +167,7 @@ const GroupCells = ({ group, borderRight = false }: GroupCellsProps) => (
     <TableCell
       className={`text-center text-xs text-muted-foreground px-2 py-2${borderRight ? ' border-r' : ''}`}
     >
-      {group.total}
+      {group.notAssessed === group.total ? '—' : group.total - group.notAssessed}
     </TableCell>
   </>
 );
@@ -427,15 +427,15 @@ const AuditReportPage = () => {
                         <TableCell className="text-center text-xs text-green-800 dark:text-green-300 font-semibold px-2 py-2">{report.summary.initial.comply}</TableCell>
                         <TableCell className="text-center text-xs text-yellow-800 dark:text-yellow-300 font-semibold px-2 py-2">{report.summary.initial.notComplyMinor}</TableCell>
                         <TableCell className="text-center text-xs text-red-800 dark:text-red-300 font-semibold px-2 py-2">{report.summary.initial.notComplyMajor}</TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{report.summary.initial.total}</TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{report.summary.initial.total - report.summary.initial.notAssessed}</TableCell>
                         <TableCell className="text-center text-xs text-green-800 dark:text-green-300 font-semibold px-2 py-2">{report.summary.transitionLevel.comply}</TableCell>
                         <TableCell className="text-center text-xs text-yellow-800 dark:text-yellow-300 font-semibold px-2 py-2">{report.summary.transitionLevel.notComplyMinor}</TableCell>
                         <TableCell className="text-center text-xs text-red-800 dark:text-red-300 font-semibold px-2 py-2">{report.summary.transitionLevel.notComplyMajor}</TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{report.summary.transitionLevel.total}</TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground border-r px-2 py-2">{report.summary.transitionLevel.total - report.summary.transitionLevel.notAssessed}</TableCell>
                         <TableCell className="text-center text-xs text-green-800 dark:text-green-300 font-semibold px-2 py-2">{report.summary.advanceLevel.comply}</TableCell>
                         <TableCell className="text-center text-xs text-yellow-800 dark:text-yellow-300 font-semibold px-2 py-2">{report.summary.advanceLevel.notComplyMinor}</TableCell>
                         <TableCell className="text-center text-xs text-red-800 dark:text-red-300 font-semibold px-2 py-2">{report.summary.advanceLevel.notComplyMajor}</TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground px-2 py-2">{report.summary.advanceLevel.total}</TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground px-2 py-2">{report.summary.advanceLevel.total - report.summary.advanceLevel.notAssessed}</TableCell>
                       </TableRow>
                     )}
                   </>
