@@ -48,6 +48,8 @@ model User {
   notificationRecipients NotificationRecipient[] @relation("NotificationRecipient")
   uploadedFiles FileUpload[]
   fileAccessLogs FileAccessLog[]
+  accessLogs     AccessLog[]      @relation("AccessLogUser")
+  createdReminders Reminder[]     @relation("CreatedReminders")
 
   @@map("t_users")
 }
@@ -252,6 +254,7 @@ model Notification {
   recipients        NotificationRecipient[]
   createdBy         String
   creator           User             @relation("NotificationCreator", fields: [createdBy], references: [id])
+  reminderLogs      ReminderLog[]
 
   @@map("t_notifications")
 }
@@ -349,4 +352,98 @@ model FileAccessLog {
   user    User?      @relation(fields: [accessedBy], references: [id])
 
   @@map("t_file_access_logs")
+}
+
+// Access Log - Audit trail for all API requests
+model AccessLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  method        String
+  endpoint      String
+  statusCode    Int?
+  payload       Json?
+  ipAddress     String?
+  userAgent     String?
+  executionTime Int?
+  createdAt     DateTime @default(now())
+
+  user User? @relation("AccessLogUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([endpoint])
+  @@index([method])
+  @@index([createdAt])
+  @@map("t_access_logs")
+}
+
+// Reminder System Enums
+enum ReminderStatusEnum {
+  PENDING
+  SENT
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+enum ReminderRepeatTypeEnum {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ReminderTargetTypeEnum {
+  USER
+  ROLE
+  DEPARTMENT
+  OFFICE
+}
+
+// Reminder - Scheduled task that triggers at specific time
+model Reminder {
+  id          String                 @id @default(uuid())
+  targetType  ReminderTargetTypeEnum @default(USER)
+  targetId    String
+  entity      String?
+  entityId    String?
+  message     String
+  remindAt    DateTime
+  repeatType  ReminderRepeatTypeEnum?
+  repeatUntil DateTime?
+  status      ReminderStatusEnum     @default(PENDING)
+  lastSentAt  DateTime?
+  createdBy   String
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  createdByUser User          @relation("CreatedReminders", fields: [createdBy], references: [id])
+  logs          ReminderLog[]
+
+  @@index([status, remindAt])
+  @@index([targetType, targetId])
+  @@index([createdBy])
+  @@index([entity, entityId])
+  @@map("t_reminders")
+}
+
+// Reminder Log - Audit trail for reminder executions
+model ReminderLog {
+  id                String   @id @default(uuid())
+  reminderId        String
+  executionStatus   String
+  executionDuration Int?
+  failureReason     String?  @db.Text
+  notificationId    String?
+  emailSent         Boolean  @default(false)
+  emailError        String?  @db.Text
+  executedAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  reminder     Reminder      @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  notification Notification? @relation(fields: [notificationId], references: [id])
+
+  @@index([reminderId])
+  @@index([executedAt])
+  @@index([executionStatus])
+  @@map("t_reminder_logs")
 }

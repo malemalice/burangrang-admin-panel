@@ -18,19 +18,21 @@ export const getThemeColor = (theme: ThemeColor, colorType: 'primary' | 'seconda
 /**
  * Initializes CSS variables from color constants
  * This function should be called when the app starts
+ * 
+ * Uses PURE JavaScript approach (like theme colors) - no CSS class conflicts!
+ * Both light and dark mode colors are set via JavaScript setProperty
  */
 export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: ThemeMode = 'light'): void => {
   const root = document.documentElement;
-  const themeColorSet = themeColorsHSL[theme];
 
-  // Set theme-specific colors in HSL format for Tailwind CSS
-  root.style.setProperty('--primary', themeColorSet.primary);
-  root.style.setProperty('--secondary', themeColorSet.secondary);
-  root.style.setProperty('--accent', themeColorSet.accent);
-
-  // Set mode-specific colors
   if (mode === 'light') {
-    // Light mode colors
+    // Light mode: Use theme colors for primary/secondary/accent
+    const themeColorSet = themeColorsHSL[theme];
+    root.style.setProperty('--primary', themeColorSet.primary);
+    root.style.setProperty('--secondary', themeColorSet.secondary);
+    root.style.setProperty('--accent', themeColorSet.accent);
+
+    // Light mode base colors
     root.style.setProperty('--background', '0 0% 100%');
     root.style.setProperty('--foreground', '222.2 84% 4.9%');
     root.style.setProperty('--muted', '210 40% 96.1%');
@@ -38,9 +40,36 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     root.style.setProperty('--input', '214.3 31.8% 91.4%');
     root.style.setProperty('--ring', '222.2 84% 4.9%');
     root.style.setProperty('--card', '0 0% 100%');
+    root.style.setProperty('--card-foreground', '222.2 84% 4.9%');
     root.style.setProperty('--popover', '0 0% 100%');
+    root.style.setProperty('--popover-foreground', '222.2 84% 4.9%');
+    
+    // Foregrounds
+    root.style.setProperty('--primary-foreground', '210 40% 98%');
+    root.style.setProperty('--secondary-foreground', '222.2 47.4% 11.2%');
+    root.style.setProperty('--accent-foreground', '222.2 47.4% 11.2%');
+    root.style.setProperty('--muted-foreground', '215.4 16.3% 46.9%');
+    
+    // Status
+    root.style.setProperty('--destructive', '0 84.2% 60.2%');
+    root.style.setProperty('--destructive-foreground', '210 40% 98%');
+    
+    // Sidebar (uses theme color)
+    root.style.setProperty('--sidebar-background', '0 0% 98%');
+    root.style.setProperty('--sidebar-foreground', '240 5.3% 26.1%');
+    root.style.setProperty('--sidebar-primary', themeColorSet.primary);
+    root.style.setProperty('--sidebar-primary-foreground', '0 0% 98%');
+    root.style.setProperty('--sidebar-accent', '240 4.8% 95.9%');
+    root.style.setProperty('--sidebar-accent-foreground', '240 5.9% 10%');
+    root.style.setProperty('--sidebar-border', '220 13% 91%');
+    root.style.setProperty('--sidebar-ring', '217.2 91.2% 59.8%');
   } else {
-    // Dark mode colors
+    // Dark mode: Use neutral colors (no theme colors)
+    root.style.setProperty('--primary', '210 40% 98%');
+    root.style.setProperty('--secondary', '217.2 32.6% 17.5%');
+    root.style.setProperty('--accent', '217.2 32.6% 17.5%');
+    
+    // Dark mode base colors
     root.style.setProperty('--background', '222.2 84% 4.9%');
     root.style.setProperty('--foreground', '210 40% 98%');
     root.style.setProperty('--muted', '217.2 32.6% 17.5%');
@@ -48,13 +77,32 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     root.style.setProperty('--input', '217.2 32.6% 17.5%');
     root.style.setProperty('--ring', '212.7 26.8% 83.9%');
     root.style.setProperty('--card', '222.2 84% 4.9%');
+    root.style.setProperty('--card-foreground', '210 40% 98%');
     root.style.setProperty('--popover', '222.2 84% 4.9%');
+    root.style.setProperty('--popover-foreground', '210 40% 98%');
+    
+    // Foregrounds
+    root.style.setProperty('--primary-foreground', '222.2 47.4% 11.2%');
+    root.style.setProperty('--secondary-foreground', '210 40% 98%');
+    root.style.setProperty('--accent-foreground', '210 40% 98%');
+    root.style.setProperty('--muted-foreground', '215 20.2% 65.1%');
+    
+    // Status
+    root.style.setProperty('--destructive', '0 62.8% 30.6%');
+    root.style.setProperty('--destructive-foreground', '210 40% 98%');
+    
+    // Sidebar (neutral dark)
+    root.style.setProperty('--sidebar-background', '240 5.9% 10%');
+    root.style.setProperty('--sidebar-foreground', '240 4.8% 95.9%');
+    root.style.setProperty('--sidebar-primary', '210 40% 98%');
+    root.style.setProperty('--sidebar-primary-foreground', '222.2 47.4% 11.2%');
+    root.style.setProperty('--sidebar-accent', '240 3.7% 15.9%');
+    root.style.setProperty('--sidebar-accent-foreground', '240 4.8% 95.9%');
+    root.style.setProperty('--sidebar-border', '240 3.7% 15.9%');
+    root.style.setProperty('--sidebar-ring', '212.7 26.8% 83.9%');
   }
-
-  // Status colors (same for both modes)
-  root.style.setProperty('--destructive', '0 84.2% 60.2%');
   
-  // Set radius for consistent border radius
+  // Set radius
   root.style.setProperty('--radius', '0.5rem');
 };
 
@@ -72,12 +120,36 @@ interface UseThemeReturn {
   loadThemeFromBackend: () => Promise<{ color: ThemeColor; mode: ThemeMode }>;
 }
 
+// Initialize theme immediately on module load to prevent flash of wrong theme
+// This runs before React renders anything
+(() => {
+  const savedTheme = (localStorage.getItem('theme-color') as ThemeColor) || 'blue';
+  const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+  const initialMode: ThemeMode = 
+    (savedMode === 'dark' || savedMode === 'light') 
+      ? savedMode 
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  
+  // Apply dark class immediately if needed
+  if (initialMode === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  // Initialize CSS variables immediately
+  initializeThemeVariables(savedTheme, initialMode);
+})();
+
 /**
  * Hook for managing theme in the application with backend persistence
  */
 export const useTheme = (): UseThemeReturn => {
   // Loading state for backend operations
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Flag to track if this is the initial mount
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Get initial theme from localStorage or use default 'blue'
   const [theme, setThemeState] = useState<ThemeColor>(() => {
@@ -94,10 +166,10 @@ export const useTheme = (): UseThemeReturn => {
     // Check system preference
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
-
-  // Initialize theme variables on mount
+  
+  // Mark that initial mount is complete
   useEffect(() => {
-    initializeThemeVariables(theme, mode);
+    setIsInitialMount(false);
   }, []);
 
   // Function to load theme settings from backend
@@ -108,7 +180,6 @@ export const useTheme = (): UseThemeReturn => {
       // Check if user is authenticated before making API calls
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
-        console.debug('User not authenticated, skipping backend theme load');
         return { color: theme, mode };
       }
 
@@ -125,12 +196,12 @@ export const useTheme = (): UseThemeReturn => {
       localStorage.setItem('theme-color', themeSettings.color);
       localStorage.setItem('theme-mode', themeSettings.mode);
 
+      // Initialize CSS variables immediately to ensure proper colors are applied
+      // The effects will also run, but this ensures immediate consistency
+      initializeThemeVariables(themeSettings.color, themeSettings.mode);
+
       return themeSettings;
     } catch (error: any) {
-      // Don't log 401 errors as they are expected when not authenticated
-      if (error?.response?.status !== 401) {
-        console.warn('Failed to load theme from backend, using localStorage defaults:', error);
-      }
       // Continue with localStorage values if backend fails
       return { color: theme, mode };
     } finally {
@@ -144,7 +215,6 @@ export const useTheme = (): UseThemeReturn => {
       // Check if user is authenticated before making API calls
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
-        console.debug('User not authenticated, skipping backend theme save');
         return;
       }
 
@@ -153,64 +223,52 @@ export const useTheme = (): UseThemeReturn => {
 
       await settingsService.setThemeSettings(newTheme, newMode);
     } catch (error: any) {
-      // Don't log 401 errors as they are expected when not authenticated
-      if (error?.response?.status !== 401) {
-        console.warn('Failed to save theme to backend:', error);
-      }
       // Don't throw error - localStorage will still work as fallback
     }
   };
 
   // Save theme to localStorage when it changes and update CSS variables
   useEffect(() => {
+    // Skip on initial mount - IIFE already handled it
+    if (isInitialMount) return;
+    
     localStorage.setItem('theme-color', theme);
 
-    // Update CSS variables for the theme
-    const root = document.documentElement;
-    const themeColorSet = themeColorsHSL[theme];
-
-    // Set primary colors in HSL format for Tailwind CSS
-    root.style.setProperty('--primary', themeColorSet.primary);
-    root.style.setProperty('--secondary', themeColorSet.secondary);
-    root.style.setProperty('--accent', themeColorSet.accent);
+    // Apply theme colors via JavaScript (works for both modes)
+    initializeThemeVariables(theme, mode);
 
     // Save to backend (don't await to avoid blocking UI)
     saveThemeToBackend(theme, mode);
-  }, [theme]);
+  }, [theme, mode, isInitialMount]);
 
   // Save mode to localStorage when it changes and update document class
   useEffect(() => {
+    // Skip on initial mount - IIFE already handled it
+    if (isInitialMount) return;
+    
     localStorage.setItem('theme-mode', mode);
 
-    // Apply dark mode class to document
+    // Apply dark mode class for Tailwind dark: variants
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    // Set all colors via JavaScript
+    initializeThemeVariables(theme, mode);
 
     // Save to backend (don't await to avoid blocking UI)
     saveThemeToBackend(theme, mode);
-  }, [mode]);
+  }, [mode, theme, isInitialMount]);
 
   // Set theme with validation
   const setTheme = (newTheme: ThemeColor) => {
     if (themeColorsHSL[newTheme]) {
       setThemeState(newTheme);
 
-      // Apply CSS variables immediately for instant feedback
-      // Use HSL values and correct variable names for Tailwind CSS
-      const root = document.documentElement;
-      const themeColorSet = themeColorsHSL[newTheme];
-
-      // Set primary colors in HSL format
-      root.style.setProperty('--primary', themeColorSet.primary);
-      root.style.setProperty('--secondary', themeColorSet.secondary);
-      root.style.setProperty('--accent', themeColorSet.accent);
-
-      console.log(`Applied theme ${newTheme}:`, themeColorSet);
-    } else {
-      console.warn(`Theme "${newTheme}" is not a valid theme.`);
+      // Apply via JavaScript immediately
+      initializeThemeVariables(newTheme, mode);
     }
   };
 
@@ -219,32 +277,22 @@ export const useTheme = (): UseThemeReturn => {
     if (newMode === 'light' || newMode === 'dark') {
       setModeState(newMode);
 
-      // Apply dark mode class immediately for instant feedback
+      // Apply dark class for Tailwind dark: variants
       if (newMode === 'dark') {
         document.documentElement.classList.add('dark');
-        console.log('Applied dark mode');
       } else {
         document.documentElement.classList.remove('dark');
-        console.log('Applied light mode');
       }
-    } else {
-      console.warn(`Mode "${newMode}" is not a valid mode.`);
+      
+      // Set all colors via JavaScript
+      initializeThemeVariables(theme, newMode);
     }
   };
 
   // Toggle between light and dark mode
   const toggleMode = () => {
     const newMode = mode === 'dark' ? 'light' : 'dark';
-    setModeState(newMode);
-
-    // Apply dark mode class immediately for instant feedback
-    if (newMode === 'dark') {
-      document.documentElement.classList.add('dark');
-      console.log('Toggled to dark mode');
-    } else {
-      document.documentElement.classList.remove('dark');
-      console.log('Toggled to light mode');
-    }
+    setMode(newMode); // Use setMode to ensure proper color updates
   };
 
   return {

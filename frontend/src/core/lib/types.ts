@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Core entity types
 
 export interface User {
@@ -14,18 +15,33 @@ export interface User {
   position?: string;
   department?: string;
   office?: string;
+  /** Contractor / vendor company (when set on user) */
+  companyId?: string | null;
+  company?: string;
+  professionId?: string | null;
+  idNumber?: string | null;
+  /** Profession display name when loaded from API */
+  profession?: string;
   status: 'active' | 'inactive' | 'pending';
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  lastLoginAt?: Date;
 }
+
+export type DataLevel = 'SELF' | 'DEPARTMENT' | 'SUPER';
 
 export interface Role {
   id: string;
   name: string;
+  code: string;
   description: string;
   status: 'active' | 'inactive';
   isActive: boolean;
+  dataLevel: DataLevel;
   permissions: Permission[];
   createdAt: string;
   updatedAt: string;
@@ -79,6 +95,7 @@ export interface Department {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -120,6 +137,137 @@ export interface JobPosition {
   updatedAt: Date;
 }
 
+export interface HseCategory {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  risks?: any[];
+}
+
+export interface RiskCategory {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  risks?: any[];
+}
+
+export interface Risk {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  riskCategoryId: string;
+  riskCategory?: RiskCategory;
+  createdAt: Date;
+  updatedAt: Date;
+  mitigations?: RiskMitigation[];
+}
+
+export interface RiskMitigation {
+  id: string;
+  eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
+  transfer?: string;
+  accept?: string;
+  isActive: boolean;
+  riskId: string;
+  risk?: Risk;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export enum RiskRatingEnum {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+  EXTREME = 'EXTREME'
+}
+
+export interface RiskAssessment {
+  id: string;
+  code: string;
+  description?: string;
+  departmentId: string;
+  department?: Department;
+  assessmentDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  creator?: User;
+  status: string;
+  isActive: boolean;
+  items: RiskAssessmentItem[];
+  assigneeId?: string;
+  assignee?: User;
+  actionPlan?: string;
+}
+
+export interface RiskAssessmentItem {
+  id: string;
+  riskAssessmentId: string;
+  mRiskId: string;
+  mRisk?: Risk;
+  mRiskCategoryId: string;
+  mRiskCategory?: RiskCategory;
+  likelihoodLevel: string;
+  consequenceLevel: number;
+  riskMatrixRating: string; // Format: "A1", "D2", etc. (likelihoodLevel + consequenceLevel)
+  interpretation: RiskRatingEnum;
+  postLikelihoodLevel: string;
+  postConsequenceLevel: number;
+  postRiskMatrixRating: string; // Format: "A1", "D2", etc. (postLikelihoodLevel + postConsequenceLevel)
+  postInterpretation: RiskRatingEnum;
+  mitigation?: {
+    id: string;
+    entity: string;
+    entityId: string;
+    eliminate?: string;
+    eliminationControl?: string;
+    substitutionControl?: string;
+    engineeringControl?: string;
+    administrationControl?: string;
+    personalProtectiveEquipment?: string;
+    transfer?: string;
+    accept?: string;
+    legalAspect?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
+
+export interface RiskControl {
+  id: string;
+  eliminate?: string;
+  eliminationControl?: string;
+  substitutionControl?: string;
+  engineeringControl?: string;
+  administrationControl?: string;
+  personalProtectiveEquipment?: string;
+  transfer?: string;
+  isOpen: boolean;
+  isAccept: boolean;
+  isActive: boolean;
+  entity: string;
+  entityId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Common response and request types
 
 export interface ApiResponse<T> {
@@ -145,14 +293,16 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
   search?: string;
   filters?: Record<string, any>;
+  /** Set to true when fetching list data for form/filter select options; bypasses *:list permission on backend */
+  options?: boolean;
 }
 
 export interface MasterApprovalItem {
   id: string;
   mApprovalId: string;
   order: number;
-  job_position_id: string;
-  department_id: string;
+  jobPositionId: string;
+  departmentId: string;
   createdBy: string;
   createdAt: string;
   jobPosition: {
@@ -176,4 +326,16 @@ export interface MasterApproval {
   items: MasterApprovalItem[];
   createdAt: string;
   updatedAt: string;
+}
+
+export enum ApprovalStatus {
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export interface SubmitApprovalDto {
+  dataId: string;
+  entity: string;
+  status: ApprovalStatus;
+  notes?: string;
 }

@@ -3,15 +3,18 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
+import * as express from 'express';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
 import { PermissionsGuard } from './shared/guards/permissions.guard';
 import { Reflector } from '@nestjs/core';
-import { PrismaService } from './core/services/prisma.service';
+import { PrismaService } from './core/prisma/prisma.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true, // Enable raw body for webhook signature verification
+  });
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
   const prismaService = app.get(PrismaService);
@@ -23,6 +26,18 @@ async function bootstrap() {
     methods: corsConfig.methods,
     credentials: corsConfig.credentials,
     allowedHeaders: corsConfig.allowedHeaders,
+  });
+
+  // Keep compatibility for both Zoho webhook routes when signature auth mode is enabled.
+  // Nest rawBody option already captures body, this only normalizes string rawBody fallback.
+  app.use(['/webhooks/zoho', '/integrations/zoho/webhook'], (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    const rawBody = (req as express.Request & { rawBody?: Buffer | string }).rawBody;
+
+    if (Buffer.isBuffer(rawBody)) {
+      (req as express.Request & { rawBody?: string }).rawBody = rawBody.toString('utf8');
+    }
+
+    next();
   });
 
   // Use cookie parser
@@ -43,10 +58,12 @@ async function bootstrap() {
   );
 
   // Enable validation pipes
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   // Enable guards
   app.useGlobalGuards(

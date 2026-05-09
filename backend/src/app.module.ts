@@ -18,6 +18,9 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { SharedModule } from './shared/shared.module';
+import { AccessLogsModule } from './modules/access-logs/access-logs.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
+import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 
 @Module({
   imports: [
@@ -39,6 +42,9 @@ import { SharedModule } from './shared/shared.module';
     SettingsModule,
     NotificationsModule,
     UploadsModule,
+    AccessLogsModule,
+    RemindersModule,
+    UserPermissionsModule,
   ],
   providers: [
     Reflector,

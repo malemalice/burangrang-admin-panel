@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/core/components/ui/button";
 import { Input } from "@/core/components/ui/input";
 import { Label } from "@/core/components/ui/label";
@@ -9,15 +9,16 @@ import { useAuth } from '@/core/lib/auth';
 import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { cn } from '@/core/lib/utils';
-import { useAppName } from '@/modules/settings/hooks/useSettings';
+import { useAppBranding } from '@/modules/settings/hooks/useSettings';
 import api from '@/core/lib/api';
 import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading: authLoading, isEmbedContext } = useAuth();
   const { isDark, theme } = useTheme();
-  const { appName } = useAppName();
+  const { appName, logoLandscapeUrl, loginTagline } = useAppBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,17 +26,19 @@ const Login = () => {
   const [isForgot, setIsForgot] = useState(false);
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [infoMessage, setInfoMessage] = useState('');
+  const [logoFailed, setLogoFailed] = useState(false);
 
   // Get theme colors for dynamic styling
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
   const textColor = getContrastTextColor(currentThemeColor);
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated, redirect to dashboard (preserve embed_token in embed context)
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      navigate('/');
+      const search = isEmbedContext && location.search ? location.search : '';
+      navigate(search ? `/${search}` : '/');
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [isAuthenticated, authLoading, isEmbedContext, location.search, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +53,9 @@ const Login = () => {
     setIsLoading(true);
     try {
       const success = await login(email, password);
-      if (success) {
-        navigate('/');
-      } else {
+      // Note: Navigation is handled in the login function in auth.tsx
+      // which checks for last_visited_url and redirects accordingly
+      if (!success) {
         setError('Invalid credentials');
       }
     } catch (err) {
@@ -108,9 +111,9 @@ const Login = () => {
         <div className="mt-16">
           <h1 className="text-4xl font-bold mb-6">Welcome</h1>
           <p className="text-lg mb-6">
-            to {appName} System - the world's leading open-source
-            admin panel for your Node.js application that allows you to manage all your
-            data in one place
+            to HSE System - a comprehensive risk assessment and compliance
+            management platform that helps organizations maintain safety standards
+            and regulatory requirements
           </p>
         </div>
         
@@ -146,33 +149,31 @@ const Login = () => {
       )}>
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h2 className={cn(
-              "text-3xl font-bold",
-              isDark ? "text-white" : "text-slate-900"
-            )}>{appName}</h2>
+            {logoLandscapeUrl && !logoFailed ? (
+              <div className="flex justify-center">
+                <img
+                  src={logoLandscapeUrl}
+                  alt={`${appName} logo`}
+                  className="max-h-12 w-auto object-contain"
+                  onError={() => setLogoFailed(true)}
+                />
+              </div>
+            ) : (
+              <h2
+                className={cn(
+                  "text-3xl font-bold",
+                  isDark ? "text-white" : "text-slate-900"
+                )}
+              >
+                {appName}
+              </h2>
+            )}
             <p className={cn(
               "text-sm mt-1",
               isDark ? "text-gray-400" : "text-slate-600"
-            )}>made by your company</p>
+            )}>{loginTagline || 'made by your company'}</p>
           </div>
 
-          {/* Demo credentials alert */}
-          <Alert className={cn(
-            "mb-6 border",
-            isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"
-          )}>
-            <Info
-              className="h-4 w-4"
-              style={{ color: currentThemeColor }}
-            />
-            <AlertDescription className={cn(
-              "text-sm",
-              isDark ? "text-gray-300" : "text-gray-700"
-            )}>
-              <strong>Email:</strong> admin@example.com<br />
-              <strong>Password:</strong> admin123
-            </AlertDescription>
-          </Alert>
 
           {infoMessage && (
             <Alert className={cn(

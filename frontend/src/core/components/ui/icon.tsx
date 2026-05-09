@@ -15,7 +15,11 @@ import {
   Trophy, Gift, Coffee, Zap, Battery, Wifi, WifiOff, Mouse, Keyboard,
   Printer, Building, Building2, Briefcase, CreditCard, DollarSign,
   Package, Truck, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft,
-  ChevronRight, UsersRound
+  ChevronRight, UsersRound, ClipboardCheck, Search, Thermometer,
+  GraduationCap, Tag, LogOut, ShieldAlert, DoorOpen, BookOpen,
+  FileQuestion, FileCheck, FileCheck2, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
+  Factory, Droplets, Tags, Warehouse, Grid, ClipboardList,
+  CalendarRange
 } from 'lucide-react';
 
 // Icon mapping for efficient lookup
@@ -32,7 +36,11 @@ const iconMap: Record<string, any> = {
   Trophy, Gift, Coffee, Zap, Battery, Wifi, WifiOff, Mouse, Keyboard,
   Printer, Building, Building2, Briefcase, CreditCard, DollarSign,
   Package, Truck, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft,
-  ChevronRight, UsersRound
+  ChevronRight, UsersRound, ClipboardCheck, Search, Thermometer,
+  GraduationCap, Tag, LogOut, ShieldAlert, DoorOpen, BookOpen,
+  FileQuestion, FileCheck, FileCheck2, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
+  Factory, Droplets, Tags, Warehouse, Grid, ClipboardList,
+  CalendarRange
 };
 
 interface IconProps {

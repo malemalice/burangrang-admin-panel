@@ -16,7 +16,7 @@ const NotFound = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button onClick={() => navigate('/')} className="flex items-center gap-2">
-            <Home size={18} /> Return to Dashboard
+            <Home size={18} /> Return to Home
           </Button>
           <Button variant="outline" onClick={() => navigate(-1)} className="flex items-center gap-2">
             <ArrowLeft size={18} /> Go Back
