@@ -1,37 +1,52 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, CheckCircle2, MoreHorizontal } from 'lucide-react';
-import { Button, ThemeButton } from '@/core/components/ui/button';
+import { Edit, MoreHorizontal, Eye } from 'lucide-react';
+import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
 import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
-import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import masterApprovalService from '../../services/masterApprovalService';
 import { MasterApproval } from '@/core/lib/types';
+import { usePermissions } from '@/core/hooks/usePermissions';
+
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
+
+// Helper function to get display label (handles sentinel values)
+const getDisplayLabel = (value: string, fallback: string): string => {
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT) {
+    return 'Dynamic: From Entity Data';
+  }
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION) {
+    return 'Dynamic: From Entity Data (Department Head)';
+  }
+  return fallback;
+};
 
 const MasterApprovalsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [approvals, setApprovals] = useState<MasterApproval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalApprovals, setTotalApprovals] = useState(0);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [approvalToDelete, setApprovalToDelete] = useState<MasterApproval | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -92,40 +107,6 @@ const MasterApprovalsPage = () => {
     fetchApprovals();
   }, [fetchApprovals]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (approval: MasterApproval) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [approval.id]: false
-    }));
-    setApprovalToDelete(approval);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!approvalToDelete) return;
-    
-    setIsLoading(true);
-    try {
-      await masterApprovalService.delete(approvalToDelete.id);
-      toast.success(`Approval "${approvalToDelete.entity}" has been deleted`);
-      fetchApprovals();
-    } catch (error) {
-      console.error('Failed to delete approval:', error);
-      toast.error('Failed to delete approval');
-    } finally {
-      setIsLoading(false);
-      setDeleteDialogOpen(false);
-      setApprovalToDelete(null);
-    }
-  };
-
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     setPageIndex(0);
@@ -182,9 +163,9 @@ const MasterApprovalsPage = () => {
           {approval.items.map((item, index) => (
             <div key={item.id} className="flex items-center gap-2 text-sm">
               <span className="text-gray-500">{index + 1}.</span>
-              <span>{item.jobPosition.name}</span>
+              <span>{getDisplayLabel(item.jobPositionId, item.jobPosition.name)}</span>
               <span className="text-gray-500">-</span>
-              <span>{item.department.name}</span>
+              <span>{getDisplayLabel(item.departmentId, item.department.name)}</span>
             </div>
           ))}
         </div>
@@ -212,8 +193,10 @@ const MasterApprovalsPage = () => {
       header: '',
       cell: (approval: MasterApproval) => (
         <DropdownMenu
-          open={dropdownOpenStates[approval.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(approval.id, open)}
+          open={openDropdownId === approval.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? approval.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button
@@ -225,20 +208,22 @@ const MasterApprovalsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => navigate(`/master/approvals/${approval.id}/edit`)}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={() => handleDeleteClick(approval)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {hasPermission('master-approval:read') && (
+              <DropdownMenuItem
+                onClick={() => navigate(`/master/approvals/${approval.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
+            )}
+            {hasPermission('master-approval:update') && (
+              <DropdownMenuItem
+                onClick={() => navigate(`/master/approvals/${approval.id}/edit`)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -250,11 +235,6 @@ const MasterApprovalsPage = () => {
       <PageHeader
         title="Master Approvals"
         subtitle="Manage your organization's approval flows"
-        actions={
-          <ThemeButton onClick={() => navigate('/master/approvals/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Approval
-          </ThemeButton>
-        }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
@@ -278,16 +258,9 @@ const MasterApprovalsPage = () => {
           total: totalApprovals
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Approval"
-        description={`Are you sure you want to delete "${approvalToDelete?.entity}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
       />
     </>
   );

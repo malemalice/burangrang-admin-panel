@@ -1,108 +1,51 @@
 /**
  * Approval Entity Names Registry
  *
- * Maps module names to approval entity identifiers used in m_approval.entity field.
- * This provides a single source of truth for entity names across the application.
+ * Add your domain entities here. Each key is used as the value stored in
+ * m_approval.entity and throughout the approval workflow.
  *
- * Usage:
- *   import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entities';
- *   const entity = APPROVAL_ENTITIES.RISK_ASSESSMENT;
+ * Example:
+ *   PURCHASE_REQUEST: 'PURCHASE_REQUEST',
+ *   LEAVE_REQUEST: 'LEAVE_REQUEST',
  */
 export const APPROVAL_ENTITIES = {
-  RISK_ASSESSMENT: 'RISK_ASSESSMENT',
-  WORK_PERMIT: 'WORK_PERMIT',
-  INSPECTION: 'INSPECTION',
-  INSPECTION_ITEM: 'INSPECTION_ITEM',
-  AUDIT_ITEM: 'AUDIT_ITEM',
-  INCIDENT: 'INCIDENT',
-  PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
-  ENVIRONMENTAL_MEASUREMENT: 'ENVIRONMENTAL_MEASUREMENT',
-  WEIGHT_REPORT: 'WEIGHT_REPORT',
-  DISPATCH_ORDER: 'DISPATCH_ORDER',
+  // Add domain entities here, e.g.:
+  // PURCHASE_REQUEST: 'PURCHASE_REQUEST',
 } as const;
 
-/**
- * Type for approval entity names
- */
 export type ApprovalEntityName =
   (typeof APPROVAL_ENTITIES)[keyof typeof APPROVAL_ENTITIES];
 
 /**
- * Mapping from approval entity names to their corresponding database table names.
- * This replaces the need for APPROVAL_ENTITY environment variable.
+ * Maps each entity name to its Prisma table name (the @@map value in schema.prisma).
+ * Required by the workflow engine to look up status and createdBy via raw SQL.
  *
- * Usage:
- *   import { APPROVAL_ENTITY_TO_TABLE } from '@/shared/constants/approval-entities';
- *   const tableName = APPROVAL_ENTITY_TO_TABLE[APPROVAL_ENTITIES.RISK_ASSESSMENT];
+ * Example:
+ *   [APPROVAL_ENTITIES.PURCHASE_REQUEST]: 't_purchase_requests',
  */
-export const APPROVAL_ENTITY_TO_TABLE: Record<ApprovalEntityName, string> = {
-  [APPROVAL_ENTITIES.RISK_ASSESSMENT]: 't_risk_assessment',
-  [APPROVAL_ENTITIES.WORK_PERMIT]: 't_work_permits',
-  [APPROVAL_ENTITIES.INSPECTION]: 't_inspections',
-  [APPROVAL_ENTITIES.INSPECTION_ITEM]: 't_inspection_items',
-  [APPROVAL_ENTITIES.AUDIT_ITEM]: 't_audit_items',
-  [APPROVAL_ENTITIES.INCIDENT]: 't_incidents',
-  [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 't_ppe_withdrawals',
-  [APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT]: 't_environmental_measurements',
-  [APPROVAL_ENTITIES.WEIGHT_REPORT]: 't_weight_reports',
-  [APPROVAL_ENTITIES.DISPATCH_ORDER]: 't_dispatch_orders',
-} as const;
-
-/**
- * Maps each approval entity to the database column that holds the department FK.
- * Null when the entity table has no department. Used by getEntityData for
- * resolving sentinel markers (@ENTITY_DEPARTMENT, @ENTITY_JOB_POSITION).
- * Column names must match Prisma schema (camelCase, no @map).
- */
-export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<
-  ApprovalEntityName,
-  string | null
-> = {
-  [APPROVAL_ENTITIES.RISK_ASSESSMENT]: 'departmentId',
-  [APPROVAL_ENTITIES.WORK_PERMIT]: null,
-  [APPROVAL_ENTITIES.INSPECTION]: null,
-  [APPROVAL_ENTITIES.INSPECTION_ITEM]: 'assignedDepartmentId',
-  [APPROVAL_ENTITIES.AUDIT_ITEM]: null,
-  [APPROVAL_ENTITIES.INCIDENT]: 'assignedDepartmentId',
-  [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 'departmentId',
-  [APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT]: null,
-  [APPROVAL_ENTITIES.WEIGHT_REPORT]: null,
-  [APPROVAL_ENTITIES.DISPATCH_ORDER]: null,
+export const APPROVAL_ENTITY_TO_TABLE: Record<string, string> = {
+  // [APPROVAL_ENTITIES.PURCHASE_REQUEST]: 't_purchase_requests',
 };
 
 /**
- * Maps each data-scoped approval entity to the statuses that indicate it is pending approval.
+ * Maps each entity to the column that holds its department FK (camelCase, matches Prisma schema).
+ * Set to null if the entity has no department column.
+ * Used to resolve the @ENTITY_DEPARTMENT sentinel marker.
+ *
+ * Example:
+ *   [APPROVAL_ENTITIES.PURCHASE_REQUEST]: 'departmentId',
+ */
+export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<string, string | null> = {
+  // [APPROVAL_ENTITIES.PURCHASE_REQUEST]: 'departmentId',
+};
+
+/**
+ * Maps each entity to the statuses that mean "awaiting approval".
  * Used by ApprovalAccessService to grant read access to configured approvers.
- * Only data-scoped entities that participate in master approvals are listed here.
- */
-export const ENTITY_APPROVAL_PENDING_STATUSES: Partial<Record<ApprovalEntityName, string[]>> = {
-  [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: ['WAITING_APPROVAL'],
-  [APPROVAL_ENTITIES.WORK_PERMIT]: [
-    'WAITING_APPROVAL',
-    'IN_REVIEW_PROJECT_OWNER',
-    'IN_REVIEW_HSE',
-    'IN_REVIEW_SECURITY',
-  ],
-};
-
-/**
- * Helper: Get entity name from module name
- * Converts kebab-case module name to entity name
  *
- * @example
- * getApprovalEntityName('work-permits') // Returns 'WORK_PERMIT'
- * getApprovalEntityName('risk-assessment') // Returns 'RISK_ASSESSMENT'
+ * Example:
+ *   [APPROVAL_ENTITIES.PURCHASE_REQUEST]: ['WAITING_APPROVAL'],
  */
-export function getApprovalEntityName(moduleName: string): ApprovalEntityName {
-  // Normalize module name: work-permits -> WORK_PERMITS
-  const moduleKey = moduleName.toUpperCase().replace(/-/g, '_');
-
-  // Check if explicit mapping exists
-  if (moduleKey in APPROVAL_ENTITIES) {
-    return APPROVAL_ENTITIES[moduleKey as keyof typeof APPROVAL_ENTITIES];
-  }
-
-  // Fallback: Return the normalized key (should match an entity name)
-  // This ensures type safety - if entity doesn't exist, TypeScript will catch it
-  return moduleKey as ApprovalEntityName;
-}
+export const ENTITY_APPROVAL_PENDING_STATUSES: Record<string, string[]> = {
+  // [APPROVAL_ENTITIES.PURCHASE_REQUEST]: ['WAITING_APPROVAL'],
+};

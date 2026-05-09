@@ -14,6 +14,7 @@ import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
 import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
+import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
@@ -21,6 +22,9 @@ import { SharedModule } from './shared/shared.module';
 import { AccessLogsModule } from './modules/access-logs/access-logs.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
+
+const remindersEnabled =
+  String(process.env.REMINDERS_ENABLED || 'false').toLowerCase() === 'true';
 
 @Module({
   imports: [
@@ -39,11 +43,12 @@ import { UserPermissionsModule } from './modules/user-permissions/user-permissio
     DepartmentsModule,
     JobPositionsModule,
     MasterApprovalsModule,
+    ApprovalsModule,
     SettingsModule,
     NotificationsModule,
     UploadsModule,
     AccessLogsModule,
-    RemindersModule,
+    ...(remindersEnabled ? [RemindersModule] : []),
     UserPermissionsModule,
   ],
   providers: [

@@ -14,6 +14,7 @@ import {
   MasterApprovalsPage,
   CreateMasterApprovalPage,
   EditMasterApprovalPage,
+  MasterApprovalDetailPage,
 } from '../pages';
 
 /**
@@ -75,6 +76,10 @@ const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/approvals/:id/edit',
     component: EditMasterApprovalPage,
+  },
+  {
+    path: '/master/approvals/:id',
+    component: MasterApprovalDetailPage,
   },
 ];
 

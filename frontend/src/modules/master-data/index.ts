@@ -27,6 +27,7 @@ export { default as JobPositionForm } from './pages/job-positions/JobPositionFor
 export { default as MasterApprovalsPage } from './pages/approvals/MasterApprovalsPage';
 export { default as CreateMasterApprovalPage } from './pages/approvals/CreateMasterApprovalPage';
 export { default as EditMasterApprovalPage } from './pages/approvals/EditMasterApprovalPage';
+export { default as MasterApprovalDetailPage } from './pages/approvals/MasterApprovalDetailPage';
 export { default as MasterApprovalForm } from './pages/approvals/MasterApprovalForm';
 
 // Routes
@@ -37,6 +38,7 @@ export { default as officeService } from './services/officeService';
 export { default as departmentService } from './services/departmentService';
 export { default as jobPositionService } from './services/jobPositionService';
 export { default as masterApprovalService } from './services/masterApprovalService';
+export { default as approvalService } from './services/approvalService';
 
 // Types
 export type {
@@ -84,6 +86,11 @@ export type {
   
   // Statistics
   MasterDataStats,
+
+  // Approval workflow
+  ApprovalHistory,
+  ApprovalLine,
+  ApprovalStatusHistory,
 } from './types/master-data.types';
 
 // Hooks

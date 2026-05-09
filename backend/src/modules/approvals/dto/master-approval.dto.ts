@@ -47,10 +47,10 @@ export class MasterApprovalItemDto {
   order: number;
 
   @ApiProperty()
-  job_position_id: string;
+  jobPositionId: string;
 
   @ApiProperty()
-  department_id: string;
+  departmentId: string;
 
   @ApiProperty()
   createdBy: string;
@@ -91,7 +91,56 @@ export class MasterApprovalDto {
   @ApiProperty()
   updatedAt: Date;
 
+
   constructor(partial: Partial<MasterApprovalDto>) {
     Object.assign(this, partial);
   }
+} 
+
+
+export interface ApprovalStatusHistory {
+  history: {
+    id: string;
+    status: string;
+    notes: string;
+    createdAt: Date;
+    line: number;
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+    creator: {
+      id: string;
+      name: string;
+    };
+    isHistorical?: boolean; // True if approval doesn't match current m_approvals_item configuration
+  }[];
+  nextApprover: {
+    line: number;
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+  } | null;
+  allApprovalLines: {
+    line: number;
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+    status: 'completed' | 'current' | 'pending';
+  }[];
+  currentStatus: string;
 }
