@@ -192,7 +192,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      let auditScheduleData: CreateAuditScheduleDTO = {
+      const auditScheduleData: CreateAuditScheduleDTO = {
         code: data.code as string,
         areaIds: data.areaIds as string[],
         auditDate: new Date(data.auditDate),
