@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ChapterContent from './ChapterContent';
 import { Chapter } from '../types/course.types';
@@ -49,7 +50,9 @@ describe('ChapterContent - video controls completion state', () => {
     expect(videoA.controls).toBe(false);
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
 
-    videoA.dispatchEvent(new Event('ended'));
+    act(() => {
+      videoA.dispatchEvent(new Event('ended'));
+    });
 
     expect(videoA.controls).toBe(true);
     expect(screen.getByText('Completed')).toBeInTheDocument();
@@ -61,7 +64,9 @@ describe('ChapterContent - video controls completion state', () => {
     expect(videoB.controls).toBe(false);
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
 
-    videoB.dispatchEvent(new Event('ended'));
+    act(() => {
+      videoB.dispatchEvent(new Event('ended'));
+    });
 
     expect(videoB.controls).toBe(true);
     expect(screen.getByText('Completed')).toBeInTheDocument();
