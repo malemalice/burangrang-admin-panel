@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
+import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '@/core/lib/auth';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -11,6 +11,13 @@ import api from '@/core/lib/api';
 import roleService from '@/modules/roles/services/roleService';
 
 import { Button } from '@/core/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import {
   Dialog,
@@ -755,13 +762,6 @@ const IncidentSecuritiesPage = () => {
       cell: (row: Incident) => format(new Date(row.incidentDate), 'dd MMM yyyy'),
     },
     {
-      id: 'incidentType',
-      header: 'Type',
-      cell: (row: Incident) => (
-        <span className="text-sm">{row.incidentType.replace(/_/g, ' ')}</span>
-      ),
-    },
-    {
       id: 'priority',
       header: 'Priority',
       isSortable: true,
@@ -788,6 +788,8 @@ const IncidentSecuritiesPage = () => {
     {
       id: 'actions',
       header: 'Actions',
+      headerClassName: 'sticky right-0 bg-card shadow-[-1px_0_0_0_hsl(var(--border))]',
+      cellClassName: 'sticky right-0 bg-card shadow-[-1px_0_0_0_hsl(var(--border))]',
       cell: (row: Incident) => {
         const modeActions = getModeActions(row);
 
@@ -882,6 +884,28 @@ const IncidentSecuritiesPage = () => {
     },
   ];
 
+  const sortValue = `${sorting?.id ?? 'updatedAt'}_${sorting?.desc === false ? 'asc' : 'desc'}`;
+
+  const handleSortSelect = (value: string) => {
+    const [id, order] = value.split('_');
+    handleSortingChange({ id, desc: order === 'desc' });
+  };
+
+  const sortDropdown = (
+    <Select value={sortValue} onValueChange={handleSortSelect}>
+      <SelectTrigger className="h-9 w-[175px] text-sm">
+        <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="updatedAt_desc">Updated At (Newest)</SelectItem>
+        <SelectItem value="updatedAt_asc">Updated At (Oldest)</SelectItem>
+        <SelectItem value="createdAt_desc">Created At (Newest)</SelectItem>
+        <SelectItem value="createdAt_asc">Created At (Oldest)</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <>
       <PageHeader
@@ -942,6 +966,7 @@ const IncidentSecuritiesPage = () => {
         activeFilters={activeFilters}
         sorting={sorting}
         onSortingChange={handleSortingChange}
+        toolbarExtra={sortDropdown}
       />
 
       <ConfirmDialog

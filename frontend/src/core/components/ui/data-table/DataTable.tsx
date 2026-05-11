@@ -59,6 +59,8 @@ interface DataTableProps<T> {
   tableCellClassName?: string;
   /** Optional class for the card wrapper (e.g. flex-1 min-h-0 for no page scroll) */
   wrapperClassName?: string;
+  /** Optional node rendered between the search input and the filter button */
+  toolbarExtra?: React.ReactNode;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -81,6 +83,7 @@ const DataTable = <T extends Record<string, any>>({
   tableHeaderClassName,
   tableCellClassName,
   wrapperClassName,
+  toolbarExtra,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState(searchValue ?? '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -194,9 +197,10 @@ const DataTable = <T extends Record<string, any>>({
                 />
               </div>
               <div className="flex items-center gap-2">
+                {toolbarExtra}
                 {filterFields.length > 0 && (
-                  <FilterButton 
-                    onClick={() => setIsFilterOpen(true)} 
+                  <FilterButton
+                    onClick={() => setIsFilterOpen(true)}
                     filterCount={localActiveFilters.length}
                   />
                 )}
@@ -204,9 +208,10 @@ const DataTable = <T extends Record<string, any>>({
             </>
           ) : (
             <div className="flex w-full items-center justify-end gap-2">
+              {toolbarExtra}
               {filterFields.length > 0 && (
-                <FilterButton 
-                  onClick={() => setIsFilterOpen(true)} 
+                <FilterButton
+                  onClick={() => setIsFilterOpen(true)}
                   filterCount={localActiveFilters.length}
                 />
               )}
@@ -249,7 +254,7 @@ const DataTable = <T extends Record<string, any>>({
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
-                    <div className={cn("flex items-center gap-2", column.headerClassName)}>
+                    <div className="flex items-center gap-2">
                       {typeof column.header === 'function' ? column.header() : column.header}
                       {column.isSortable && sorting?.id === column.id && (
                         <span className="text-gray-500">

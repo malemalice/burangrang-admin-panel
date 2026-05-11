@@ -45,6 +45,47 @@ export async function copySafetyGuidanceFromTemplatesForSeed(prisma: PrismaClien
   }
 }
 
+async function seedApprovalRecordsForPermit(
+  prisma: PrismaClient,
+  workPermitId: string,
+  stepsToApprove: number[],
+  createdBy: string,
+) {
+  const masterApproval = await prisma.masterApproval.findFirst({
+    where: { entity: 'WORK_PERMIT', isActive: true },
+    include: { items: { orderBy: { order: 'asc' } } },
+  });
+  if (!masterApproval) return;
+
+  for (const stepOrder of stepsToApprove) {
+    const item = masterApproval.items.find((i) => i.order === stepOrder);
+    if (!item) continue;
+
+    const existing = await prisma.approval.findFirst({
+      where: {
+        mApprovalId: masterApproval.id,
+        entityId: workPermitId,
+        departmentId: item.departmentId,
+        jobPositionId: item.jobPositionId,
+        status: 'APPROVED',
+      },
+    });
+    if (existing) continue;
+
+    await prisma.approval.create({
+      data: {
+        mApprovalId: masterApproval.id,
+        entityId: workPermitId,
+        departmentId: item.departmentId,
+        jobPositionId: item.jobPositionId,
+        status: 'APPROVED',
+        notes: 'Seeded approval',
+        createdBy,
+      },
+    });
+  }
+}
+
 export async function seedWorkPermitMasters(prisma: PrismaClient) {
   console.log('🌱 Seeding Work Permit master data...');
 
@@ -622,92 +663,92 @@ export async function seedWorkPermits(prisma: PrismaClient) {
     }),
   );
 
-  permits.push(
-    await createPermit(5, 'IN_REVIEW_HSE', {
-      projectName: 'IN_REVIEW_HSE (HSE review step)',
-      requireCourseVerification: false,
-      classifications: {
+  const permit5 = await createPermit(5, 'IN_REVIEW_HSE', {
+    projectName: 'IN_REVIEW_HSE (HSE review step)',
+    requireCourseVerification: false,
+    classifications: {
+      create: [
+        {
+          workClassificationId:
+            masters.workClassifications.length > 1
+              ? masters.workClassifications[1]!.id
+              : workClassification.id,
+          order: 0,
+        },
+      ],
+    },
+    workers: { create: [{ workerId: wk3.id, order: 0 }] },
+  });
+  await seedApprovalRecordsForPermit(prisma, permit5.id, [0], creator.id);
+  permits.push(permit5);
+
+  // Applicant sign phase (with course requirement)
+  const permit6 = await createPermit(6, 'WAITING_APPLICANT_SIGN', {
+    projectName: 'Applicant sign SK — WITH course requirement',
+    requireCourseVerification: true,
+    requiredCourses: requiredCourse
+      ? {
         create: [
           {
-            workClassificationId:
-              masters.workClassifications.length > 1
-                ? masters.workClassifications[1]!.id
-                : workClassification.id,
+            courseId: requiredCourse.id,
+            isRequired: true,
             order: 0,
           },
         ],
-      },
-      workers: { create: [{ workerId: wk3.id, order: 0 }] },
-    }),
-  );
-
-  // Applicant sign phase (with course requirement)
-  permits.push(
-    await createPermit(6, 'WAITING_APPLICANT_SIGN', {
-      projectName: 'Applicant sign SK — WITH course requirement',
-      requireCourseVerification: true,
-      requiredCourses: requiredCourse
-        ? {
-          create: [
-            {
-              courseId: requiredCourse.id,
-              isRequired: true,
-              order: 0,
-            },
-          ],
-        }
-        : undefined,
-    }),
-  );
+      }
+      : undefined,
+  });
+  await seedApprovalRecordsForPermit(prisma, permit6.id, [0, 1], creator.id);
+  permits.push(permit6);
 
   // Applicant sign phase (without course requirement)
-  permits.push(
-    await createPermit(7, 'WAITING_APPLICANT_SIGN', {
-      projectName: 'Applicant sign SK — WITHOUT course requirement',
-      requireCourseVerification: false,
-    }),
-  );
+  const permit7 = await createPermit(7, 'WAITING_APPLICANT_SIGN', {
+    projectName: 'Applicant sign SK — WITHOUT course requirement',
+    requireCourseVerification: false,
+  });
+  await seedApprovalRecordsForPermit(prisma, permit7.id, [0, 1], creator.id);
+  permits.push(permit7);
 
   // After signing SK, permit moves to IN_REVIEW_SECURITY and has applicantSignedAt/signature.
-  permits.push(
-    await createPermit(8, 'IN_REVIEW_SECURITY', {
-      projectName: 'IN_REVIEW_SECURITY (post applicant-sign)',
-      applicantSignedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-      applicantSignature: 'seed-signature-token',
-      requireCourseVerification: true,
-      requiredCourses: requiredCourse
-        ? {
-          create: [
-            {
-              courseId: requiredCourse.id,
-              isRequired: true,
-              order: 0,
-            },
-          ],
-        }
-        : undefined,
-    }),
-  );
+  const permit8 = await createPermit(8, 'IN_REVIEW_SECURITY', {
+    projectName: 'IN_REVIEW_SECURITY (post applicant-sign)',
+    applicantSignedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+    applicantSignature: 'seed-signature-token',
+    requireCourseVerification: true,
+    requiredCourses: requiredCourse
+      ? {
+        create: [
+          {
+            courseId: requiredCourse.id,
+            isRequired: true,
+            order: 0,
+          },
+        ],
+      }
+      : undefined,
+  });
+  await seedApprovalRecordsForPermit(prisma, permit8.id, [0, 1], creator.id);
+  permits.push(permit8);
 
-  permits.push(
-    await createPermit(9, 'APPROVED', {
-      projectName: 'APPROVED (ready for work / can extend)',
-      proposedStartDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
-      proposedEndDate: nextWeek,
-      requireCourseVerification: true,
-      requiredCourses: requiredCourse
-        ? {
-          create: [
-            {
-              courseId: requiredCourse.id,
-              isRequired: true,
-              order: 0,
-            },
-          ],
-        }
-        : undefined,
-    }),
-  );
+  const permit9 = await createPermit(9, 'APPROVED', {
+    projectName: 'APPROVED (ready for work / can extend)',
+    proposedStartDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+    proposedEndDate: nextWeek,
+    requireCourseVerification: true,
+    requiredCourses: requiredCourse
+      ? {
+        create: [
+          {
+            courseId: requiredCourse.id,
+            isRequired: true,
+            order: 0,
+          },
+        ],
+      }
+      : undefined,
+  });
+  await seedApprovalRecordsForPermit(prisma, permit9.id, [0, 1, 2], creator.id);
+  permits.push(permit9);
 
   permits.push(
     await createPermit(10, 'REJECTED', {
@@ -718,28 +759,28 @@ export async function seedWorkPermits(prisma: PrismaClient) {
     }),
   );
 
-  permits.push(
-    await createPermit(
-      11,
-      'CLOSED',
-      {
-        projectName: 'CLOSED (completed work)',
-        proposedStartDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
-        proposedEndDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-        requireCourseVerification: false,
-      },
-      false,
-    ),
-  );
-
-  permits.push(
-    await createPermit(12, 'EXTENDED', {
-      projectName: 'EXTENDED (end date extended)',
-      proposedStartDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
-      proposedEndDate: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
+  const permit11 = await createPermit(
+    11,
+    'CLOSED',
+    {
+      projectName: 'CLOSED (completed work)',
+      proposedStartDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
+      proposedEndDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
       requireCourseVerification: false,
-    }),
+    },
+    false,
   );
+  await seedApprovalRecordsForPermit(prisma, permit11.id, [0, 1, 2], creator.id);
+  permits.push(permit11);
+
+  const permit12 = await createPermit(12, 'EXTENDED', {
+    projectName: 'EXTENDED (end date extended)',
+    proposedStartDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+    proposedEndDate: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
+    requireCourseVerification: false,
+  });
+  await seedApprovalRecordsForPermit(prisma, permit12.id, [0, 1, 2], creator.id);
+  permits.push(permit12);
 
   console.log('✅ Work permit seeding completed');
   return {

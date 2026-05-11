@@ -9,6 +9,7 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { Label } from '@/core/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/core/components/ui/alert';
 import investigationReportsService from '../services/investigationReportsService';
 import {
   InvestigationStatusEnum,
@@ -22,6 +23,7 @@ const InvestigationReportDetailPage = () => {
   const [report, setReport] = useState<InvestigationReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const { toPDF, targetRef } = usePDF({
     filename: `${report?.reportNumber.replace(/\//g, '-') ?? 'investigation-report'}.pdf`,
@@ -33,9 +35,13 @@ const InvestigationReportDetailPage = () => {
       setIsLoading(true);
       const data = await investigationReportsService.getById(id);
       setReport(data);
-    } catch {
-      toast.error('Failed to load investigation report');
-      navigate('/investigation-reports');
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setAccessDenied(true);
+      } else {
+        toast.error('Failed to load investigation report');
+        navigate('/investigation-reports');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +80,25 @@ const InvestigationReportDetailPage = () => {
     }
   };
 
-  if (isLoading || !report) {
+  if (isLoading) {
+    return <div className="p-8 text-muted-foreground">Loading…</div>;
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="p-8 max-w-lg">
+        <Alert variant="destructive">
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>You do not have access to this record.</AlertDescription>
+        </Alert>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+      </div>
+    );
+  }
+
+  if (!report) {
     return <div className="p-8 text-muted-foreground">Loading…</div>;
   }
 

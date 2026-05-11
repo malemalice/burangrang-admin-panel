@@ -54,6 +54,7 @@ import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { InvestigationReportsModule } from './modules/investigation-reports/investigation-reports.module';
+import { HfacsNodesModule } from './modules/hfacs-nodes/hfacs-nodes.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 import { KpiModule } from './modules/kpi/kpi.module';
 import { KpiHseTargetModule } from './modules/kpi-hse-target/kpi-hse-target.module';
@@ -122,6 +123,8 @@ import { AccessLogsModule } from './modules/access-logs/access-logs.module';
     // Incidents Module
     IncidentsModule,
     InvestigationReportsModule,
+    // HFACS Catalogue Module (master data for Investigation Sections H & I)
+    HfacsNodesModule,
     // User Permissions Module
     UserPermissionsModule,
     // KPI Module

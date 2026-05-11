@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
+import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck, ClipboardCheck, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '@/core/lib/auth';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -11,6 +11,13 @@ import api from '@/core/lib/api';
 import roleService from '@/modules/roles/services/roleService';
 
 import { Button } from '@/core/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import {
   Dialog,
@@ -27,6 +34,8 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
 
 import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incident.types';
+import investigationReportsService from '@/modules/investigation-reports/services/investigationReportsService';
+import { InvestigationStatusEnum } from '@/modules/investigation-reports/types/investigation-report.types';
 import incidentsService from '../services/incidentsService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS, INCIDENT_STATUS_OPTIONS_LIMITED } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
@@ -80,6 +89,7 @@ const IncidentsPage = () => {
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [investigationMap, setInvestigationMap] = useState<Record<string, { id: string; status: InvestigationStatusEnum }>>({});
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -231,7 +241,7 @@ const IncidentsPage = () => {
   const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
 
   const sorting = useMemo((): { id: string; desc: boolean } | null => {
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortBy = searchParams.get('sortBy') || 'updatedAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     return {
       id: sortBy,
@@ -337,7 +347,7 @@ const IncidentsPage = () => {
       const params: any = {
         page: pageIndex + 1,
         limit,
-        sortBy: sorting?.id ?? 'createdAt',
+        sortBy: sorting?.id ?? 'updatedAt',
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       };
 
@@ -440,6 +450,25 @@ const IncidentsPage = () => {
   useEffect(() => {
     fetchIncidents();
   }, [fetchIncidents]);
+
+  // Batch-fetch investigation report statuses for incidents flagged for further investigation
+  useEffect(() => {
+    const flaggedIds = incidents.filter((i) => i.needFurtherInvestigation).map((i) => i.id);
+    if (flaggedIds.length === 0) {
+      setInvestigationMap({});
+      return;
+    }
+    investigationReportsService
+      .getAll({ page: 1, limit: 200, isActive: true })
+      .then((res) => {
+        const map: Record<string, { id: string; status: InvestigationStatusEnum }> = {};
+        for (const r of res.data) {
+          if (r.incidentId) map[r.incidentId] = { id: r.id, status: r.status };
+        }
+        setInvestigationMap(map);
+      })
+      .catch(() => {});
+  }, [incidents]);
 
   // Check approval rights for incidents waiting approval
   useEffect(() => {
@@ -606,7 +635,7 @@ const IncidentsPage = () => {
         next.set('sortBy', newSorting.id);
         next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
       } else {
-        next.set('sortBy', 'createdAt');
+        next.set('sortBy', 'updatedAt');
         next.set('sortOrder', 'desc');
       }
       next.set('page', '1');
@@ -709,24 +738,39 @@ const IncidentsPage = () => {
       id: 'subject',
       header: 'Subject',
       isSortable: true,
-      cell: (row: Incident) => (
-        <div className="truncate max-w-[250px]" title={row.subject}>
-          {row.subject}
-        </div>
-      ),
+      cell: (row: Incident) => {
+        const inv = row.needFurtherInvestigation ? investigationMap[row.id] : null;
+        return (
+          <div className="flex flex-col gap-1 max-w-[300px]">
+            <div className="truncate" title={row.subject}>{row.subject}</div>
+            {row.needFurtherInvestigation && (
+              <div>
+                {!inv && (
+                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-[10px] py-0">
+                    Needs Investigation Report
+                  </Badge>
+                )}
+                {inv && inv.status === InvestigationStatusEnum.COMPLETE && (
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] py-0">
+                    Investigation Complete
+                  </Badge>
+                )}
+                {inv && inv.status !== InvestigationStatusEnum.COMPLETE && (
+                  <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 text-[10px] py-0">
+                    Investigation Draft
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'incidentDate',
       header: 'Incident Date',
       isSortable: true,
       cell: (row: Incident) => format(new Date(row.incidentDate), 'dd MMM yyyy'),
-    },
-    {
-      id: 'incidentType',
-      header: 'Type',
-      cell: (row: Incident) => (
-        <span className="text-sm">{row.incidentType.replace(/_/g, ' ')}</span>
-      ),
     },
     {
       id: 'priority',
@@ -755,6 +799,8 @@ const IncidentsPage = () => {
     {
       id: 'actions',
       header: 'Actions',
+      headerClassName: 'sticky right-0 bg-card shadow-[-1px_0_0_0_hsl(var(--border))]',
+      cellClassName: 'sticky right-0 bg-card shadow-[-1px_0_0_0_hsl(var(--border))]',
       cell: (row: Incident) => {
         const modeActions = getModeActions(row);
 
@@ -781,6 +827,34 @@ const IncidentsPage = () => {
               </TooltipContent>
             </Tooltip>
             
+            {/* Investigation report quick-jump - shown for incidents flagged for investigation */}
+            {row.needFurtherInvestigation && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const inv = investigationMap[row.id];
+                      if (inv) {
+                        navigate(`/investigation-reports/${inv.id}`);
+                      } else {
+                        navigate(`/investigation-reports/new?incidentId=${row.id}`);
+                      }
+                    }}
+                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    aria-label="Investigation report"
+                  >
+                    <ClipboardCheck className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{investigationMap[row.id] ? 'View Investigation Report' : 'Create Investigation Report'}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
             {/* Mode-specific action buttons: Edit, Submit, Approve - icon-only with tooltips */}
             {modeActions.map((action, index) => {
               // Determine color based on action type
@@ -849,6 +923,28 @@ const IncidentsPage = () => {
     },
   ];
 
+  const sortValue = `${sorting?.id ?? 'updatedAt'}_${sorting?.desc === false ? 'asc' : 'desc'}`;
+
+  const handleSortSelect = (value: string) => {
+    const [id, order] = value.split('_');
+    handleSortingChange({ id, desc: order === 'desc' });
+  };
+
+  const sortDropdown = (
+    <Select value={sortValue} onValueChange={handleSortSelect}>
+      <SelectTrigger className="h-9 w-[175px] text-sm">
+        <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="updatedAt_desc">Updated At (Newest)</SelectItem>
+        <SelectItem value="updatedAt_asc">Updated At (Oldest)</SelectItem>
+        <SelectItem value="createdAt_desc">Created At (Newest)</SelectItem>
+        <SelectItem value="createdAt_asc">Created At (Oldest)</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <>
       <PageHeader
@@ -910,6 +1006,7 @@ const IncidentsPage = () => {
         activeFilters={activeFilters}
         sorting={sorting}
         onSortingChange={handleSortingChange}
+        toolbarExtra={sortDropdown}
       />
 
       <ConfirmDialog

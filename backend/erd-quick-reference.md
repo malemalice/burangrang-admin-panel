@@ -85,6 +85,17 @@
 - **AccidentClassificationEnum**: MAJOR, MINOR, FATALITY
 - **SourceEnum**: SYSTEM, ZOHO
 
+### Investigation Reports & HFACS Catalogue
+- **InvestigationReport** (id, incidentId, reportNumber, taskBeingPerformed?, equipmentUsed?, status, hsComments?, hsCommentSignedBy?, distribution flags, createdBy, isActive) — 1:1 with Incident
+- **InvestigationCause** (id, investigationReportId, section, tier1, tier2, causeKey, causeName, isSelected, customNotes?, order, hfacsNodeId?) — section/tier1/tier2/causeKey/causeName are **snapshot strings** captured at write time; `hfacsNodeId` is a nullable FK to the master tree. Unique on (investigationReportId, causeKey).
+- **InvestigationActionPlan** (id, investigationReportId, actionPlan, responsiblePerson?, targetDate?, targetDateNotes?, verificationDate?, verifiedBy?, order)
+- **InvestigationSignatory** (id, investigationReportId, signatoryRole, roleName?, name?, signatureUrl?, signedAt?, order)
+- **InvestigationCost** (id, investigationReportId, medicalCost?, lostTimeCost?, damageCost?, repairCost?, compensationCost?, otherCost?, isNotYetKnown)
+- **HfacsNode** (id, parentId?, section, depth, code?, labelEn, labelId, isOther, order, isActive, deletedAt?, deletedBy?) — **self-referencing master tree** for Investigation Sections H & I. depth: 0=Tier1, 1=Tier2, 2=Item. Code is stable per item (e.g. "OC_001"). Soft-deleted. Old reports keep their snapshot regardless of master edits.
+- **InvestigationCauseSectionEnum**: LATENT_FAILURE (Section H), ACTIVE_FAILURE (Section I)
+- **InvestigationSignatoryRoleEnum**: LEAD_INVESTIGATOR, INVESTIGATOR_2, INVESTIGATOR_3, RELATED_MANAGER, SECURITY
+- **InvestigationStatusEnum**: DRAFT, COMPLETE
+
 ### Work Permit System
 - **ProjectType** (id, name, code, description, isActive)
 - **Equipment** (id, name, code, description, isActive)
@@ -662,5 +673,6 @@ prisma.certificate.findMany({
 63. Filter expired certificates: validityDate < current date
 64. Filter expiring soon: validityDate between now and (now + reminderDays)
 65. Certificate categories define the type of certificate and help with classification and reporting
+65a. For investigation reports: causes reference the **HFACS master tree** (`m_hfacs_nodes`) via optional `hfacsNodeId`, but `t_investigation_causes` also stores snapshot strings (section/tier1/tier2/causeKey/causeName) captured at write time. Renaming or soft-deleting a master node never rewrites historical reports. When persisting new causes, prefer to derive snapshot fields from `m_hfacs_nodes` server-side.
 66. **Soft delete**: core masters (`m_offices`, `m_departments`, `m_job_positions`, `m_companies`, `m_areas`, `m_rooms`, `m_roles`, `m_permissions`, `m_menus`), work-permit catalog (`m_work_classification`, `m_heavy_equipment`, `m_tools`, `m_materials`, `m_machines`, `m_professions`), risk masters (`m_risk_categories`, `m_risk`, `m_risk_mitigations`, `m_risk_matrix`), LMS (`t_courses`, `t_chapters`), config (`m_settings`, `m_email_templates`, `m_approval`), KPI/env (`t_hse_targets`, `t_man_hours`, `t_environmental_measurements`), audit policy hierarchy (`m_audit_element`, `m_audit_clause`, `m_audit_criteria`), risk assessment (`t_risk_assessment`, `t_risk_assessment_item`) and `t_risk_mitigation` (rows can be soft-deleted when unlinked/removed; partial unique on `code` where used), `t_users`, `t_guests`, and `t_work_permits` use `deletedAt` + `deletedBy`; business uniques (e.g. `code`, `email`, `slug`, settings `key`) are enforced only for non-deleted rows via partial unique indexes where applicable
 67. List APIs default to `deletedAt IS NULL`; historical views resolve referenced rows by id even if deleted

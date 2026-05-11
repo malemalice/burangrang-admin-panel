@@ -8,6 +8,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
 } from 'class-validator';
 
 export class InvestigationCauseDto {
@@ -51,35 +52,49 @@ export class InvestigationCauseDto {
   @Expose()
   order: number;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  hfacsNodeId?: string | null;
+
   constructor(partial: Partial<InvestigationCauseDto>) {
     Object.assign(this, partial);
   }
 }
 
 export class UpsertInvestigationCauseDto {
+  // Preferred: reference the HFACS master node — the service derives snapshot fields
+  // (section, tier1, tier2, causeKey, causeName) from the node + its ancestors at write time.
+  @IsUUID()
+  @IsOptional()
+  @ApiProperty({ required: false, description: 'HFACS master node ID (depth=2 leaf item). When provided, snapshot fields are derived server-side.' })
+  hfacsNodeId?: string;
+
+  // Legacy / fallback fields — optional now that hfacsNodeId is preferred. Still accepted for
+  // back-compatibility with clients that send the snapshot directly.
   @IsEnum(InvestigationCauseSectionEnum)
-  @ApiProperty({ enum: InvestigationCauseSectionEnum })
-  section: InvestigationCauseSectionEnum;
+  @IsOptional()
+  @ApiProperty({ required: false, enum: InvestigationCauseSectionEnum })
+  section?: InvestigationCauseSectionEnum;
 
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  tier1: string;
+  @IsOptional()
+  @ApiProperty({ required: false })
+  tier1?: string;
 
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  tier2: string;
+  @IsOptional()
+  @ApiProperty({ required: false })
+  tier2?: string;
 
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty({ description: 'HFACS canonical key e.g. OC_001' })
-  causeKey: string;
+  @IsOptional()
+  @ApiProperty({ required: false, description: 'HFACS canonical key e.g. OC_001' })
+  causeKey?: string;
 
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  causeName: string;
+  @IsOptional()
+  @ApiProperty({ required: false })
+  causeName?: string;
 
   @IsBoolean()
   @IsOptional()

@@ -69,6 +69,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-matrix',
     'audit-period',
     'inspection-checklist',
+    'hfacs-node',
   ];
   const quizPermissions = [
     'quiz:create',

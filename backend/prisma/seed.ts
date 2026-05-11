@@ -42,6 +42,7 @@ import {
 } from './seeds/work-classifications.seed';
 import { seedWorkClassificationSafetyGuidelines } from './seeds/work-classification-safety-guidelines.seed';
 import { seedInspectionChecklists } from './seeds/inspection-checklists.seed';
+import { seedHfacsCatalogue } from './seeds/hfacs-catalogue.seed';
 
 const dbUrl = process.env.DATABASE_URL ?? '';
 const dbUrlSep = dbUrl.includes('?') ? '&' : '?';
@@ -600,6 +601,7 @@ async function main() {
       await seedIncidents();
       await seedKpiHseTargets();
       await seedInspectionChecklists();
+      await seedHfacsCatalogue();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table

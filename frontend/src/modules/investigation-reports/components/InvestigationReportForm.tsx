@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Plus, Trash2, Save, CheckCircle2, Upload } from 'lucide-react';
+import { Plus, Trash2, Save, CheckCircle2, Upload, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Input } from '@/core/components/ui/input';
@@ -30,12 +30,8 @@ import {
   InvestigationStatusEnum,
   type InvestigationReport,
 } from '../types/investigation-report.types';
-import {
-  HFACS_ACTIVE_FAILURE,
-  HFACS_LATENT_FAILURE,
-  HFACS_LOOKUP,
-  type HfacsTier1,
-} from '../constants/hfacsCatalogue';
+import hfacsNodeService from '@/modules/master-data/services/hfacsNodeService';
+import type { HfacsNodeDTO } from '@/modules/master-data/types/master-data.types';
 
 const SIGNATORY_ROLES: Array<{
   role: InvestigationSignatoryRoleEnum;
@@ -51,7 +47,8 @@ const SIGNATORY_ROLES: Array<{
 ];
 
 const causeSchema = z.object({
-  causeKey: z.string(),
+  hfacsNodeId: z.string(),
+  causeKey: z.string().optional(),
   isSelected: z.boolean(),
   customNotes: z.string().optional(),
 });
@@ -125,20 +122,57 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadCategoryId, setUploadCategoryId] = useState<string | null>(null);
+  const [refOpen, setRefOpen] = useState(false);
+  const [hfacsTree, setHfacsTree] = useState<HfacsNodeDTO[]>([]);
+  const [hfacsLoading, setHfacsLoading] = useState(true);
 
-  // Pre-build initial cause rows: every catalogue item, with isSelected from existing report
+  // Split fetched tree by section for rendering Section H (latent) and Section I (active).
+  const latentTier1s = useMemo(
+    () => hfacsTree.filter((n) => n.section === 'LATENT_FAILURE'),
+    [hfacsTree],
+  );
+  const activeTier1s = useMemo(
+    () => hfacsTree.filter((n) => n.section === 'ACTIVE_FAILURE'),
+    [hfacsTree],
+  );
+
+  // Flatten all leaf items (depth 2) for quick lookup + initial form rows.
+  const leafItems = useMemo(() => {
+    const leaves: HfacsNodeDTO[] = [];
+    for (const t1 of hfacsTree) {
+      for (const t2 of t1.children ?? []) {
+        for (const item of t2.children ?? []) {
+          leaves.push(item);
+        }
+      }
+    }
+    return leaves;
+  }, [hfacsTree]);
+
+  // Pre-build initial cause rows: one entry per leaf item, hydrated from the existing report.
+  // Match on hfacsNodeId first (new reports); fall back to causeKey for back-compat with reports
+  // created before the master migration.
   const initialCauses = useMemo(() => {
-    const allKeys = Array.from(HFACS_LOOKUP.keys());
-    const existingByKey = new Map((report?.causes ?? []).map((c) => [c.causeKey, c]));
-    return allKeys.map((causeKey) => {
-      const existing = existingByKey.get(causeKey);
+    const existingByNode = new Map(
+      (report?.causes ?? [])
+        .filter((c) => !!c.hfacsNodeId)
+        .map((c) => [c.hfacsNodeId as string, c]),
+    );
+    const existingByKey = new Map(
+      (report?.causes ?? []).map((c) => [c.causeKey, c]),
+    );
+    return leafItems.map((leaf) => {
+      const existing =
+        existingByNode.get(leaf.id) ??
+        (leaf.code ? existingByKey.get(leaf.code) : undefined);
       return {
-        causeKey,
+        hfacsNodeId: leaf.id,
+        causeKey: leaf.code ?? '',
         isSelected: existing?.isSelected ?? false,
         customNotes: existing?.customNotes ?? '',
       };
     });
-  }, [report]);
+  }, [leafItems, report]);
 
   const initialSignatories = useMemo(() => {
     const byRole = new Map((report?.signatories ?? []).map((s) => [s.signatoryRole, s]));
@@ -208,6 +242,34 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     };
   }, []);
 
+  // Fetch the HFACS catalogue tree once. Section H and I checkboxes render from this.
+  useEffect(() => {
+    let cancelled = false;
+    setHfacsLoading(true);
+    hfacsNodeService
+      .getTree()
+      .then((tree) => {
+        if (!cancelled) setHfacsTree(tree);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load HFACS catalogue');
+      })
+      .finally(() => {
+        if (!cancelled) setHfacsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Once the tree arrives (or report changes), seed the form's `causes` array with one
+  // row per leaf node — preserving any existing selections from the report.
+  useEffect(() => {
+    if (leafItems.length === 0) return;
+    form.setValue('causes', initialCauses, { shouldDirty: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leafItems, report?.id]);
+
   const watched = form.watch();
   const total = sumCost(watched);
 
@@ -232,21 +294,18 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   ) => {
     setIsSubmitting(true);
     try {
+      // Send hfacsNodeId only. The backend derives section/tier1/tier2/causeKey/causeName
+      // by looking up the master node + its ancestors and stores them as snapshots on
+      // t_investigation_causes — so future renames of the master never rewrite history.
       const causes = data.causes
         .filter((c) => c.isSelected || (c.customNotes && c.customNotes.trim() !== ''))
-        .map((c) => {
-          const lookup = HFACS_LOOKUP.get(c.causeKey)!;
-          return {
-            causeKey: c.causeKey,
-            section: lookup.section,
-            tier1: lookup.tier1,
-            tier2: lookup.tier2,
-            causeName: lookup.labelEn,
-            isSelected: c.isSelected,
-            customNotes: c.customNotes && c.customNotes.trim() !== '' ? c.customNotes : undefined,
-            order: 0,
-          };
-        });
+        .map((c) => ({
+          hfacsNodeId: c.hfacsNodeId,
+          isSelected: c.isSelected,
+          customNotes:
+            c.customNotes && c.customNotes.trim() !== '' ? c.customNotes : undefined,
+          order: 0,
+        }));
 
       const payload = {
         taskBeingPerformed: data.taskBeingPerformed || undefined,
@@ -307,64 +366,85 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     }
   };
 
-  const renderHfacsTier = (tiers: HfacsTier1[]) => (
-    <div className="space-y-6">
-      {tiers.map((t1) => (
-        <div key={t1.tier1} className="space-y-4">
-          <div>
-            <h3 className="text-base font-semibold">{t1.labelEn}</h3>
-            <p className="text-xs text-muted-foreground">{t1.labelId}</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {t1.tier2s.map((t2) => (
-              <div key={t2.tier2} className="rounded-md border p-4 space-y-2">
-                <div>
-                  <p className="text-sm font-medium">{t2.labelEn}</p>
-                  <p className="text-xs text-muted-foreground">{t2.labelId}</p>
-                </div>
-                <div className="space-y-1.5">
-                  {t2.items.map((item) => {
-                    const allCauses = form.getValues('causes');
-                    const causeIndex = allCauses.findIndex((c) => c.causeKey === item.causeKey);
-                    if (causeIndex < 0) return null;
-                    const isSelected = form.watch(`causes.${causeIndex}.isSelected`);
-                    return (
-                      <div key={item.causeKey} className="space-y-1">
-                        <div className="flex items-start gap-2">
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(v) =>
-                              form.setValue(
-                                `causes.${causeIndex}.isSelected`,
-                                Boolean(v),
-                                { shouldDirty: true },
-                              )
-                            }
-                            className="mt-0.5"
-                          />
-                          <Label className="text-sm font-normal cursor-pointer leading-snug">
-                            <span>{item.labelEn}</span>
-                            <span className="text-muted-foreground"> — {item.labelId}</span>
-                          </Label>
+  const renderHfacsTier = (tiers: HfacsNodeDTO[]) => {
+    if (hfacsLoading) {
+      return (
+        <p className="text-sm text-muted-foreground py-6 text-center">
+          Loading HFACS catalogue…
+        </p>
+      );
+    }
+    if (tiers.length === 0) {
+      return (
+        <p className="text-sm text-muted-foreground py-6 text-center">
+          No HFACS entries configured for this section. Admins can add them under
+          Master Data → HFACS Catalogue.
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-6">
+        {tiers.map((t1) => (
+          <div key={t1.id} className="space-y-4">
+            <div>
+              <h3 className="text-base font-semibold">{t1.labelEn}</h3>
+              <p className="text-xs text-muted-foreground">{t1.labelId}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(t1.children ?? []).map((t2) => (
+                <div key={t2.id} className="rounded-md border p-4 space-y-2">
+                  <div>
+                    <p className="text-sm font-medium">{t2.labelEn}</p>
+                    <p className="text-xs text-muted-foreground">{t2.labelId}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {(t2.children ?? []).map((item) => {
+                      const allCauses = form.getValues('causes');
+                      const causeIndex = allCauses.findIndex(
+                        (c) => c.hfacsNodeId === item.id,
+                      );
+                      if (causeIndex < 0) return null;
+                      const isSelected = form.watch(
+                        `causes.${causeIndex}.isSelected`,
+                      );
+                      return (
+                        <div key={item.id} className="space-y-1">
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(v) =>
+                                form.setValue(
+                                  `causes.${causeIndex}.isSelected`,
+                                  Boolean(v),
+                                  { shouldDirty: true },
+                                )
+                              }
+                              className="mt-0.5"
+                            />
+                            <Label className="text-sm font-normal cursor-pointer leading-snug">
+                              <span>{item.labelEn}</span>
+                              <span className="text-muted-foreground"> — {item.labelId}</span>
+                            </Label>
+                          </div>
+                          {item.isOther && isSelected && (
+                            <Input
+                              placeholder="Specify..."
+                              className="ml-6 h-8 text-sm"
+                              {...form.register(`causes.${causeIndex}.customNotes`)}
+                            />
+                          )}
                         </div>
-                        {item.isOther && isSelected && (
-                          <Input
-                            placeholder="Specify..."
-                            className="ml-6 h-8 text-sm"
-                            {...form.register(`causes.${causeIndex}.customNotes`)}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   // ── render
   return (
@@ -373,49 +453,176 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         onSubmit={form.handleSubmit((d) => onSubmit(d))}
         className="max-w-5xl mx-auto space-y-6"
       >
-        {/* Section A — Read-only incident details */}
+        {/* Incident Reference Panel (A–F read-only, collapsible) */}
+        <Card>
+          <CardHeader
+            className="cursor-pointer select-none"
+            onClick={() => setRefOpen((v) => !v)}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <CardTitle className="text-base">Incident Reference (A–F, read-only)</CardTitle>
+                <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                  <span className="font-medium text-foreground">{incident.code}</span>
+                  {' — '}{incident.subject}
+                  {' · '}{incident.incidentDate ? format(new Date(incident.incidentDate), 'dd MMM yyyy') : '—'}
+                  {' · '}{incident.area?.name ?? '—'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={`/incidents/${incident.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View Incident
+                </a>
+                {refOpen ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          {refOpen && (
+            <CardContent className="pt-0 space-y-6">
+              {/* A — Accident Details */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">A. Accident Details</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <KV label="Report Number" value={report?.reportNumber ?? '— Auto-generated on create —'} />
+                  <KV label="Incident Code" value={incident.code} />
+                  <KV label="Accident Location" value={incident.area?.name ?? '—'} />
+                  <KV
+                    label="Accident Date"
+                    value={incident.incidentDate ? format(new Date(incident.incidentDate), 'dd MMM yyyy') : '—'}
+                  />
+                  <KV
+                    label="Incident Time"
+                    value={incident.incidentDate ? format(new Date(incident.incidentDate), 'HH:mm') : '—'}
+                  />
+                  <KV
+                    label="Report Date"
+                    value={incident.createdAt ? format(new Date(incident.createdAt), 'dd MMM yyyy') : '—'}
+                  />
+                  <div className="md:col-span-2">
+                    <Label className="text-muted-foreground">Description of Incident</Label>
+                    <p className="text-sm whitespace-pre-line">{incident.description ?? '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* B/C — Injured Persons */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">B/C. Injured Persons</p>
+                {!incident.injuredPersons || incident.injuredPersons.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No injured person during this incident.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left p-2">No</th>
+                          <th className="text-left p-2">Name</th>
+                          <th className="text-left p-2">Gender</th>
+                          <th className="text-left p-2">Position</th>
+                          <th className="text-left p-2">Department</th>
+                          <th className="text-left p-2">Body Part</th>
+                          <th className="text-left p-2">Type of Injury</th>
+                          <th className="text-left p-2">Mechanism</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {incident.injuredPersons.map((p, i) => (
+                          <tr key={p.id} className="border-t">
+                            <td className="p-2">{i + 1}</td>
+                            <td className="p-2">{p.injuredPersonName ?? '—'}</td>
+                            <td className="p-2">{p.gender ?? '—'}</td>
+                            <td className="p-2">{p.position ?? '—'}</td>
+                            <td className="p-2">{p.department?.name ?? '—'}</td>
+                            <td className="p-2">{p.injuredBodyPart}</td>
+                            <td className="p-2">{p.typeOfInjury}</td>
+                            <td className="p-2">{p.mechanismOfInjury}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Level of Injury (B4): <Badge variant="secondary">{incident.incidentClassification}</Badge>
+                </div>
+              </div>
+
+              {/* D/E — Action Following Incident */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">D/E. Action Following Incident & Stop Activity</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <KV label="Treatment" value={incident.treatment} />
+                  <KV label="Absence" value={incident.absence} />
+                  <div className="md:col-span-2">
+                    <Label className="text-muted-foreground">Treatment Description</Label>
+                    <p className="text-sm whitespace-pre-line">{incident.treatmentDescription ?? '—'}</p>
+                  </div>
+                  <KV label="Need to Stop Activity" value={incident.needToStopActivity} />
+                  <div className="md:col-span-2">
+                    <Label className="text-muted-foreground">Stop Activity Description</Label>
+                    <p className="text-sm whitespace-pre-line">{incident.stopActivityDescription ?? '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* F — Witnesses */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">F. Witnesses</p>
+                {!incident.witnesses || incident.witnesses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No witnesses recorded.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left p-2">No</th>
+                          <th className="text-left p-2">Name</th>
+                          <th className="text-left p-2">Gender</th>
+                          <th className="text-left p-2">Position</th>
+                          <th className="text-left p-2">Department</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {incident.witnesses.map((w, i) => (
+                          <tr key={w.id} className="border-t">
+                            <td className="p-2">{i + 1}</td>
+                            <td className="p-2">{w.witnessName ?? '—'}</td>
+                            <td className="p-2">{w.gender ?? '—'}</td>
+                            <td className="p-2">{w.position ?? '—'}</td>
+                            <td className="p-2">{w.department?.name ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* A1/A2 — Task & Equipment (always visible, editable) */}
         <Card>
           <CardHeader>
-            <CardTitle>A. Accident Details / Rincian Kecelakaan</CardTitle>
+            <CardTitle>A1/A2 — Task & Equipment</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <KV label="Report Number" value={report?.reportNumber ?? '— Auto-generated on create —'} />
-            <KV label="Incident Code" value={incident.code} />
-            <KV label="Accident Location" value={incident.area?.name ?? '—'} />
-            <KV
-              label="Accident Date"
-              value={
-                incident.incidentDate
-                  ? format(new Date(incident.incidentDate), 'dd MMM yyyy')
-                  : '—'
-              }
-            />
-            <KV
-              label="Incident Time"
-              value={
-                incident.incidentDate
-                  ? format(new Date(incident.incidentDate), 'HH:mm')
-                  : '—'
-              }
-            />
-            <KV
-              label="Report Date"
-              value={
-                incident.createdAt
-                  ? format(new Date(incident.createdAt), 'dd MMM yyyy')
-                  : '—'
-              }
-            />
-            <div className="md:col-span-2">
-              <Label className="text-muted-foreground">Description of Incident</Label>
-              <p className="text-sm whitespace-pre-line">{incident.description ?? '—'}</p>
-            </div>
-
+          <CardContent className="grid grid-cols-1 gap-4">
             <FormField
               control={form.control}
               name="taskBeingPerformed"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <FormItem>
                   <FormLabel>A1. Task Being Performed (Pekerjaan apa yang sedang dilakukan)</FormLabel>
                   <FormControl>
                     <Textarea {...field} className="min-h-[80px]" />
@@ -428,7 +635,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
               control={form.control}
               name="equipmentUsed"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <FormItem>
                   <FormLabel>A2. Equipment, Tools and Materials (Peralatan atau material apa yang sedang di gunakan)</FormLabel>
                   <FormControl>
                     <Textarea {...field} className="min-h-[80px]" />
@@ -437,111 +644,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
-
-        {/* Section B + C — read-only injured persons */}
-        <Card>
-          <CardHeader>
-            <CardTitle>B/C. Injured Persons / Rincian Korban</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!incident.injuredPersons || incident.injuredPersons.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No injured person during this incident.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left p-2">No</th>
-                      <th className="text-left p-2">Name</th>
-                      <th className="text-left p-2">Gender</th>
-                      <th className="text-left p-2">Position</th>
-                      <th className="text-left p-2">Department</th>
-                      <th className="text-left p-2">Body Part</th>
-                      <th className="text-left p-2">Type of Injury</th>
-                      <th className="text-left p-2">Mechanism</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {incident.injuredPersons.map((p, i) => (
-                      <tr key={p.id} className="border-t">
-                        <td className="p-2">{i + 1}</td>
-                        <td className="p-2">{p.injuredPersonName ?? '—'}</td>
-                        <td className="p-2">{p.gender ?? '—'}</td>
-                        <td className="p-2">{p.position ?? '—'}</td>
-                        <td className="p-2">{p.department?.name ?? '—'}</td>
-                        <td className="p-2">{p.injuredBodyPart}</td>
-                        <td className="p-2">{p.typeOfInjury}</td>
-                        <td className="p-2">{p.mechanismOfInjury}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <div className="mt-3 text-sm text-muted-foreground">
-              Level of Injury (B4): <Badge variant="secondary">{incident.incidentClassification}</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Section D/E read-only */}
-        <Card>
-          <CardHeader>
-            <CardTitle>D/E. Action Following Incident & Stop Activity</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <KV label="Treatment" value={incident.treatment} />
-            <KV label="Absence" value={incident.absence} />
-            <div className="md:col-span-2">
-              <Label className="text-muted-foreground">Treatment Description</Label>
-              <p className="text-sm whitespace-pre-line">{incident.treatmentDescription ?? '—'}</p>
-            </div>
-            <KV label="Need to Stop Activity" value={incident.needToStopActivity} />
-            <div className="md:col-span-2">
-              <Label className="text-muted-foreground">Stop Activity Description</Label>
-              <p className="text-sm whitespace-pre-line">{incident.stopActivityDescription ?? '—'}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Section F — read-only witnesses */}
-        <Card>
-          <CardHeader>
-            <CardTitle>F. Witnesses / Saksi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!incident.witnesses || incident.witnesses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No witnesses recorded.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left p-2">No</th>
-                      <th className="text-left p-2">Name</th>
-                      <th className="text-left p-2">Gender</th>
-                      <th className="text-left p-2">Position</th>
-                      <th className="text-left p-2">Department</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {incident.witnesses.map((w, i) => (
-                      <tr key={w.id} className="border-t">
-                        <td className="p-2">{i + 1}</td>
-                        <td className="p-2">{w.witnessName ?? '—'}</td>
-                        <td className="p-2">{w.gender ?? '—'}</td>
-                        <td className="p-2">{w.position ?? '—'}</td>
-                        <td className="p-2">{w.department?.name ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -591,7 +693,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           <CardHeader>
             <CardTitle>H. Latent Failure / Kegagalan Terpendam (Indirect Cause)</CardTitle>
           </CardHeader>
-          <CardContent>{renderHfacsTier(HFACS_LATENT_FAILURE)}</CardContent>
+          <CardContent>{renderHfacsTier(latentTier1s)}</CardContent>
         </Card>
 
         {/* Section I — Active Failure */}
@@ -599,7 +701,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           <CardHeader>
             <CardTitle>I. Active Failure / Kegagalan Aktif (Direct Cause)</CardTitle>
           </CardHeader>
-          <CardContent>{renderHfacsTier(HFACS_ACTIVE_FAILURE)}</CardContent>
+          <CardContent>{renderHfacsTier(activeTier1s)}</CardContent>
         </Card>
 
         {/* Section J — Action Plans */}

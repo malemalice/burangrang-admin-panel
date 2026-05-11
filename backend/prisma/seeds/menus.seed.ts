@@ -582,6 +582,24 @@ export const seedMenus = async () => {
       },
     });
 
+    // HFACS Catalogue menu (master data — cause tree for investigation Sections H & I)
+    await prisma.menu.create({
+      data: {
+        name: 'HFACS Catalogue',
+        path: '/master/hfacs-nodes',
+        icon: 'GitFork',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
     // Environmental Measurements menu
     await prisma.menu.create({
       data: {
