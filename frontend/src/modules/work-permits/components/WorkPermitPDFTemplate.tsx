@@ -246,8 +246,8 @@ export function WorkPermitPDFTemplate({
                       na(w.healthDeclarationUrl)
                     : w.healthScreening ?
                       `Screening ${na(w.healthScreening.status)}${
-                        w.healthScreening.validUntil ?
-                          ` · valid ${format(new Date(w.healthScreening.validUntil), 'dd MMM yyyy')}`
+                        w.healthScreening.consumedByWorkPermitId ?
+                          ' · linked to this permit'
                         : ''
                       }`
                     : '—'}

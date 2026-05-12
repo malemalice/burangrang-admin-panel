@@ -1,15 +1,17 @@
 import type { HealthScreeningListItem } from '@/modules/health-screenings/types/healthScreening.types';
 import type { WorkPermitWorker } from '../types/work-permit.types';
 
-/** DONE and still within `validUntil` (or no expiry set). */
+/** DONE and not yet consumed by any work permit (single-use rule). */
 export function isHealthScreeningEligible(
-  s: { status: string; validUntil?: string | null | undefined },
+  s: {
+    status: string;
+    consumedByWorkPermitId?: string | null | undefined;
+    isAvailable?: boolean;
+  },
 ): boolean {
   if (s.status !== 'DONE') return false;
-  if (s.validUntil) {
-    return new Date(s.validUntil).getTime() >= Date.now();
-  }
-  return true;
+  if (typeof s.isAvailable === 'boolean') return s.isAvailable;
+  return s.consumedByWorkPermitId == null;
 }
 
 export function isHealthScreeningListItemEligible(s: HealthScreeningListItem): boolean {
@@ -21,13 +23,16 @@ export function hasHealthDeclarationFile(url?: string | null): boolean {
 }
 
 /**
- * A worker satisfies submit rules: declaration file on profile and/or a completed online declaration still in the validity window.
- * Matches work-permit `validateWorkerHealthDeclarations` + expiry expectations at submit.
+ * A worker satisfies submit rules: declaration file on profile and/or a completed online
+ * declaration that is single-use bound to THIS permit.
  */
 export function isWorkPermitWorkerHealthSatisfiedForSubmit(
   w: Pick<WorkPermitWorker, 'healthScreening' | 'healthDeclarationUrl'>,
+  workPermitId?: string,
 ): boolean {
   if (hasHealthDeclarationFile(w.healthDeclarationUrl)) return true;
-  if (w.healthScreening && isHealthScreeningEligible(w.healthScreening)) return true;
-  return false;
+  const hs = w.healthScreening;
+  if (!hs || hs.status !== 'DONE') return false;
+  if (!workPermitId) return hs.consumedByWorkPermitId == null;
+  return hs.consumedByWorkPermitId === workPermitId;
 }

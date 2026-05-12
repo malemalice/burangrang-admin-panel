@@ -142,7 +142,8 @@ const formSchema = z.object({
   dueDate: z.string().optional(),
   expectedOutcome: z.string().optional(),
   needToStopActivity: z.nativeEnum(StopActivityEnum).default(StopActivityEnum.NOT_SPECIFIED),
-  stopActivityDescription: z.string().optional(),
+  stopLocally: z.boolean().default(false),
+  stopWholeSchool: z.boolean().default(false),
   treatment: z.nativeEnum(TreatmentEnum).default(TreatmentEnum.NOT_SPECIFIED),
   treatmentDescription: z.string().optional(),
   absence: z.nativeEnum(AbsenceEnum).default(AbsenceEnum.NOT_SPECIFIED),
@@ -216,7 +217,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       dueDate: '',
       expectedOutcome: '',
       needToStopActivity: StopActivityEnum.NOT_SPECIFIED,
-      stopActivityDescription: '',
+      stopLocally: false,
+      stopWholeSchool: false,
       treatment: TreatmentEnum.NOT_SPECIFIED,
       treatmentDescription: '',
       absence: AbsenceEnum.NOT_SPECIFIED,
@@ -405,7 +407,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               : '',
             expectedOutcome: incident.expectedOutcome || '',
             needToStopActivity: incident.needToStopActivity,
-            stopActivityDescription: incident.stopActivityDescription || '',
+            stopLocally: incident.stopLocally ?? false,
+            stopWholeSchool: incident.stopWholeSchool ?? false,
             treatment: incident.treatment,
             treatmentDescription: incident.treatmentDescription || '',
             absence: incident.absence,
@@ -787,7 +790,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         'dueDate',
         'expectedOutcome',
         'needToStopActivity',
-        'stopActivityDescription',
+        'stopLocally',
+        'stopWholeSchool',
         'treatment',
         'treatmentDescription',
         'absence',
@@ -803,7 +807,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         'dueDate',
         'expectedOutcome',
         'needToStopActivity',
-        'stopActivityDescription',
+        'stopLocally',
+        'stopWholeSchool',
         'treatment',
         'treatmentDescription',
         'absence',
@@ -845,7 +850,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       expectedOutcome: data.expectedOutcome || undefined,
       needToStopActivity: data.needToStopActivity,
-      stopActivityDescription: data.stopActivityDescription || undefined,
+      stopLocally: data.stopLocally ?? false,
+      stopWholeSchool: data.stopWholeSchool ?? false,
       treatment: data.treatment,
       treatmentDescription: data.treatmentDescription || undefined,
       absence: data.absence,
@@ -999,7 +1005,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         expectedOutcome: data.expectedOutcome || undefined,
         needToStopActivity: data.needToStopActivity,
-        stopActivityDescription: data.stopActivityDescription || undefined,
+        stopLocally: data.stopLocally ?? false,
+        stopWholeSchool: data.stopWholeSchool ?? false,
         treatment: data.treatment,
         treatmentDescription: data.treatmentDescription || undefined,
         absence: data.absence,
@@ -2445,25 +2452,53 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="stopActivityDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Stop Activity Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter stop activity description"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('stopActivityDescription')}
-                          readOnly={isFieldDisabled('stopActivityDescription')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
+                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
+                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
+                    <FormField
+                      control={form.control}
+                      name="stopLocally"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopLocally')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop activity locally related to the accident/incident/nearmiss
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stopWholeSchool"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopWholeSchool')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop the whole school activities
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan seluruh kegiatan sekolah
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <FormField
                   control={form.control}

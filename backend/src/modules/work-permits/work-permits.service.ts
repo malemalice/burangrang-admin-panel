@@ -56,8 +56,6 @@ import { SETTINGS_KEYS } from '../settings/constants/settings-keys';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-const HEALTH_DECLARATION_VALIDITY_DAYS_KEY = 'health_declaration_validity_days';
-
 @Injectable()
 export class WorkPermitsService {
   private rawWorkPermitMapper: (entity: any) => WorkPermitDto;
@@ -156,15 +154,19 @@ export class WorkPermitsService {
           worker: {
             include: {
               user: { include: { profession: true } },
-              healthScreenings: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: { id: true, status: true, createdAt: true, quizId: true },
-              },
             },
           },
         },
         orderBy: { order: 'asc' },
+      },
+      consumedHealthScreenings: {
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          quizId: true,
+          consumedByWorkPermitId: true,
+        },
       },
       heavyEquipment: {
         include: { heavyEquipment: true },
@@ -226,7 +228,8 @@ export class WorkPermitsService {
 
   /**
    * For submit: each permit worker must have a declaration file on `t_worker` and/or
-   * a latest health screening with status DONE that is still within the configured validity window.
+   * a completed health screening that is consumed by THIS permit (single-use binding).
+   * Screenings not linked here, linked elsewhere, or not DONE are invalid.
    */
   private async assertAllWorkersHaveHealthSatisfiedForSubmit(
     workPermitId: string,
@@ -240,9 +243,14 @@ export class WorkPermitsService {
             worker: {
               include: {
                 healthScreenings: {
+                  where: { consumedByWorkPermitId: workPermitId },
                   orderBy: { createdAt: 'desc' },
                   take: 1,
-                  select: { id: true, status: true, createdAt: true },
+                  select: {
+                    id: true,
+                    status: true,
+                    consumedByWorkPermitId: true,
+                  },
                 },
               },
             },
@@ -253,11 +261,6 @@ export class WorkPermitsService {
     if (!wp?.workers?.length) {
       this.errorHandler.throwBadRequest('At least one worker is required');
     }
-    const validityDays = await this.settingsHelper.getNumber(
-      HEALTH_DECLARATION_VALIDITY_DAYS_KEY,
-      90,
-    );
-    const ms = validityDays * 24 * 60 * 60 * 1000;
     for (const row of wp.workers) {
       const w = row.worker;
       if (!w) {
@@ -272,18 +275,12 @@ export class WorkPermitsService {
       const hs = w.healthScreenings?.[0];
       if (!hs) {
         this.errorHandler.throwBadRequest(
-          'Each worker must have a health declaration file on the worker profile and/or a completed health declaration in the validity period. Update workers before submitting.',
+          'Each worker must have a completed health declaration attached to this permit. A declaration is single-use per work permit — start a new one for each worker before submitting.',
         );
       }
       if (hs.status !== 'DONE') {
         this.errorHandler.throwBadRequest(
-          'Each worker must have a completed (DONE) health declaration or a declaration file on the worker profile before submitting.',
-        );
-      }
-      const validUntil = new Date(hs.createdAt.getTime() + ms);
-      if (validUntil.getTime() < Date.now()) {
-        this.errorHandler.throwBadRequest(
-          'A worker health declaration is past its validity period. Renew the declaration or upload a file on the worker profile before submitting.',
+          'Each worker must have a completed (DONE) health declaration linked to this permit before submitting.',
         );
       }
     }
@@ -318,7 +315,23 @@ export class WorkPermitsService {
   private async linkHealthScreeningsToWorkers(
     dtos: Array<{ userId: string; order: number; healthScreeningId?: string }>,
     createdRows: { id: string; workerId: string; order: number }[],
+    workPermitId: string,
   ): Promise<void> {
+    // Release any screenings currently consumed by this permit but no longer
+    // selected in the incoming worker list (e.g. worker swap, declaration swap).
+    const selectedIds = dtos
+      .map((d) => d.healthScreeningId)
+      .filter((id): id is string => !!id);
+    await this.prisma.healthScreening.updateMany({
+      where: {
+        consumedByWorkPermitId: workPermitId,
+        ...(selectedIds.length
+          ? { NOT: { id: { in: selectedIds } } }
+          : {}),
+      },
+      data: { consumedByWorkPermitId: null },
+    });
+
     for (const w of dtos) {
       if (!w.healthScreeningId) {
         continue;
@@ -353,9 +366,21 @@ export class WorkPermitsService {
           'Linked health screening must be completed (status DONE)',
         );
       }
+      // Single-use rule: screening must be free, or already linked to THIS permit.
+      if (
+        screening!.consumedByWorkPermitId &&
+        screening!.consumedByWorkPermitId !== workPermitId
+      ) {
+        this.errorHandler.throwBadRequest(
+          'This health declaration is already linked to another work permit. Start a new declaration for this worker.',
+        );
+      }
       await this.prisma.healthScreening.update({
         where: { id: w.healthScreeningId },
-        data: { workerId: row.workerId },
+        data: {
+          workerId: row.workerId,
+          consumedByWorkPermitId: workPermitId,
+        },
       });
     }
   }
@@ -812,6 +837,7 @@ export class WorkPermitsService {
       await this.linkHealthScreeningsToWorkers(
         createDto.workers,
         createdWorkerRows,
+        workPermit.id,
       );
 
       if (createDto.classifications?.length) {
@@ -1053,10 +1079,6 @@ export class WorkPermitsService {
    * Map work permit with all relations to DTO
    */
   private async mapWorkPermitWithRelations(workPermit: any): Promise<WorkPermitDto> {
-    const validityDays = await this.settingsHelper.getNumber(
-      HEALTH_DECLARATION_VALIDITY_DAYS_KEY,
-      90,
-    );
     const base = this.mapWorkPermitToDto(workPermit);
 
     // Map nested relations
@@ -1118,11 +1140,12 @@ export class WorkPermitsService {
     }
 
     if (workPermit.workers) {
+      const consumed: any[] = workPermit.consumedHealthScreenings ?? [];
       base.workers = workPermit.workers.map((w: any) => {
         const wr = w.worker;
         const u = wr?.user;
         const prof = u?.profession;
-        const hs = wr?.healthScreenings?.[0];
+        const hs = consumed.find((s) => s.userId === (u?.id ?? wr?.userId));
         return {
           id: w.id,
           workerId: w.workerId,
@@ -1135,10 +1158,7 @@ export class WorkPermitsService {
             ? {
               id: hs.id,
               status: hs.status,
-              validUntil: new Date(
-                hs.createdAt.getTime() +
-                  validityDays * 24 * 60 * 60 * 1000,
-              ).toISOString(),
+              consumedByWorkPermitId: hs.consumedByWorkPermitId ?? null,
               quizId: hs.quizId,
             }
             : undefined,
@@ -1805,6 +1825,7 @@ export class WorkPermitsService {
       await this.linkHealthScreeningsToWorkers(
         updateDto.workers,
         createdWorkerRows,
+        id,
       );
     }
 
@@ -2092,18 +2113,25 @@ export class WorkPermitsService {
         this.errorHandler.throwForbidden('You do not have permission to reject this work permit');
       }
 
-      // Update status to REJECTED
-      const updated = await this.prisma.workPermit.update({
-        where: { id },
-        data: {
-          status: WorkPermitStatusEnum.REJECTED,
-        },
-        include: {
-          area: true,
-          company: true,
-          creator: true,
-        },
-      });
+      // Update status to REJECTED and release any single-use health screenings
+      // linked to this permit so the applicant can re-use them on resubmission.
+      const [updated] = await this.prisma.$transaction([
+        this.prisma.workPermit.update({
+          where: { id },
+          data: {
+            status: WorkPermitStatusEnum.REJECTED,
+          },
+          include: {
+            area: true,
+            company: true,
+            creator: true,
+          },
+        }),
+        this.prisma.healthScreening.updateMany({
+          where: { consumedByWorkPermitId: id },
+          data: { consumedByWorkPermitId: null },
+        }),
+      ]);
 
       // Submit rejection record
       await this.masterApprovalsService.submitApproval(

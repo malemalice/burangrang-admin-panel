@@ -45,9 +45,10 @@ Extend the work permit domain so that **health declarations** are managed as **s
      - Show records created by that user (`createdBy` match), depending on entity capability.
 3. **Worker data model compatibility**
    - Keep contractor users/workers represented in existing **worker tables** for work permit integration.
-4. **Health declaration validity**
-   - Validity = **90 days** after latest submitted declaration.
-   - `90` must be configurable via existing **Settings** module.
+4. **Health declaration validity — single-use per work permit**
+   - A submitted declaration is valid for **exactly one** work permit. The moment a worker is added to a permit with that declaration, the declaration becomes **consumed** (FK `consumedByWorkPermitId` on `HealthScreening`).
+   - If the permit is **REJECTED**, the binding is **released** so the same declaration can be reused on the resubmission of that permit (or any other permit).
+   - No date-based expiry. The prior 90-day window (Settings key `health_declaration_validity_days`) has been retired.
 5. **Questionnaire policy**
    - Single global HSE template (no per-classification template split for now).
    - No answer causes automatic stop-work; declarations are informational/compliance evidence.
@@ -99,8 +100,8 @@ Extend the work permit domain so that **health declarations** are managed as **s
 
 - **From vendor portal:** vendor user selects a worker → **Start / update declaration** opens the active **HEALTH_DECLARATION** questionnaire (or resumes draft attempt).
 - **From work permit flow:** when building a permit, picking workers pulls from roster; each line shows **declaration compliance** before submit (policy: warn vs block — decision in §8).
-- **Validity rule:** declaration status is valid for **N days after submission**, default **90 days**, with `N` configurable in Settings.
-- **Legacy compatibility:** existing **`healthDeclarationUrl`** data remains valid (grandfathered); structured migration is optional.
+- **Validity rule:** declaration is **single-use per work permit**. Once linked to a permit (even DRAFT) it is consumed and unavailable to other permits. A rejection on the linked permit releases the declaration for reuse on resubmission.
+- **Legacy compatibility:** existing **`healthDeclarationUrl`** data remains valid (grandfathered); structured migration is optional. Pre-existing `DONE` screenings were force-expired at the rollout of this rule so every worker starts fresh.
 
 ---
 
@@ -171,8 +172,8 @@ Exact FKs are an implementation choice; the important product rule is: **auditor
 3. **Answer handling** — no auto stop-work from answers.
 4. **Visibility** — full answers visible to vendor and BSJ HSE.
 5. **Token approach** — non-login worker flow accepts long query token links.
-6. **Validity** — default 90 days, configurable via Settings.
-7. **Legacy** — URL-only history is retained; structured migration optional.
+6. **Validity** — single-use per permit; rejected permits release the binding. No date-based expiry.
+7. **Legacy** — URL-only history is retained; structured migration optional. Pre-existing DONE screenings were force-expired at rollout.
 
 ---
 

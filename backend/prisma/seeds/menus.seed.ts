@@ -525,11 +525,10 @@ export const seedMenus = async () => {
       },
     });
 
-    // Incidents menu (top-level)
-    await prisma.menu.create({
+    // Incidents menu group (parent + sub-modules)
+    const incidentsMenu = await prisma.menu.create({
       data: {
         name: 'Incidents',
-        path: '/incidents',
         icon: 'AlertTriangle',
         order: 6,
         isActive: true,
@@ -544,13 +543,13 @@ export const seedMenus = async () => {
       },
     });
 
-    // Incident Securities menu (top-level) - security incidents
     await prisma.menu.create({
       data: {
-        name: 'Incident Securities',
-        path: '/incident-securities',
-        icon: 'ShieldAlert',
-        order: 7,
+        name: 'Incidents',
+        path: '/incidents',
+        icon: 'AlertTriangle',
+        parentId: incidentsMenu.id,
+        order: 1,
         isActive: true,
         roles: {
           connect: [
@@ -563,13 +562,32 @@ export const seedMenus = async () => {
       },
     });
 
-    // Investigation Reports menu (top-level)
+    await prisma.menu.create({
+      data: {
+        name: 'Incident Securities',
+        path: '/incident-securities',
+        icon: 'ShieldAlert',
+        parentId: incidentsMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     await prisma.menu.create({
       data: {
         name: 'Investigation Reports',
         path: '/investigation-reports',
         icon: 'ClipboardCheck',
-        order: 8,
+        parentId: incidentsMenu.id,
+        order: 3,
         isActive: true,
         roles: {
           connect: [

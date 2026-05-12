@@ -337,7 +337,7 @@ function WorkerCertificateReadonly({
   );
 }
 
-/** Resolves latest valid DONE screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
+/** Resolves the latest available (DONE, not yet consumed) screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
 function WorkerAutoLinkedHealthScreening({
   control,
   index,
@@ -425,26 +425,25 @@ function WorkerAutoLinkedHealthScreening({
                 </Link>
               </p>
               <p className="text-xs text-muted-foreground">Status: {preview.status}</p>
-              {preview.validUntil && (
-                <p className="text-xs text-muted-foreground">
-                  Valid until: {new Date(preview.validUntil).toLocaleDateString()}
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Available declaration from {new Date(preview.createdAt).toLocaleDateString()}
+              </p>
             </div>
           ) : (
             <p className="text-muted-foreground">
-              No completed declaration in the validity window for this worker. If a declaration file is stored on the{' '}
+              No available declaration for this worker. Each work permit requires a fresh declaration —
+              if a declaration file is stored on the{' '}
               <Link
                 to={userId?.trim() ? `/work-permits/workers/${userId}` : '/work-permits/workers'}
                 className="text-primary underline-offset-4 hover:underline"
               >
                 worker profile
               </Link>
-              , the permit can still be validated by the system. Otherwise complete a{' '}
+              , the permit can still be validated. Otherwise start a new{' '}
               <Link to="/health-screenings" className="text-primary underline" target="_blank" rel="noreferrer">
                 health declaration
               </Link>{' '}
-              online first.
+              for this worker.
             </p>
           )}
         </div>

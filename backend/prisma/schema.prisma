@@ -1412,19 +1412,23 @@ model HealthScreening {
   status                     HealthScreeningStatusEnum @default(IN_PROGRESS)
   /// Set when the user submits with both declaration acknowledgements (audit).
   declarationTermsAcceptedAt DateTime?                 @map("declaration_terms_accepted_at")
+  /// Single-use binding: when set, this declaration is consumed by that work permit and unavailable for others. Cleared when the permit is REJECTED to allow reuse on resubmission.
+  consumedByWorkPermitId     String?                   @map("consumed_by_work_permit_id")
   createdAt                  DateTime                  @default(now())
   updatedAt                  DateTime                  @updatedAt
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company     Company?    @relation(fields: [companyId], references: [id])
-  quiz        Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  quizAttempt QuizAttempt @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
-  worker      Worker?     @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company              Company?    @relation(fields: [companyId], references: [id])
+  quiz                 Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizAttempt          QuizAttempt @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  worker               Worker?     @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  consumedByWorkPermit WorkPermit? @relation("HealthScreeningConsumedBy", fields: [consumedByWorkPermitId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([companyId])
   @@index([quizId])
   @@index([workerId])
+  @@index([consumedByWorkPermitId])
   @@map("t_health_screenings")
 }
 
@@ -2023,6 +2027,7 @@ model WorkPermit {
   supervisors     WorkPermitSupervisorToGuest[]
   hseOfficers     WorkPermitToUser[]
   safetyEquipment WorkPermitToSafetyEquipment[]
+  consumedHealthScreenings HealthScreening[] @relation("HealthScreeningConsumedBy")
 
   @@index([code])
   @@map("t_work_permits")
@@ -2552,7 +2557,10 @@ model Incident {
   dueDate                  DateTime?
   expectedOutcome          String?                    @db.Text
   needToStopActivity       StopActivityEnum           @default(NOT_SPECIFIED)
+  /// @deprecated Use stopLocally and stopWholeSchool booleans instead. Retained for backward compatibility until frontend migration completes.
   stopActivityDescription  String?                    @db.Text
+  stopLocally              Boolean                    @default(false)
+  stopWholeSchool          Boolean                    @default(false)
   treatment                TreatmentEnum              @default(NOT_SPECIFIED)
   treatmentDescription     String?                    @db.Text
   absence                  AbsenceEnum                @default(NOT_SPECIFIED)

@@ -128,9 +128,18 @@ export class IncidentDto {
   @Expose()
   needToStopActivity: StopActivityEnum;
 
-  @ApiProperty({ required: false })
+  /** @deprecated Use stopLocally and stopWholeSchool booleans instead. */
+  @ApiProperty({ required: false, deprecated: true })
   @Expose()
   stopActivityDescription?: string;
+
+  @ApiProperty({ default: false })
+  @Expose()
+  stopLocally: boolean;
+
+  @ApiProperty({ default: false })
+  @Expose()
+  stopWholeSchool: boolean;
 
   @ApiProperty({ enum: TreatmentEnum })
   @Expose()

@@ -62,6 +62,42 @@ An investigation report may only be created when the linked incident has been fl
 
 ## 3. Form Sections & Data Model
 
+### 3.0 Section Rendering Contract
+
+Every section below MUST render consistently across three surfaces. The contract anchors each section to the BSJ form (`BSJ/F/H-3-3.5C/Rev1`) sample (`Contof_Investigation_Report.pdf`).
+
+- **Form** — create/edit view (`InvestigationReportForm.tsx`). Editable inputs for Sections G–L; read-only mirrors for A–F.
+- **Detail** — read-only view (`InvestigationReportDetailPage.tsx`). Mirrors PDF structure but uses app design tokens.
+- **PDF** — `react-to-pdf` export (`InvestigationReportPDFTemplate.tsx`). Must visually parallel the BSJ form layout.
+
+| § | Form | Detail | PDF |
+|---|---|---|---|
+| **A — Accident Details** | 2-col header grid (location/incident-time/date on left, report time/date on right). A1/A2 multi-line textareas. A4 read-only image gallery (thumbnails + captions). | Same 2-col grid in card layout. A4 lightbox-capable gallery. | Mirrors PDF page 1: bilingual labels inline `EN (ID)`. A4 renders up to 3 images per row, each with caption underneath. |
+| **B — Injury Details** | 5-col checkbox matrix per B1/B2/B3 (read-only, aggregated). Decorative skeleton anatomy illustration on the right column ("INDICATE LOCATION OF INJURY"). B4 vertical radio list. | Same matrix, disabled state. Skeleton illustration optional in detail. | Mandatory skeleton illustration. Empty-state: "No injured person during this incident." (EN) / "Tidak ada korban dalam insiden ini." (ID) printed right of the mechanism block. |
+| **C — Injured Persons** | Read-only table with **separate** columns: No, Name, Gender, Position, Department. | Same separate-column table. | **Merged** column header `Position / Department / Section` — render as `{position} / {department}` (single cell). Fixed 8-row template; blank rows render empty. |
+| **D — Action Following Incident** | 2-col layout: Treatment radios left, Absence radios right. `treatmentDescription` full-width textarea below. | Same 2-col read-only. | Same 2-col; bilingual labels inline. |
+| **E — Stop Activity** | Parent Yes/No radio. When Yes, two indented checkboxes (`stopLocally`, `stopWholeSchool`) become enabled. | Same. | Identical layout to PDF page 4 Section E. |
+| **F — Witness** | Same column rules as C (separate fields). | Same. | Merged `Position / Department / Section` column; fixed 6-row template. |
+| **G — Cost Estimation** | Line-item inputs (Rp prefix + thousand-separator on blur). `isNotYetKnown` checkbox disables line items and locks the TOTAL display. | Read-only formatted amounts. | 2-col table (Description \| Total Cost). TOTAL row spans bottom: shows `Rp. {sum}` or `Rp. Not Yet Known (Belum diketahui)`. |
+| **H — Latent Failure** | HFACS tier matrix — Tier-1 colored band header → Tier-2 column headers → Tier-3 leaf checkboxes in a grid. Selected items highlighted via semantic accent token. `isOther` nodes expose an inline text input next to the checkbox. | Matrix renders only the tier columns containing selections (or full matrix in compact mode). | Full matrix matching PDF pages 5–7. Color tokens MUST be theme-safe (no raw `#FFA500` / `#FFFF00`). |
+| **I — Active Failure** | Same matrix pattern as H, single Tier-1 band ("Unsafe Acts"). | Same. | Full matrix matching PDF page 8. |
+| **J — Action Plans** | Editable list: add/edit/delete/reorder rows. Columns: No, Action Plan (textarea), Responsible Person (text), Target Date (date OR free-text fallback), Verification Date (H&S only). | Read-only table; overdue rows highlighted with destructive token. | 5-col table. **When `targetDate` is null, render `targetDateNotes` verbatim** in the Target Date cell (e.g. "Immediate", "The due date will be discussed further to reach an agreement with the responsible person"). No overdue highlight in PDF. |
+| **K — Signature** | 5-row form. Each row: fixed role label (EN + ID), editable `roleName` sub-line, name input, signature upload, signed-date picker. | Read-only rows; rendered signature image. | 4-col table (Role \| Name \| Signature \| Date). Role cell renders two lines: `{EN Role Label} ({ID Role Label})` on line 1, editable `{roleName}` on line 2. Empty slots still render with blank cells. |
+| **L — H&S Comments** | Plain-text multi-line textarea (NOT rich HTML). Then a single row of Date + Name + Signature. Distribution: 3 stacked checkboxes. | Same. | Comment block (preserves line breaks) → date/name/signature row → vertical bulleted distribution checkboxes (matches PDF page 10). |
+
+### 3.1 Cross-Cutting Render Rules
+
+| Rule | Requirement |
+|---|---|
+| **Bilingual labels** | Every field label SHALL render inline as `EN (ID)` in Form, Detail, and PDF — no i18n toggle. (Resolves NFR-010 ambiguity.) |
+| **PDF header (every page)** | BSJ logo (top-left) · centered title `ACCIDENT INVESTIGATION REPORT` over `LAPORAN INVESTIGASI KECELAKAAN` · report number row with "Fill by Health and Safety / Diisi oleh bagian Kesehatan dan Keselamatan" hint · form code `BSJ/F/H-3-3.5C/Rev1 - Rev date : 03/01/2022` top-right. |
+| **PDF footer (every page)** | Left: `BSJ/F/G-3-01 - Rev 0 - Rev date : 07/02/17`. Right: `Page X of Y`. |
+| **Empty-state copy** | Section B/C (no injured): `No injured person during this incident` / `Tidak ada korban dalam insiden ini`. Section F (no witnesses): `No witness recorded` / `Tidak ada saksi yang tercatat`. |
+| **Color tokens (HFACS)** | Tier-1 header band: semantic accent (e.g. `bg-warning/40`). Selected leaf: `bg-warning/15`. Strictly NO raw hex/HSL/Tailwind palette colors. (Reinforces NFR-011.) |
+| **Section spacing** | Each section starts on a new visual block with the bilingual section title bar (`A. ACCIDENT DETAILS (Rincian Kecelakaan)`). PDF section bar uses the muted band token. |
+
+---
+
 ### Section A — Accident Details (Rincian Kecelakaan)
 
 **Source:** Pre-filled from linked `t_incidents` record. All fields below marked [read-only] except A1 and A2.
@@ -99,6 +135,9 @@ Read-only. Inherited from the incident.
 | Field | Type | Source | Editable |
 |---|---|---|---|
 | images | list | `t_incident_images` linked to incident | No |
+| caption | varchar(512), nullable | `t_incident_images.caption` | No (captured in Incident module) |
+
+> **Schema migration required (Incident module):** A nullable `caption` field on `t_incident_images` is required so that each image carries a descriptive caption (e.g. "Image 1 Condition of the fence during the accident"). When `caption` is null, the PDF renders `Image {index}` only.
 
 ---
 
@@ -250,7 +289,10 @@ Read-only from `t_incidents.treatmentDescription`.
 | Field | Type | Source | Values |
 |---|---|---|---|
 | needToStopActivity | enum | `t_incidents.needToStopActivity` | `StopActivityEnum`: YES / NO |
-| stopActivityDescription | text | `t_incidents.stopActivityDescription` | Sub-options: "Stop activity locally related to the accident" / "Stop the whole school activities" |
+| stopLocally | boolean | `t_incidents.stopLocally` | Checkbox — "Stop activity locally related to the accident/incident/nearmiss" |
+| stopWholeSchool | boolean | `t_incidents.stopWholeSchool` | Checkbox — "Stop the whole school activities" |
+
+> **Schema migration required (Incident module):** Replace the free-text `stopActivityDescription` with two booleans `stopLocally` and `stopWholeSchool` on `t_incidents`. This matches the BSJ form's indented-checkbox layout and allows both sub-options to be selected independently when `needToStopActivity = YES`. Existing `stopActivityDescription` data SHALL be migrated by best-effort keyword match (or surfaced for manual reclassification).
 
 ---
 
@@ -523,7 +565,7 @@ HFACS Unsafe Acts — multi-select checkboxes.
 | actionPlan | Action Plan | Tindakan Perbaikan | text | Required |
 | responsiblePerson | Responsible Person | Penanggung Jawab | varchar(512) | Free text; may include multiple names and external parties |
 | targetDate | Target Date | Tanggal target selesai | date, nullable | Null when TBD |
-| targetDateNotes | — | — | text, nullable | "The due date will be discussed further to reach an agreement with the responsible person" |
+| targetDateNotes | — | — | text, nullable | Free-text fallback when `targetDate` is null. Examples: `"Immediate"`, `"The due date will be discussed further to reach an agreement with the responsible person"`. **Render rule:** PDF/Detail show the formatted `targetDate` when present, otherwise render `targetDateNotes` verbatim in the Target Date column. |
 | verificationDate | Verification Date | Tanggal verifikasi penyelesaian tindakan oleh Health and Safety | date, nullable | Filled by H&S upon verified completion |
 
 ---
@@ -542,6 +584,8 @@ HFACS Unsafe Acts — multi-select checkboxes.
 
 Each slot captures: `roleName` (e.g., "HSE Manager"), `name` (full name), `signatureUrl`, `signedAt` (date).
 
+**Render rule:** The fixed bilingual role label (`{EN Role Label} ({ID Role Label})`) is rendered on line 1 of the role cell; the editable `roleName` ("HSE Manager", "Risk & Business Continuity", …) is rendered on line 2. Both lines render in Form, Detail, and PDF. Empty slots (no name/signature) MUST still render with the role label and blank cells — they are not collapsed.
+
 ---
 
 ### Section L — Health and Safety Comments (Komentar Health and Safety)
@@ -550,7 +594,7 @@ Each slot captures: `roleName` (e.g., "HSE Manager"), `name` (full name), `signa
 
 | Field | EN Label | ID Label | Type |
 |---|---|---|---|
-| hsComments | H&S Comments | Komentar Health and Safety | text (rich/multi-line) |
+| hsComments | H&S Comments | Komentar Health and Safety | text (plain, multi-line — line breaks preserved; rich HTML not supported) |
 | hsCommentSignedBy | Signed by | Ditandatangani oleh | FK → t_users |
 | hsCommentSignedAt | Date | Tanggal | date |
 
@@ -602,6 +646,11 @@ DRAFT ──► SUBMITTED ──► REVIEWED ──► APPROVED
 | FR-015 | The system SHALL flag action plan items as overdue when: `targetDate` is set AND `targetDate < today` AND `verificationDate` is null. Overdue items SHALL be visually highlighted and filterable. |
 | FR-016 | The system SHALL allow a draft investigation report to be deleted (soft delete) before submission. After submission, deletion requires explicit admin override. |
 | FR-017 | The system SHALL support attachment of supporting documents to the investigation report (e.g., JSA documents, inspection records) via the existing FileUpload service. |
+| FR-018 | The PDF export SHALL match the per-section rendering contract in §3.0 and the cross-cutting rules in §3.1, preserving visual parity with `BSJ/F/H-3-3.5C/Rev1`. |
+| FR-019 | The HFACS matrix (Sections H & I) SHALL use semantic theme tokens for tier bands and selected-leaf highlights. Raw hex / HSL / Tailwind palette colors are prohibited; the matrix MUST render correctly in both light and dark mode. |
+| FR-020 | Section J SHALL render `targetDateNotes` verbatim in the Target Date column when `targetDate` is null, in Form (read-back), Detail, and PDF. |
+| FR-021 | The Detail page SHALL expose status-aware actions: **Edit** (DRAFT), **Submit for Review** (DRAFT), **Approve** + **Return for Revision** (REVIEWED), **Export PDF** (any status), gated by both current status and user role per the workflow in §4. Buttons not applicable to the current status MUST be hidden, not just disabled. |
+| FR-022 | The list page SHALL display columns: Report No, Incident Date, Area, Incident Type, Status, Lead Investigator, Actions. Default sort: Incident Date desc. Persist sort, pagination, search, and filters in URL via `useSearchParams` (per existing list-page convention). |
 
 ---
 
@@ -636,6 +685,8 @@ The following changes to the existing Incident module are required before this m
 | Extend `TypeOfInjuryEnum` | Schema enum | + DERMATITIS, PARALYSIS, AMPUTATION, CRUSH, ABRASION |
 | Extend `MechanismOfInjuryEnum` | Schema enum | + SHARP_OBJECTS, HEAT_COLD, MANUAL_HANDLING |
 | Extend `TreatmentEnum` | Schema enum | + SELF, HEALTH_SERVICES (MEDICAL_TREATMENT retained) |
+| Add `caption` | `t_incident_images` | `varchar(512) nullable` — descriptive caption per image (rendered under each image in PDF Section A4) |
+| Replace `stopActivityDescription` with booleans | `t_incidents` | Add `stopLocally boolean @default(false)` and `stopWholeSchool boolean @default(false)`; drop or deprecate `stopActivityDescription` after data migration |
 
 ---
 

@@ -5,14 +5,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Plus, Trash2, Save, CheckCircle2, Upload, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Save, CheckCircle2, Upload } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Label } from '@/core/components/ui/label';
-import { Badge } from '@/core/components/ui/badge';
+import {
+  IncidentSectionA,
+  IncidentSectionB,
+  IncidentSectionC,
+  IncidentSectionD,
+  IncidentSectionE,
+  IncidentSectionF,
+} from './incident-readonly';
 import {
   Form,
   FormControl,
@@ -122,7 +129,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadCategoryId, setUploadCategoryId] = useState<string | null>(null);
-  const [refOpen, setRefOpen] = useState(false);
   const [hfacsTree, setHfacsTree] = useState<HfacsNodeDTO[]>([]);
   const [hfacsLoading, setHfacsLoading] = useState(true);
 
@@ -453,164 +459,8 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         onSubmit={form.handleSubmit((d) => onSubmit(d))}
         className="max-w-5xl mx-auto space-y-6"
       >
-        {/* Incident Reference Panel (A–F read-only, collapsible) */}
-        <Card>
-          <CardHeader
-            className="cursor-pointer select-none"
-            onClick={() => setRefOpen((v) => !v)}
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <CardTitle className="text-base">Incident Reference (A–F, read-only)</CardTitle>
-                <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                  <span className="font-medium text-foreground">{incident.code}</span>
-                  {' — '}{incident.subject}
-                  {' · '}{incident.incidentDate ? format(new Date(incident.incidentDate), 'dd MMM yyyy') : '—'}
-                  {' · '}{incident.area?.name ?? '—'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={`/incidents/${incident.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View Incident
-                </a>
-                {refOpen ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          {refOpen && (
-            <CardContent className="pt-0 space-y-6">
-              {/* A — Accident Details */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">A. Accident Details</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <KV label="Report Number" value={report?.reportNumber ?? '— Auto-generated on create —'} />
-                  <KV label="Incident Code" value={incident.code} />
-                  <KV label="Accident Location" value={incident.area?.name ?? '—'} />
-                  <KV
-                    label="Accident Date"
-                    value={incident.incidentDate ? format(new Date(incident.incidentDate), 'dd MMM yyyy') : '—'}
-                  />
-                  <KV
-                    label="Incident Time"
-                    value={incident.incidentDate ? format(new Date(incident.incidentDate), 'HH:mm') : '—'}
-                  />
-                  <KV
-                    label="Report Date"
-                    value={incident.createdAt ? format(new Date(incident.createdAt), 'dd MMM yyyy') : '—'}
-                  />
-                  <div className="md:col-span-2">
-                    <Label className="text-muted-foreground">Description of Incident</Label>
-                    <p className="text-sm whitespace-pre-line">{incident.description ?? '—'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* B/C — Injured Persons */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">B/C. Injured Persons</p>
-                {!incident.injuredPersons || incident.injuredPersons.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No injured person during this incident.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="text-left p-2">No</th>
-                          <th className="text-left p-2">Name</th>
-                          <th className="text-left p-2">Gender</th>
-                          <th className="text-left p-2">Position</th>
-                          <th className="text-left p-2">Department</th>
-                          <th className="text-left p-2">Body Part</th>
-                          <th className="text-left p-2">Type of Injury</th>
-                          <th className="text-left p-2">Mechanism</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {incident.injuredPersons.map((p, i) => (
-                          <tr key={p.id} className="border-t">
-                            <td className="p-2">{i + 1}</td>
-                            <td className="p-2">{p.injuredPersonName ?? '—'}</td>
-                            <td className="p-2">{p.gender ?? '—'}</td>
-                            <td className="p-2">{p.position ?? '—'}</td>
-                            <td className="p-2">{p.department?.name ?? '—'}</td>
-                            <td className="p-2">{p.injuredBodyPart}</td>
-                            <td className="p-2">{p.typeOfInjury}</td>
-                            <td className="p-2">{p.mechanismOfInjury}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <div className="mt-3 text-sm text-muted-foreground">
-                  Level of Injury (B4): <Badge variant="secondary">{incident.incidentClassification}</Badge>
-                </div>
-              </div>
-
-              {/* D/E — Action Following Incident */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">D/E. Action Following Incident & Stop Activity</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <KV label="Treatment" value={incident.treatment} />
-                  <KV label="Absence" value={incident.absence} />
-                  <div className="md:col-span-2">
-                    <Label className="text-muted-foreground">Treatment Description</Label>
-                    <p className="text-sm whitespace-pre-line">{incident.treatmentDescription ?? '—'}</p>
-                  </div>
-                  <KV label="Need to Stop Activity" value={incident.needToStopActivity} />
-                  <div className="md:col-span-2">
-                    <Label className="text-muted-foreground">Stop Activity Description</Label>
-                    <p className="text-sm whitespace-pre-line">{incident.stopActivityDescription ?? '—'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* F — Witnesses */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">F. Witnesses</p>
-                {!incident.witnesses || incident.witnesses.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No witnesses recorded.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="text-left p-2">No</th>
-                          <th className="text-left p-2">Name</th>
-                          <th className="text-left p-2">Gender</th>
-                          <th className="text-left p-2">Position</th>
-                          <th className="text-left p-2">Department</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {incident.witnesses.map((w, i) => (
-                          <tr key={w.id} className="border-t">
-                            <td className="p-2">{i + 1}</td>
-                            <td className="p-2">{w.witnessName ?? '—'}</td>
-                            <td className="p-2">{w.gender ?? '—'}</td>
-                            <td className="p-2">{w.position ?? '—'}</td>
-                            <td className="p-2">{w.department?.name ?? '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          )}
-        </Card>
+        {/* Section A — Accident Details (read-only from incident) */}
+        <IncidentSectionA incident={incident} reportNumber={report?.reportNumber ?? null} />
 
         {/* A1/A2 — Task & Equipment (always visible, editable) */}
         <Card>
@@ -646,6 +496,21 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
             />
           </CardContent>
         </Card>
+
+        {/* Section B — Injury Details (read-only, aggregated) */}
+        <IncidentSectionB incident={incident} />
+
+        {/* Section C — Injured Persons (read-only) */}
+        <IncidentSectionC incident={incident} />
+
+        {/* Section D — Action Following Incident (read-only) */}
+        <IncidentSectionD incident={incident} />
+
+        {/* Section E — Need to Stop Activity (read-only) */}
+        <IncidentSectionE incident={incident} />
+
+        {/* Section F — Witnesses (read-only) */}
+        <IncidentSectionF incident={incident} />
 
         {/* Section G — Cost */}
         <Card>
@@ -999,13 +864,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     </Form>
   );
 };
-
-const KV = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <div>
-    <Label className="text-muted-foreground">{label}</Label>
-    <p className="text-sm">{value}</p>
-  </div>
-);
 
 interface CostInputProps {
   name: keyof FormValues;

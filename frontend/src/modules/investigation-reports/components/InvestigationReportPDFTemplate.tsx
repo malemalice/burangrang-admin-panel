@@ -1,20 +1,29 @@
 import { format } from 'date-fns';
-import type { InvestigationReport } from '../types/investigation-report.types';
+import {
+  type InvestigationReport,
+  InvestigationCauseSectionEnum,
+  InvestigationSignatoryRoleEnum,
+} from '../types/investigation-report.types';
 
-const cell: React.CSSProperties = {
-  border: '1px solid #555',
-  padding: 6,
-  verticalAlign: 'top',
+const SIGNATORY_ROLE_LABELS: Record<InvestigationSignatoryRoleEnum, string> = {
+  [InvestigationSignatoryRoleEnum.LEAD_INVESTIGATOR]: 'Lead Investigator (Penyidik 1)',
+  [InvestigationSignatoryRoleEnum.INVESTIGATOR_2]: '2nd Investigator (Penyidik 2)',
+  [InvestigationSignatoryRoleEnum.INVESTIGATOR_3]: '3rd Investigator (Penyidik 3)',
+  [InvestigationSignatoryRoleEnum.RELATED_MANAGER]: 'Related Manager (Manager terkait)',
+  [InvestigationSignatoryRoleEnum.SECURITY]: 'Security',
 };
-const labelCell: React.CSSProperties = {
-  ...cell,
-  background: '#f0f0f0',
-  fontWeight: 600,
-  width: 200,
-};
-
-const formatRupiah = (n?: number | null) =>
-  n == null ? '—' : `Rp. ${Number(n).toLocaleString('id-ID')}`;
+import {
+  IncidentSectionA,
+  IncidentSectionB,
+  IncidentSectionC,
+  IncidentSectionD,
+  IncidentSectionE,
+  IncidentSectionF,
+  PdfRow,
+  PdfSectionTitle,
+  pdfCell,
+  pdfFormatRupiah,
+} from './incident-readonly';
 
 const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationReport }) => {
   const incident = report.incident;
@@ -26,7 +35,12 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
     (Number(report.cost?.compensationCost ?? 0) || 0) +
     (Number(report.cost?.otherCost ?? 0) || 0);
 
-  const selectedCauses = report.causes.filter((c) => c.isSelected);
+  const latentCauses = report.causes.filter(
+    (c) => c.isSelected && c.section === InvestigationCauseSectionEnum.LATENT_FAILURE,
+  );
+  const activeCauses = report.causes.filter(
+    (c) => c.isSelected && c.section === InvestigationCauseSectionEnum.ACTIVE_FAILURE,
+  );
 
   return (
     <div
@@ -51,115 +65,62 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
         </p>
       </div>
 
-      {/* Section A */}
-      <SectionTitle>A. Accident Details / Rincian Kecelakaan</SectionTitle>
+      {incident && (
+        <IncidentSectionA
+          incident={incident}
+          reportNumber={report.reportNumber}
+          variant="pdf"
+        />
+      )}
+
+      <PdfSectionTitle>
+        A1/A2. Task & Equipment / Pekerjaan dan Peralatan
+      </PdfSectionTitle>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
-          <Row label="Accident Location / Lokasi" value={incident?.area?.name ?? '—'} />
-          <Row
-            label="Accident Date / Tanggal Kecelakaan"
-            value={incident ? format(new Date(incident.incidentDate), 'dd MMM yyyy') : '—'}
-          />
-          <Row
-            label="Incident Time / Waktu Kejadian"
-            value={incident ? format(new Date(incident.incidentDate), 'HH:mm') : '—'}
-          />
-          <Row
-            label="Report Date / Tanggal Laporan"
-            value={incident ? format(new Date(incident.createdAt), 'dd MMM yyyy') : '—'}
-          />
-          <Row label="Description / Deskripsi" value={incident?.description ?? '—'} />
-          <Row label="A1. Task Performed" value={report.taskBeingPerformed ?? '—'} />
-          <Row label="A2. Equipment Used" value={report.equipmentUsed ?? '—'} />
+          <PdfRow label="A1. Task Performed" value={report.taskBeingPerformed ?? '—'} />
+          <PdfRow label="A2. Equipment Used" value={report.equipmentUsed ?? '—'} />
         </tbody>
       </table>
 
-      {/* Section C — Injured Persons */}
-      <SectionTitle>C. Injured Persons / Rincian Korban</SectionTitle>
-      {!incident?.injuredPersons || incident.injuredPersons.length === 0 ? (
-        <p style={{ marginBottom: 12 }}>No injured person during this incident.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
-          <thead>
-            <tr>
-              <th style={cell}>No</th>
-              <th style={cell}>Name</th>
-              <th style={cell}>Gender</th>
-              <th style={cell}>Position</th>
-              <th style={cell}>Department</th>
-            </tr>
-          </thead>
-          <tbody>
-            {incident.injuredPersons.map((p, i) => (
-              <tr key={p.id}>
-                <td style={cell}>{i + 1}</td>
-                <td style={cell}>{p.injuredPersonName ?? '—'}</td>
-                <td style={cell}>{p.gender ?? '—'}</td>
-                <td style={cell}>{p.position ?? '—'}</td>
-                <td style={cell}>{p.department?.name ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {incident && (
+        <>
+          <IncidentSectionB incident={incident} variant="pdf" />
+          <IncidentSectionC incident={incident} variant="pdf" />
+          <IncidentSectionD incident={incident} variant="pdf" />
+          <IncidentSectionE incident={incident} variant="pdf" />
+          <IncidentSectionF incident={incident} variant="pdf" />
+        </>
       )}
 
-      {/* Section F — Witnesses */}
-      <SectionTitle>F. Witnesses / Saksi</SectionTitle>
-      {!incident?.witnesses || incident.witnesses.length === 0 ? (
-        <p style={{ marginBottom: 12 }}>No witnesses recorded.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
-          <thead>
-            <tr>
-              <th style={cell}>No</th>
-              <th style={cell}>Name</th>
-              <th style={cell}>Gender</th>
-              <th style={cell}>Position</th>
-              <th style={cell}>Department</th>
-            </tr>
-          </thead>
-          <tbody>
-            {incident.witnesses.map((w, i) => (
-              <tr key={w.id}>
-                <td style={cell}>{i + 1}</td>
-                <td style={cell}>{w.witnessName ?? '—'}</td>
-                <td style={cell}>{w.gender ?? '—'}</td>
-                <td style={cell}>{w.position ?? '—'}</td>
-                <td style={cell}>{w.department?.name ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* Section G */}
-      <SectionTitle>G. Estimation Cost / Estimasi Kerugian</SectionTitle>
+      <PdfSectionTitle>G. Estimation Cost / Estimasi Kerugian</PdfSectionTitle>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
-          <Row label="Medical Cost" value={formatRupiah(report.cost?.medicalCost)} />
-          <Row label="Lost Time Cost" value={formatRupiah(report.cost?.lostTimeCost)} />
-          <Row label="Damage Cost" value={formatRupiah(report.cost?.damageCost)} />
-          <Row label="Repair Cost" value={formatRupiah(report.cost?.repairCost)} />
-          <Row label="Compensation Cost" value={formatRupiah(report.cost?.compensationCost)} />
-          <Row label="Other Cost" value={formatRupiah(report.cost?.otherCost)} />
-          <Row
+          <PdfRow label="Medical Cost" value={pdfFormatRupiah(report.cost?.medicalCost)} />
+          <PdfRow label="Lost Time Cost" value={pdfFormatRupiah(report.cost?.lostTimeCost)} />
+          <PdfRow label="Damage Cost" value={pdfFormatRupiah(report.cost?.damageCost)} />
+          <PdfRow label="Repair Cost" value={pdfFormatRupiah(report.cost?.repairCost)} />
+          <PdfRow label="Compensation Cost" value={pdfFormatRupiah(report.cost?.compensationCost)} />
+          <PdfRow label="Other Cost" value={pdfFormatRupiah(report.cost?.otherCost)} />
+          <PdfRow
             label="TOTAL"
             value={
               report.cost?.isNotYetKnown
                 ? 'Rp. Not Yet Known (Belum diketahui)'
-                : formatRupiah(sumCost)
+                : pdfFormatRupiah(sumCost)
             }
           />
         </tbody>
       </table>
 
-      {/* Sections H/I */}
-      <SectionTitle>H/I. Causes (HFACS)</SectionTitle>
-      {selectedCauses.length === 0 ? (
+      <PdfSectionTitle>
+        H. Latent Failure / Kegagalan Terpendam (Indirect Cause)
+      </PdfSectionTitle>
+      {latentCauses.length === 0 ? (
         <p style={{ marginBottom: 12 }}>No causes selected.</p>
       ) : (
         <ul style={{ marginBottom: 12, paddingLeft: 20 }}>
-          {selectedCauses.map((c) => (
+          {latentCauses.map((c) => (
             <li key={c.id}>
               <strong>[{c.causeKey}]</strong> {c.causeName}
               {c.customNotes ? <em> — {c.customNotes}</em> : null}
@@ -168,33 +129,48 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
         </ul>
       )}
 
-      {/* Section J */}
-      <SectionTitle>J. Remedial Action Plans</SectionTitle>
+      <PdfSectionTitle>
+        I. Active Failure / Kegagalan Aktif (Direct Cause)
+      </PdfSectionTitle>
+      {activeCauses.length === 0 ? (
+        <p style={{ marginBottom: 12 }}>No causes selected.</p>
+      ) : (
+        <ul style={{ marginBottom: 12, paddingLeft: 20 }}>
+          {activeCauses.map((c) => (
+            <li key={c.id}>
+              <strong>[{c.causeKey}]</strong> {c.causeName}
+              {c.customNotes ? <em> — {c.customNotes}</em> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <PdfSectionTitle>J. Remedial Action Plans / Rencana Tindakan Perbaikan</PdfSectionTitle>
       {report.actionPlans.length === 0 ? (
         <p style={{ marginBottom: 12 }}>No action plans.</p>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
           <thead>
             <tr>
-              <th style={cell}>No</th>
-              <th style={cell}>Action Plan</th>
-              <th style={cell}>Responsible</th>
-              <th style={cell}>Target Date</th>
-              <th style={cell}>Verified</th>
+              <th style={pdfCell}>No</th>
+              <th style={pdfCell}>Action Plan</th>
+              <th style={pdfCell}>Responsible</th>
+              <th style={pdfCell}>Target Date</th>
+              <th style={pdfCell}>Verified</th>
             </tr>
           </thead>
           <tbody>
             {report.actionPlans.map((a, i) => (
               <tr key={a.id}>
-                <td style={cell}>{i + 1}</td>
-                <td style={cell}>{a.actionPlan}</td>
-                <td style={cell}>{a.responsiblePerson ?? '—'}</td>
-                <td style={cell}>
+                <td style={pdfCell}>{i + 1}</td>
+                <td style={pdfCell}>{a.actionPlan}</td>
+                <td style={pdfCell}>{a.responsiblePerson ?? '—'}</td>
+                <td style={pdfCell}>
                   {a.targetDate
                     ? format(new Date(a.targetDate), 'dd MMM yyyy')
                     : a.targetDateNotes ?? 'TBD'}
                 </td>
-                <td style={cell}>
+                <td style={pdfCell}>
                   {a.verificationDate
                     ? format(new Date(a.verificationDate), 'dd MMM yyyy')
                     : '—'}
@@ -205,25 +181,29 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
         </table>
       )}
 
-      {/* Section K */}
-      <SectionTitle>K. Signatures / Tanda Tangan</SectionTitle>
+      <PdfSectionTitle>K. Signatures / Tanda Tangan</PdfSectionTitle>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <thead>
           <tr>
-            <th style={cell}>Role</th>
-            <th style={cell}>Position</th>
-            <th style={cell}>Name</th>
-            <th style={cell}>Signature</th>
-            <th style={cell}>Date</th>
+            <th style={pdfCell}>Investigator Team (Tim Investigator)</th>
+            <th style={pdfCell}>Name (Nama)</th>
+            <th style={pdfCell}>Signature (Tanda tangan)</th>
+            <th style={pdfCell}>Date (Tanggal)</th>
           </tr>
         </thead>
         <tbody>
           {report.signatories.map((s) => (
             <tr key={s.id}>
-              <td style={cell}>{s.signatoryRole.replace(/_/g, ' ')}</td>
-              <td style={cell}>{s.roleName ?? '—'}</td>
-              <td style={cell}>{s.name ?? '—'}</td>
-              <td style={cell}>
+              <td style={pdfCell}>
+                <div style={{ fontWeight: 600 }}>
+                  {SIGNATORY_ROLE_LABELS[s.signatoryRole] ?? s.signatoryRole.replace(/_/g, ' ')}
+                </div>
+                {s.roleName ? (
+                  <div style={{ fontSize: 10, color: '#555' }}>{s.roleName}</div>
+                ) : null}
+              </td>
+              <td style={pdfCell}>{s.name ?? '—'}</td>
+              <td style={pdfCell}>
                 {s.signatureUrl ? (
                   <img
                     src={s.signatureUrl}
@@ -234,7 +214,7 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
                   '—'
                 )}
               </td>
-              <td style={cell}>
+              <td style={pdfCell}>
                 {s.signedAt ? format(new Date(s.signedAt), 'dd MMM yyyy') : '—'}
               </td>
             </tr>
@@ -242,8 +222,9 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
         </tbody>
       </table>
 
-      {/* Section L */}
-      <SectionTitle>L. H&S Comments / Komentar Health and Safety</SectionTitle>
+      <PdfSectionTitle>
+        L. H&S Comments / Komentar Health and Safety
+      </PdfSectionTitle>
       <p style={{ whiteSpace: 'pre-line', marginBottom: 8 }}>
         {report.hsComments ?? '—'}
       </p>
@@ -257,28 +238,23 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
           .filter(Boolean)
           .join(', ') || '—'}
       </p>
+
+      <div
+        style={{
+          marginTop: 24,
+          paddingTop: 8,
+          borderTop: '1px solid #999',
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 9,
+          color: '#555',
+        }}
+      >
+        <span>BSJ/F/G-3-01 - Rev 0 - Rev date : 07/02/17</span>
+        <span>{report.reportNumber}</span>
+      </div>
     </div>
   );
 };
-
-const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <h3
-    style={{
-      fontSize: 12,
-      margin: '10px 0 6px',
-      paddingBottom: 2,
-      borderBottom: '1px solid #999',
-    }}
-  >
-    {children}
-  </h3>
-);
-
-const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <tr>
-    <td style={labelCell}>{label}</td>
-    <td style={cell}>{value}</td>
-  </tr>
-);
 
 export default InvestigationReportPDFTemplate;
