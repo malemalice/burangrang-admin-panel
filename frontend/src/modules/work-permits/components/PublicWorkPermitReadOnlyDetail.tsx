@@ -30,10 +30,7 @@ import {
   WORK_PERMIT_SECTION_G_SUB,
 } from '../constants/workPermitSections';
 import type { WorkPermit, WorkPermitWorker } from '../types/work-permit.types';
-import {
-  hasHealthDeclarationFile,
-  isHealthScreeningEligible,
-} from '../utils/healthScreeningEligibility';
+import { hasHealthDeclarationFile } from '../utils/healthScreeningEligibility';
 import workPermitService from '../services/workPermitService';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
@@ -56,15 +53,18 @@ function getPublicDetailErrorMessage(e: unknown): string {
 
 const screeningBadgeClass = {
   valid: 'border-0 bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200',
+  linkedHere: 'border-0 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200',
   warn: 'border-0 bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200',
   muted: 'border-0 bg-muted text-muted-foreground',
 } as const;
 
 function PublicWorkPermitWorkersList({
   workers,
+  workPermitId,
   publicApplicantToken,
 }: {
   workers: WorkPermitWorker[];
+  workPermitId: string;
   publicApplicantToken?: string;
 }) {
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
@@ -77,14 +77,14 @@ function PublicWorkPermitWorkersList({
     if (!hs) {
       return { label: 'No online declaration', className: screeningBadgeClass.muted };
     }
-    if (isHealthScreeningEligible(hs)) {
-      return { label: 'Valid', className: screeningBadgeClass.valid };
-    }
-    if (hs.status === 'DONE' && hs.validUntil) {
-      const expired = new Date(hs.validUntil).getTime() < Date.now();
-      if (expired) {
-        return { label: 'Expired', className: screeningBadgeClass.warn };
+    if (hs.status === 'DONE') {
+      if (hs.consumedByWorkPermitId === workPermitId) {
+        return { label: 'Linked to this permit', className: screeningBadgeClass.linkedHere };
       }
+      if (hs.consumedByWorkPermitId == null) {
+        return { label: 'Available', className: screeningBadgeClass.valid };
+      }
+      return { label: 'Used elsewhere', className: screeningBadgeClass.muted };
     }
     return {
       label: hs.status === 'IN_PROGRESS' ? 'In progress' : hs.status.replace(/_/g, ' '),
@@ -126,10 +126,11 @@ function PublicWorkPermitWorkersList({
       {workers.map((worker) => {
         const userId = worker.userId;
         const hs = worker.healthScreening;
-        const eligible = hs ? isHealthScreeningEligible(hs) : false;
+        const linkedHere =
+          hs?.status === 'DONE' && hs.consumedByWorkPermitId === workPermitId;
         const hasFile = hasHealthDeclarationFile(worker.healthDeclarationUrl);
-        /** Show health form link whenever the online declaration is not valid (file alone does not block—users can still open/share the public questionnaire). */
-        const showLinkActions = Boolean(publicApplicantToken) && !eligible;
+        /** Show health form link whenever the worker has no declaration consumed by THIS permit (file alone does not block — users can still open/share the public questionnaire). */
+        const showLinkActions = Boolean(publicApplicantToken) && !linkedHere;
         const cached = userId ? linkByUserId[userId] : undefined;
         const screeningBadge = getScreeningBadge(worker);
 
@@ -160,14 +161,9 @@ function PublicWorkPermitWorkersList({
               <Badge variant="secondary" className={screeningBadge.className}>
                 {screeningBadge.label}
               </Badge>
-              {hs?.validUntil ? (
+              {hs?.status === 'DONE' && !linkedHere ? (
                 <span className="text-xs text-muted-foreground">
-                  {eligible
-                    ? `Valid through ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`
-                    : hs.status === 'DONE' &&
-                        new Date(hs.validUntil).getTime() < Date.now()
-                      ? `Expired ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`
-                      : `Review by ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`}
+                  Each permit needs a fresh declaration — start a new one for this worker.
                 </span>
               ) : null}
             </div>
@@ -423,6 +419,7 @@ export function PublicWorkPermitReadOnlyDetail({
               ) : (
                 <PublicWorkPermitWorkersList
                   workers={workPermit.workers!}
+                  workPermitId={workPermit.id}
                   publicApplicantToken={publicApplicantToken}
                 />
               )}

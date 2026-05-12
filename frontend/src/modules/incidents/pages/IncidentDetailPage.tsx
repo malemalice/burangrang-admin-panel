@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, ClipboardCheck, Check, X } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -602,8 +602,9 @@ const IncidentDetailPage = () => {
         )}
 
         {/* Control Measures & Outcomes */}
-        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution || 
-          incident.stopActivityDescription || incident.treatmentDescription || incident.dueDate ||
+        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution ||
+          incident.stopActivityDescription || incident.stopLocally || incident.stopWholeSchool ||
+          incident.treatmentDescription || incident.dueDate ||
           incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED || incident.treatment !== TreatmentEnum.NOT_SPECIFIED || 
           incident.absence !== AbsenceEnum.NOT_SPECIFIED) && (
           <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
@@ -652,10 +653,42 @@ const IncidentDetailPage = () => {
                   <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
                 </div>
               )}
-              {incident.stopActivityDescription && (
+              {incident.needToStopActivity === StopActivityEnum.YES && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Stop Activity Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.stopActivityDescription}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">If Yes (Jika Ya)</h3>
+                  <div className="space-y-2 pl-4">
+                    <div className="flex items-start gap-2 text-sm">
+                      {incident.stopLocally ? (
+                        <Check className="h-4 w-4 text-primary mt-0.5" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <span>
+                        Stop activity locally related to the accident/incident/nearmiss
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 text-sm">
+                      {incident.stopWholeSchool ? (
+                        <Check className="h-4 w-4 text-primary mt-0.5" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <span>
+                        Stop the whole school activities
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan seluruh kegiatan sekolah
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  {incident.stopActivityDescription && !incident.stopLocally && !incident.stopWholeSchool && (
+                    <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                      {incident.stopActivityDescription}
+                    </p>
+                  )}
                 </div>
               )}
               {incident.treatmentDescription && (

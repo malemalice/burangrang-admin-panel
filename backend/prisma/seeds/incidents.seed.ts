@@ -101,6 +101,21 @@ export const seedIncidents = async () => {
       return d;
     };
 
+    // Derive Section E booleans (stopLocally, stopWholeSchool) from the legacy
+    // needToStopActivity enum + free-text stopActivityDescription. Heuristic only;
+    // HSE can reclassify manually after seed.
+    const deriveStopFlags = (
+      needToStop: StopActivityEnum,
+      description: string | null,
+    ): { stopLocally: boolean; stopWholeSchool: boolean } => {
+      if (needToStop !== StopActivityEnum.YES) {
+        return { stopLocally: false, stopWholeSchool: false };
+      }
+      const text = (description ?? '').toLowerCase();
+      const isWholeSchool = /\b(all|whole|entire|building|evacuat)/.test(text);
+      return { stopLocally: !isWholeSchool, stopWholeSchool: isWholeSchool };
+    };
+
     // Incident templates - will be spread across Aug 2020 - Jul 2026 with varied dates
     // Distribution target: Fatality 1-2, Major 5-8, Minor 25-35, Near Miss 10-15, Hazard 15-20
     // LTICR: LTI incidents use absence=MORE_THAN_THREE_DAYS, activities=STUDY or WORK
@@ -1120,6 +1135,7 @@ export const seedIncidents = async () => {
           expectedOutcome: t.expectedOutcome,
           needToStopActivity: t.needToStopActivity,
           stopActivityDescription: t.stopActivityDescription,
+          ...deriveStopFlags(t.needToStopActivity, t.stopActivityDescription),
           treatment: t.treatment,
           treatmentDescription: t.treatmentDescription,
           absence: t.absence,
@@ -1245,6 +1261,7 @@ export const seedIncidents = async () => {
           expectedOutcome: t.expectedOutcome,
           needToStopActivity: t.needToStopActivity,
           stopActivityDescription: t.stopActivityDescription,
+          ...deriveStopFlags(t.needToStopActivity, t.stopActivityDescription),
           treatment: t.treatment,
           treatmentDescription: t.treatmentDescription,
           absence: t.absence,

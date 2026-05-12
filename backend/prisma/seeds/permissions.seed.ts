@@ -216,6 +216,13 @@ export const permissions = [
   { name: 'inspection-checklist:delete', description: 'Delete inspection checklist templates and items' },
   { name: 'inspection-checklist:list', description: 'List all inspection checklists' },
 
+  // HFACS Catalogue Management (master data — investigation report cause tree)
+  { name: 'hfacs-node:create', description: 'Create new HFACS catalogue nodes' },
+  { name: 'hfacs-node:read', description: 'View HFACS catalogue information' },
+  { name: 'hfacs-node:update', description: 'Update HFACS catalogue nodes' },
+  { name: 'hfacs-node:delete', description: 'Delete HFACS catalogue nodes' },
+  { name: 'hfacs-node:list', description: 'List all HFACS catalogue nodes' },
+
   // Certificate Management
   { name: 'certificate:create', description: 'Create new certificates' },
   { name: 'certificate:read', description: 'View certificate information' },

@@ -9,12 +9,23 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { Label } from '@/core/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/core/components/ui/alert';
 import investigationReportsService from '../services/investigationReportsService';
 import {
+  InvestigationCauseSectionEnum,
   InvestigationStatusEnum,
+  type InvestigationCause,
   type InvestigationReport,
 } from '../types/investigation-report.types';
 import InvestigationReportPDFTemplate from '../components/InvestigationReportPDFTemplate';
+import {
+  IncidentSectionA,
+  IncidentSectionB,
+  IncidentSectionC,
+  IncidentSectionD,
+  IncidentSectionE,
+  IncidentSectionF,
+} from '../components/incident-readonly';
 
 const InvestigationReportDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +33,7 @@ const InvestigationReportDetailPage = () => {
   const [report, setReport] = useState<InvestigationReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const { toPDF, targetRef } = usePDF({
     filename: `${report?.reportNumber.replace(/\//g, '-') ?? 'investigation-report'}.pdf`,
@@ -33,9 +45,13 @@ const InvestigationReportDetailPage = () => {
       setIsLoading(true);
       const data = await investigationReportsService.getById(id);
       setReport(data);
-    } catch {
-      toast.error('Failed to load investigation report');
-      navigate('/investigation-reports');
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setAccessDenied(true);
+      } else {
+        toast.error('Failed to load investigation report');
+        navigate('/investigation-reports');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +90,25 @@ const InvestigationReportDetailPage = () => {
     }
   };
 
-  if (isLoading || !report) {
+  if (isLoading) {
+    return <div className="p-8 text-muted-foreground">Loading…</div>;
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="p-8 max-w-lg">
+        <Alert variant="destructive">
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>You do not have access to this record.</AlertDescription>
+        </Alert>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+      </div>
+    );
+  }
+
+  if (!report) {
     return <div className="p-8 text-muted-foreground">Loading…</div>;
   }
 
@@ -156,36 +190,13 @@ const InvestigationReportDetailPage = () => {
         </Card>
 
         {report.incident && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Incident Summary (Sections A–F, read-only)</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <Label className="text-muted-foreground">Code</Label>
-                <p>{report.incident.code}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Subject</Label>
-                <p>{report.incident.subject}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Date</Label>
-                <p>{format(new Date(report.incident.incidentDate), 'dd MMM yyyy')}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Area</Label>
-                <p>{report.incident.area?.name ?? '—'}</p>
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-muted-foreground">Description</Label>
-                <p className="whitespace-pre-line">{report.incident.description ?? '—'}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <IncidentSectionA
+            incident={report.incident}
+            reportNumber={report.reportNumber}
+          />
         )}
 
-        {/* Investigation-specific sections summary */}
+        {/* A1 / A2 — Task & Equipment (investigation-specific) */}
         <Card>
           <CardHeader>
             <CardTitle>A1 / A2 — Task & Equipment</CardTitle>
@@ -202,9 +213,19 @@ const InvestigationReportDetailPage = () => {
           </CardContent>
         </Card>
 
+        {report.incident && (
+          <>
+            <IncidentSectionB incident={report.incident} />
+            <IncidentSectionC incident={report.incident} />
+            <IncidentSectionD incident={report.incident} />
+            <IncidentSectionE incident={report.incident} />
+            <IncidentSectionF incident={report.incident} />
+          </>
+        )}
+
         <Card>
           <CardHeader>
-            <CardTitle>G — Cost Estimation</CardTitle>
+            <CardTitle>G. Estimation Cost / Estimasi Kerugian</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <CostRow label="Medical Cost" value={report.cost?.medicalCost} />
@@ -235,31 +256,41 @@ const InvestigationReportDetailPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>H/I — Causes (HFACS)</CardTitle>
+            <CardTitle>
+              H. Latent Failure / Kegagalan Terpendam (Indirect Cause)
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {report.causes.length === 0 ? (
-              <p className="text-muted-foreground">No causes selected.</p>
-            ) : (
-              <ul className="list-disc pl-5 space-y-1">
-                {report.causes
-                  .filter((c) => c.isSelected)
-                  .map((c) => (
-                    <li key={c.id}>
-                      <span className="font-medium">[{c.causeKey}]</span> {c.causeName}
-                      {c.customNotes && (
-                        <span className="text-muted-foreground"> — {c.customNotes}</span>
-                      )}
-                    </li>
-                  ))}
-              </ul>
-            )}
+            <CauseList
+              causes={report.causes.filter(
+                (c) =>
+                  c.isSelected &&
+                  c.section === InvestigationCauseSectionEnum.LATENT_FAILURE,
+              )}
+            />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>J — Action Plans</CardTitle>
+            <CardTitle>
+              I. Active Failure / Kegagalan Aktif (Direct Cause)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <CauseList
+              causes={report.causes.filter(
+                (c) =>
+                  c.isSelected &&
+                  c.section === InvestigationCauseSectionEnum.ACTIVE_FAILURE,
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>J. Remedial Action Plan / Rencana Tindakan Perbaikan</CardTitle>
           </CardHeader>
           <CardContent>
             {report.actionPlans.length === 0 ? (
@@ -301,7 +332,7 @@ const InvestigationReportDetailPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>K — Signatories</CardTitle>
+            <CardTitle>K. Signatures / Tanda tangan</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -330,7 +361,7 @@ const InvestigationReportDetailPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>L — H&S Comments & Distribution</CardTitle>
+            <CardTitle>L. Health and Safety Comments / Komentar Health and Safety</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
@@ -359,6 +390,24 @@ const InvestigationReportDetailPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const CauseList = ({ causes }: { causes: InvestigationCause[] }) => {
+  if (causes.length === 0) {
+    return <p className="text-muted-foreground">No causes selected.</p>;
+  }
+  return (
+    <ul className="list-disc pl-5 space-y-1">
+      {causes.map((c) => (
+        <li key={c.id}>
+          <span className="font-medium">[{c.causeKey}]</span> {c.causeName}
+          {c.customNotes && (
+            <span className="text-muted-foreground"> — {c.customNotes}</span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 };
 

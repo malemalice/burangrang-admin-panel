@@ -313,7 +313,7 @@ System -> Applicant: status CLOSED
 
 ## 9. Data model summary (DTO-aligned)
 
-The physical schema is in Prisma (`WorkPermit` and related tables). Product-facing **API shape** matches `WorkPermitDto` and nested arrays above. There is **no** single JSON blob for “Section D”; hazards are rows. **Workers** carry **`healthDeclarationUrl`** (file URL), not a structured questionnaire in v1.1.
+The physical schema is in Prisma (`WorkPermit` and related tables). Product-facing **API shape** matches `WorkPermitDto` and nested arrays above. There is **no** single JSON blob for “Section D”; hazards are rows. **Workers** carry **`healthDeclarationUrl`** (file URL) and/or a structured **`HealthScreening`** linked through the new **single-use binding** (`HealthScreening.consumedByWorkPermitId`). The earlier 90-day validity window has been retired — a declaration is valid for exactly one work permit and is released back to reusable on rejection.
 
 ---
 

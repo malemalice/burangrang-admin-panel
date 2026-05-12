@@ -253,7 +253,10 @@ export interface Incident {
   dueDate?: Date;
   expectedOutcome?: string;
   needToStopActivity: StopActivityEnum;
+  /** @deprecated Use stopLocally / stopWholeSchool. */
   stopActivityDescription?: string;
+  stopLocally?: boolean;
+  stopWholeSchool?: boolean;
   treatment: TreatmentEnum;
   treatmentDescription?: string;
   absence: AbsenceEnum;
@@ -337,7 +340,10 @@ export interface CreateIncidentDTO {
   dueDate?: Date;
   expectedOutcome?: string;
   needToStopActivity?: StopActivityEnum;
+  /** @deprecated Use stopLocally / stopWholeSchool. */
   stopActivityDescription?: string;
+  stopLocally?: boolean;
+  stopWholeSchool?: boolean;
   treatment?: TreatmentEnum;
   treatmentDescription?: string;
   absence?: AbsenceEnum;

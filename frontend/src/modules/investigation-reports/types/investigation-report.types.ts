@@ -45,6 +45,7 @@ export interface InvestigationCause {
   isSelected: boolean;
   customNotes?: string;
   order: number;
+  hfacsNodeId?: string | null;
 }
 
 export interface InvestigationActionPlan {
@@ -111,11 +112,14 @@ export interface UpsertInvestigationCostInput {
 }
 
 export interface UpsertInvestigationCauseInput {
-  section: InvestigationCauseSectionEnum;
-  tier1: string;
-  tier2: string;
-  causeKey: string;
-  causeName: string;
+  hfacsNodeId?: string;
+  // Legacy snapshot fields kept optional for back-compat with older drafts;
+  // when hfacsNodeId is provided, the server derives these from the master tree.
+  section?: InvestigationCauseSectionEnum;
+  tier1?: string;
+  tier2?: string;
+  causeKey?: string;
+  causeName?: string;
   isSelected?: boolean;
   customNotes?: string;
   order?: number;

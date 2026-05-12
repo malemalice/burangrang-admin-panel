@@ -127,10 +127,21 @@ export class CreateIncidentDto {
   @ApiProperty({ enum: StopActivityEnum, default: 'NOT_SPECIFIED' })
   needToStopActivity?: StopActivityEnum;
 
+  /** @deprecated Use stopLocally and stopWholeSchool booleans instead. */
   @IsString()
   @IsOptional()
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, deprecated: true })
   stopActivityDescription?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false, default: false })
+  stopLocally?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false, default: false })
+  stopWholeSchool?: boolean;
 
   @IsEnum(TreatmentEnum)
   @IsOptional()

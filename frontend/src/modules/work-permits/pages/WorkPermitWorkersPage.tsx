@@ -1,21 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Users, Plus, Eye, Copy, Link2, Loader2 } from 'lucide-react';
+import { Users, Plus, Eye } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Label } from '@/core/components/ui/label';
-import { Input } from '@/core/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/core/components/ui/dialog';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -23,7 +13,6 @@ import { useAuth } from '@/core/lib/auth';
 import type { User } from '@/core/lib/types';
 import companyService from '@/modules/master-data/services/companyService';
 import type { CompanyDTO } from '@/modules/master-data/types/master-data.types';
-import healthScreeningService from '@/modules/health-screenings/services/healthScreeningService';
 import { useWorkPermitWorkers } from '../hooks/useWorkPermitWorkers';
 
 function getAuthRoleName(role: { name: string } | string | undefined): string {
@@ -42,13 +31,6 @@ const WorkPermitWorkersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilterId, setCompanyFilterId] = useState('');
   const [companyOptions, setCompanyOptions] = useState<{ value: string; label: string }[]>([]);
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
-  const [linkDialogTitle, setLinkDialogTitle] = useState('Link');
-  const [linkDialogDescription, setLinkDialogDescription] = useState('');
-  const [generatedLink, setGeneratedLink] = useState('');
-  const [linkExpiresAt, setLinkExpiresAt] = useState('');
-  const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
-
   const roleName = getAuthRoleName(authUser?.role);
   const isSuperAdmin = roleName === 'Super Admin';
   const hasCompany = Boolean(authUser?.companyId);
@@ -109,47 +91,6 @@ const WorkPermitWorkersPage = () => {
   }, []);
 
   const pageCount = Math.max(1, Math.ceil(total / limit));
-
-  const handleGenerateHealthLink = useCallback(async (row: User) => {
-    setGeneratingUserId(row.id);
-    try {
-      const res = await healthScreeningService.generatePublicLink({
-        userId: row.id,
-      });
-      setLinkDialogTitle('Health screening link');
-      setLinkDialogDescription(
-        'Share this link with the worker. It works without login and expires after 24 hours.',
-      );
-      setGeneratedLink(res.linkUrl);
-      setLinkExpiresAt(res.expiresAt);
-      setLinkDialogOpen(true);
-      try {
-        await navigator.clipboard.writeText(res.linkUrl);
-        toast.success('Link copied to clipboard');
-      } catch {
-        toast.success('Link generated — copy it from the dialog');
-      }
-    } catch (e: unknown) {
-      const msg =
-        e &&
-        typeof e === 'object' &&
-        'response' in e &&
-        e.response &&
-        typeof e.response === 'object' &&
-        'data' in e.response &&
-        e.response.data &&
-        typeof e.response.data === 'object' &&
-        'message' in e.response.data &&
-        typeof (e.response.data as { message: unknown }).message === 'string'
-          ? (e.response.data as { message: string }).message
-          : e instanceof Error
-            ? e.message
-            : 'Failed to generate link';
-      toast.error(msg);
-    } finally {
-      setGeneratingUserId(null);
-    }
-  }, []);
 
   const columns = useMemo(
     () => [
@@ -231,22 +172,6 @@ const WorkPermitWorkersPage = () => {
                 <Eye className="mr-2 h-4 w-4" />
                 View
               </Button>
-              {hasPermission('health-screening:start') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8"
-                  disabled={generatingUserId === row.id}
-                  onClick={() => void handleGenerateHealthLink(row)}
-                >
-                  {generatingUserId === row.id ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Link2 className="mr-2 h-4 w-4" />
-                  )}
-                  Health link
-                </Button>
-              )}
             </div>
           ) : (
             <span className="text-muted-foreground">—</span>
@@ -254,13 +179,7 @@ const WorkPermitWorkersPage = () => {
         isSortable: false,
       },
     ],
-    [
-      isSuperAdmin,
-      hasPermission,
-      navigate,
-      generatingUserId,
-      handleGenerateHealthLink,
-    ],
+    [isSuperAdmin, hasPermission, navigate],
   );
 
   if (!hasPermission('user:list')) {
@@ -342,54 +261,6 @@ const WorkPermitWorkersPage = () => {
           searchPlaceholder="Search name or email…"
         />
 
-        <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{linkDialogTitle}</DialogTitle>
-              <DialogDescription>
-                {linkDialogDescription}
-                {linkExpiresAt && (
-                  <span className="mt-2 block text-foreground">
-                    Expires:{' '}
-                    {new Date(linkExpiresAt).toLocaleString(undefined, {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
-                  </span>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              <Label htmlFor="generated-public-url">URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="generated-public-url"
-                  readOnly
-                  value={generatedLink}
-                  className="font-mono text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(generatedLink).then(
-                      () => toast.success('Copied'),
-                      () => toast.error('Could not copy'),
-                    );
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" onClick={() => setLinkDialogOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </>
   );

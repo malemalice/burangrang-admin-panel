@@ -19,7 +19,6 @@ import {
   InvestigationSignatoryDto,
   UpdateInvestigationReportDto,
 } from '../dto';
-import { HFACS_LOOKUP } from './hfacs-catalogue.constant';
 
 const ROMAN_MONTHS = [
   '',
@@ -37,13 +36,16 @@ const ROMAN_MONTHS = [
   'XII',
 ];
 
-// "HSE roles" — full manage + see-all visibility on investigation reports.
-// USER-level roles get the same permissions but see only reports where they
-// appear as a signatory (signatory-based access).
+// Roles with full manage + see-all visibility on investigation reports.
+// MANAGER and USER both get investigation-report:* permissions via seed fullModules,
+// so both are treated as HSE-level for report access. Roles not listed here
+// (GUEST, CONTRACTOR, TECHNICIAN) are already blocked at the PermissionsGuard layer
+// and would only reach the service if explicitly granted signatory access.
 const HSE_ROLE_CODES: string[] = [
   ROLE_CODES.SUPER_ADMIN,
   ROLE_CODES.ADMIN,
   ROLE_CODES.MANAGER,
+  ROLE_CODES.USER,
 ];
 
 const FULL_INCLUDE: Prisma.InvestigationReportInclude = {
@@ -159,23 +161,88 @@ export class InvestigationReportsService {
   // ─────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────
-  private decorateCauses(
+  /**
+   * Resolve snapshot fields (section, tier1, tier2, causeKey, causeName) from the HFACS
+   * master tree at write time. The snapshot is then stored on t_investigation_causes so
+   * that future renames or deletes of the master node never rewrite history.
+   *
+   * Accepts both shapes:
+   *   - { hfacsNodeId } — preferred; service derives snapshot from the node + its ancestors.
+   *   - { causeKey, section, tier1, tier2, causeName } — legacy fallback for clients
+   *     that have not yet adopted hfacsNodeId.
+   */
+  private async decorateCauses(
     causes: CreateInvestigationReportDto['causes'],
-  ): Prisma.InvestigationCauseCreateManyInvestigationReportInput[] {
+  ): Promise<Prisma.InvestigationCauseCreateManyInvestigationReportInput[]> {
     if (!causes || causes.length === 0) return [];
+
+    const nodeIds = Array.from(
+      new Set(causes.map((c) => c.hfacsNodeId).filter((id): id is string => !!id)),
+    );
+
+    const nodes = nodeIds.length
+      ? await this.prisma.hfacsNode.findMany({
+          where: { id: { in: nodeIds }, deletedAt: null },
+          include: { parent: { include: { parent: true } } },
+        })
+      : [];
+
+    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
     const seen = new Set<string>();
     const result: Prisma.InvestigationCauseCreateManyInvestigationReportInput[] = [];
+
     for (const cause of causes) {
-      if (seen.has(cause.causeKey)) continue;
-      seen.add(cause.causeKey);
-      const lookup = HFACS_LOOKUP.get(cause.causeKey);
+      let section: InvestigationCauseSectionEnum | undefined;
+      let tier1: string | undefined;
+      let tier2: string | undefined;
+      let causeKey: string | undefined;
+      let causeName: string | undefined;
+
+      if (cause.hfacsNodeId) {
+        const node = nodeMap.get(cause.hfacsNodeId);
+        if (node) {
+          // depth 2 → leaf item; parent is Tier2; grandparent is Tier1
+          const tier2Node = node.depth === 2 ? node.parent : node.depth === 1 ? node : null;
+          const tier1Node =
+            node.depth === 2
+              ? node.parent?.parent ?? null
+              : node.depth === 1
+                ? node.parent
+                : node;
+
+          section = node.section;
+          tier1 = tier1Node?.labelEn ?? cause.tier1 ?? '';
+          tier2 = tier2Node?.labelEn ?? cause.tier2 ?? '';
+          causeKey = node.code ?? cause.causeKey ?? node.id;
+          causeName = node.labelEn;
+        }
+      }
+
+      // Fallback to legacy fields if the node lookup did not resolve.
+      section = section ?? cause.section;
+      tier1 = tier1 ?? cause.tier1;
+      tier2 = tier2 ?? cause.tier2;
+      causeKey = causeKey ?? cause.causeKey;
+      causeName = causeName ?? cause.causeName ?? causeKey;
+
+      // Required snapshot fields must be present after resolution.
+      if (!section || !tier1 || !tier2 || !causeKey || !causeName) {
+        this.errorHandler.throwBadRequest(
+          `Investigation cause is missing required fields. Provide hfacsNodeId or the full snapshot (section/tier1/tier2/causeKey).`,
+        );
+      }
+
+      if (seen.has(causeKey)) continue;
+      seen.add(causeKey);
+
       result.push({
-        section:
-          (lookup?.section as InvestigationCauseSectionEnum) ?? cause.section,
-        tier1: lookup?.tier1 ?? cause.tier1,
-        tier2: lookup?.tier2 ?? cause.tier2,
-        causeKey: cause.causeKey,
-        causeName: cause.causeName || lookup?.labelEn || cause.causeKey,
+        hfacsNodeId: cause.hfacsNodeId ?? null,
+        section,
+        tier1,
+        tier2,
+        causeKey,
+        causeName,
         isSelected: cause.isSelected ?? true,
         customNotes: cause.customNotes,
         order: cause.order ?? 0,
@@ -214,6 +281,8 @@ export class InvestigationReportsService {
     const reportNumber = await this.generateReportNumber();
     const { cost, causes, actionPlans, signatories, ...rest } = dto;
 
+    const decoratedCauses = await this.decorateCauses(causes);
+
     const report = await this.errorHandler.safeExecute(
       () =>
         this.prisma.investigationReport.create({
@@ -222,8 +291,8 @@ export class InvestigationReportsService {
             reportNumber,
             createdBy: userId,
             ...(cost && { cost: { create: cost } }),
-            ...(causes && causes.length > 0 && {
-              causes: { create: this.decorateCauses(causes) },
+            ...(decoratedCauses.length > 0 && {
+              causes: { create: decoratedCauses },
             }),
             ...(actionPlans && actionPlans.length > 0 && {
               actionPlans: { create: actionPlans },
@@ -419,7 +488,7 @@ export class InvestigationReportsService {
             await tx.investigationCause.deleteMany({
               where: { investigationReportId: id },
             });
-            const decorated = this.decorateCauses(causes);
+            const decorated = await this.decorateCauses(causes);
             if (decorated.length > 0) {
               await tx.investigationCause.createMany({
                 data: decorated.map((c) => ({ ...c, investigationReportId: id })),

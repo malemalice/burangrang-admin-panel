@@ -175,15 +175,26 @@ const HealthScreeningsPage = () => {
       isSortable: true,
     },
     {
-      id: 'validUntil',
-      header: 'Valid until',
-      cell: (r: HealthScreeningListItem) =>
-        r.validUntil ? (
-          <span className="text-sm">{new Date(r.validUntil).toLocaleDateString()}</span>
-        ) : (
-          <span className="text-muted-foreground text-sm">—</span>
-        ),
-      isSortable: true,
+      id: 'usedFor',
+      header: 'Used for',
+      cell: (r: HealthScreeningListItem) => {
+        if (r.status !== 'DONE') {
+          return <span className="text-muted-foreground text-sm">—</span>;
+        }
+        if (r.consumedByWorkPermitId) {
+          return (
+            <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+              {r.consumedByWorkPermitCode ?? 'Linked'}
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+            Available
+          </span>
+        );
+      },
+      isSortable: false,
     },
     {
       id: 'actions',

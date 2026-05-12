@@ -217,7 +217,8 @@ export interface WorkPermitWorker {
   healthScreening?: {
     id: string;
     status: string;
-    validUntil?: string | null;
+    /** Permit that consumes this declaration; matches THIS permit's id when linked. */
+    consumedByWorkPermitId?: string | null;
     quizId: string;
   };
   user?: {

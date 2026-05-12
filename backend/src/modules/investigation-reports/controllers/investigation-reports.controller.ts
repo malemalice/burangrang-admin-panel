@@ -30,11 +30,6 @@ import {
   InvestigationReportDto,
   UpdateInvestigationReportDto,
 } from '../dto';
-import {
-  HFACS_ACTIVE_FAILURE,
-  HFACS_LATENT_FAILURE,
-} from '../services/hfacs-catalogue.constant';
-
 interface RequestWithUser extends ExpressRequest {
   user: { id: string; email: string; role: string };
 }
@@ -46,14 +41,9 @@ interface RequestWithUser extends ExpressRequest {
 export class InvestigationReportsController {
   constructor(private readonly service: InvestigationReportsService) {}
 
-  @Get('catalogue/hfacs')
-  @ApiOperation({ summary: 'Returns the HFACS cause catalogue (Sections H & I)' })
-  getHfacsCatalogue() {
-    return {
-      latentFailure: HFACS_LATENT_FAILURE,
-      activeFailure: HFACS_ACTIVE_FAILURE,
-    };
-  }
+  // Note: the HFACS catalogue is now served from /hfacs-nodes/tree
+  // (HfacsNodesController). Clients previously calling /investigation-reports/catalogue/hfacs
+  // must migrate to GET /hfacs-nodes/tree.
 
   @Post()
   @Permissions('investigation-report:create')

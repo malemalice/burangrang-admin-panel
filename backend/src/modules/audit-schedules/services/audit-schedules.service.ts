@@ -417,19 +417,14 @@ export class AuditSchedulesService {
     // Determine the audit date to use (from update or existing)
     const auditDate = data.auditDate || existingAudit.auditDate;
 
-    // Auto-determine status based on audit date
-    let finalStatus = data.status;
+    // Determine the final status
+    let finalStatus: GeneralStatusEnum;
     if (data.status !== undefined) {
-      // If status is explicitly provided, validate it first
+      // Validate explicitly provided status against audit date, then use it as-is
       this.validateStatusAgainstDate(data.status, auditDate);
-      // Then auto-update based on audit date (status is auto-changed)
-      finalStatus = this.autoDetermineStatus(auditDate);
-    } else if (data.auditDate) {
-      // If only audit date is changed, auto-update status
-      finalStatus = this.autoDetermineStatus(auditDate);
+      finalStatus = data.status;
     } else {
-      // No status or date change, keep existing status but re-validate based on current date
-      // This handles the case where the audit date might be in the past now
+      // No explicit status — auto-determine from audit date
       finalStatus = this.autoDetermineStatus(auditDate);
     }
 

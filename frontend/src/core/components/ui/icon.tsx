@@ -19,7 +19,7 @@ import {
   GraduationCap, Tag, LogOut, ShieldAlert, DoorOpen, BookOpen,
   FileQuestion, FileCheck, FileCheck2, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
   Factory, Droplets, Tags, Warehouse, Grid, ClipboardList,
-  CalendarRange
+  CalendarRange, ListChecks, GitFork, ScrollText
 } from 'lucide-react';
 
 // Icon mapping for efficient lookup
@@ -40,7 +40,7 @@ const iconMap: Record<string, any> = {
   GraduationCap, Tag, LogOut, ShieldAlert, DoorOpen, BookOpen,
   FileQuestion, FileCheck, FileCheck2, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
   Factory, Droplets, Tags, Warehouse, Grid, ClipboardList,
-  CalendarRange
+  CalendarRange, ListChecks, GitFork, ScrollText
 };
 
 interface IconProps {

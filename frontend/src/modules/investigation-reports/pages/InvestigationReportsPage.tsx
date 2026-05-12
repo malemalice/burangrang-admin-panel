@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import investigationReportsService, { type FindInvestigationReportsParams } from '../services/investigationReportsService';
 import {
+  InvestigationSignatoryRoleEnum,
   InvestigationStatusEnum,
   type InvestigationReport,
 } from '../types/investigation-report.types';
@@ -37,7 +38,7 @@ const InvestigationReportsPage = () => {
 
   const page = parseInt(searchParams.get('page') || '1', 10);
   const limit = parseInt(searchParams.get('limit') || '10', 10);
-  const sortBy = searchParams.get('sortBy') || 'createdAt';
+  const sortBy = searchParams.get('sortBy') || 'incidentDate';
   const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
   const search = searchParams.get('search') || '';
   const statusParam = searchParams.get('status') || 'all';
@@ -105,24 +106,24 @@ const InvestigationReportsPage = () => {
         ),
       },
       {
-        id: 'incident',
-        header: 'Incident',
-        cell: (row: InvestigationReport) => (
-          <div className="text-sm">
-            <div className="font-medium">{row.incident?.code ?? '—'}</div>
-            <div className="text-muted-foreground truncate max-w-[280px]">
-              {row.incident?.subject ?? ''}
-            </div>
-          </div>
-        ),
-      },
-      {
         id: 'incidentDate',
         header: 'Incident Date',
+        isSortable: true,
         cell: (row: InvestigationReport) =>
           row.incident?.incidentDate
             ? format(new Date(row.incident.incidentDate), 'dd MMM yyyy')
             : '—',
+      },
+      {
+        id: 'area',
+        header: 'Area',
+        cell: (row: InvestigationReport) => row.incident?.area?.name ?? '—',
+      },
+      {
+        id: 'incidentType',
+        header: 'Incident Type',
+        cell: (row: InvestigationReport) =>
+          row.incident?.incidentType?.replace(/_/g, ' ') ?? '—',
       },
       {
         id: 'status',
@@ -133,11 +134,14 @@ const InvestigationReportsPage = () => {
         },
       },
       {
-        id: 'createdAt',
-        header: 'Created',
-        isSortable: true,
-        cell: (row: InvestigationReport) =>
-          format(new Date(row.createdAt), 'dd MMM yyyy'),
+        id: 'leadInvestigator',
+        header: 'Lead Investigator',
+        cell: (row: InvestigationReport) => {
+          const lead = row.signatories?.find(
+            (s) => s.signatoryRole === InvestigationSignatoryRoleEnum.LEAD_INVESTIGATOR,
+          );
+          return lead?.name || lead?.roleName || '—';
+        },
       },
       {
         id: 'actions',
@@ -215,7 +219,7 @@ const InvestigationReportsPage = () => {
         sorting={{ id: sortBy, desc: sortOrder === 'desc' }}
         onSortingChange={(s) =>
           updateParam({
-            sortBy: s?.id ?? 'createdAt',
+            sortBy: s?.id ?? 'incidentDate',
             sortOrder: s?.desc ? 'desc' : 'asc',
           })
         }

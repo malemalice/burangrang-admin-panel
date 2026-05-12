@@ -132,10 +132,14 @@ const HealthScreeningDetailPage = () => {
                   : 'Expired'}
             </Badge>
           </div>
-          {data.validUntil && (
+          {data.status === 'DONE' && (
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Valid until</span>
-              <span>{new Date(data.validUntil).toLocaleString()}</span>
+              <span className="text-muted-foreground">Usage</span>
+              <span>
+                {data.consumedByWorkPermitId
+                  ? `Used for ${data.consumedByWorkPermitCode ?? 'a work permit'}`
+                  : 'Available — not yet linked to a work permit'}
+              </span>
             </div>
           )}
           {data.user && (

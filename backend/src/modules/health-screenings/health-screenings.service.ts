@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { QuizzesService } from '../quizzes/quizzes.service';
-import { SettingsHelperService } from '../../shared/services/settings.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { SubmitAnswerDto } from '../quizzes/dto/quiz-answer.dto';
 import {
@@ -13,14 +12,11 @@ import {
 import { SubmitHealthScreeningAttemptDto } from './dto/submit-health-screening-attempt.dto';
 import { HealthScreeningPublicLinkService } from './services/health-screening-public-link.service';
 
-const VALIDITY_SETTING_KEY = 'health_declaration_validity_days';
-
 @Injectable()
 export class HealthScreeningsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly quizzesService: QuizzesService,
-    private readonly settingsHelper: SettingsHelperService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly configService: ConfigService,
     private readonly publicLinkService: HealthScreeningPublicLinkService,
@@ -151,12 +147,12 @@ export class HealthScreeningsService {
       },
       include: {
         quiz: { select: { id: true, title: true, kind: true } },
+        consumedByWorkPermit: { select: { id: true, code: true } },
       },
     });
 
-    const days = await this.getValidityDays();
     return {
-      screening: this.enrichWithValidUntil(screening, days),
+      screening: this.enrichConsumption(screening),
       attempt: attemptResult,
     };
   }
@@ -218,6 +214,7 @@ export class HealthScreeningsService {
               email: true,
             },
           },
+          consumedByWorkPermit: { select: { id: true, code: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -225,9 +222,8 @@ export class HealthScreeningsService {
       }),
       this.prisma.healthScreening.count({ where }),
     ]);
-    const days = await this.getValidityDays();
     return {
-      data: data.map((row) => this.enrichWithValidUntil(row, days)),
+      data: data.map((row) => this.enrichConsumption(row)),
       meta: {
         total,
         page,
@@ -244,8 +240,7 @@ export class HealthScreeningsService {
       include: this.healthScreeningDetailInclude(),
     });
     this.errorHandler.throwIfNotFoundById('Health screening', id, screening);
-    const days = await this.getValidityDays();
-    return this.enrichWithValidUntil(screening, days);
+    return this.enrichConsumption(screening);
   }
 
   async generatePublicFillLink(
@@ -290,8 +285,7 @@ export class HealthScreeningsService {
 
   async getPublicScreeningByToken(token: string) {
     const screening = await this.loadScreeningForPublicToken(token);
-    const days = await this.getValidityDays();
-    return this.enrichWithValidUntil(screening, days);
+    return this.enrichConsumption(screening);
   }
 
   async submitPublicAnswerByToken(token: string, dto: SubmitAnswerDto) {
@@ -360,6 +354,7 @@ export class HealthScreeningsService {
           },
         },
       },
+      consumedByWorkPermit: { select: { id: true, code: true } },
     };
   }
 
@@ -410,35 +405,30 @@ export class HealthScreeningsService {
   }
 
   /**
-   * Marks DONE screenings as EXPIRED when createdAt is older than the configured validity window
-   * (health_declaration_validity_days). Invoked daily from RemindersScheduler.
+   * API-only: surface single-use consumption state.
+   * `isAvailable` = DONE and not yet linked to a work permit.
    */
-  async expireStaleHealthScreenings(): Promise<number> {
-    const days = await this.getValidityDays();
-    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const result = await this.prisma.healthScreening.updateMany({
-      where: {
-        status: 'DONE',
-        createdAt: { lt: cutoff },
-      },
-      data: { status: 'EXPIRED' },
-    });
-    return result.count;
-  }
-
-  private async getValidityDays(): Promise<number> {
-    return this.settingsHelper.getNumber(VALIDITY_SETTING_KEY, 90);
-  }
-
-  /** API-only: end of validity window from createdAt + policy days (not persisted). */
-  private enrichWithValidUntil<T extends { createdAt: Date }>(
+  private enrichConsumption<
+    T extends {
+      status: string;
+      consumedByWorkPermitId?: string | null;
+      consumedByWorkPermit?: { id: string; code: string } | null;
+    },
+  >(
     row: T,
-    days: number,
-  ): T & { validUntil: string } {
-    const end = new Date(
-      row.createdAt.getTime() + days * 24 * 60 * 60 * 1000,
-    );
-    return { ...row, validUntil: end.toISOString() };
+  ): T & {
+    isAvailable: boolean;
+    consumedByWorkPermitId: string | null;
+    consumedByWorkPermitCode: string | null;
+  } {
+    const consumedId = row.consumedByWorkPermitId ?? null;
+    const consumedCode = row.consumedByWorkPermit?.code ?? null;
+    return {
+      ...row,
+      consumedByWorkPermitId: consumedId,
+      consumedByWorkPermitCode: consumedCode,
+      isAvailable: row.status === 'DONE' && consumedId == null,
+    };
   }
 
   private async assertAttemptOwnedHealthScreening(
