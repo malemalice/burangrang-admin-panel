@@ -66,10 +66,9 @@ export interface InvestigationActionPlan {
 export interface InvestigationSignatory {
   id: string;
   investigationReportId: string;
-  signatoryRole: InvestigationSignatoryRoleEnum;
+  signatoryRole?: InvestigationSignatoryRoleEnum;
   roleName?: string;
   name?: string;
-  signatureUrl?: string;
   signedAt?: string | Date;
   order: number;
 }
@@ -136,10 +135,9 @@ export interface UpsertInvestigationActionPlanInput {
 }
 
 export interface UpsertInvestigationSignatoryInput {
-  signatoryRole: InvestigationSignatoryRoleEnum;
+  signatoryRole?: InvestigationSignatoryRoleEnum;
   roleName?: string;
   name?: string;
-  signatureUrl?: string;
   signedAt?: Date | string;
   order?: number;
 }

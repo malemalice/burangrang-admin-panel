@@ -1,8 +1,9 @@
 # PRD: Dashboard Security Team
 
-**Document Version:** 1.0  
-**Last Updated:** February 8, 2025  
-**Related Modules:** Security Team, Incidents, Risk Categories
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-08
 
 ---
 

@@ -261,7 +261,7 @@ const InvestigationReportDetailPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <CauseList
+            <CauseMatrix
               causes={report.causes.filter(
                 (c) =>
                   c.isSelected &&
@@ -278,7 +278,7 @@ const InvestigationReportDetailPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <CauseList
+            <CauseMatrix
               causes={report.causes.filter(
                 (c) =>
                   c.isSelected &&
@@ -335,27 +335,34 @@ const InvestigationReportDetailPage = () => {
             <CardTitle>K. Signatures / Tanda tangan</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {report.signatories.map((s) => (
-                <div key={s.id} className="rounded-md border p-3">
-                  <p className="font-medium">{s.signatoryRole.replace(/_/g, ' ')}</p>
-                  <p className="text-xs text-muted-foreground">{s.roleName ?? '—'}</p>
-                  <p className="text-sm mt-1">{s.name ?? '—'}</p>
-                  {s.signedAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Signed: {format(new Date(s.signedAt), 'dd MMM yyyy')}
-                    </p>
-                  )}
-                  {s.signatureUrl && (
-                    <img
-                      src={s.signatureUrl}
-                      className="h-12 mt-1 bg-white rounded border max-w-[200px] object-contain"
-                      alt="signature"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            {report.signatories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No signatories recorded.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left p-2 font-medium">Investigator Team / Tim Penyidik</th>
+                      <th className="text-left p-2 font-medium">Name / Nama</th>
+                      <th className="text-left p-2 font-medium">Signature / Tanda Tangan</th>
+                      <th className="text-left p-2 font-medium">Date / Tanggal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.signatories.map((s) => (
+                      <tr key={s.id} className="border-b last:border-0">
+                        <td className="p-2">{s.roleName ?? '—'}</td>
+                        <td className="p-2">{s.name ?? '—'}</td>
+                        <td className="p-2 h-12" />
+                        <td className="p-2">
+                          {s.signedAt ? format(new Date(s.signedAt), 'dd MMM yyyy') : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -393,21 +400,49 @@ const InvestigationReportDetailPage = () => {
   );
 };
 
-const CauseList = ({ causes }: { causes: InvestigationCause[] }) => {
+const CauseMatrix = ({ causes }: { causes: InvestigationCause[] }) => {
   if (causes.length === 0) {
-    return <p className="text-muted-foreground">No causes selected.</p>;
+    return <p className="text-sm text-muted-foreground">No causes selected.</p>;
   }
+
+  // Group selected causes by tier1 → tier2 using snapshot fields
+  const byTier1 = causes.reduce<Record<string, Record<string, InvestigationCause[]>>>(
+    (acc, c) => {
+      if (!acc[c.tier1]) acc[c.tier1] = {};
+      if (!acc[c.tier1][c.tier2]) acc[c.tier1][c.tier2] = [];
+      acc[c.tier1][c.tier2].push(c);
+      return acc;
+    },
+    {},
+  );
+
   return (
-    <ul className="list-disc pl-5 space-y-1">
-      {causes.map((c) => (
-        <li key={c.id}>
-          <span className="font-medium">[{c.causeKey}]</span> {c.causeName}
-          {c.customNotes && (
-            <span className="text-muted-foreground"> — {c.customNotes}</span>
-          )}
-        </li>
+    <div className="space-y-4">
+      {Object.entries(byTier1).map(([tier1, tier2Groups]) => (
+        <div key={tier1} className="space-y-3">
+          <div className="rounded-md bg-muted px-4 py-2">
+            <p className="text-sm font-semibold">{tier1}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Object.entries(tier2Groups).map(([tier2, items]) => (
+              <div key={tier2} className="rounded-md border p-3 space-y-1.5">
+                <p className="text-sm font-medium">{tier2}</p>
+                <div className="space-y-1">
+                  {items.map((c) => (
+                    <div key={c.id} className="px-2 py-1">
+                      <span className="text-sm">{c.causeName}</span>
+                      {c.customNotes && (
+                        <span className="text-xs text-muted-foreground"> — {c.customNotes}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 };
 

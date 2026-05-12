@@ -19,14 +19,24 @@ The Investigation Report is a formal post-incident investigation document create
 
 The investigation report is a **1-to-1 extension** of an existing `Incident` record. **The investigation form does not re-collect Sections A–F data.** All those sections are read-only, pre-populated from the linked incident record and its related tables. The investigation-specific sections (G–L) are the only editable fields authored within this module.
 
-### 1.1 No-Redundancy Principle
+### 1.1 Editability Model
 
-To prevent user overwhelm, the investigation form must not ask users to re-enter data already captured in the incident report. The following data flow applies:
+The investigation form allows investigators to correct or supplement incident data without leaving the investigation workflow. The following data flow applies:
 
 | Sections | Data Source | Editable in Investigation? |
 |---|---|---|
-| A–F | `t_incidents` and related tables | No — read-only |
+| A (header: location, dates, report number, incident code) | `t_incidents` and related tables | No — read-only |
+| A (description) | `t_incidents.description` | **Yes** — editable; saved back to incident on form save |
+| A1 / A2 | `t_investigation_reports` | Yes — investigation-specific |
+| A4 (images) | `t_incident_images` | **Yes** — upload/remove/caption; saved back to incident on form save |
+| B | Aggregated from `t_incident_injured_persons` | No — read-only computed display |
+| C | `t_incident_injured_persons` | **Yes** — add/edit/remove rows; saved back to incident on form save |
+| D | `t_incidents` (treatment, absence, treatmentDescription) | **Yes** — editable; saved back to incident on form save |
+| E | `t_incidents` (needToStopActivity, stopLocally, stopWholeSchool) | **Yes** — editable; saved back to incident on form save |
+| F | `t_incident_witnesses` | **Yes** — add/edit/remove rows; saved back to incident on form save |
 | G–L | `t_investigation_reports` and new tables | Yes — investigation-specific |
+
+> **Save behaviour:** When the investigation form is saved, **two API calls are made in sequence**: (1) create/update the investigation report, (2) `PATCH /incidents/:id` with updated incident-level fields (description, images, injuredPersons, treatment, absence, treatmentDescription, needToStopActivity, stopLocally, stopWholeSchool, witnesses). A failure in either call surfaces a toast error.
 
 ---
 
@@ -72,12 +82,15 @@ Every section below MUST render consistently across three surfaces. The contract
 
 | § | Form | Detail | PDF |
 |---|---|---|---|
-| **A — Accident Details** | 2-col header grid (location/incident-time/date on left, report time/date on right). A1/A2 multi-line textareas. A4 read-only image gallery (thumbnails + captions). | Same 2-col grid in card layout. A4 lightbox-capable gallery. | Mirrors PDF page 1: bilingual labels inline `EN (ID)`. A4 renders up to 3 images per row, each with caption underneath. |
-| **B — Injury Details** | 5-col checkbox matrix per B1/B2/B3 (read-only, aggregated). Decorative skeleton anatomy illustration on the right column ("INDICATE LOCATION OF INJURY"). B4 vertical radio list. | Same matrix, disabled state. Skeleton illustration optional in detail. | Mandatory skeleton illustration. Empty-state: "No injured person during this incident." (EN) / "Tidak ada korban dalam insiden ini." (ID) printed right of the mechanism block. |
-| **C — Injured Persons** | Read-only table with **separate** columns: No, Name, Gender, Position, Department. | Same separate-column table. | **Merged** column header `Position / Department / Section` — render as `{position} / {department}` (single cell). Fixed 8-row template; blank rows render empty. |
-| **D — Action Following Incident** | 2-col layout: Treatment radios left, Absence radios right. `treatmentDescription` full-width textarea below. | Same 2-col read-only. | Same 2-col; bilingual labels inline. |
-| **E — Stop Activity** | Parent Yes/No radio. When Yes, two indented checkboxes (`stopLocally`, `stopWholeSchool`) become enabled. | Same. | Identical layout to PDF page 4 Section E. |
-| **F — Witness** | Same column rules as C (separate fields). | Same. | Merged `Position / Department / Section` column; fixed 6-row template. |
+| **A — Accident Details (header)** | 2-col header grid (location/incident-time/date on left, report time/date on right) — read-only. | Same 2-col grid in card layout. | Mirrors PDF page 1: bilingual labels inline `EN (ID)`. |
+| **A — Description** | Editable `Textarea` pre-filled from `incident.description`. Saved back to incident on form save. | Read-only display. | Renders `description` value. |
+| **A1/A2** | Editable multi-line textareas (investigation-specific). | Read-only display. | Bilingual labels inline. |
+| **A4 — Images / Sketch** | Editable image gallery — upload multiple images, remove images, edit captions. Appears **after** A1/A2 card. Saved back to `t_incident_images` on form save. | Lightbox-capable gallery (read-only). | Renders up to 3 images per row, each with caption underneath. |
+| **B — Injury Details** | Read-only checkbox matrix per B1/B2/B3 (aggregated from current `injuredPersons`). B4 vertical radio list. | Same matrix, disabled state. | Mandatory skeleton illustration. Empty-state: "No injured person during this incident." (EN) / "Tidak ada korban dalam insiden ini." (ID). |
+| **C — Injured Persons** | Editable field-array: add/remove rows. Columns: Name, Gender (select), Position (text), Department (SearchableSelect), Level of Injury, Body Part, Type of Injury, Mechanism of Injury. Saved back to `t_incident_injured_persons` on form save. | Read-only table with separate columns. | **Merged** column header `Position / Department / Section` — render as `{position} / {department}`. Fixed 8-row template; blank rows render empty. |
+| **D — Action Following Incident** | Editable: Treatment (Select), Absence (Select), Treatment Description (Textarea). Saved back to incident on form save. | 2-col read-only. | Same 2-col; bilingual labels inline. |
+| **E — Stop Activity** | Editable: Yes/No RadioGroup. When Yes, two indented Checkboxes (`stopLocally`, `stopWholeSchool`). Saved back to incident on form save. | Same, read-only. | Identical layout to PDF page 4 Section E. |
+| **F — Witness** | Editable field-array: add/remove rows. Columns: Name, Gender (select), Position (text), Department (SearchableSelect). Saved back to `t_incident_witnesses` on form save. | Read-only table (separate columns). | Merged `Position / Department / Section` column; fixed 6-row template. |
 | **G — Cost Estimation** | Line-item inputs (Rp prefix + thousand-separator on blur). `isNotYetKnown` checkbox disables line items and locks the TOTAL display. | Read-only formatted amounts. | 2-col table (Description \| Total Cost). TOTAL row spans bottom: shows `Rp. {sum}` or `Rp. Not Yet Known (Belum diketahui)`. |
 | **H — Latent Failure** | HFACS tier matrix — Tier-1 colored band header → Tier-2 column headers → Tier-3 leaf checkboxes in a grid. Selected items highlighted via semantic accent token. `isOther` nodes expose an inline text input next to the checkbox. | Matrix renders only the tier columns containing selections (or full matrix in compact mode). | Full matrix matching PDF pages 5–7. Color tokens MUST be theme-safe (no raw `#FFA500` / `#FFFF00`). |
 | **I — Active Failure** | Same matrix pattern as H, single Tier-1 band ("Unsafe Acts"). | Same. | Full matrix matching PDF page 8. |
@@ -100,7 +113,7 @@ Every section below MUST render consistently across three surfaces. The contract
 
 ### Section A — Accident Details (Rincian Kecelakaan)
 
-**Source:** Pre-filled from linked `t_incidents` record. All fields below marked [read-only] except A1 and A2.
+**Source:** Pre-filled from linked `t_incidents` record. Header fields are read-only; description is editable.
 
 | Field | EN Label | ID Label | Type | Source | Editable |
 |---|---|---|---|---|---|
@@ -110,7 +123,7 @@ Every section below MUST render consistently across three surfaces. The contract
 | accidentDate | Accident Date | Tanggal Kecelakaan | date | `t_incidents.incidentDate` (date part) | No |
 | reportTime | Report Time | Waktu Laporan | time (HH:MM) | `t_incidents.createdAt` (time part) | No |
 | reportDate | Report Date | Tanggal Laporan | date | `t_incidents.createdAt` (date part) | No |
-| descriptionOfIncident | Description of Incident | Deskripsi Kejadian | text | `t_incidents.description` | No |
+| descriptionOfIncident | Description of Incident | Deskripsi Kejadian | text | `t_incidents.description` | **Yes** — saved back to incident |
 
 #### A1 — Task Being Performed (Pekerjaan apa yang sedang dilakukan)
 
@@ -130,12 +143,14 @@ Every section below MUST render consistently across three surfaces. The contract
 
 #### A4 — Images / Sketch (Gambar/Sketsa kejadian)
 
-Read-only. Inherited from the incident.
+Editable in the investigation form. The A4 card appears **after** the A1/A2 (Task & Equipment) card.
 
 | Field | Type | Source | Editable |
 |---|---|---|---|
-| images | list | `t_incident_images` linked to incident | No |
-| caption | varchar(512), nullable | `t_incident_images.caption` | No (captured in Incident module) |
+| images | list | `t_incident_images` linked to incident | **Yes** — upload new, remove existing, edit captions; saved back to `t_incident_images` via `PATCH /incidents/:id` |
+| caption | varchar(512), nullable | `t_incident_images.caption` | **Yes** — inline text input below each thumbnail |
+
+**Upload behaviour:** Supports single or multi-file selection. Each file is uploaded via `uploadService.uploadFile(file, 'course-materials', true)` and the resulting public URL is appended to the images field array. Removed images are excluded from the save payload, causing the backend to delete them on update.
 
 > **Schema migration required (Incident module):** A nullable `caption` field on `t_incident_images` is required so that each image carries a descriptive caption (e.g. "Image 1 Condition of the fence during the accident"). When `caption` is null, the PDF renders `Image {index}` only.
 
@@ -231,9 +246,9 @@ Single-select. **Pre-populated read-only** from `t_incidents.incidentClassificat
 
 ### Section C — Injured Person Details (Rincian Korban)
 
-**Source:** `t_incident_injured_persons` rows linked to the incident. Read-only.
+**Source:** `t_incident_injured_persons` rows linked to the incident. **Editable** in the investigation form — rows can be added, edited, and removed. Changes are saved back to `t_incident_injured_persons` via `PATCH /incidents/:id` (full replace of the `injuredPersons` array).
 
-> **Schema migration required (Incident module):** A `position` free-text field must be added to `t_incident_injured_persons` and surfaced in the Incident form so users can capture position/job title at reporting time. The investigation form inherits this read-only.
+> **Schema migration required (Incident module):** A `position` free-text field must be added to `t_incident_injured_persons` and surfaced in the Incident form so users can capture position/job title at reporting time.
 
 | Column | EN Label | ID Label | Type | Source |
 |---|---|---|---|---|
@@ -249,11 +264,11 @@ Maximum 8 rows displayed (as per form). *"No injured person during this incident
 
 ### Section D — Action Following Incident (Tindakan yang dilakukan terhadap Kejadian)
 
-**Source:** `t_incidents` fields. Read-only.
+**Source:** `t_incidents` fields. **Editable** in the investigation form. Changes are saved back to `t_incidents` via `PATCH /incidents/:id`.
 
 #### D1 — Treatment (Penanganan)
 
-Single-select. Read-only from `t_incidents.treatment`.
+Single-select. Editable in investigation form; pre-filled from `t_incidents.treatment`.
 
 > **Schema migration required (Incident module):** `TreatmentEnum` must be extended with `SELF` and `HEALTH_SERVICES`. Existing `MEDICAL_TREATMENT` value is retained for backward compatibility.
 
@@ -268,7 +283,7 @@ Single-select. Read-only from `t_incidents.treatment`.
 
 #### D2 — Absence (Absen)
 
-Single-select. Read-only from `t_incidents.absence`.
+Single-select. Editable in investigation form; pre-filled from `t_incidents.absence`.
 
 | AbsenceEnum Value | EN Label | ID Label |
 |---|---|---|
@@ -278,13 +293,13 @@ Single-select. Read-only from `t_incidents.absence`.
 
 #### D3 — Describe the treatment taken (Jelaskan penanganan yang dilakukan)
 
-Read-only from `t_incidents.treatmentDescription`.
+Editable in investigation form; pre-filled from `t_incidents.treatmentDescription`.
 
 ---
 
 ### Section E — Need to Stop Activity (Perlu menghentikan aktivitas)
 
-**Source:** `t_incidents`. Read-only.
+**Source:** `t_incidents`. **Editable** in the investigation form. Changes are saved back to `t_incidents` via `PATCH /incidents/:id`.
 
 | Field | Type | Source | Values |
 |---|---|---|---|
@@ -298,9 +313,9 @@ Read-only from `t_incidents.treatmentDescription`.
 
 ### Section F — Witness (Saksi)
 
-**Source:** `t_incident_witnesses` rows linked to the incident. Read-only.
+**Source:** `t_incident_witnesses` rows linked to the incident. **Editable** in the investigation form — rows can be added, edited, and removed. Changes are saved back to `t_incident_witnesses` via `PATCH /incidents/:id` (full replace of the `witnesses` array).
 
-> **Schema migration required (Incident module):** A `position` free-text field must be added to `t_incident_witnesses` and surfaced in the Incident form. The investigation form inherits this read-only.
+> **Schema migration required (Incident module):** A `position` free-text field must be added to `t_incident_witnesses` and surfaced in the Incident form.
 
 | Column | EN Label | ID Label | Type | Source |
 |---|---|---|---|---|
@@ -632,8 +647,8 @@ DRAFT ──► SUBMITTED ──► REVIEWED ──► APPROVED
 | FR-001 | The system SHALL allow creation of one investigation report per incident. Attempting to create a second report for the same incident must return a validation error. |
 | FR-002 | The system SHALL auto-generate the report number in the format `HSE/Investigation/{seq:02d}/{Roman-month}/{YYYY}` where sequence is per-month and resets each month. (e.g. `HSE/Investigation/01/V/2025`) |
 | FR-003 | The "Create Investigation Report" action SHALL only be available when `t_incidents.needFurtherInvestigation = true` and no investigation report yet exists for that incident. |
-| FR-004 | Sections A–F SHALL be pre-populated read-only from the linked incident record. The investigation form MUST NOT allow editing of these sections. Users who need to correct incident data must do so in the Incident module. |
-| FR-005 | Section B (B1–B3) checkboxes SHALL be computed by aggregating unique enum values from all `t_incident_injured_persons` rows for the linked incident. No investigation table stores Section B data. |
+| FR-004 | Section A header fields (report number, location, dates, incident code) SHALL be pre-populated and read-only. Section A description, A4 images, and Sections C–F SHALL be pre-populated from the incident and **editable** within the investigation form. Saving the investigation form SHALL also `PATCH /incidents/:id` with any updated incident-level fields. |
+| FR-005 | Section B (B1–B3) checkboxes SHALL be computed by aggregating unique enum values from all `t_incident_injured_persons` rows for the linked incident at page load. No investigation table stores Section B data. Section B reflects the latest state of injured persons (which may be updated via the editable Section C). |
 | FR-006 | Section G SHALL auto-calculate the TOTAL as the sum of all entered line items. When `isNotYetKnown = true`, the total display changes to "Rp. Not Yet Known (Belum diketahui)" regardless of line values. |
 | FR-007 | Sections H and I SHALL render the full HFACS catalogue as checkboxes. Each checked item results in one row in `t_investigation_causes`. "Others" checkboxes SHALL expose a free-text input for `customNotes`. |
 | FR-008 | Section J SHALL support adding, editing, reordering, and deleting remedial action plan items. Each item SHALL track: action plan text, responsible person (free text), target date (or TBD note), and verification date. |

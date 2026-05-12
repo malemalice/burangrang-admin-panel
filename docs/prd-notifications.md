@@ -1,5 +1,10 @@
 # PRD: Notification System
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Notification System delivers in-app and email notifications to users based on events across the HSE Dashboard (approvals, incidents, work permits, enrollments, reminders). Notifications can be targeted by role, user, department, and job position. Users view notifications in the navbar dropdown and on a dedicated Notifications page with filtering, search, and mark-as-read.
@@ -39,6 +44,9 @@ The Notification System delivers in-app and email notifications to users based o
 | FR-08 | Mark as read | PATCH :id/read and PATCH mark-all-read. |
 | FR-09 | Context navigation | context + contextId map to routes (e.g. incident detail, work permit detail). |
 | FR-10 | Scheduled (reminders) | Reminder scheduler creates notifications when due; no duplicate emails. |
+| FR-11 | Multi-role recipients | User with multiple roles: recipient matching includes any matching role/department/job position. |
+| FR-12 | Orphaned recipients | Notification target no longer exists: creation still allowed; list filtered by current user so orphaned recipients do not break UX. |
+| FR-13 | Email failure isolation | Email delivery failure must be logged; in-app notification must still be created. |
 
 ## Non-Functional Requirements
 
@@ -49,6 +57,10 @@ The Notification System delivers in-app and email notifications to users based o
 | NFR-03 | Reliability | In-app creation not blocked by email failures; email errors logged. |
 | NFR-04 | Email | Email sending async, non-blocking; template-based. |
 | NFR-05 | Data | Efficient queries; recipient matching by user’s role, department, job position. |
+| NFR-06 | Pagination | List supports configurable page size (10/25/50/100); pagination controls always visible on NotificationsPage. |
+| NFR-07 | Context navigation | Unmapped context values fall back to `/notifications`; no navigation error thrown. |
+| NFR-08 | No auto-refresh | No WebSocket, SSE, or polling is implemented; users must refresh manually. This is by design for current scope. |
+| NFR-09 | DTO alignment | Frontend `NotificationRecipient` omits `departmentId` and `jobPositionId`; `NotificationFormData` omits `departmentIds` and `jobPositionIds`. Creation/targeting from UI is limited to roles/users. |
 
 ## User Stories
 
@@ -88,12 +100,18 @@ The Notification System delivers in-app and email notifications to users based o
 | PATCH | /notifications/mark-all-read | notification:update | Mark all as read |
 | DELETE | /notifications/:id | notification:delete | Delete notification |
 
+**Context naming contract:** Backend may send `context` in snake_case (e.g. `work_permit`, `risk_assessment`) or kebab-case; frontend normalizes to kebab-case for route lookup. Route paths are kebab-case (e.g. `/work-permits/:id`).
+
+**Pagination contract:** API uses `page` (1-based) and `limit`; frontend uses `pageIndex` (0-based) and sends `page: pageIndex + 1`. Response `meta.total` drives total count and page count on the frontend.
+
+**DTO contract:** Backend `NotificationRecipientDto` includes `departmentId?`, `jobPositionId?`; frontend does not expose these in forms. List and read behaviour is unchanged.
+
 ## Technical Architecture
 
 - **Backend:** NestJS; Prisma (PostgreSQL); NotificationsService (create, list, mark read, unread count); MailService (Nodemailer, Handlebars); MailModule used by NotificationsService. Reminders use NotificationsService for creation; email must be sent only once (see Bug Register).
 - **Frontend:** React; `notifications` module: NotificationDropdown, NotificationItem, NotificationList, NotificationsPage; hooks: useNotifications, useNotification, useNotificationTypes, useUnreadCount; notificationService (API); notificationRoutes (context → route mapping). No WebSocket/polling; manual refresh only.
 
-## Frontend Implementation Details
+## Frontend Pages & Components
 
 - **Components:** `NotificationDropdown` (navbar bell with unread badge, recent list, mark all read, view all); `NotificationList` (reusable list with loading/empty states); `NotificationItem` (title, message, context badge, timestamp, read indicator, click-to-navigate, optional mark read/unread actions).
 - **Pages:** `NotificationsPage` — full list with stats cards (total, unread, read), search, filters (context, type), tabs (All/Unread/Read), pagination (page controls, page size 10/25/50/100), mark all read, refresh.
@@ -102,35 +120,18 @@ The Notification System delivers in-app and email notifications to users based o
 - **Routing:** `notificationRoutes.ts` — route config for `/notifications`; `utils/notificationRoutes.ts` — `normalizeContext()` (snake_case → kebab-case), `getNotificationRoute(context, contextId)`, `useNotificationNavigation()`; context → route map for 20+ contexts (risk-assessment, work-permit, enrollment, approval, user, role, etc.).
 - **Integration:** `NotificationDropdown` rendered in `TopNavbar`; no real-time transport (manual refresh only).
 
-## Known Frontend Limitations
-
-- **Pagination UI:** Fixed. NotificationsPage now has visible pagination controls (prev/next, page X of Y, page size selector 10/25/50/100).
-- **Missing context mappings:** Backend may send `context: 'incident'` or reminder entity contexts; frontend route map does not include `incident` or generic reminder. Clicking such notifications falls back to `/notifications`. Acknowledged; not fixed in current scope.
-- **DTO fields:** Frontend `NotificationRecipient` types omit `departmentId` and `jobPositionId`; `NotificationFormData` omits `departmentIds` and `jobPositionIds`. Acknowledged; creation/targeting from UI is limited to roles/users.
-- **No auto-refresh:** No WebSocket, SSE, or polling; users must refresh or navigate to see new notifications. By design per current scope.
-
-## Frontend–Backend Contract
-
-- **Context naming:** Backend may send context in snake_case (e.g. `work_permit`, `risk_assessment`) or kebab-case; frontend normalizes to kebab-case for route lookup. Route paths are kebab-case (e.g. `/work-permits/:id`).
-- **DTO alignment:** Backend NotificationRecipientDto includes `departmentId?`, `jobPositionId?`; frontend NotificationRecipientDTO does not. Backend create payload accepts `departmentIds?`, `jobPositionIds?`; frontend form data does not expose these. List and read behaviour is unchanged.
-- **Pagination:** API uses `page` (1-based), `limit`; frontend uses `pageIndex` (0-based) and sends `page: pageIndex + 1`. Response `meta.total` drives total count and page count on the frontend.
-
 ## Acceptance Criteria
 
-- Notification is created when an event (e.g. approval, submit) occurs.
-- Each event results in at most one in-app notification and one email per recipient (no duplicates).
-- Unread count is correct after mark-as-read and new notifications.
-- List and filters (context, type, read status, search) return correct results.
-- Context navigation from notification leads to the correct entity page.
-- Reminder due creates one notification and sends email once.
-
-## Edge Cases
-
-- User has multiple roles: recipient matching includes any matching role/department/job position.
-- User in multiple departments: targeting by department may yield multiple recipient rows for same user if schema allows; read status per recipient.
-- Notification target (user/role/department) no longer exists: creation still allowed; list filters by current user so orphaned recipients do not break UX.
-- Email delivery failure: logged; in-app notification still created; no retry in current design.
-- Concurrent creation: no idempotency key in current design; duplicate events can cause duplicate notifications (see Bug Register).
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Event (approval, submit) occurs | Notification created in DB; recipients matched by role/department/job position |
+| AC-2 | Notification created | Email sent async to all recipients; email failure does not block in-app creation |
+| AC-3 | User marks one notification as read | Unread count decreases by 1; notification shows as read |
+| AC-4 | User marks all as read | Unread count becomes 0; all notifications show as read |
+| AC-5 | User filters by context, type, or read status | Only matching notifications returned |
+| AC-6 | User clicks notification with known context (e.g. work_permit) | Navigates to `/work-permits/:contextId` |
+| AC-7 | User clicks notification with unknown context | Falls back to `/notifications`; no error thrown |
+| AC-8 | Reminder becomes due | One notification created; email sent once; no duplicate send on subsequent cron ticks |
 
 ## Security & Privacy
 
@@ -144,7 +145,9 @@ The Notification System delivers in-app and email notifications to users based o
 - **Backend:** Prisma (Notification, NotificationRecipient, NotificationType, User, Role, Department, JobPosition), MailModule, SharedModule; modules that trigger notifications (incidents, work-permits, enrollments, reminders, approvals).
 - **Frontend:** Auth, core API, routing, design system (TRD); no real-time transport.
 
-## References
+## Related Documents
 
-- Bug register and fix details: [docs/notification-bugs.md](notification-bugs.md)
-- QA test plan: [docs/notification-qa-test-plan.md](notification-qa-test-plan.md)
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-communication.md`](prd-communication.md) — communication module that triggers notifications
+- Bug register and fix details: [`notification-bugs.md`](notification-bugs.md)
+- QA test plan: [`notification-qa-test-plan.md`](notification-qa-test-plan.md)

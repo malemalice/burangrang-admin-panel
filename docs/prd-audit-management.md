@@ -1,5 +1,10 @@
 # PRD: Audit Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Audit Management module covers four pillars:
@@ -10,6 +15,15 @@ The Audit Management module covers four pillars:
 4. **Audit Results** — item-level assessment records with evidence, corrective actions, and approval workflow
 
 Policy is master data; periods are scheduling containers; schedules are executable instances; items link schedules to criteria and departments with a submit/approve/reject flow.
+
+## Key Features
+
+- **Audit Policy:** CRUD for AuditElement → AuditClause → AuditCriteria hierarchy; bulk reorder and code regeneration; options bypass for dropdown use.
+- **Audit Periods:** Create periods that auto-generate one audit schedule per active element in a single transaction; list with completion progress; delete blocked if items filled.
+- **Audit Schedules:** Create and manage audit instances with areas, auditors, and date; auto-determine status (`SCHEDULED` vs `DONE`) from audit date; auto-create/cancel daily reminder notifications; cascade delete.
+- **Audit Items (Assessment):** Per-criteria assessment with `COMPLY`/`NOT_COMPLY` status; COMPLY skips approval (auto-DONE); NOT_COMPLY triggers corrective action and approval workflow.
+- **Approval Workflow:** Submit → Approve (multi-line chain via MasterApprovals) → CLOSE; Reject with mandatory notes → loop back to OPEN for correction.
+- **Audit Results View:** Cross-schedule aggregated results with filtering; per-schedule and per-clause assessment statistics.
 
 **Scope:**
 - Backend: `audit-policy` (audit-elements, audit-clauses, audit-criteria controllers), `audit-periods`, `audit-schedules`, `audit-results` (results endpoint under audit-schedules)
@@ -101,7 +115,18 @@ Policy is master data; periods are scheduling containers; schedules are executab
 
 ---
 
-## Workflows
+## User Stories
+
+- As an admin, I can create and manage the audit policy hierarchy (elements → clauses → criteria) so that the assessment framework is defined.
+- As an admin, I can create an audit period so that all active elements automatically generate scheduled audit instances for that period.
+- As an auditor, I can view my assigned audit schedules and open each clause to assess criteria so that compliance is documented.
+- As an auditor, I can record a COMPLY finding so that the item is immediately closed without an approval step.
+- As an auditor, I can record a NOT_COMPLY finding and fill in corrective actions, evidence, and images so that remediation is tracked.
+- As an assignee, I can submit a corrective action for approval so that the audit item progresses through the approval chain.
+- As an approver, I can approve or reject an audit item so that the approval chain advances or the assignee is prompted to correct.
+- As a user, I can view cross-schedule audit results filtered by element, clause, criteria, and status so that I can monitor overall compliance.
+
+## Key Workflows
 
 ### 1. Policy Setup
 
@@ -301,3 +326,21 @@ User with audit-result:list
 
 - **Backend:** Prisma (AuditElement, AuditClause, AuditCriteria, AuditPeriod, Audit, AuditItem, AuditImage, AuditToArea, AuditToUser, AuditItemToDepartment, AuditItemToUser), MasterApprovalsService (approval chain), RemindersService (SCHEDULED audit reminders), JwtAuthGuard, RolesGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth module, master-data module (departments, areas, users for dropdowns), core API service, react-to-pdf (PDF export), shared DataTable, PageHeader, ModalCombobox.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Admin creates audit period for month 3/2026 with 5 active elements | 201; 5 audit records auto-generated; period lists with `totalAudits: 5` |
+| AC-2 | Auditor creates audit item with `compliantStatus: COMPLY` | 201; item `status: DONE`; no approval workflow triggered |
+| AC-3 | Auditor creates audit item with `compliantStatus: NOT_COMPLY_MAJOR` | 201; item `status: OPEN`; corrective action fields editable |
+| AC-4 | Assignee submits NOT_COMPLY item for approval | Item `status: WAITING_APPROVAL`; approver can approve or reject |
+| AC-5 | Approver approves final line of approval chain | Item `status: CLOSE` |
+| AC-6 | Approver rejects item with notes | Item `status: REJECTED`; assignee can edit and resubmit |
+| AC-7 | Admin deletes period with no filled items | Period soft-deleted; child audits removed |
+| AC-8 | Admin deletes period that has filled items | 400/409; deletion blocked |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-approvals.md`](prd-approvals.md) — master approval workflow used by audit items

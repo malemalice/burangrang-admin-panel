@@ -86,7 +86,7 @@ const InvestigationReportsPage = () => {
       await investigationReportsService.delete(deleteTarget.id);
       toast.success('Investigation report deleted');
       setDeleteTarget(null);
-      fetchReports();
+      await fetchReports();
     } catch (error) {
       console.error(error);
       toast.error('Failed to delete investigation report');

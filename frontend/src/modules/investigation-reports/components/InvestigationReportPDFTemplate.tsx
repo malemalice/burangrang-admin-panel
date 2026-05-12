@@ -1,17 +1,9 @@
 import { format } from 'date-fns';
 import {
+  type InvestigationCause,
   type InvestigationReport,
   InvestigationCauseSectionEnum,
-  InvestigationSignatoryRoleEnum,
 } from '../types/investigation-report.types';
-
-const SIGNATORY_ROLE_LABELS: Record<InvestigationSignatoryRoleEnum, string> = {
-  [InvestigationSignatoryRoleEnum.LEAD_INVESTIGATOR]: 'Lead Investigator (Penyidik 1)',
-  [InvestigationSignatoryRoleEnum.INVESTIGATOR_2]: '2nd Investigator (Penyidik 2)',
-  [InvestigationSignatoryRoleEnum.INVESTIGATOR_3]: '3rd Investigator (Penyidik 3)',
-  [InvestigationSignatoryRoleEnum.RELATED_MANAGER]: 'Related Manager (Manager terkait)',
-  [InvestigationSignatoryRoleEnum.SECURITY]: 'Security',
-};
 import {
   IncidentSectionA,
   IncidentSectionB,
@@ -24,6 +16,70 @@ import {
   pdfCell,
   pdfFormatRupiah,
 } from './incident-readonly';
+
+type GroupByTier = (
+  causes: InvestigationCause[],
+) => Record<string, Record<string, InvestigationCause[]>>;
+
+const PdfHfacsMatrix = ({
+  causes,
+  groupByTier,
+}: {
+  causes: InvestigationCause[];
+  groupByTier: GroupByTier;
+}) => {
+  const grouped = groupByTier(causes);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {Object.entries(grouped).map(([tier1, tier2Groups]) => (
+        <div key={tier1} style={{ marginBottom: 8 }}>
+          <div
+            style={{
+              background: 'hsl(var(--muted))',
+              borderRadius: 4,
+              padding: '4px 10px',
+              marginBottom: 6,
+              fontWeight: 600,
+              fontSize: 11,
+            }}
+          >
+            {tier1}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {Object.entries(tier2Groups).map(([tier2, items]) => (
+              <div
+                key={tier2}
+                style={{
+                  flex: '1 1 45%',
+                  border: '1px solid #ddd',
+                  borderRadius: 4,
+                  padding: '6px 8px',
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 10, marginBottom: 4 }}>{tier2}</div>
+                {items.map((c) => (
+                  <div
+                    key={c.id}
+                    style={{
+                      padding: '2px 6px',
+                      marginBottom: 2,
+                      fontSize: 10,
+                    }}
+                  >
+                    {c.causeName}
+                    {c.customNotes && (
+                      <em style={{ color: '#555' }}> — {c.customNotes}</em>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationReport }) => {
   const incident = report.incident;
@@ -41,6 +97,17 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
   const activeCauses = report.causes.filter(
     (c) => c.isSelected && c.section === InvestigationCauseSectionEnum.ACTIVE_FAILURE,
   );
+
+  const groupByTier = (causes: typeof latentCauses) =>
+    causes.reduce<Record<string, Record<string, typeof causes>>>(
+      (acc, c) => {
+        if (!acc[c.tier1]) acc[c.tier1] = {};
+        if (!acc[c.tier1][c.tier2]) acc[c.tier1][c.tier2] = [];
+        acc[c.tier1][c.tier2].push(c);
+        return acc;
+      },
+      {},
+    );
 
   return (
     <div
@@ -119,14 +186,7 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
       {latentCauses.length === 0 ? (
         <p style={{ marginBottom: 12 }}>No causes selected.</p>
       ) : (
-        <ul style={{ marginBottom: 12, paddingLeft: 20 }}>
-          {latentCauses.map((c) => (
-            <li key={c.id}>
-              <strong>[{c.causeKey}]</strong> {c.causeName}
-              {c.customNotes ? <em> — {c.customNotes}</em> : null}
-            </li>
-          ))}
-        </ul>
+        <PdfHfacsMatrix causes={latentCauses} groupByTier={groupByTier} />
       )}
 
       <PdfSectionTitle>
@@ -135,14 +195,7 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
       {activeCauses.length === 0 ? (
         <p style={{ marginBottom: 12 }}>No causes selected.</p>
       ) : (
-        <ul style={{ marginBottom: 12, paddingLeft: 20 }}>
-          {activeCauses.map((c) => (
-            <li key={c.id}>
-              <strong>[{c.causeKey}]</strong> {c.causeName}
-              {c.customNotes ? <em> — {c.customNotes}</em> : null}
-            </li>
-          ))}
-        </ul>
+        <PdfHfacsMatrix causes={activeCauses} groupByTier={groupByTier} />
       )}
 
       <PdfSectionTitle>J. Remedial Action Plans / Rencana Tindakan Perbaikan</PdfSectionTitle>
@@ -194,26 +247,9 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
         <tbody>
           {report.signatories.map((s) => (
             <tr key={s.id}>
-              <td style={pdfCell}>
-                <div style={{ fontWeight: 600 }}>
-                  {SIGNATORY_ROLE_LABELS[s.signatoryRole] ?? s.signatoryRole.replace(/_/g, ' ')}
-                </div>
-                {s.roleName ? (
-                  <div style={{ fontSize: 10, color: '#555' }}>{s.roleName}</div>
-                ) : null}
-              </td>
+              <td style={pdfCell}>{s.roleName ?? '—'}</td>
               <td style={pdfCell}>{s.name ?? '—'}</td>
-              <td style={pdfCell}>
-                {s.signatureUrl ? (
-                  <img
-                    src={s.signatureUrl}
-                    style={{ height: 40, maxWidth: 120, objectFit: 'contain' }}
-                    alt="signature"
-                  />
-                ) : (
-                  '—'
-                )}
-              </td>
+              <td style={{ ...pdfCell, minHeight: 48, height: 48 }}>{/* blank for physical signature */}</td>
               <td style={pdfCell}>
                 {s.signedAt ? format(new Date(s.signedAt), 'dd MMM yyyy') : '—'}
               </td>

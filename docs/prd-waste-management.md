@@ -1,5 +1,10 @@
 # PRD: Waste Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Waste Management module is a multi-entity subsystem covering treatment plants, water quality parameters, waste types, waste sources, storage locations, monthly flow reports, water quality lab reports, weight reports, and dispatch orders. Each sub-entity has its own backend controller and service and frontend pages (list, create, edit, detail where applicable). List endpoints typically support pagination, filters, and an `options` bypass for dropdown use.
@@ -59,3 +64,36 @@ Routes: all under /waste-management/* (e.g. /waste-management/treatment-plants, 
 
 - **Backend:** Prisma (all waste-management tables), JwtAuthGuard, PermissionsGuard, AllowOptionsBypass. Office/Area for treatment plants and storage locations.
 - **Frontend:** Auth, master-data where referenced (e.g. areas), core API, wasteManagementService and entity-specific services.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for all nine sub-entities: treatment plants, water quality parameters, waste types, waste sources, storage locations, monthly flow reports, water quality lab reports, weight reports, and dispatch orders.
+- [FR-2] All list endpoints must support pagination, and applicable endpoints must support relevant filters (e.g. date range, type, location, status).
+- [FR-3] List endpoints that serve form dropdown data must support `options=true` bypass (JWT required; permission check relaxed).
+- [FR-4] Treatment plants must be linkable to an Office. Storage locations must be linkable to an Area.
+- [FR-5] Water quality lab report records must be linkable to water quality parameters.
+- [FR-6] Dispatch orders must record waste dispatch details and be trackable by status.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Soft-deleted or inactive records must be excluded from list and options responses where soft-delete is implemented.
+- [NFR-3] All write operations must require a valid JWT and the corresponding `<entity>:create/update/delete` permission.
+- [NFR-4] Permission checks must be enforced via `PermissionsGuard` on all non-public endpoints.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User with `treatment-plant:create` creates a treatment plant linked to an office | 201; record created; accessible via GET and list |
+| AC-2 | User lists monthly flow reports with a date-range filter | 200; only reports in range returned; pagination present |
+| AC-3 | User with `waste-type:list` calls list with `options=true` | 200; options returned without full permission check |
+| AC-4 | User creates a water quality lab report linked to a parameter | 201; report linked to correct parameter; visible in list |
+| AC-5 | User soft-deletes a dispatch order (if soft-delete supported) | Record excluded from list; still resolvable by ID for history |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-master-data.md`](prd-master-data.md) — master data entities (areas, offices) referenced by this module

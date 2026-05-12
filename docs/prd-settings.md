@@ -1,5 +1,10 @@
 # PRD: Application Settings
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Application Settings module provides key-value or structured application configuration. It supports CRUD for settings (create, list, read, update, delete), app-specific endpoints (GET app for public app name; PATCH app-name for authenticated update), and optional key-based get/update. Settings keys are centralized in constants (e.g. SETTINGS_KEYS). List endpoint supports an `options` bypass where applicable. Used by frontend for app name (login page, branding).
@@ -59,3 +64,32 @@ Routes: /settings, /settings/application (admin).
 
 - **Backend:** Prisma (Setting), SETTINGS_KEYS constants, JwtAuthGuard, PermissionsGuard, AllowOptionsBypass, Public decorator.
 - **Frontend:** Auth, core API. Login page and layout use app name from settings.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for settings as key-value records; keys must be unique.
+- [FR-2] The system must provide a public endpoint (`GET /settings/app`) that returns the app name without authentication.
+- [FR-3] The system must provide an authenticated endpoint (`PATCH /settings/app-name`) for updating the app name.
+- [FR-4] The system must support reading a setting by key (`GET /settings/key/:key`) in addition to reading by ID.
+- [FR-5] The list endpoint must support `options=true` bypass for dropdown use.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] All write operations (except `GET /settings/app`) must require a valid JWT and the corresponding `setting:*` permission.
+- [NFR-3] `GET /settings/app` must be publicly accessible with no authentication required.
+- [NFR-4] API responses must return within 2 seconds under normal load.
+- [NFR-5] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Unauthenticated request to `GET /settings/app` | 200; returns `{ name: "..." }` with the current app name |
+| AC-2 | Admin updates app name via `PATCH /settings/app-name` | 200; `GET /settings/app` returns the new name |
+| AC-3 | Admin creates a new setting with a unique key | 201; setting readable by key via `GET /settings/key/:key` |
+| AC-4 | Admin deletes a setting | 200; setting no longer returned in list |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement

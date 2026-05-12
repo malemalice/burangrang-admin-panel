@@ -1,6 +1,11 @@
 # Soft delete (`deletedAt` / `deletedBy`) — model inventory
 
-**Status:** Slices 1–2, slice **3a** (risk + LMS), slice **3b** (settings, KPI HSE targets, man hours, environmental measurements, email templates, master approvals), slice **3c** (audit element / clause / criteria), and slice **3d** (risk assessment + line items + `t_risk_mitigation` rows for those items) are implemented. Remaining hard deletes are listed in `docs/soft-delete-rollout.md`.
+**Document type:** TRD
+**Status:** Stable
+**Audience:** Backend Engineers
+**Last updated:** 2026-05-12
+
+Slices 1–2, slice **3a** (risk + LMS), slice **3b** (settings, KPI HSE targets, man hours, environmental measurements, email templates, master approvals), slice **3c** (audit element / clause / criteria), and slice **3d** (risk assessment + line items + `t_risk_mitigation` rows for those items) are implemented. Remaining hard deletes are listed in `docs/soft-delete-rollout.md`.
 
 ## Contract
 

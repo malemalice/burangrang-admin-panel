@@ -1,5 +1,10 @@
 # PRD: Personal Protective Equipment (PPE)
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The PPE module manages safety equipment types, safety equipment (master data), stock entries (stock-in with items), stock items (availability, status, adjustments), and withdrawals (request, approve, collect, cancel). Withdrawals are data-scoped (self/department/super). List endpoints for stocks and withdrawals support an `options` bypass where applicable. Stock movement history supports audit trail.
@@ -99,3 +104,41 @@ Routes defined in `ppe/routes/ppeRoutes.tsx` (imported in core routes).
 
 - **Backend:** Prisma (SafetyEquipmentType, SafetyEquipment, PPEStock, PPEStockItem, PPEWithdrawal, PPEWithdrawalItem, Department, User, and movement/audit tables), DataScopeGuard for withdrawals, JwtAuthGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth, core API, master-data for department options. Data scope enforced by backend; list/detail of withdrawals reflect scope.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for safety equipment types and safety equipment as master data.
+- [FR-2] The system must support creating stock entries with inline items (safety equipment, quantity, expiry), updating stock and item details, and creating adjustments for audit purposes.
+- [FR-3] The system must expose available stock items filtered by status and optional grouping by safety equipment for the withdrawal creation UI.
+- [FR-4] The system must support creating a PPE withdrawal request (department, list of items with equipment and quantity) with initial status PENDING.
+- [FR-5] Withdrawal status must follow the lifecycle: PENDING → APPROVED → COLLECTED (or CANCELLED).
+- [FR-6] Only PENDING withdrawals may be updated; approved or collected withdrawals are immutable.
+- [FR-7] Collecting a withdrawal must deduct the corresponding quantity from stock items.
+- [FR-8] Withdrawal list and single-record access must be data-scoped (SELF/DEPARTMENT/SUPER) via `DataScopeGuard`.
+- [FR-9] Stock entries and withdrawals must be soft-deletable.
+- [FR-10] List endpoints for stocks, withdrawals, and master data must support `options=true` bypass.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Soft-deleted stocks and withdrawals must be excluded from list responses.
+- [NFR-3] All write operations must require a valid JWT and the corresponding `ppe:*` or `safety-equipment*:*` permission.
+- [NFR-4] Data-scope filtering for withdrawals must be enforced server-side via `DataScopeGuard`.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User creates a stock entry with 3 items | 201; stock and all items created; available items endpoint reflects new stock |
+| AC-2 | User creates a withdrawal request with 2 items | 201; withdrawal created with PENDING status |
+| AC-3 | Approver approves withdrawal | Status changes to APPROVED |
+| AC-4 | User collects approved withdrawal | Status changes to COLLECTED; stock item quantities decremented |
+| AC-5 | SELF-scoped user lists withdrawals | Only withdrawals created by the user are returned |
+| AC-6 | Soft-deleted stock excluded from list | `GET /ppe/stocks` does not return deleted record |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and data-scope enforcement
+- [`prd-master-data.md`](prd-master-data.md) — master data module (departments used in withdrawals)

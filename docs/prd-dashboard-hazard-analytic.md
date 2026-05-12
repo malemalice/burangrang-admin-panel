@@ -1,8 +1,9 @@
 # PRD: Dashboard Hazard Analytics
 
-**Document Version:** 1.0  
-**Last Updated:** February 7, 2025  
-**Related Modules:** Hazard Analytics, Incidents, Inspections, Audits
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-07
 
 ---
 

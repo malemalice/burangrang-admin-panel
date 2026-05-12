@@ -1,11 +1,10 @@
 # PRD: Digital Work Permit Management System
 
-**Document Type:** Product Requirements Document  
-**Version:** 1.4  
-**Date:** April 26, 2026  
-**Author:** Senior PM  
-**Source policy (intent):** BSJ/F.5/H&S Policy 05/Rev 02 — Ijin Bekerja / Permit to Work  
-**Status:** Draft — **aligned with current codebase (types + DTO + service behaviour)**
+**Document type:** PRD
+**Status:** Draft — aligned with current codebase (types + DTO + service behaviour)
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-04-26
+**Source policy:** BSJ/F.5/H&S Policy 05/Rev 02 — Ijin Bekerja / Permit to Work
 
 ---
 

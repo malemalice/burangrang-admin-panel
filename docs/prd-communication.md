@@ -1,5 +1,10 @@
 # PRD: Communication System
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Communication System covers in-app **notifications** (CRUD, list for current user, mark read), **reminders** (CRUD, list for current user, scheduler for triggering), and **mail templates** (backend mail module: templates and sending; frontend mail-templates module: manage email templates). Notifications and reminders are user-facing; mail templates are used by the system for sending emails (password reset, course assignment, etc.).
@@ -67,3 +72,36 @@ The Communication System covers in-app **notifications** (CRUD, list for current
 
 - **Backend:** Prisma (Notification, Reminder, User), MailModule (MailService, templates), RemindersScheduler (cron), JwtAuthGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth, core API. Notification dropdown and list consume notifications API; settings/app name may affect mail template branding.
+
+## Functional Requirements
+
+- [FR-1] The system must support creating, listing (for current user, paginated), reading, updating (e.g. mark as read), and deleting in-app notifications.
+- [FR-2] Notifications may carry a context (entity type + entity ID) to enable deep-link navigation from the notification.
+- [FR-3] The system must support full CRUD for reminders, each with a schedule (cron or specific date/time) and recipient.
+- [FR-4] The reminders scheduler must run in the backend and trigger notification creation or email sending when a reminder is due.
+- [FR-5] The reminder list must support `options=true` bypass for dropdown use.
+- [FR-6] Admins must be able to manage email templates (list, create, edit, view) for all system-generated emails.
+- [FR-7] The mail service must send transactional emails using the stored templates and a configurable SMTP provider.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] All write operations must require a valid JWT and the corresponding permission.
+- [NFR-3] Email sending must be asynchronous and non-blocking; a failed email must not cause the triggering API call to fail.
+- [NFR-4] API responses must return within 2 seconds under normal load.
+- [NFR-5] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | System creates a notification for a user | Notification appears in `GET /notifications` for that user |
+| AC-2 | User marks notification as read | `isRead: true` set; notification still visible until deleted |
+| AC-3 | User creates a reminder with a future date | Reminder saved; scheduler triggers notification/email when date arrives |
+| AC-4 | Admin creates an email template with placeholders | Template saved; MailService uses it when sending the corresponding email type |
+| AC-5 | User deletes a notification | 200; notification no longer returned in list |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-notifications.md`](prd-notifications.md) — detailed notification system specification

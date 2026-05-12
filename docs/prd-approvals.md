@@ -1,5 +1,10 @@
 # PRD: Approval Workflow System
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Approval Workflow System provides (1) **Master Approvals** — configurable approval configurations (entity, department, job position, order) that define who can approve which entities (e.g. RISK_ASSESSMENT, WORK_PERMIT, INCIDENT, AUDIT_ITEM); (2) **Approval runtime** — check if current user can approve (check-approval), check approval status/history (check-approval-status), and submit an approval (submitApproval). The ApprovalResolverService is used by other modules (risk assessment, work permits, incidents, audit) to resolve approvers and apply workflow. Frontend manages master approvals under /master/approvals.
@@ -56,3 +61,35 @@ The Approval Workflow System provides (1) **Master Approvals** — configurable 
 
 - **Backend:** Prisma (MasterApproval/Approval, Department, JobPosition), ApprovalResolverService (used by work-permits, incidents, risk-assessment, audit-schedules), JwtAuthGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth, master-data (departments, job positions for master approval form), core API. Other modules (work-permits, incidents, etc.) depend on approval APIs for their detail pages.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for master approval records, each defining an entity type, department, job position, and approval line order.
+- [FR-2] The master approval list must support `options=true` bypass for dropdown use.
+- [FR-3] The system must expose a check-approval endpoint (`GET check-approval/:dataId?entity=ENTITY`) that returns `{ canApprove, error, message }` for the current user.
+- [FR-4] The system must expose a check-approval-status endpoint that returns approval history, next approver, current status, and all approval lines for a given record.
+- [FR-5] The system must expose a submit-approval endpoint (`POST approval`) that records an approve or reject action and advances the workflow for the entity.
+- [FR-6] The approval resolver must support sentinel values for department (`@ENTITY_DEPARTMENT`) and job position (`@ENTITY_JOB_POSITION`) to enable dynamic approval lines derived from the entity record.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] All write operations must require a valid JWT and the corresponding permission.
+- [NFR-3] The approval system must be entity-agnostic; adding a new entity type must not require code changes to the resolver beyond registering the new `APPROVAL_ENTITIES` constant.
+- [NFR-4] Approval history must be append-only; no record may be modified after creation.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Admin creates a master approval for WORK_PERMIT with department X and job position Y at order 1 | 201; record created; appears in master approval list |
+| AC-2 | User calls check-approval for a work permit they are not in the approval line for | Returns `{ canApprove: false }` |
+| AC-3 | User in the current approval line calls check-approval for a record awaiting approval | Returns `{ canApprove: true }` |
+| AC-4 | Approver submits approval (approve) for a work permit | 200; approval recorded in history; work permit status advances; next approver (if any) notified |
+| AC-5 | Approver submits rejection | 200; rejection recorded; workflow terminates; entity status reverts |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement

@@ -1,8 +1,9 @@
 # PRD: Dashboard — Consolidated Metrics, Formulas & Schema Mapping
 
-**Document Version:** 1.0  
-**Last Updated:** February 14, 2026  
-**Related Modules:** KPI Frequency Rate, Hazard Analytics, Incident Profile Analytic, Security Team, Admin Overview, Man Hours, Incidents
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-14
 
 ---
 

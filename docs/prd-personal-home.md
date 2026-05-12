@@ -1,8 +1,9 @@
 # PRD: Personal Home (Default Landing Page)
 
-**Document Version:** 1.0  
-**Last Updated:** February 8, 2025  
-**Related Modules:** Core (Auth, Menus), Risk Assessment, Incidents, Work Permits, PPE, Enrollments, Certificates, Reminders, Notifications
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-08
 
 ---
 
@@ -13,6 +14,47 @@ This document describes the **Personal Home** page: the default landing page (`/
 **Replaces:** The previous default home, which was the Risk Assessment Dashboard. That dashboard remains available at **`/dashboard/risk`** for users with the appropriate permissions.
 
 **Target Audience:** All authenticated users. Content and quick actions are **permission-based**; users only see sections and links they are allowed to access.
+
+## Key Features
+
+- **Personalized greeting:** Time-based greeting with the user's display name, always visible to all authenticated users.
+- **Quick Actions:** Permission-gated shortcut buttons (New risk assessment, Report incident, Request work permit, My learning, View dashboards); rendered only when the user has the relevant permission.
+- **Needs My Action:** Backend-driven list of pending tasks (approvals, overdue enrollments, certificate renewals, reminders due); empty state shown until backend endpoint is available.
+- **Dashboard Shortcuts:** Links to domain dashboards (Risk, Admin Overview, Hazard Analytics, Security Team); each gated by its own permission.
+- **Optional Widgets (future):** Small summary cards for personal metrics (my enrollments, certificates expiring, department risks).
+
+## User Roles & Permissions
+
+- **All authenticated users:** Access to `/`; see Greeting; sections rendered based on held permissions.
+- **Quick Actions:** Each action requires its own `create`/`read` permission (e.g. `risk-assessment:create`, `incident:create`); section hidden if none apply.
+- **Needs My Action:** Shown if user has at least one of: `risk-assessment:read`, `work-permit:read`, `reminder:list`, `enrollment:list`; backend returns only tasks user can act on.
+- **Dashboards:** Each dashboard link gated by its own permission (e.g. `risk-assessment:read` for `/dashboard/risk`); section always shown (even if all links are hidden, a "no access" message is displayed).
+
+## User Stories
+
+- As an authenticated user, I see a time-based greeting with my name so that the page feels personal.
+- As a user with create permissions, I see Quick Action buttons so that I can navigate directly to key workflows without using the sidebar.
+- As an approver, I see a list of items pending my action so that I can act on them without searching through list pages.
+- As a user with dashboard access, I see shortcut links to domain dashboards so that I can open analytical views from one central page.
+- As a user with no permissions, I still see the greeting and a "no access" message in the Dashboards card so that the page never appears broken.
+
+## Functional Requirements
+
+- [FR-1] The system must render the Personal Home at route `/` for all authenticated users; unauthenticated users must be redirected to `/login`.
+- [FR-2] The greeting must display a time-based prefix ("Good morning/afternoon/evening") and the user's `firstName` (from auth context); no permission required.
+- [FR-3] Each Quick Action must be hidden when the user does not hold the required permission; the Quick Actions section must be hidden entirely when none of the actions are visible.
+- [FR-4] The Needs My Action section must call `GET /dashboard/home/needs-my-action` when the endpoint exists; until then, an empty state must be shown with a friendly message.
+- [FR-5] The Dashboards section must always be visible; if the user has no dashboard permissions, a "You don't have access to any dashboards yet" message must be shown.
+- [FR-6] Each Shortcut link must be hidden when the user does not hold the required `list`/`read` permission for the linked module; the Shortcuts section must be hidden if none are visible.
+- [FR-7] The previous default home (Risk Assessment Dashboard) must be accessible at `/dashboard/risk` (requires `risk-assessment:read`).
+
+## Non-Functional Requirements
+
+- [NFR-1] Greeting and Quick Actions must render immediately from auth context and permissions (no API call required).
+- [NFR-2] Permission checks must use the frontend `usePermissions()` hook consistently; no hardcoded role checks.
+- [NFR-3] All UI components must support light and dark mode via semantic design tokens.
+- [NFR-4] The page must be responsive: single column on mobile, multi-column Quick Actions on larger screens.
+- [NFR-5] The Needs My Action section must show a loading skeleton while the API call is in progress.
 
 ---
 
@@ -173,9 +215,19 @@ Users with zero module permissions still land on a valid Home with greeting and 
 
 ---
 
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Authenticated user opens `/` at 09:00 | "Good morning, [firstName]" greeting shown |
+| AC-2 | User with `incident:create` permission opens Home | "Report incident" Quick Action shown |
+| AC-3 | User without any Quick Action permissions opens Home | Quick Actions section hidden entirely |
+| AC-4 | User with `risk-assessment:read` opens Home | "View risk dashboard" link to `/dashboard/risk` shown in Dashboards section |
+| AC-5 | User with no dashboard permissions opens Home | Dashboards section shows "You don't have access to any dashboards yet" |
+| AC-6 | Unauthenticated user navigates to `/` | Redirected to `/login` |
+
 ## Related Documents
 
-- `docs/prd-dashboard-admin-overview.md` — Admin Overview dashboard
-- `docs/dashboard-security-team.md` — Security Team dashboard
-- `frontend/TRD.md` — Design system and frontend patterns
-- `backend/TRD.md` — API and backend patterns
+- [`prd-dashboard-admin-overview.md`](prd-dashboard-admin-overview.md) — Admin Overview dashboard
+- [`dashboard-security-team.md`](dashboard-security-team.md) — Security Team dashboard
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement

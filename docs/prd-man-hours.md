@@ -1,5 +1,10 @@
 # PRD: Man Hours Tracking
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Man Hours module records and reports workforce exposure by **named line** (`name`, e.g. class or cohort), **month**, **year**, and **group** (`STUDENT` or `NON_STUDENT`). Each record carries **quantity** (`qty`), **man hours per day** (`manHourPerDay`), and **derived** totals (`totalWorkingDays`, `lostHour`, `total`) with optional **notes**. Records are **soft-deleted** (not removed from the database). The module supports full CRUD (with list pagination and filters), a **read-only detail** view, and an **aggregated report** by year range and optional group for dashboards and KPIs (e.g. IFR; see prd-kpi-ifr-formula.md). The list endpoint supports an **`options`** bypass (JWT auth; permission check relaxed when used as documented in Swagger).
@@ -79,3 +84,37 @@ The Man Hours module records and reports workforce exposure by **named line** (`
 
 - **Backend:** Prisma (`ManHour` → `t_man_hours`), `JwtAuthGuard` + `RolesGuard` + `PermissionsGuard`, `AllowOptionsBypass`, `ErrorHandlingService`, in-service DTO mapping to `ManHourDto`, soft-delete helpers (`isNotDeleted`, `buildSoftDeleteDataWithInactive`). Report consumption by KPI/dashboard modules as needed.
 - **Frontend:** Auth, core API client, UI primitives (PageHeader, DataTable, etc.), **xlsx** for report export.
+
+## Functional Requirements
+
+- [FR-1] The system must support creating man hour records with name, group (STUDENT/NON_STUDENT), qty, manHourPerDay, month, year, and optional lostHour, total, notes.
+- [FR-2] The system must derive `totalWorkingDays` = `qty × manHourPerDay × 22` and compute `lostHour` and `total` from the supplied pair on create and update.
+- [FR-3] The system must support listing records with pagination and filters: `isActive`, search (name + notes), `month`, `year`, `group`, and `options` bypass.
+- [FR-4] The system must support reading and updating individual records, with derived fields recalculated on update when base fields change.
+- [FR-5] The system must support soft-deleting records (`deletedAt` / `deletedBy`); soft-deleted records must be excluded from lists and the report.
+- [FR-6] The system must expose a report endpoint (`GET /man-hours/report`) that accepts `startYear`, `endYear`, and optional `group`, and returns aggregated rows with monthly breakdowns, grand totals, and KPI rollups (`totalStudentHour`, `totalAccumulationStudentHour`).
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Soft-deleted records must be excluded from list and report responses.
+- [NFR-3] All write operations must require a valid JWT and the corresponding `man-hour:*` permission.
+- [NFR-4] Permission checks must be enforced via `PermissionsGuard` on all endpoints.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+- [NFR-7] The `GET /man-hours/report` route must be registered before `GET /man-hours/:id` so that `report` is not captured as an ID parameter.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User creates record with qty=10, manHourPerDay=8 | 201; `totalWorkingDays` = 1760; `lostHour` = 0; `total` = 1760 |
+| AC-2 | User creates record with qty=10, manHourPerDay=8, lostHour=40 | 201; `total` = 1720 |
+| AC-3 | User lists records filtered by year=2026 and group=STUDENT | 200; only STUDENT records for 2026 returned |
+| AC-4 | User calls report with startYear=2025, endYear=2026 | 200; aggregated rows with monthly keys and grand totals returned |
+| AC-5 | User soft-deletes a record | Record excluded from list and report; GET by ID returns 404 |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-kpi-ifr-formula.md`](prd-kpi-ifr-formula.md) — IFR formula that consumes man hour report data

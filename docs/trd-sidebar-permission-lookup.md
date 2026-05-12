@@ -1,7 +1,11 @@
 # Technical Requirement: Sidebar Menu Driven by Permission Lookup (Path → Permission)
 
-**Status:** Draft for implementation  
-**Approach:** Lookup in code (path/code → permission). No schema change. No Menu→Permission relation.  
+**Document type:** Technical Requirements Document
+**Status:** Draft
+**Audience:** Backend, Frontend Engineers
+**Last updated:** 2026-05-12
+
+**Approach:** Lookup in code (path/code → permission). No schema change. No Menu→Permission relation.
 **Implementation:** Either a **static map** (path → permission in code) or **dynamic convention-based** derivation (path → permission from path segments + permission names). See §4.1 and §4.1.1.
 
 ---

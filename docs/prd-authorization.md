@@ -1,6 +1,6 @@
 # PRD — Authorization & Permissions
 
-**Document type:** Product Requirements Document  
+**Document type:** PRD  
 **Status:** Stable  
 **Audience:** Product, Backend, Frontend  
 **Last updated:** 2026-05-09

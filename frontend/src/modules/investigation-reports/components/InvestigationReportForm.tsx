@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { cn } from '@/core/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,7 +47,6 @@ import {
   MechanismOfInjuryEnum,
 } from '@/modules/incidents/types/incident.types';
 import {
-  InvestigationSignatoryRoleEnum,
   InvestigationStatusEnum,
   type InvestigationReport,
 } from '../types/investigation-report.types';
@@ -140,21 +140,6 @@ const MECHANISM_OPTIONS: { value: MechanismOfInjuryEnum; label: string }[] = [
   { value: MechanismOfInjuryEnum.OTHER, label: 'Other / Lainnya' },
 ];
 
-// ── Signatory config ───────────────────────────────────────────────────────────
-
-const SIGNATORY_ROLES: Array<{
-  role: InvestigationSignatoryRoleEnum;
-  labelEn: string;
-  labelId: string;
-  defaultRoleName: string;
-}> = [
-  { role: InvestigationSignatoryRoleEnum.LEAD_INVESTIGATOR, labelEn: 'Lead Investigator', labelId: 'Penyidik 1', defaultRoleName: 'HSE Manager' },
-  { role: InvestigationSignatoryRoleEnum.INVESTIGATOR_2, labelEn: '2nd Investigator', labelId: 'Penyidik 2', defaultRoleName: 'HSE Officer' },
-  { role: InvestigationSignatoryRoleEnum.INVESTIGATOR_3, labelEn: '3rd Investigator', labelId: 'Penyidik 3', defaultRoleName: 'Risk & Business Continuity' },
-  { role: InvestigationSignatoryRoleEnum.RELATED_MANAGER, labelEn: 'Related Manager', labelId: 'Manager terkait', defaultRoleName: '' },
-  { role: InvestigationSignatoryRoleEnum.SECURITY, labelEn: 'Security', labelId: 'Security', defaultRoleName: 'Chief of Security' },
-];
-
 // ── Zod schema ─────────────────────────────────────────────────────────────────
 
 const causeSchema = z.object({
@@ -173,10 +158,8 @@ const actionPlanSchema = z.object({
 });
 
 const signatorySchema = z.object({
-  signatoryRole: z.nativeEnum(InvestigationSignatoryRoleEnum),
   roleName: z.string().optional(),
   name: z.string().optional(),
-  signatureUrl: z.string().optional(),
   signedAt: z.string().optional(),
 });
 
@@ -331,19 +314,11 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   }, [leafItems, report]);
 
   const initialSignatories = useMemo(() => {
-    const byRole = new Map((report?.signatories ?? []).map((s) => [s.signatoryRole, s]));
-    return SIGNATORY_ROLES.map((slot) => {
-      const existing = byRole.get(slot.role);
-      return {
-        signatoryRole: slot.role,
-        roleName: existing?.roleName ?? slot.defaultRoleName,
-        name: existing?.name ?? '',
-        signatureUrl: existing?.signatureUrl ?? '',
-        signedAt: existing?.signedAt
-          ? format(new Date(existing.signedAt), 'yyyy-MM-dd')
-          : '',
-      };
-    });
+    return (report?.signatories ?? []).map((s) => ({
+      roleName: s.roleName ?? '',
+      name: s.name ?? '',
+      signedAt: s.signedAt ? format(new Date(s.signedAt), 'yyyy-MM-dd') : '',
+    }));
   }, [report]);
 
   const form = useForm<FormValues>({
@@ -433,6 +408,9 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const { fields: imageFields, append: appendImage, remove: removeImage } =
     useFieldArray({ control: form.control, name: 'images' });
 
+  const { fields: signatoryFields, append: appendSignatory, remove: removeSignatory } =
+    useFieldArray({ control: form.control, name: 'signatories' });
+
   useEffect(() => {
     let cancelled = false;
     uploadService
@@ -483,21 +461,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const watched = form.watch();
   const total = sumCost(watched);
   const stopActivityValue = form.watch('needToStopActivity');
-
-  const handleSignatureUpload = async (index: number, file: File) => {
-    if (!uploadCategoryId) {
-      toast.error('Upload not ready, please retry');
-      return;
-    }
-    try {
-      const res = await uploadService.uploadFile(file, uploadCategoryId, true);
-      form.setValue(`signatories.${index}.signatureUrl`, res.url, { shouldDirty: true });
-      toast.success('Signature uploaded');
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to upload signature');
-    }
-  };
 
   const handleImageUpload = async (file: File) => {
     if (!uploadCategoryId) {
@@ -558,12 +521,10 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           order: i,
         })),
         signatories: data.signatories
-          .filter((s) => s.name || s.signatureUrl)
+          .filter((s) => s.roleName || s.name)
           .map((s, i) => ({
-            signatoryRole: s.signatoryRole,
             roleName: s.roleName || undefined,
             name: s.name || undefined,
-            signatureUrl: s.signatureUrl || undefined,
             signedAt: s.signedAt ? new Date(s.signedAt).toISOString() : undefined,
             order: i,
           })),
@@ -646,7 +607,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
       <div className="space-y-6">
         {tiers.map((t1) => (
           <div key={t1.id} className="space-y-4">
-            <div>
+            <div className="rounded-md bg-muted px-4 py-2">
               <h3 className="text-base font-semibold">{t1.labelEn}</h3>
               <p className="text-xs text-muted-foreground">{t1.labelId}</p>
             </div>
@@ -667,7 +628,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                       const isSelected = form.watch(`causes.${causeIndex}.isSelected`);
                       return (
                         <div key={item.id} className="space-y-1">
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-start gap-2 rounded px-2 py-1">
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={(v) =>
@@ -1488,89 +1449,87 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           <CardHeader>
             <CardTitle>K. Signatures / Tanda tangan</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {SIGNATORY_ROLES.map((slot, index) => (
-              <Card key={slot.role} className="bg-muted/30">
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{slot.labelEn}</p>
-                      <p className="text-xs text-muted-foreground">{slot.labelId}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name={`signatories.${index}.roleName`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Role Label</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="e.g. HSE Manager" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`signatories.${index}.name`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Full name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`signatories.${index}.signedAt`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Signed Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="space-y-2">
-                      <Label>Signature Image</Label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleSignatureUpload(index, f);
-                          }}
-                          className="hidden"
-                          id={`sig-upload-${slot.role}`}
-                        />
-                        <label htmlFor={`sig-upload-${slot.role}`}>
-                          <Button type="button" variant="outline" size="sm" asChild>
-                            <span>
-                              <Upload className="mr-1 h-4 w-4" /> Upload
-                            </span>
-                          </Button>
-                        </label>
-                        {watched.signatories?.[index]?.signatureUrl && (
-                          <img
-                            src={watched.signatories[index].signatureUrl}
-                            alt="signature"
-                            className="h-10 max-w-[120px] object-contain bg-white rounded border"
+          <CardContent className="space-y-3">
+            {signatoryFields.length > 0 && (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left p-2 font-medium">Investigator Team / Tim Penyidik</th>
+                      <th className="text-left p-2 font-medium">Name / Nama</th>
+                      <th className="text-left p-2 font-medium">Date / Tanggal</th>
+                      <th className="w-10 p-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {signatoryFields.map((field, index) => (
+                      <tr key={field.id} className="border-b last:border-0">
+                        <td className="p-2">
+                          <FormField
+                            control={form.control}
+                            name={`signatories.${index}.roleName`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input {...field} placeholder="e.g. HSE Manager" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                        </td>
+                        <td className="p-2">
+                          <FormField
+                            control={form.control}
+                            name={`signatories.${index}.name`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input {...field} placeholder="Full name" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <FormField
+                            control={form.control}
+                            name={`signatories.${index}.signedAt`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeSignatory(index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendSignatory({ roleName: '', name: '', signedAt: '' })}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add Signatory
+            </Button>
           </CardContent>
         </Card>
 

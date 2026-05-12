@@ -1,5 +1,10 @@
 # PRD: Incident Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Incident Management module supports reporting, tracking, and approving safety and security incidents. Incidents have rich metadata (type, classification, priority, location, risk category, requester, reporter, assignee, department), optional nested data (injured persons, witnesses, assets, images, attachments), and a submit/approve/reject workflow with timeline. List supports pagination and multiple filters; list endpoint allows `options` bypass for dropdown use.
@@ -74,3 +79,46 @@ Routes: /incidents, /incidents/new, /incidents/:id/edit, /incidents/:id.
 
 - **Backend:** Prisma (Incident and nested models, User, Department, Area, Room, RiskCategory), approval resolver if integrated with global approval config, JwtAuthGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth, master-data (areas, rooms, risk categories, departments, users for assignee/requester/reporter), uploads for images/attachments, core API.
+
+## Functional Requirements
+
+- [FR-1] The system must allow authenticated users with `incident:create` permission to create an incident with all required and optional fields, including nested injured persons, witnesses, assets, images, and attachments in a single request.
+- [FR-2] The system must support listing incidents with pagination (page, limit) and filters by area, risk category, status, type, classification, priority, source, assigned department, assignee, and search.
+- [FR-3] The list endpoint must support `options=true` bypass so that users without `incident:list` can retrieve incident options for dropdowns (JWT still required).
+- [FR-4] The system must allow users with `incident:read` to view a single incident with all nested data, approval rights, and timeline.
+- [FR-5] The system must allow users with `incident:update` to update an incident and its nested collections.
+- [FR-6] The system must allow users with `incident:delete` to soft-delete an incident (set `isActive: false`).
+- [FR-7] The system must expose a submit-for-approval endpoint (`POST :id/submit`) that transitions the incident status to pending approval.
+- [FR-8] The system must expose approve (`POST :id/approve`) and reject (`POST :id/reject`) endpoints, with notes or reason respectively, and update the approval timeline.
+- [FR-9] The system must expose `GET :id/approval-rights` so the frontend can determine whether the current user can approve or reject.
+- [FR-10] The system must expose `GET :id/timeline` to return the full ordered approval history.
+- [FR-11] The system must soft-delete incidents rather than hard-delete them; `deletedAt` and `isActive: false` must be set on delete.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Soft-deleted and inactive incidents (`isActive: false`) must be excluded from all list responses by default.
+- [NFR-3] All write operations must require a valid JWT (Bearer token) and the corresponding `incident:*` permission.
+- [NFR-4] Permission checks must be enforced via `PermissionsGuard` on all non-public endpoints.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+- [NFR-7] The approval workflow must use the Master Approval configuration dynamically; approver lists must not be hardcoded.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User with `incident:create` submits incident form with main fields and nested injured person | 201; incident record created with nested injured person row; `GET :id` returns all nested data |
+| AC-2 | User lists incidents with `status=DRAFT` and `areaId=<id>` filters | 200; only incidents matching both filters returned; pagination metadata present |
+| AC-3 | User without `incident:list` permission calls `GET /incidents?options=true` | 200; options list returned (JWT still required) |
+| AC-4 | User submits incident for approval | Incident status transitions to pending-approval state; approver receives notification |
+| AC-5 | Approver approves incident | Status transitions to approved; timeline updated; original requester notified |
+| AC-6 | Approver rejects incident with reason | Status returns to prior state; rejection reason saved in timeline |
+| AC-7 | User with `incident:delete` soft-deletes incident | `isActive: false` and `deletedAt` set; incident excluded from default list |
+| AC-8 | User calls `GET :id/approval-rights` | Returns `{ canApprove: boolean }` reflecting current user's eligibility |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-approvals.md`](prd-approvals.md) — master approval workflow system
+- [`investigation-report-prd.md`](investigation-report-prd.md) — post-incident investigation form extension

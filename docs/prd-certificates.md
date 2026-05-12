@@ -1,5 +1,10 @@
 # PRD: Certificate Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Certificate Management module covers certificate categories (master data with type: personnel license/certificate, equipment calibration/installation/operational permit), certificates (CRUD, linked to category and personnel/department), renewals (create renewal request, list renewals, update renewal status), and reminders (list for a certificate). Certificate list and single-record access are data-scoped (self/department/super). List endpoints support an `options` bypass where applicable.
@@ -74,3 +79,37 @@ Routes: /certificates (list), /certificates/categories, create/edit/detail for c
 
 - **Backend:** Prisma (CertificateCategory, Certificate, CertificateRenewal, User, Department), DataScopeGuard for certificates, JwtAuthGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth, master-data for department/personnel options, core API. Data scope enforced by backend.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for certificate categories, with `certificateType` enum (PERSONNEL_LICENSE, PERSONNEL_CERTIFICATE, EQUIPMENT_CALIBRATION, EQUIPMENT_INSTALLATION, EQUIPMENT_OPERATIONAL_PERMIT).
+- [FR-2] The system must support full CRUD for certificates, each linked to a category, optional department, and optional personnel (user).
+- [FR-3] Certificate list and single-record access must be data-scoped: users with SELF data level see only their own certificates; DEPARTMENT sees their department; SUPER sees all.
+- [FR-4] The system must allow creating renewal requests per certificate and updating the renewal status (e.g. approved, rejected).
+- [FR-5] The system must expose a read-only list of reminders per certificate for expiry notifications.
+- [FR-6] Certificate soft-delete must set `isActive: false` and `deletedAt`; deleted certificates must be excluded from list responses.
+- [FR-7] List endpoints for categories and certificates must support `options=true` bypass for dropdown use.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Soft-deleted and inactive certificates must be excluded from list and options responses.
+- [NFR-3] All write operations must require a valid JWT and the corresponding `certificate*:*` permission.
+- [NFR-4] Data-scope filtering must be enforced server-side via `DataScopeGuard`; the frontend must not filter locally.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Admin creates a certificate category with type EQUIPMENT_CALIBRATION | 201; category visible in list and accessible via options bypass |
+| AC-2 | SELF-scoped user lists certificates | Only certificates where the user is the personnel or creator are returned |
+| AC-3 | User creates a renewal request for a certificate | 201; renewal record linked to certificate; visible via `GET :id/renewals` |
+| AC-4 | Admin updates renewal status to approved | 200; renewal status updated |
+| AC-5 | User soft-deletes a certificate | `isActive: false` and `deletedAt` set; certificate excluded from list |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and data-scope enforcement
+- [`prd-approvals.md`](prd-approvals.md) — master approval workflow system
