@@ -7,9 +7,6 @@ export class PublicWorkPermitRiskMitigationItemDto {
   id: string;
 
   @ApiPropertyOptional()
-  eliminate?: string;
-
-  @ApiPropertyOptional()
   eliminationControl?: string;
 
   @ApiPropertyOptional()

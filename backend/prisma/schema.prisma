@@ -343,7 +343,6 @@ model Risk {
 
 model RiskMitigation {
   id                          String    @id @default(uuid())
-  eliminate                   String?   @db.Text
   eliminationControl          String?   @db.Text
   substitutionControl         String?   @db.Text
   engineeringControl          String?   @db.Text
@@ -364,7 +363,6 @@ model RiskMitigation {
 
 model RiskControl {
   id                          String   @id @default(uuid())
-  eliminate                   String?  @db.Text
   eliminationControl          String?  @db.Text
   substitutionControl         String?  @db.Text
   engineeringControl          String?  @db.Text
@@ -391,7 +389,6 @@ model RiskControl {
 model RiskMitigationRecord {
   id                          String    @id @default(uuid())
   code                        String // Auto-generated code with prefix RSK{datetime}, not user-updatable; unique for non-deleted rows (partial index)
-  eliminate                   String?   @db.Text
   eliminationControl          String?   @db.Text
   substitutionControl         String?   @db.Text
   engineeringControl          String?   @db.Text

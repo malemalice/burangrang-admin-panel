@@ -1743,7 +1743,6 @@ export class InspectionsService {
         code: this.generateMitigationCode(),
         entity: INSPECTION_ITEM_ENTITY,
         entityId: itemId,
-        eliminate: mitigation.eliminate || null,
         eliminationControl: mitigation.eliminationControl || null,
         substitutionControl: mitigation.substitutionControl || null,
         engineeringControl: mitigation.engineeringControl || null,
@@ -1785,7 +1784,6 @@ export class InspectionsService {
       return this.prisma.riskMitigationRecord.update({
         where: { id: existing.id },
         data: {
-          eliminate: mitigation.eliminate || null,
           eliminationControl: mitigation.eliminationControl || null,
           substitutionControl: mitigation.substitutionControl || null,
           engineeringControl: mitigation.engineeringControl || null,
@@ -1824,7 +1822,6 @@ export class InspectionsService {
       code: record.code,
       entity: record.entity,
       entityId: record.entityId,
-      eliminate: record.eliminate || undefined,
       eliminationControl: record.eliminationControl || undefined,
       substitutionControl: record.substitutionControl || undefined,
       engineeringControl: record.engineeringControl || undefined,

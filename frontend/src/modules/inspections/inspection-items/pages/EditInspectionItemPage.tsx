@@ -102,7 +102,6 @@ const EditInspectionItemPage = () => {
             })),
             mitigation: item.mitigation
               ? {
-                  eliminate: item.mitigation.eliminate,
                   eliminationControl: item.mitigation.eliminationControl,
                   substitutionControl: item.mitigation.substitutionControl,
                   engineeringControl: item.mitigation.engineeringControl,

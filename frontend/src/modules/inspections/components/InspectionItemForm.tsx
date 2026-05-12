@@ -74,7 +74,6 @@ interface ImageUpload {
 
 // Mitigation schema for validation
 const mitigationSchema = z.object({
-  eliminate: z.string().optional(),
   eliminationControl: z.string().optional(),
   substitutionControl: z.string().optional(),
   engineeringControl: z.string().optional(),
@@ -122,7 +121,6 @@ const itemFormRefinement = (data: z.infer<typeof baseItemFormSchema>, ctx: z.Ref
   }
   if (data.riskId && data.mitigation) {
     const hasMitigation = !!(
-      (data.mitigation.eliminate && data.mitigation.eliminate.trim()) ||
       (data.mitigation.eliminationControl && data.mitigation.eliminationControl.trim()) ||
       (data.mitigation.substitutionControl && data.mitigation.substitutionControl.trim()) ||
       (data.mitigation.engineeringControl && data.mitigation.engineeringControl.trim()) ||
@@ -364,7 +362,6 @@ const InspectionItemForm = ({
       findings: initialItem?.findings || '',
       dueDateAt: initialItem?.dueDateAt ? new Date(initialItem.dueDateAt).toISOString().split('T')[0] : '',
       mitigation: initialItem?.mitigation || {
-        eliminate: '',
         eliminationControl: '',
         substitutionControl: '',
         engineeringControl: '',
@@ -533,7 +530,6 @@ const InspectionItemForm = ({
         // When creating new items (no initialItem.mitigation), pre-populate form with default mitigations
         // Only do this if the risk has changed (not on initial load with existing data)
         const hasExistingMitigation = initialItem?.mitigation && (
-          initialItem.mitigation.eliminate ||
           (initialItem as any).mitigation.eliminationControl ||
           (initialItem as any).mitigation.substitutionControl ||
           (initialItem as any).mitigation.engineeringControl ||
@@ -546,7 +542,6 @@ const InspectionItemForm = ({
         if (!hasExistingMitigation && mitigations.length > 0 && !isInitialMount.current) {
           // Combine all mitigations into a single object (in case there are multiple)
           const combinedMitigation = {
-            eliminate: mitigations.map(m => m.eliminate).filter(Boolean).join('\n') || '',
             eliminationControl: mitigations.map(m => (m as any).eliminationControl).filter(Boolean).join('\n') || '',
             substitutionControl: mitigations.map(m => (m as any).substitutionControl).filter(Boolean).join('\n') || '',
             engineeringControl: mitigations.map(m => (m as any).engineeringControl).filter(Boolean).join('\n') || '',
@@ -926,7 +921,6 @@ const InspectionItemForm = ({
         }
         const followUpNotes = data.followUpNotes || undefined;
         const hasMitigation = data.mitigation && (
-          data.mitigation.eliminate ||
           (data as any).mitigation.eliminationControl ||
           (data as any).mitigation.substitutionControl ||
           (data as any).mitigation.engineeringControl ||
@@ -955,7 +949,6 @@ const InspectionItemForm = ({
           images: uploadedImages,
           mitigation: hasMitigation
             ? {
-                eliminate: data.mitigation?.eliminate || undefined,
                 eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
                 substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
                 engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
@@ -986,7 +979,6 @@ const InspectionItemForm = ({
       }
       const followUpNotes = data.followUpNotes || undefined;
       const hasMitigation = data.mitigation && (
-        data.mitigation.eliminate ||
         (data as any).mitigation.eliminationControl ||
         (data as any).mitigation.substitutionControl ||
         (data as any).mitigation.engineeringControl ||
@@ -1016,7 +1008,6 @@ const InspectionItemForm = ({
         images: uploadedImages,
         mitigation: hasMitigation
           ? {
-              eliminate: data.mitigation?.eliminate || undefined,
               eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
               substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
               engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
@@ -1709,11 +1700,6 @@ const InspectionItemForm = ({
                       readOnlyComponent={
                         <div className="space-y-4">
                           <ReadOnlyField
-                            label="Eliminate"
-                            value={form.watch('mitigation.eliminate')}
-                            multiline
-                          />
-                          <ReadOnlyField
                             label="Elimination Control"
                             value={form.watch('mitigation.eliminationControl')}
                             multiline
@@ -1757,25 +1743,6 @@ const InspectionItemForm = ({
                       }
                     >
                       <>
-                        <FormField
-                          control={form.control}
-                          name="mitigation.eliminate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Describe elimination strategy..."
-                                  className="min-h-[120px] resize-y"
-                                  {...field}
-                                  value={field.value || ''}
-                                  disabled={formMode === 'verifier' && !showVerifierSection}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
                         <FormField
                           control={form.control}
                           name="mitigation.eliminationControl"

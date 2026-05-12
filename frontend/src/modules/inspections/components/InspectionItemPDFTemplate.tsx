@@ -206,7 +206,6 @@ export const InspectionItemPDFTemplate = ({ item, checklistRoots = [] }: Inspect
             Risk Mitigation
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Eliminate" value={item.mitigation.eliminate} />
             <Field label="Elimination Control" value={item.mitigation.eliminationControl} />
             <Field label="Substitution Control" value={item.mitigation.substitutionControl} />
             <Field label="Engineering Control" value={item.mitigation.engineeringControl} />

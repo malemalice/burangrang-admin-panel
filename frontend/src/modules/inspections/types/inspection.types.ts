@@ -49,7 +49,6 @@ export interface CreateInspectionChecklistResultDTO {
 }
 
 export interface RiskMitigationData {
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;

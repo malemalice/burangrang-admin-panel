@@ -63,19 +63,6 @@ const RiskDetailPage = () => {
 
   const mitigationsColumns = [
     {
-      id: 'eliminate',
-      header: 'Eliminate',
-      cell: (mitigation: RiskMitigation) => (
-        <div className="text-sm max-w-xs">
-          {mitigation.eliminate ? (
-            <div className="truncate">{mitigation.eliminate}</div>
-          ) : (
-            <span className="text-gray-400">-</span>
-          )}
-        </div>
-      ),
-    },
-    {
       id: 'transfer',
       header: 'Transfer',
       cell: (mitigation: RiskMitigation) => (

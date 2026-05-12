@@ -9,7 +9,6 @@ import { User } from '@/core/lib/types';
 import { RiskCategory, Risk, RiskRatingEnum } from '@/core/lib/types';
 
 export interface RiskMitigationData {
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;

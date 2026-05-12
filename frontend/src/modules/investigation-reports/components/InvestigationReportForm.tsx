@@ -5,21 +5,23 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Plus, Trash2, Save, CheckCircle2, Upload } from 'lucide-react';
+import { Plus, Trash2, Save, CheckCircle2, Upload, X } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Label } from '@/core/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import {
-  IncidentSectionA,
-  IncidentSectionB,
-  IncidentSectionC,
-  IncidentSectionD,
-  IncidentSectionE,
-  IncidentSectionF,
-} from './incident-readonly';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import { IncidentSectionA, IncidentSectionB } from './incident-readonly';
 import {
   Form,
   FormControl,
@@ -29,16 +31,116 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import uploadService from '@/modules/uploads/services/uploadService';
+import incidentsService from '@/modules/incidents/services/incidentsService';
+import departmentService from '@/modules/master-data/services/departmentService';
 import investigationReportsService from '../services/investigationReportsService';
 import type { Incident } from '@/modules/incidents/types/incident.types';
 import {
-  InvestigationCauseSectionEnum,
+  TreatmentEnum,
+  AbsenceEnum,
+  StopActivityEnum,
+  GenderEnum,
+  LevelOfInjuryEnum,
+  InjuredBodyPartEnum,
+  TypeOfInjuryEnum,
+  MechanismOfInjuryEnum,
+} from '@/modules/incidents/types/incident.types';
+import {
   InvestigationSignatoryRoleEnum,
   InvestigationStatusEnum,
   type InvestigationReport,
 } from '../types/investigation-report.types';
 import hfacsNodeService from '@/modules/master-data/services/hfacsNodeService';
 import type { HfacsNodeDTO } from '@/modules/master-data/types/master-data.types';
+import type { SearchableSelectOption } from '@/core/components/ui/searchable-select';
+
+// ── Enum label maps ────────────────────────────────────────────────────────────
+
+const TREATMENT_OPTIONS: { value: TreatmentEnum; label: string }[] = [
+  { value: TreatmentEnum.NOT_SPECIFIED, label: 'Not Specified' },
+  { value: TreatmentEnum.NO_TREATMENT, label: 'None / Tidak ada' },
+  { value: TreatmentEnum.SELF, label: 'Self / Sendiri' },
+  { value: TreatmentEnum.FIRST_AID, label: 'First Aider / P3K' },
+  { value: TreatmentEnum.MEDICAL_TREATMENT, label: 'Medical Treatment / Pengobatan medis' },
+  { value: TreatmentEnum.HEALTH_SERVICES, label: 'Health Services (outpatient) / Pelayanan Kesehatan' },
+  { value: TreatmentEnum.HOSPITALIZATION, label: 'Hospital (inpatient) / Rawat Inap' },
+  { value: TreatmentEnum.OTHER, label: 'Others / Lainnya' },
+];
+
+const ABSENCE_OPTIONS: { value: AbsenceEnum; label: string }[] = [
+  { value: AbsenceEnum.NOT_SPECIFIED, label: 'Not Specified' },
+  { value: AbsenceEnum.RETURNED_AFTER_TREATMENT, label: 'Returned to work/studies / Kembali bekerja setelah diberi tindakan' },
+  { value: AbsenceEnum.MORE_THAN_THREE_DAYS, label: 'Likely more than 3 days / Lebih dari 3 hari' },
+  { value: AbsenceEnum.NOT_YET_KNOWN, label: 'Not yet known / Belum diketahui' },
+];
+
+const GENDER_OPTIONS: { value: GenderEnum; label: string }[] = [
+  { value: GenderEnum.MALE, label: 'Male / Laki-laki' },
+  { value: GenderEnum.FEMALE, label: 'Female / Perempuan' },
+];
+
+const LEVEL_OF_INJURY_OPTIONS: { value: LevelOfInjuryEnum; label: string }[] = [
+  { value: LevelOfInjuryEnum.NOT_SPECIFIED, label: 'Not Specified' },
+  { value: LevelOfInjuryEnum.MINOR, label: 'Minor' },
+  { value: LevelOfInjuryEnum.MODERATE, label: 'Moderate' },
+  { value: LevelOfInjuryEnum.SEVERE, label: 'Severe' },
+  { value: LevelOfInjuryEnum.FATAL, label: 'Fatal' },
+];
+
+const BODY_PART_OPTIONS: { value: InjuredBodyPartEnum; label: string }[] = [
+  { value: InjuredBodyPartEnum.NOT_SPECIFIED, label: 'Not Specified' },
+  { value: InjuredBodyPartEnum.HEAD, label: 'Head / Kepala' },
+  { value: InjuredBodyPartEnum.NECK, label: 'Neck / Leher' },
+  { value: InjuredBodyPartEnum.ARM, label: 'Arms / Lengan' },
+  { value: InjuredBodyPartEnum.HAND, label: 'Hands / Tangan' },
+  { value: InjuredBodyPartEnum.BACK, label: 'Back / Punggung' },
+  { value: InjuredBodyPartEnum.CHEST, label: 'Chest / Dada' },
+  { value: InjuredBodyPartEnum.ABDOMENT, label: 'Abdomen / Perut' },
+  { value: InjuredBodyPartEnum.FEET, label: 'Feet / Telapak kaki' },
+  { value: InjuredBodyPartEnum.LEG, label: 'Legs / Kaki' },
+  { value: InjuredBodyPartEnum.SKIN, label: 'Skin / Kulit' },
+  { value: InjuredBodyPartEnum.EYE, label: 'Eyes / Mata' },
+  { value: InjuredBodyPartEnum.INTERNAL_ORGAN, label: 'Internal Organs / Organ dalam' },
+  { value: InjuredBodyPartEnum.SHOULDER, label: 'Shoulder / Pundak' },
+  { value: InjuredBodyPartEnum.OTHER, label: 'Other / Lainnya' },
+];
+
+const TYPE_OF_INJURY_OPTIONS: { value: TypeOfInjuryEnum; label: string }[] = [
+  { value: TypeOfInjuryEnum.NOT_SPECIFIED, label: 'Not Specified' },
+  { value: TypeOfInjuryEnum.DERMATITIS, label: 'Dermatitis / Peradangan kulit' },
+  { value: TypeOfInjuryEnum.PARALYSIS, label: 'Paralysis / Kelumpuhan' },
+  { value: TypeOfInjuryEnum.AMPUTATION, label: 'Amputation / Terpotongnya anggota tubuh' },
+  { value: TypeOfInjuryEnum.CRUSH, label: 'Crush / Remuk' },
+  { value: TypeOfInjuryEnum.BURN, label: 'Burn / Luka Bakar' },
+  { value: TypeOfInjuryEnum.CONCUSSION, label: 'Concussion / Gegar' },
+  { value: TypeOfInjuryEnum.FRACTURE, label: 'Fracture / Patah tulang' },
+  { value: TypeOfInjuryEnum.LACERATION, label: 'Laceration / Luka sobek' },
+  { value: TypeOfInjuryEnum.SPRAIN, label: 'Sprain / Strain / Keseleo' },
+  { value: TypeOfInjuryEnum.BRUISE, label: 'Bruising / Memar' },
+  { value: TypeOfInjuryEnum.ABRASION, label: 'Abrasion / Luka lecet' },
+  { value: TypeOfInjuryEnum.CUT, label: 'Cut / Luka potong' },
+  { value: TypeOfInjuryEnum.OTHER, label: 'Other / Lainnya' },
+];
+
+const MECHANISM_OPTIONS: { value: MechanismOfInjuryEnum; label: string }[] = [
+  { value: MechanismOfInjuryEnum.NOT_SPECIFIED, label: 'Not Specified' },
+  { value: MechanismOfInjuryEnum.STRUCK_BY, label: 'Struck by / Ditabrak' },
+  { value: MechanismOfInjuryEnum.CHEMICAL, label: 'Chemicals / Bahan Kimia' },
+  { value: MechanismOfInjuryEnum.ELECTRICITY, label: 'Electricity / Listrik' },
+  { value: MechanismOfInjuryEnum.FLYING_OBJECT, label: 'Flying object / Objek berterbangan' },
+  { value: MechanismOfInjuryEnum.SHARP_OBJECTS, label: 'Sharp objects / Benda Tajam' },
+  { value: MechanismOfInjuryEnum.FAILING_OBJECT, label: 'Falling Object / Objek jatuh' },
+  { value: MechanismOfInjuryEnum.VEHICLES, label: 'Vehicles / Kendaraan' },
+  { value: MechanismOfInjuryEnum.HAND_TOOLS, label: 'Hand Tools / Perkakas tangan' },
+  { value: MechanismOfInjuryEnum.HEAT_COLD, label: 'Heat / Cold / Panas / Dingin' },
+  { value: MechanismOfInjuryEnum.TRIP, label: 'Trip / Slip / Fall / Tersandung/Tergelincir/Terjatuh' },
+  { value: MechanismOfInjuryEnum.MECHINARY, label: 'Machinery / Mesin' },
+  { value: MechanismOfInjuryEnum.FALL_FROM_HEIGHT, label: 'Fall from Height / Jatuh dari ketinggian' },
+  { value: MechanismOfInjuryEnum.MANUAL_HANDLING, label: 'Manual Handling / Pengangkatan manual' },
+  { value: MechanismOfInjuryEnum.OTHER, label: 'Other / Lainnya' },
+];
+
+// ── Signatory config ───────────────────────────────────────────────────────────
 
 const SIGNATORY_ROLES: Array<{
   role: InvestigationSignatoryRoleEnum;
@@ -52,6 +154,8 @@ const SIGNATORY_ROLES: Array<{
   { role: InvestigationSignatoryRoleEnum.RELATED_MANAGER, labelEn: 'Related Manager', labelId: 'Manager terkait', defaultRoleName: '' },
   { role: InvestigationSignatoryRoleEnum.SECURITY, labelEn: 'Security', labelId: 'Security', defaultRoleName: 'Chief of Security' },
 ];
+
+// ── Zod schema ─────────────────────────────────────────────────────────────────
 
 const causeSchema = z.object({
   hfacsNodeId: z.string(),
@@ -76,10 +180,55 @@ const signatorySchema = z.object({
   signedAt: z.string().optional(),
 });
 
+const injuredPersonSchema = z.object({
+  injuredPersonName: z.string().optional(),
+  gender: z.string().optional(),
+  position: z.string().optional(),
+  departmentId: z.string().optional(),
+  levelOfInjury: z.string().optional(),
+  injuredBodyPart: z.string().optional(),
+  typeOfInjury: z.string().optional(),
+  mechanismOfInjury: z.string().optional(),
+});
+
+const witnessSchema = z.object({
+  witnessName: z.string().optional(),
+  gender: z.string().optional(),
+  position: z.string().optional(),
+  departmentId: z.string().optional(),
+});
+
+const imageSchema = z.object({
+  imageUrl: z.string(),
+  caption: z.string().optional(),
+});
+
 const formSchema = z.object({
+  // Section A — editable incident fields
+  incidentDescription: z.string().optional(),
+  images: z.array(imageSchema).default([]),
+
+  // Section A1/A2 — investigation-specific
   taskBeingPerformed: z.string().optional(),
   equipmentUsed: z.string().optional(),
 
+  // Section C — injured persons
+  injuredPersons: z.array(injuredPersonSchema).default([]),
+
+  // Section D — action following incident
+  treatment: z.string().optional(),
+  absence: z.string().optional(),
+  treatmentDescription: z.string().optional(),
+
+  // Section E — stop activity
+  needToStopActivity: z.string().optional(),
+  stopLocally: z.boolean().default(false),
+  stopWholeSchool: z.boolean().default(false),
+
+  // Section F — witnesses
+  witnesses: z.array(witnessSchema).default([]),
+
+  // Section G — cost
   costMedical: z.string().optional(),
   costLostTime: z.string().optional(),
   costDamage: z.string().optional(),
@@ -100,6 +249,8 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+// ── Utilities ──────────────────────────────────────────────────────────────────
+
 const parseNumber = (s?: string): number | undefined => {
   if (!s || s.trim() === '') return undefined;
   const n = Number(s.replace(/[^0-9.-]/g, ''));
@@ -119,6 +270,8 @@ const sumCost = (vals: FormValues): number =>
 const formatRupiah = (n: number) =>
   `Rp. ${n.toLocaleString('id-ID', { maximumFractionDigits: 2 })}`;
 
+// ── Component ──────────────────────────────────────────────────────────────────
+
 interface Props {
   incident: Incident;
   report?: InvestigationReport;
@@ -131,8 +284,9 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const [uploadCategoryId, setUploadCategoryId] = useState<string | null>(null);
   const [hfacsTree, setHfacsTree] = useState<HfacsNodeDTO[]>([]);
   const [hfacsLoading, setHfacsLoading] = useState(true);
+  const [departments, setDepartments] = useState<SearchableSelectOption[]>([]);
+  const [imageUploading, setImageUploading] = useState(false);
 
-  // Split fetched tree by section for rendering Section H (latent) and Section I (active).
   const latentTier1s = useMemo(
     () => hfacsTree.filter((n) => n.section === 'LATENT_FAILURE'),
     [hfacsTree],
@@ -142,7 +296,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     [hfacsTree],
   );
 
-  // Flatten all leaf items (depth 2) for quick lookup + initial form rows.
   const leafItems = useMemo(() => {
     const leaves: HfacsNodeDTO[] = [];
     for (const t1 of hfacsTree) {
@@ -155,9 +308,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     return leaves;
   }, [hfacsTree]);
 
-  // Pre-build initial cause rows: one entry per leaf item, hydrated from the existing report.
-  // Match on hfacsNodeId first (new reports); fall back to causeKey for back-compat with reports
-  // created before the master migration.
   const initialCauses = useMemo(() => {
     const existingByNode = new Map(
       (report?.causes ?? [])
@@ -199,9 +349,48 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      // Section A — editable incident fields
+      incidentDescription: incident.description ?? '',
+      images: incident.images?.map((img) => ({
+        imageUrl: img.imageUrl,
+        caption: img.caption ?? '',
+      })) ?? [],
+
+      // Section A1/A2
       taskBeingPerformed: report?.taskBeingPerformed ?? '',
       equipmentUsed: report?.equipmentUsed ?? '',
 
+      // Section C — injured persons
+      injuredPersons: incident.injuredPersons?.map((p) => ({
+        injuredPersonName: p.injuredPersonName ?? '',
+        gender: p.gender ?? '',
+        position: p.position ?? '',
+        departmentId: p.departmentId ?? '',
+        levelOfInjury: p.levelOfInjury ?? '',
+        injuredBodyPart: p.injuredBodyPart ?? '',
+        typeOfInjury: p.typeOfInjury ?? '',
+        mechanismOfInjury: p.mechanismOfInjury ?? '',
+      })) ?? [],
+
+      // Section D
+      treatment: incident.treatment ?? '',
+      absence: incident.absence ?? '',
+      treatmentDescription: incident.treatmentDescription ?? '',
+
+      // Section E
+      needToStopActivity: incident.needToStopActivity ?? '',
+      stopLocally: incident.stopLocally ?? false,
+      stopWholeSchool: incident.stopWholeSchool ?? false,
+
+      // Section F — witnesses
+      witnesses: incident.witnesses?.map((w) => ({
+        witnessName: w.witnessName ?? '',
+        gender: w.gender ?? '',
+        position: w.position ?? '',
+        departmentId: w.departmentId ?? '',
+      })) ?? [],
+
+      // Section G — cost
       costMedical: report?.cost?.medicalCost?.toString() ?? '',
       costLostTime: report?.cost?.lostTimeCost?.toString() ?? '',
       costDamage: report?.cost?.damageCost?.toString() ?? '',
@@ -235,20 +424,39 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const { fields: actionFields, append: appendAction, remove: removeAction } =
     useFieldArray({ control: form.control, name: 'actionPlans' });
 
+  const { fields: injuredPersonFields, append: appendInjuredPerson, remove: removeInjuredPerson } =
+    useFieldArray({ control: form.control, name: 'injuredPersons' });
+
+  const { fields: witnessFields, append: appendWitness, remove: removeWitness } =
+    useFieldArray({ control: form.control, name: 'witnesses' });
+
+  const { fields: imageFields, append: appendImage, remove: removeImage } =
+    useFieldArray({ control: form.control, name: 'images' });
+
   useEffect(() => {
     let cancelled = false;
     uploadService
-      .getCategoryByName('incident-images')
+      .getCategoryByName('course-materials')
       .then((cat) => {
         if (!cancelled && cat) setUploadCategoryId(cat.id);
       })
       .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // Fetch the HFACS catalogue tree once. Section H and I checkboxes render from this.
+  useEffect(() => {
+    let cancelled = false;
+    departmentService
+      .getDepartments({ page: 1, limit: 500, options: true })
+      .then((res) => {
+        if (!cancelled) {
+          setDepartments(res.data.map((d) => ({ value: d.id, label: d.name })));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setHfacsLoading(true);
@@ -263,13 +471,9 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
       .finally(() => {
         if (!cancelled) setHfacsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // Once the tree arrives (or report changes), seed the form's `causes` array with one
-  // row per leaf node — preserving any existing selections from the report.
   useEffect(() => {
     if (leafItems.length === 0) return;
     form.setValue('causes', initialCauses, { shouldDirty: false });
@@ -278,6 +482,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
 
   const watched = form.watch();
   const total = sumCost(watched);
+  const stopActivityValue = form.watch('needToStopActivity');
 
   const handleSignatureUpload = async (index: number, file: File) => {
     if (!uploadCategoryId) {
@@ -294,15 +499,30 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!uploadCategoryId) {
+      toast.error('Upload not ready, please retry');
+      return;
+    }
+    setImageUploading(true);
+    try {
+      const res = await uploadService.uploadFile(file, uploadCategoryId, true);
+      appendImage({ imageUrl: uploadService.getPublicFileUrl(res.id), caption: '' });
+      toast.success('Image uploaded');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   const onSubmit = async (
     data: FormValues,
     statusOverride?: InvestigationStatusEnum,
   ) => {
     setIsSubmitting(true);
     try {
-      // Send hfacsNodeId only. The backend derives section/tier1/tier2/causeKey/causeName
-      // by looking up the master node + its ancestors and stores them as snapshots on
-      // t_investigation_causes — so future renames of the master never rewrite history.
       const causes = data.causes
         .filter((c) => c.isSelected || (c.customNotes && c.customNotes.trim() !== ''))
         .map((c) => ({
@@ -358,6 +578,40 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           ? await investigationReportsService.create({ incidentId: incident.id, ...payload })
           : await investigationReportsService.update(report!.id, payload);
 
+      // Update incident-level fields in parallel
+      await incidentsService.update(incident.id, {
+        description: data.incidentDescription || undefined,
+        treatment: (data.treatment as TreatmentEnum) || undefined,
+        absence: (data.absence as AbsenceEnum) || undefined,
+        treatmentDescription: data.treatmentDescription || undefined,
+        needToStopActivity: (data.needToStopActivity as StopActivityEnum) || undefined,
+        stopLocally: data.stopLocally,
+        stopWholeSchool: data.stopWholeSchool,
+        images: data.images.map((img, i) => ({
+          imageUrl: img.imageUrl,
+          caption: img.caption || undefined,
+          order: i,
+        })),
+        injuredPersons: data.injuredPersons.map((p, i) => ({
+          injuredPersonName: p.injuredPersonName || undefined,
+          gender: (p.gender as GenderEnum) || undefined,
+          position: p.position || undefined,
+          departmentId: p.departmentId || undefined,
+          levelOfInjury: (p.levelOfInjury as LevelOfInjuryEnum) || LevelOfInjuryEnum.NOT_SPECIFIED,
+          injuredBodyPart: (p.injuredBodyPart as InjuredBodyPartEnum) || InjuredBodyPartEnum.NOT_SPECIFIED,
+          typeOfInjury: (p.typeOfInjury as TypeOfInjuryEnum) || TypeOfInjuryEnum.NOT_SPECIFIED,
+          mechanismOfInjury: (p.mechanismOfInjury as MechanismOfInjuryEnum) || MechanismOfInjuryEnum.NOT_SPECIFIED,
+          order: i,
+        })),
+        witnesses: data.witnesses.map((w, i) => ({
+          witnessName: w.witnessName || undefined,
+          gender: (w.gender as GenderEnum) || undefined,
+          position: w.position || undefined,
+          departmentId: w.departmentId || undefined,
+          order: i,
+        })),
+      });
+
       toast.success(
         statusOverride === InvestigationStatusEnum.COMPLETE
           ? 'Investigation report marked as complete'
@@ -410,9 +664,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                         (c) => c.hfacsNodeId === item.id,
                       );
                       if (causeIndex < 0) return null;
-                      const isSelected = form.watch(
-                        `causes.${causeIndex}.isSelected`,
-                      );
+                      const isSelected = form.watch(`causes.${causeIndex}.isSelected`);
                       return (
                         <div key={item.id} className="space-y-1">
                           <div className="flex items-start gap-2">
@@ -452,20 +704,43 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     );
   };
 
-  // ── render
+  // ── render ─────────────────────────────────────────────────────────────────
+
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit((d) => onSubmit(d))}
         className="max-w-5xl mx-auto space-y-6"
       >
-        {/* Section A — Accident Details (read-only from incident) */}
+        {/* Section A — Accident Details (read-only header from incident) */}
         <IncidentSectionA incident={incident} reportNumber={report?.reportNumber ?? null} />
+
+        {/* Section A — Editable: Description of Incident */}
+        <Card>
+          <CardHeader>
+            <CardTitle>A. Description of Incident / Deskripsi Kejadian</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="incidentDescription"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description of Incident (Deskripsi Kejadian)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} className="min-h-[100px]" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
 
         {/* A1/A2 — Task & Equipment (always visible, editable) */}
         <Card>
           <CardHeader>
-            <CardTitle>A1/A2 — Task & Equipment</CardTitle>
+            <CardTitle>A1/A2 — Task &amp; Equipment</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4">
             <FormField
@@ -497,20 +772,538 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           </CardContent>
         </Card>
 
-        {/* Section B — Injury Details (read-only, aggregated) */}
+        {/* A4 — Images / Sketch */}
+        <Card>
+          <CardHeader>
+            <CardTitle>A4. Images / Sketch (Gambar/Sketsa kejadian)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {imageFields.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {imageFields.map((field, index) => (
+                  <div key={field.id} className="relative rounded-md border overflow-hidden bg-muted">
+                    <img
+                      src={form.watch(`images.${index}.imageUrl`)}
+                      alt={`Image ${index + 1}`}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="px-2 py-1 space-y-1">
+                      <Input
+                        placeholder="Caption (optional)"
+                        className="h-7 text-xs"
+                        {...form.register(`images.${index}.caption`)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      className="absolute top-1 right-1 h-6 w-6"
+                      onClick={() => removeImage(index)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  for (const f of files) {
+                    await handleImageUpload(f);
+                  }
+                  e.target.value = '';
+                }}
+                className="hidden"
+                id="image-upload"
+              />
+              <label htmlFor="image-upload">
+                <Button type="button" variant="outline" size="sm" asChild disabled={imageUploading}>
+                  <span>
+                    <Upload className="mr-1 h-4 w-4" />
+                    {imageUploading ? 'Uploading…' : 'Upload Image(s)'}
+                  </span>
+                </Button>
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section B — Injury Details (read-only, aggregated from injured persons) */}
         <IncidentSectionB incident={incident} />
 
-        {/* Section C — Injured Persons (read-only) */}
-        <IncidentSectionC incident={incident} />
+        {/* Section C — Injured Persons (editable) */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>C. Injured Person Details / Rincian Korban</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  appendInjuredPerson({
+                    injuredPersonName: '',
+                    gender: '',
+                    position: '',
+                    departmentId: '',
+                    levelOfInjury: '',
+                    injuredBodyPart: '',
+                    typeOfInjury: '',
+                    mechanismOfInjury: '',
+                  })
+                }
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add Person
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {injuredPersonFields.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No injured person during this incident. / Tidak ada korban dalam insiden ini.
+              </p>
+            ) : (
+              injuredPersonFields.map((field, index) => (
+                <Card key={field.id} className="bg-muted/30">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">No. {index + 1}</Label>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeInjuredPerson(index)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.injuredPersonName`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name / Nama</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Full name" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.gender`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender / Jenis Kelamin</FormLabel>
+                            <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {GENDER_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Jabatan</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Job title / position" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.departmentId`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Department / Bagian</FormLabel>
+                            <SearchableSelect
+                              options={departments}
+                              value={field.value ?? ''}
+                              onValueChange={field.onChange}
+                              placeholder="Select department"
+                            />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.levelOfInjury`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Level of Injury / Tingkat Cedera</FormLabel>
+                            <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select level" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {LEVEL_OF_INJURY_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.injuredBodyPart`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Body Part Injured / Bagian tubuh yang cidera</FormLabel>
+                            <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select body part" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {BODY_PART_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.typeOfInjury`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Type of Injury / Tipe Cidera</FormLabel>
+                            <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {TYPE_OF_INJURY_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.mechanismOfInjury`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Mechanism of Injury / Mekanisme Cidera</FormLabel>
+                            <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select mechanism" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {MECHANISM_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Section D — Action Following Incident (read-only) */}
-        <IncidentSectionD incident={incident} />
+        {/* Section D — Action Following Incident (editable) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>D. Action Following Incident / Tindakan yang dilakukan terhadap Kejadian</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="treatment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>D1. Treatment / Penanganan</FormLabel>
+                    <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select treatment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {TREATMENT_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="absence"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>D2. Absence / Absen</FormLabel>
+                    <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select absence" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ABSENCE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="treatmentDescription"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>D3. Describe the treatment taken / Jelaskan penanganan yang dilakukan</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} className="min-h-[80px]" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
 
-        {/* Section E — Need to Stop Activity (read-only) */}
-        <IncidentSectionE incident={incident} />
+        {/* Section E — Need to Stop Activity (editable) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>E. Need to Stop Activity / Perlu menghentikan aktivitas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="needToStopActivity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Need to Stop Activity</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value={StopActivityEnum.YES} id="stop-yes" />
+                        <Label htmlFor="stop-yes" className="font-normal cursor-pointer">Yes / Ya</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value={StopActivityEnum.NO} id="stop-no" />
+                        <Label htmlFor="stop-no" className="font-normal cursor-pointer">No / Tidak</Label>
+                      </div>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {stopActivityValue === StopActivityEnum.YES && (
+              <div className="ml-4 space-y-2">
+                <Label className="text-sm text-muted-foreground">If Yes / Jika Ya</Label>
+                <FormField
+                  control={form.control}
+                  name="stopLocally"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                      </FormControl>
+                      <Label className="font-normal cursor-pointer leading-snug">
+                        Stop activity locally related to the accident/incident/nearmiss
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                        </span>
+                      </Label>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="stopWholeSchool"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                      </FormControl>
+                      <Label className="font-normal cursor-pointer leading-snug">
+                        Stop the whole school activities
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan seluruh kegiatan sekolah
+                        </span>
+                      </Label>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Section F — Witnesses (read-only) */}
-        <IncidentSectionF incident={incident} />
+        {/* Section F — Witnesses (editable) */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>F. Witnesses / Saksi</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  appendWitness({
+                    witnessName: '',
+                    gender: '',
+                    position: '',
+                    departmentId: '',
+                  })
+                }
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add Witness
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {witnessFields.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No witness recorded. / Tidak ada saksi yang tercatat.
+              </p>
+            ) : (
+              witnessFields.map((field, index) => (
+                <Card key={field.id} className="bg-muted/30">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">No. {index + 1}</Label>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeWitness(index)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.witnessName`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name / Nama</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Full name" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.gender`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender / Jenis Kelamin</FormLabel>
+                            <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {GENDER_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Jabatan</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Job title / position" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.departmentId`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Department / Bagian</FormLabel>
+                            <SearchableSelect
+                              options={departments}
+                              value={field.value ?? ''}
+                              onValueChange={field.onChange}
+                              placeholder="Select department"
+                            />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </CardContent>
+        </Card>
 
         {/* Section G — Cost */}
         <Card>
@@ -608,7 +1401,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                         size="icon"
                         variant="ghost"
                         onClick={() => removeAction(index)}
-                        className="text-red-600"
+                        className="text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -864,6 +1657,8 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     </Form>
   );
 };
+
+// ── CostInput sub-component ────────────────────────────────────────────────────
 
 interface CostInputProps {
   name: keyof FormValues;

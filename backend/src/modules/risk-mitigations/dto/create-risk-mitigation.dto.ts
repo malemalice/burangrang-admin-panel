@@ -2,11 +2,6 @@ import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateRiskMitigationDto {
-  @ApiProperty({ description: 'Eliminate control measure', required: false })
-  @IsString()
-  @IsOptional()
-  eliminate?: string;
-
   @ApiProperty({ description: 'Elimination Control', required: false })
   @IsString()
   @IsOptional()

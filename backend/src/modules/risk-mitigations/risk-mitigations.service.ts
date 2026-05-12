@@ -162,7 +162,6 @@ export class RiskMitigationsService {
   private mapToDto(mitigation: any): RiskMitigationDto {
     return {
       id: mitigation.id,
-      eliminate: mitigation.eliminate,
       eliminationControl: mitigation.eliminationControl,
       substitutionControl: mitigation.substitutionControl,
       engineeringControl: mitigation.engineeringControl,

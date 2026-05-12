@@ -409,10 +409,6 @@ const ViewInspectionItemPage = () => {
             {item.mitigation ? (
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
-                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
-                </div>
-                <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">Elimination Control</p>
                   <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminationControl || 'N/A'}</p>
                 </div>

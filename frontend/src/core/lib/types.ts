@@ -174,7 +174,6 @@ export interface Risk {
 
 export interface RiskMitigation {
   id: string;
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;
@@ -235,7 +234,6 @@ export interface RiskAssessmentItem {
     id: string;
     entity: string;
     entityId: string;
-    eliminate?: string;
     eliminationControl?: string;
     substitutionControl?: string;
     engineeringControl?: string;
@@ -252,7 +250,6 @@ export interface RiskAssessmentItem {
 
 export interface RiskControl {
   id: string;
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;
