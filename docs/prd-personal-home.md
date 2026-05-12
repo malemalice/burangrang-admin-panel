@@ -229,5 +229,5 @@ Users with zero module permissions still land on a valid Home with greeting and 
 ## Related Documents
 
 - [`prd-dashboard-admin-overview.md`](prd-dashboard-admin-overview.md) — Admin Overview dashboard
-- [`dashboard-security-team.md`](dashboard-security-team.md) — Security Team dashboard
+- [`prd-dashboard-security-team.md`](prd-dashboard-security-team.md) — Security Team dashboard
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement

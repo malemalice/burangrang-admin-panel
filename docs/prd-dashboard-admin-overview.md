@@ -275,5 +275,5 @@ Metrics such as Total Man Hours, Course Completion Rate, Quiz Pass Rate, and YoY
 - `docs/prd-environmental-measurements.md` – Environmental Measurements PRD
 - `docs/prd-waste-management.md` – Waste Management PRD
 - `docs/prd-man-hours.md` – Man Hours PRD
-- `docs/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
-- `docs/dashboard-security-team.md` – Security Team dashboard (similar pattern)
+- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
+- `docs/prd-dashboard-security-team.md` – Security Team dashboard (similar pattern)

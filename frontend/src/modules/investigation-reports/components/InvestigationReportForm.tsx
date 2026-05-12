@@ -11,6 +11,7 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { Editor } from '@/core/components/ui/editor';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Label } from '@/core/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
@@ -689,7 +690,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 <FormItem>
                   <FormLabel>Description of Incident (Deskripsi Kejadian)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} className="min-h-[100px]" />
+                    <Editor value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -711,7 +712,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 <FormItem>
                   <FormLabel>A1. Task Being Performed (Pekerjaan apa yang sedang dilakukan)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} className="min-h-[80px]" />
+                    <Editor value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -724,7 +725,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 <FormItem>
                   <FormLabel>A2. Equipment, Tools and Materials (Peralatan atau material apa yang sedang di gunakan)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} className="min-h-[80px]" />
+                    <Editor value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1546,7 +1547,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 <FormItem>
                   <FormLabel>H&S Comments</FormLabel>
                   <FormControl>
-                    <Textarea {...field} className="min-h-[120px]" />
+                    <Editor value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

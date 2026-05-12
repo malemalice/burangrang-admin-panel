@@ -13,9 +13,9 @@ This document consolidates **all dashboard-related metrics, formulas, data sourc
 
 - `BSJ -IFR-SR.xlsx` — BSJ historical KPI data (IFR, SFR, LTI Case Rate, Man Hours)
 - `docs/prd-kpi-ifr-formula.md` — IFR/TRIFR formula specification
-- `docs/dashboard-hazard-analytic.md` — Hazard & Non-Conformance Analytics
-- `docs/dashboard-incident-profile-analytic.md` — Incident Profile Analytics
-- `docs/dashboard-security-team.md` — Security Team Dashboard
+- `docs/prd-dashboard-hazard-analytic.md` — Hazard & Non-Conformance Analytics
+- `docs/prd-dashboard-incident-profile-analytic.md` — Incident Profile Analytics
+- `docs/prd-dashboard-security-team.md` — Security Team Dashboard
 - `docs/prd-dashboard-admin-overview.md` — Admin Overview Dashboard
 
 Each section covers: what the metric is, the formula, which schema tables/fields it maps to, and the current implementation status.
@@ -254,7 +254,7 @@ Each class has monthly student counts and total hours. This granularity is suppo
 
 ## 2. Hazard & Non-Conformance Analytics
 
-**Source:** `docs/dashboard-hazard-analytic.md`  
+**Source:** `docs/prd-dashboard-hazard-analytic.md`  
 **Route:** `/dashboard/hazard-analytics`
 
 ### Metrics
@@ -293,7 +293,7 @@ Each class has monthly student counts and total hours. This granularity is suppo
 
 ## 3. Incident Profile Analytics
 
-**Source:** `docs/dashboard-incident-profile-analytic.md`  
+**Source:** `docs/prd-dashboard-incident-profile-analytic.md`  
 **Route:** `/dashboard/incident-profile-analytic`
 
 ### Metrics
@@ -328,7 +328,7 @@ Each class has monthly student counts and total hours. This granularity is suppo
 
 ## 4. Security Team Dashboard
 
-**Source:** `docs/dashboard-security-team.md`  
+**Source:** `docs/prd-dashboard-security-team.md`  
 **Route:** `/dashboard/security-team`
 
 ### Metrics
@@ -508,9 +508,9 @@ Shared across TRIFR, TRSR, LTICR:
 - `backend/erd.md` — Entity relationship documentation
 - `backend/prisma/schema.prisma` — Database schema
 - `docs/prd-kpi-ifr-formula.md` — KPI IFR formula detail
-- `docs/dashboard-hazard-analytic.md` — Hazard Analytics detail
-- `docs/dashboard-incident-profile-analytic.md` — Incident Profile detail
-- `docs/dashboard-security-team.md` — Security Team detail
+- `docs/prd-dashboard-hazard-analytic.md` — Hazard Analytics detail
+- `docs/prd-dashboard-incident-profile-analytic.md` — Incident Profile detail
+- `docs/prd-dashboard-security-team.md` — Security Team detail
 - `docs/prd-dashboard-admin-overview.md` — Admin Overview detail
 - `docs/prd-man-hours.md` — Man Hours module
 - `docs/prd-incidents.md` — Incident Management module

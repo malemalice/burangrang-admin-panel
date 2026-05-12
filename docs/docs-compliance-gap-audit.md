@@ -40,7 +40,7 @@
 | `trd-authorization.md` | TRD | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Fully compliant |
 | `prd-authorization.md` | PRD | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | ✅ | `Document type` value should be `PRD` not `Product Requirements Document`; uses numbered `##` headings instead of standard PRD section names |
 | `prd-work-permit.md` | PRD | ✅ | ✅ | ⚠️ | ❌ | ⚠️ | ✅ | Metadata uses `Document Type` (capital T), `Date`, `Version`, `Author`; numbered `##` sections; has acceptance criteria and NFRs but non-standard heading names |
-| `investigation-report-prd.md` | Investigation Report | ✅ | ✅ | ⚠️ | ❌ | ⚠️ | ✅ | Metadata as HTML table not bold lines; nested H1+H2 instead of single H1; `Date` not `Last updated`; missing standard Investigation Report section headings |
+| `investigation-report-accident.md` | Investigation Report | ✅ | ✅ | ⚠️ | ❌ | ⚠️ | ✅ | Metadata as HTML table not bold lines; nested H1+H2 instead of single H1; `Date` not `Last updated`; missing standard Investigation Report section headings |
 | `work-permit-gap-audit.md` | Gap Audit | ✅ | ✅ | ⚠️ | ❌ | ⚠️ | ✅ | `Document Type` (capital T); `Date` instead of `Last updated`; missing `Status`, `Audience` fields; missing `## Action Items` section |
 | `auth-data-level-qa-test-plan.md` | QA Test Plan | ✅ | ✅ | ⚠️ | ❌ | ✅ | ✅ | Only `Scope` + `Reference` in header; missing `Document type`, `Status`, `Audience`, `Last updated` |
 | `notification-qa-test-plan.md` | QA Test Plan | ✅ | ✅ | ⚠️ | ❌ | ⚠️ | ✅ | Only `Scope` + `References`; missing `Document type`, `Status`, `Audience`, `Last updated`; no `## Prerequisites and Test Data` with role/user tables |
@@ -68,18 +68,18 @@
 | `prd-dashboard.md` | PRD | ✅ | ✅ | ⚠️ | ❌ | ❌ | ✅ | Wrong metadata (`Document Version`, `Last Updated`, `Related Modules`); aggregate consolidation doc — does not follow PRD section template |
 | `prd-dashboard-admin-overview.md` | PRD | ✅ | ✅ | ⚠️ | ❌ | ❌ | ✅ | Wrong metadata; non-standard sections (Dashboard Layout, Data Shape, Metrics and Schema Mapping) |
 | `prd-kpi-ifr-formula.md` | PRD | ✅ | ✅ | ⚠️ | ❌ | ❌ | ✅ | Wrong metadata; sections are formula-spec, not PRD template (missing FR, NFR, User Stories, User Roles, etc.) |
-| `dashboard-hazard-analytic.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Not a defined doc type; name has no type prefix; wrong metadata; content is a dashboard spec |
-| `dashboard-incident-profile-analytic.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Same as above |
-| `dashboard-security-team.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Same as above |
-| `sidebar-permission-lookup-trd.md` | TRD | ✅ | ❌ | ❌ | — | ✅ | ✅ | Should be `trd-sidebar-permission-lookup.md`; metadata has non-standard fields (`Status: Draft for implementation`, `Approach:`, `Implementation:`); missing `Document type`, `Audience`, `Last updated` |
+| `prd-dashboard-hazard-analytic.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Not a defined doc type; name has no type prefix; wrong metadata; content is a dashboard spec |
+| `prd-dashboard-incident-profile-analytic.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Same as above |
+| `prd-dashboard-security-team.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Same as above |
+| `trd-sidebar-permission-lookup.md` | TRD | ✅ | ❌ | ❌ | — | ✅ | ✅ | Should be `trd-sidebar-permission-lookup.md`; metadata has non-standard fields (`Status: Draft for implementation`, `Approach:`, `Implementation:`); missing `Document type`, `Audience`, `Last updated` |
 | `auth.md` | TRD | ❌ | ❌ | ❌ | — | — | ✅ | Technical document with no defined type; should be `trd-auth.md` and follow TRD template; no metadata |
-| `investigation-report-erd.md` | Unknown | ❌ | ❌ | ❌ | — | — | — | DBML file, not a defined doc type; no metadata; use `backend/erd.md` pattern instead |
+| `trd-investigation-report-schema.md` | Unknown | ❌ | ❌ | ❌ | — | — | — | DBML file, not a defined doc type; no metadata; use `backend/erd.md` pattern instead |
 | `inspection.md` | Mixed | ❌ | ❌ | ❌ | — | — | ❌ | BRD+TRD hybrid; violates one-doc-one-type; named generically; wrong metadata format |
-| `soft-delete-rollout.md` | Unknown | ❌ | ❌ | ❌ | — | — | ✅ | Operations/migration note; not a defined doc type; no metadata |
-| `soft-delete-inventory.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Has `**Status:**` inline but no proper metadata block; no defined doc type |
-| `authorization-data-scope-validation.md` | Unknown | ❌ | ❌ | ❌ | — | — | ✅ | Debugging checklist; not a defined doc type; no metadata |
+| `trd-soft-delete-rollout.md` | Unknown | ❌ | ❌ | ❌ | — | — | ✅ | Operations/migration note; not a defined doc type; no metadata |
+| `trd-soft-delete-inventory.md` | Unknown | ❌ | ❌ | ⚠️ | ❌ | — | ✅ | Has `**Status:**` inline but no proper metadata block; no defined doc type |
+| `trd-authorization-data-scope-validation.md` | Unknown | ❌ | ❌ | ❌ | — | — | ✅ | Debugging checklist; not a defined doc type; no metadata |
 | `notification-bugs.md` | Unknown | ❌ | ❌ | ❌ | — | — | ✅ | Bug register; not a defined doc type; no metadata |
-| `options-query-parameter-audit.md` | Gap Audit? | ⚠️ | ❌ | ❌ | — | ❌ | ✅ | Name should be `options-query-parameter-gap-audit.md`; no metadata; doesn't follow Gap Audit template |
+| `options-query-parameter-gap-audit.md` | Gap Audit? | ⚠️ | ❌ | ❌ | — | ❌ | ✅ | Name should be `options-query-parameter-gap-audit.md`; no metadata; doesn't follow Gap Audit template |
 | `prd-work-permit-health-declaration.md` | PRD | ✅ | ✅ | ⚠️ | ❌ | ❌ | ✅ | `Document type` value is `Extension to [prd-work-permit.md]` — not a valid type value; `Date` not `Last updated`; numbered sections; not a standalone PRD |
 
 ---
@@ -159,9 +159,9 @@ Three files describe dashboard specs but have no defined type in CONTRIBUTING.md
 
 | File | Metadata Found | Issue |
 |---|---|---|
-| `dashboard-hazard-analytic.md` | `Document Version`, `Last Updated`, `Related Modules` | No defined type; wrong metadata |
-| `dashboard-incident-profile-analytic.md` | `Document Version`, `Last Updated`, `Related Modules` | No defined type; wrong metadata |
-| `dashboard-security-team.md` | `Document Version`, `Last Updated`, `Related Modules` | No defined type; wrong metadata |
+| `prd-dashboard-hazard-analytic.md` | `Document Version`, `Last Updated`, `Related Modules` | No defined type; wrong metadata |
+| `prd-dashboard-incident-profile-analytic.md` | `Document Version`, `Last Updated`, `Related Modules` | No defined type; wrong metadata |
+| `prd-dashboard-security-team.md` | `Document Version`, `Last Updated`, `Related Modules` | No defined type; wrong metadata |
 
 **Resolution options:** (1) Treat as PRDs and add proper metadata + missing sections, or (2) define a new "Dashboard Spec" type in CONTRIBUTING.md §2 with its own template. Until resolved, classify as `Draft` PRDs with `## Functional Requirements` documenting the required metrics.
 
@@ -169,9 +169,9 @@ Three files describe dashboard specs but have no defined type in CONTRIBUTING.md
 
 ### TRD — Naming and Metadata Issues
 
-| # | Requirement | `sidebar-permission-lookup-trd.md` | Status |
+| # | Requirement | `trd-sidebar-permission-lookup.md` | Status |
 |---|---|---|---|
-| T1 | Name follows `trd-<topic>.md` | Named `sidebar-permission-lookup-trd.md` — suffix not prefix | ❌ |
+| T1 | Name follows `trd-<topic>.md` | Named `trd-sidebar-permission-lookup.md` — suffix not prefix | ❌ |
 | T2 | `**Document type:** Technical Requirements Document` | Missing | ❌ |
 | T3 | `**Status:** Draft\|Stable\|Deprecated` | Has `Status: Draft for implementation` (non-standard value) | ⚠️ |
 | T4 | `**Audience:** Backend, Frontend Engineers` | Missing | ❌ |
@@ -195,7 +195,7 @@ Both QA test plans use only `Scope` and `Reference(s)` in the header, omitting a
 
 ### Gap Audits — Issues
 
-| # | Requirement | `work-permit-gap-audit.md` | `options-query-parameter-audit.md` | Status |
+| # | Requirement | `work-permit-gap-audit.md` | `options-query-parameter-gap-audit.md` | Status |
 |---|---|---|---|---|
 | G1 | `**Document type:** Gap Audit Report` | `Document Type:` (capital T) with wrong value | Missing | ❌ |
 | G2 | `**Last updated:** YYYY-MM-DD` | Has `**Date:** April 12, 2026` | Missing | ❌ |
@@ -208,7 +208,7 @@ Both QA test plans use only `Scope` and `Reference(s)` in the header, omitting a
 
 ### Investigation Reports — Issues
 
-| # | Requirement | `investigation-report-prd.md` | `investigation-report-erd.md` | Status |
+| # | Requirement | `investigation-report-accident.md` | `trd-investigation-report-schema.md` | Status |
 |---|---|---|---|---|
 | I1 | Defined document type | ✅ Investigation Report | ❌ Not a defined type (DBML) | ✅ / ❌ |
 | I2 | Metadata as bold lines after H1 | ⚠️ Uses HTML table | ❌ No metadata | ⚠️ / ❌ |
@@ -226,12 +226,12 @@ These files do not match any of the 5 defined doc types. Each needs to either be
 |---|---|---|
 | `auth.md` | Technical breakdown of auth model and data-level access | Rename to `trd-auth.md`; add TRD metadata + sections; superseded by `trd-authorization.md` — consider marking Deprecated |
 | `inspection.md` | BRD + TRD hybrid for Inspection approval workflow | Split into `prd-inspection-approval.md` + `trd-inspection-approval.md` (one-doc-one-type rule); or collapse into existing `prd-inspections.md` and `trd-authorization.md` |
-| `soft-delete-rollout.md` | Migration/rollout operations note | Add to CONTRIBUTING.md as a new "Operations Note" type, or mark as non-doc (move to `backend/docs/`) |
-| `soft-delete-inventory.md` | Soft-delete status inventory | Same as above |
-| `authorization-data-scope-validation.md` | Debugging checklist for 403/empty-list issues | Add metadata as a TRD appendix, or define "Runbook" type; until then add `**Document type:** TRD` and link from `trd-authorization.md` |
+| `trd-soft-delete-rollout.md` | Migration/rollout operations note | Add to CONTRIBUTING.md as a new "Operations Note" type, or mark as non-doc (move to `backend/docs/`) |
+| `trd-soft-delete-inventory.md` | Soft-delete status inventory | Same as above |
+| `trd-authorization-data-scope-validation.md` | Debugging checklist for 403/empty-list issues | Add metadata as a TRD appendix, or define "Runbook" type; until then add `**Document type:** TRD` and link from `trd-authorization.md` |
 | `notification-bugs.md` | Bug register with root causes | Not a defined doc type; move to issue tracker or define "Bug Register" type |
-| `options-query-parameter-audit.md` | Audit of `?options=true` implementation | Rename to `options-query-parameter-gap-audit.md`; add Gap Audit metadata and `## Action Items` |
-| `investigation-report-erd.md` | DBML entity diagram | Not a markdown doc type; move content to `backend/erd.md` per project convention |
+| `options-query-parameter-gap-audit.md` | Audit of `?options=true` implementation | Rename to `options-query-parameter-gap-audit.md`; add Gap Audit metadata and `## Action Items` |
+| `trd-investigation-report-schema.md` | DBML entity diagram | Not a markdown doc type; move content to `backend/erd.md` per project convention |
 
 ---
 
@@ -244,18 +244,18 @@ These files do not match any of the 5 defined doc types. Each needs to either be
 | 3 | Fix `prd-work-permit.md` metadata: rename `Document Type` → `Document type`, `Date` → `Last updated`, value → `PRD`; align section headings with PRD template | High | Product |
 | 4 | Fix `prd-authorization.md` metadata value: change `Product Requirements Document` → `PRD`; rename numbered `##` sections to standard PRD heading names | High | Product |
 | 5 | Add metadata block to `prd-notifications.md`; remove or rename non-standard sections to match PRD template | High | Product |
-| 6 | Rename `sidebar-permission-lookup-trd.md` → `trd-sidebar-permission-lookup.md`; add proper TRD metadata block | High | Backend |
+| 6 | Rename `trd-sidebar-permission-lookup.md` → `trd-sidebar-permission-lookup.md`; add proper TRD metadata block | High | Backend |
 | 7 | Add metadata blocks to `auth-data-level-qa-test-plan.md` and `notification-qa-test-plan.md`; fix `notification-qa-test-plan.md` Prerequisites section to include role/user tables | High | QA |
 | 8 | Fix `work-permit-gap-audit.md`: `Document Type` → `Document type`; `Date` → `Last updated`; add `Status`, `Audience` fields; add `## Action Items` table | High | Product |
-| 9 | Decide on doc type for `dashboard-hazard-analytic.md`, `dashboard-incident-profile-analytic.md`, `dashboard-security-team.md`: either add to CONTRIBUTING.md §2 as a new "Dashboard Spec" type, or reclassify as PRDs | Medium | Product |
+| 9 | Decide on doc type for `prd-dashboard-hazard-analytic.md`, `prd-dashboard-incident-profile-analytic.md`, `prd-dashboard-security-team.md`: either add to CONTRIBUTING.md §2 as a new "Dashboard Spec" type, or reclassify as PRDs | Medium | Product |
 | 10 | Fix metadata in `prd-dashboard.md`, `prd-dashboard-admin-overview.md`, `prd-kpi-ifr-formula.md`, `prd-personal-home.md`: replace `Document Version`/`Last Updated`/`Related Modules` with the 4-field standard block | Medium | Product |
-| 11 | Fix `investigation-report-prd.md`: convert table metadata to bold lines; fix double-H1; rename `Date` → `Last updated`; align section headings with Investigation Report template | Medium | Product |
+| 11 | Fix `investigation-report-accident.md`: convert table metadata to bold lines; fix double-H1; rename `Date` → `Last updated`; align section headings with Investigation Report template | Medium | Product |
 | 12 | Fix `prd-audit-management.md`: add metadata; rename `## Workflows` → `## Key Workflows`; add `## Key Features`, `## User Stories` | Medium | Product |
 | 13 | Fix `prd-embed-google-site.md`: add metadata; rename `## Requirements` → `## Functional Requirements`; add missing required sections | Medium | Product |
-| 14 | Fix `options-query-parameter-audit.md`: rename file to `options-query-parameter-gap-audit.md`; add Gap Audit metadata; add `## Action Items` | Medium | Backend |
+| 14 | Fix `options-query-parameter-gap-audit.md`: rename file to `options-query-parameter-gap-audit.md`; add Gap Audit metadata; add `## Action Items` | Medium | Backend |
 | 15 | Classify or rename `auth.md`: if superseded by `trd-authorization.md`, add `**Status:** Deprecated`; otherwise rename to `trd-auth.md` and add TRD metadata | Medium | Backend |
 | 16 | Split `inspection.md` into `prd-inspection-approval.md` + `trd-inspection-approval.md` to satisfy one-doc-one-type rule; add correct metadata to each | Medium | Backend / Product |
-| 17 | Add metadata blocks to `soft-delete-rollout.md` and `soft-delete-inventory.md`; define a doc type (or move to `backend/docs/`) | Low | Backend |
-| 18 | Add metadata to `authorization-data-scope-validation.md` and `notification-bugs.md`; or move to issue tracker and remove from `docs/` | Low | Backend |
-| 19 | Move `investigation-report-erd.md` DBML content into `backend/erd.md`; delete the file from `docs/` | Low | Backend |
+| 17 | Add metadata blocks to `trd-soft-delete-rollout.md` and `trd-soft-delete-inventory.md`; define a doc type (or move to `backend/docs/`) | Low | Backend |
+| 18 | Add metadata to `trd-authorization-data-scope-validation.md` and `notification-bugs.md`; or move to issue tracker and remove from `docs/` | Low | Backend |
+| 19 | Move `trd-investigation-report-schema.md` DBML content into `backend/erd.md`; delete the file from `docs/` | Low | Backend |
 | 20 | Add `prd-work-permit-health-declaration.md` to CONTRIBUTING.md §2 definition if PRD extensions are a valid sub-type, or restructure as a full standalone PRD with proper metadata | Low | Product |

@@ -3,6 +3,7 @@ import type { Config } from "tailwindcss";
 import { baseColors, semanticColors } from "./src/core/lib/theme/colors";
 // Import Tailwind animate plugin
 import tailwindcssAnimate from "tailwindcss-animate";
+import typography from "@tailwindcss/typography";
 
 export default {
 	darkMode: ["class"],
@@ -151,5 +152,5 @@ export default {
 			}
 		}
 	},
-	plugins: [tailwindcssAnimate],
+	plugins: [tailwindcssAnimate, typography],
 } satisfies Config;

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ArrowLeft, Pencil, Download, CheckCircle2, RotateCcw } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -33,11 +34,14 @@ const InvestigationReportDetailPage = () => {
   const [report, setReport] = useState<InvestigationReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: `${report?.reportNumber.replace(/\//g, '-') ?? 'investigation-report'}.pdf`,
-  });
+  const { targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${report?.reportNumber.replace(/\//g, '-') ?? 'investigation-report'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const fetchReport = async () => {
     if (!id) return;
@@ -61,6 +65,26 @@ const InvestigationReportDetailPage = () => {
     fetchReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleExportPDF = async () => {
+    if (!report) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${report.reportNumber.replace(/\//g, '-')}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const handleComplete = async () => {
     if (!id) return;
@@ -128,8 +152,9 @@ const InvestigationReportDetailPage = () => {
             <Button variant="outline" onClick={() => navigate(-1)}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
-            <Button variant="outline" onClick={() => toPDF()}>
-              <Download className="mr-2 h-4 w-4" /> Export PDF
+            <Button variant="outline" onClick={handleExportPDF} disabled={isExportingPDF}>
+              <Download className="mr-2 h-4 w-4" />
+              {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
             {isDraft ? (
               <>
@@ -204,11 +229,15 @@ const InvestigationReportDetailPage = () => {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <Label className="text-muted-foreground">Task Performed</Label>
-              <p className="whitespace-pre-line">{report.taskBeingPerformed ?? '—'}</p>
+              {report.taskBeingPerformed
+                ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.taskBeingPerformed }} />
+                : <p className="text-muted-foreground">—</p>}
             </div>
             <div>
               <Label className="text-muted-foreground">Equipment / Materials</Label>
-              <p className="whitespace-pre-line">{report.equipmentUsed ?? '—'}</p>
+              {report.equipmentUsed
+                ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.equipmentUsed }} />
+                : <p className="text-muted-foreground">—</p>}
             </div>
           </CardContent>
         </Card>
@@ -373,7 +402,9 @@ const InvestigationReportDetailPage = () => {
           <CardContent className="space-y-3 text-sm">
             <div>
               <Label className="text-muted-foreground">Comments</Label>
-              <p className="whitespace-pre-line">{report.hsComments ?? '—'}</p>
+              {report.hsComments
+                ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.hsComments }} />
+                : <p className="text-muted-foreground">—</p>}
             </div>
             <div className="flex items-center gap-3">
               <Badge variant={report.distributionSafetyCommittee ? 'default' : 'outline'}>
@@ -390,11 +421,12 @@ const InvestigationReportDetailPage = () => {
         </Card>
       </div>
 
-      {/* Off-screen PDF target */}
-      <div style={{ position: 'absolute', left: -10000, top: 0 }}>
-        <div ref={targetRef as any}>
-          <InvestigationReportPDFTemplate report={report} />
-        </div>
+      <div
+        ref={targetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        <InvestigationReportPDFTemplate report={report} />
       </div>
     </div>
   );

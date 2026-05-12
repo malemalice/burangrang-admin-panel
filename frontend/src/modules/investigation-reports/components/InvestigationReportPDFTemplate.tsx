@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 import {
   type InvestigationCause,
   type InvestigationReport,
@@ -120,16 +121,24 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
         background: '#fff',
       }}
     >
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 16, margin: 0 }}>
-          ACCIDENT INVESTIGATION REPORT
-        </h1>
-        <h2 style={{ fontSize: 13, margin: '4px 0' }}>
-          Laporan Investigasi Kecelakaan
-        </h2>
-        <p style={{ margin: 0, fontSize: 10 }}>
-          Form: BSJ/F/H-3-3.5C/Rev1 — Report No: <strong>{report.reportNumber}</strong>
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 16, margin: 0 }}>
+            ACCIDENT INVESTIGATION REPORT
+          </h1>
+          <h2 style={{ fontSize: 13, margin: '4px 0' }}>
+            Laporan Investigasi Kecelakaan
+          </h2>
+          <p style={{ margin: 0, fontSize: 10 }}>
+            Form: BSJ/F/H-3-3.5C/Rev1 — Report No: <strong>{report.reportNumber}</strong>
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#555' }}>
+            Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}
+          </p>
+        </div>
+        <div style={{ flexShrink: 0 }}>
+          <PdfAppHeader />
+        </div>
       </div>
 
       {incident && (
