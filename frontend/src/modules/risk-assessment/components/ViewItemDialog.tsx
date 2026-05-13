@@ -111,14 +111,6 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
-                <div className="p-3 rounded-md border bg-card text-card-foreground">
-                  <p className="text-sm whitespace-pre-wrap">
-                    {item.mitigation?.eliminate || 'N/A'}
-                  </p>
-                </div>
-              </div>
-              <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Elimination Control</p>
                 <div className="p-3 rounded-md border bg-card text-card-foreground">
                   <p className="text-sm whitespace-pre-wrap">

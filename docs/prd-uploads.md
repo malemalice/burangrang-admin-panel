@@ -1,5 +1,10 @@
 # PRD: File Upload Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Upload module provides file upload (multipart), storage, and optional metadata (category, isPublic, expiresAt, metadata). Uploaded files are associated with a file category and optionally with an uploader (userId). List and get endpoints support filtering and optional public access for signed URLs. Used by other modules (incidents, inspections, certificates, work permits, etc.) to attach images and documents. Frontend provides ImageUpload component and uploadService.
@@ -60,3 +65,36 @@ Optional: GET /uploads/categories for file category list (if exposed).
 
 - **Backend:** Prisma (FileUpload, FileCategory), storage provider (local/S3), JwtAuthGuard, PermissionsGuard, AllowOptionsBypass. Multer/FileInterceptor for multipart.
 - **Frontend:** Core API, form components that need file attach (incidents, inspections, work permits, certificates). CategoryId must be known per context (e.g. incident-image, inspection-image).
+
+## Functional Requirements
+
+- [FR-1] The system must accept multipart file uploads with `file`, `categoryId`, optional `isPublic`, `expiresAt`, and `metadata` fields and return the created file record including a stable URL.
+- [FR-2] The storage provider must be configurable via environment variables (local filesystem or S3-compatible).
+- [FR-3] The system must support listing uploaded files with pagination and filters: `categoryId`, `isPublic`, `uploadedBy`, and search.
+- [FR-4] The system must allow retrieving a single file record by ID, including its URL or a redirect to the stored file.
+- [FR-5] The system must allow updating file metadata (`isPublic`, `expiresAt`, `metadata`) for files the user has permission to modify.
+- [FR-6] The system must allow deleting a file record and its associated stored file.
+- [FR-7] Public files (`isPublic: true`) must be accessible without authentication where the endpoint policy allows.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] All write operations must require a valid JWT and the corresponding `upload:*` permission.
+- [NFR-3] The maximum accepted file size must be defined and enforced at the API level.
+- [NFR-4] API responses must return within 2 seconds under normal load; file storage I/O may add additional latency for large files.
+- [NFR-5] All UI components must support light and dark mode via semantic design tokens.
+- [NFR-6] File URLs returned by the API must remain stable (not expire unless `expiresAt` is explicitly set).
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User uploads a JPEG with a valid categoryId | 201; file record returned with stable URL; file accessible at URL |
+| AC-2 | User lists uploads filtered by `categoryId` | 200; only uploads in that category returned; pagination present |
+| AC-3 | User marks a file `isPublic: true` and accesses its URL without a token | File content served without authentication |
+| AC-4 | User deletes an upload | 200; file record removed; file no longer accessible via URL |
+| AC-5 | Upload exceeds max file size | 413 or configured error; file not stored |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement

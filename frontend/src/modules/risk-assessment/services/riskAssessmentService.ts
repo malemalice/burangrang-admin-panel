@@ -2,7 +2,6 @@ import { RiskAssessment, PaginatedResponse, PaginationParams } from '@/core/lib/
 import api from '@/core/lib/api';
 
 export interface RiskMitigationData {
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;
@@ -50,7 +49,6 @@ export interface CreateRiskAssessmentDTO {
 }
 
 export interface CreateRiskControlDTO {
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;

@@ -18,9 +18,9 @@ export class InvestigationSignatoryDto {
   @Expose()
   investigationReportId: string;
 
-  @ApiProperty({ enum: InvestigationSignatoryRoleEnum })
+  @ApiProperty({ enum: InvestigationSignatoryRoleEnum, required: false })
   @Expose()
-  signatoryRole: InvestigationSignatoryRoleEnum;
+  signatoryRole?: InvestigationSignatoryRoleEnum;
 
   @ApiProperty({ required: false })
   @Expose()
@@ -29,10 +29,6 @@ export class InvestigationSignatoryDto {
   @ApiProperty({ required: false })
   @Expose()
   name?: string;
-
-  @ApiProperty({ required: false })
-  @Expose()
-  signatureUrl?: string;
 
   @ApiProperty({ required: false })
   @Expose()
@@ -49,8 +45,9 @@ export class InvestigationSignatoryDto {
 
 export class UpsertInvestigationSignatoryDto {
   @IsEnum(InvestigationSignatoryRoleEnum)
-  @ApiProperty({ enum: InvestigationSignatoryRoleEnum })
-  signatoryRole: InvestigationSignatoryRoleEnum;
+  @IsOptional()
+  @ApiProperty({ enum: InvestigationSignatoryRoleEnum, required: false })
+  signatoryRole?: InvestigationSignatoryRoleEnum;
 
   @IsString()
   @IsOptional()
@@ -61,11 +58,6 @@ export class UpsertInvestigationSignatoryDto {
   @IsOptional()
   @ApiProperty({ required: false })
   name?: string;
-
-  @IsString()
-  @IsOptional()
-  @ApiProperty({ required: false })
-  signatureUrl?: string;
 
   @IsDate()
   @Type(() => Date)

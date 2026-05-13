@@ -475,7 +475,6 @@ const InspectionDetailPage = () => {
                   type: img.type,
                 })),
                 mitigation: editingItem.mitigation ? {
-                  eliminate: editingItem.mitigation.eliminate,
                   eliminationControl: (editingItem.mitigation as any).eliminationControl,
                   substitutionControl: (editingItem.mitigation as any).substitutionControl,
                   engineeringControl: (editingItem.mitigation as any).engineeringControl,

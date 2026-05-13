@@ -1,5 +1,10 @@
 # PRD: Inspection Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Inspection Management module supports creating and managing inspections: each inspection has a code, date, status, creator, optional done-at time, linked areas (many-to-many), inspectors (users), and items. Each item is scoped by area, risk category, risk, assigned department, assignee, and has findings, description, follow-up notes, due date, and images (with type: BEFORE/AFTER/GENERAL). Items can be managed under an inspection or listed/updated via a standalone inspection-items API. List endpoints support an `options` bypass for dropdown use.
@@ -90,3 +95,36 @@ The Inspection Management module supports creating and managing inspections: eac
 
 - **Backend:** Prisma (Inspection, InspectionItem, InspectionImage, InspectionInspector, InspectionToArea, User, Area, RiskCategory, Risk, Department), JwtAuthGuard, PermissionsGuard, AllowOptionsBypass. RiskMitigationRecord linked to item via entity/entityId.
 - **Frontend:** Auth, master-data (areas, risk categories, risks, departments, users for assignee/inspectors), uploads for images, core API.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for inspections, including linking multiple areas and inspectors per inspection.
+- [FR-2] The system must support full CRUD for inspection items under an inspection, each with area, risk category, risk, assigned department, assignee, status, findings, description, follow-up notes, due date, and images.
+- [FR-3] Each inspection item must support full CRUD for images with type classification (BEFORE/AFTER/GENERAL) and order.
+- [FR-4] The system must expose a standalone inspection-items API (`/inspection-items`) for listing and updating items across all inspections with filters by status, department, assignee, risk, risk category, and inspection code.
+- [FR-5] Inspection and inspection-items list endpoints must support `options=true` bypass for dropdown use.
+- [FR-6] Each inspection item must be polymorphically linkable to a `RiskMitigationRecord` (entity=INSPECTION_ITEM) for risk register aggregation.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] All write operations must require a valid JWT and the corresponding `inspection:*` permission.
+- [NFR-3] Permission checks must be enforced via `PermissionsGuard` on all endpoints.
+- [NFR-4] API responses must return within 2 seconds under normal load.
+- [NFR-5] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User creates inspection with 2 linked areas and 1 inspector | 201; areas and inspector linked; accessible in `GET :id` |
+| AC-2 | User adds item to inspection with findings, risk category, and a BEFORE image | 201; item and image created; `GET :id/items` returns item with image |
+| AC-3 | User lists all items via standalone API filtered by `assignedDepartmentId` | 200; only items for that department returned |
+| AC-4 | User updates inspection item status via standalone PATCH | 200; status updated; visible in next GET |
+| AC-5 | List inspections filtered by `status` and `areaId` | 200; only matching inspections returned |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-approvals.md`](prd-approvals.md) — master approval workflow (used for inspection item approval)
+- [`prd-master-data.md`](prd-master-data.md) — areas, risk categories, risks master data

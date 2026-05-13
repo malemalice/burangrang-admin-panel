@@ -343,7 +343,6 @@ model Risk {
 
 model RiskMitigation {
   id                          String    @id @default(uuid())
-  eliminate                   String?   @db.Text
   eliminationControl          String?   @db.Text
   substitutionControl         String?   @db.Text
   engineeringControl          String?   @db.Text
@@ -364,7 +363,6 @@ model RiskMitigation {
 
 model RiskControl {
   id                          String   @id @default(uuid())
-  eliminate                   String?  @db.Text
   eliminationControl          String?  @db.Text
   substitutionControl         String?  @db.Text
   engineeringControl          String?  @db.Text
@@ -391,7 +389,6 @@ model RiskControl {
 model RiskMitigationRecord {
   id                          String    @id @default(uuid())
   code                        String // Auto-generated code with prefix RSK{datetime}, not user-updatable; unique for non-deleted rows (partial index)
-  eliminate                   String?   @db.Text
   eliminationControl          String?   @db.Text
   substitutionControl         String?   @db.Text
   engineeringControl          String?   @db.Text
@@ -3518,20 +3515,18 @@ model InvestigationActionPlan {
 }
 
 model InvestigationSignatory {
-  id                    String                         @id @default(uuid())
+  id                    String                          @id @default(uuid())
   investigationReportId String
-  signatoryRole         InvestigationSignatoryRoleEnum
-  roleName              String?                        @db.VarChar(128)
-  name                  String?                        @db.VarChar(256)
-  signatureUrl          String?                        @db.VarChar(512)
+  signatoryRole         InvestigationSignatoryRoleEnum?
+  roleName              String?                         @db.VarChar(128)
+  name                  String?                         @db.VarChar(256)
   signedAt              DateTime?
-  order                 Int                            @default(0)
-  createdAt             DateTime                       @default(now())
-  updatedAt             DateTime                       @updatedAt
+  order                 Int                             @default(0)
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
 
   investigationReport InvestigationReport @relation(fields: [investigationReportId], references: [id], onDelete: Cascade)
 
-  @@unique([investigationReportId, signatoryRole])
   @@index([investigationReportId])
   @@map("t_investigation_signatories")
 }

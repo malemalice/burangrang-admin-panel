@@ -3099,7 +3099,6 @@ export class WorkPermitsService {
     for (const m of rows) {
       const item: PublicWorkPermitRiskMitigationItemDto = {
         id: m.id,
-        eliminate: m.eliminate ?? undefined,
         eliminationControl: m.eliminationControl ?? undefined,
         substitutionControl: m.substitutionControl ?? undefined,
         engineeringControl: m.engineeringControl ?? undefined,

@@ -53,7 +53,8 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     // Status
     root.style.setProperty('--destructive', '0 84.2% 60.2%');
     root.style.setProperty('--destructive-foreground', '210 40% 98%');
-    
+    root.style.setProperty('--warning', '38 92% 50%');
+
     // Sidebar (uses theme color)
     root.style.setProperty('--sidebar-background', '0 0% 98%');
     root.style.setProperty('--sidebar-foreground', '240 5.3% 26.1%');
@@ -90,7 +91,8 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     // Status
     root.style.setProperty('--destructive', '0 62.8% 30.6%');
     root.style.setProperty('--destructive-foreground', '210 40% 98%');
-    
+    root.style.setProperty('--warning', '38 92% 40%');
+
     // Sidebar (neutral dark)
     root.style.setProperty('--sidebar-background', '240 5.9% 10%');
     root.style.setProperty('--sidebar-foreground', '240 4.8% 95.9%');

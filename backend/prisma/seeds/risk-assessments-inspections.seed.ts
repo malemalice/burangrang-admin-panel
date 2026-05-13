@@ -302,8 +302,7 @@ export const seedRiskAssessmentsAndInspections = async (
         // Create risk mitigation record for this item (at least one field filled)
         const mitigationOptions = [
           {
-            eliminate: `Eliminate risk by removing the hazard source: ${risk.name}`,
-            eliminationControl: null,
+            eliminationControl: `Eliminate risk by removing the hazard source: ${risk.name}`,
             substitutionControl: null,
             engineeringControl: null,
             administrationControl: null,
@@ -313,7 +312,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             engineeringControl: null,
@@ -324,7 +322,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             transfer: null,
@@ -335,7 +332,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             engineeringControl: null,
@@ -346,8 +342,7 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: `Implement engineering controls to eliminate ${risk.name}`,
-            eliminationControl: null,
+            eliminationControl: `Implement engineering controls to eliminate ${risk.name}`,
             substitutionControl: null,
             transfer: null,
             engineeringControl: null,
@@ -524,8 +519,7 @@ export const seedRiskAssessmentsAndInspections = async (
         // Create risk mitigation record for this inspection item (at least one field filled)
         const mitigationOptions = [
           {
-            eliminate: `Eliminate the identified hazard: ${findings || risk.name}`,
-            eliminationControl: null,
+            eliminationControl: `Eliminate the identified hazard: ${findings || risk.name}`,
             substitutionControl: null,
             engineeringControl: null,
             administrationControl: null,
@@ -535,7 +529,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             engineeringControl: null,
@@ -546,7 +539,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             transfer: null,
@@ -557,7 +549,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             engineeringControl: null,
@@ -568,8 +559,7 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: null,
           },
           {
-            eliminate: `Remove hazard source: ${risk.name}`,
-            eliminationControl: null,
+            eliminationControl: `Remove hazard source: ${risk.name}`,
             substitutionControl: null,
             transfer: null,
             engineeringControl: null,
@@ -579,7 +569,6 @@ export const seedRiskAssessmentsAndInspections = async (
             legalAspect: `Ensure compliance with workplace safety regulations`,
           },
           {
-            eliminate: null,
             eliminationControl: null,
             substitutionControl: null,
             transfer: `Outsource high-risk activities to specialized contractor`,

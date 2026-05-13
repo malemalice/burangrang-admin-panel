@@ -8,12 +8,6 @@ import { Expose } from 'class-transformer';
 export class RiskMitigationDataDto {
   @IsOptional()
   @IsString()
-  @ApiProperty({ required: false, description: 'Elimination strategy' })
-  @Expose()
-  eliminate?: string;
-
-  @IsOptional()
-  @IsString()
   @ApiProperty({ required: false, description: 'Elimination control (control hierarchy detail)' })
   @Expose()
   eliminationControl?: string;

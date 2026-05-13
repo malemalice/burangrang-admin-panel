@@ -3,7 +3,6 @@ import { PaginationParams, PaginatedResponse } from '@/core/lib/types';
 
 export interface RiskMitigation {
   id: string;
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;

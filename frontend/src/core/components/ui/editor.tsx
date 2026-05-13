@@ -35,6 +35,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
     <div className={cn('border rounded-md', className)}>
       <div className="border-b p-2 flex gap-2">
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -43,6 +44,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
           <Bold className="h-4 w-4" />
         </Button>
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleItalic().run()}
@@ -51,6 +53,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
           <Italic className="h-4 w-4" />
         </Button>
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -59,6 +62,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
           <List className="h-4 w-4" />
         </Button>
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}

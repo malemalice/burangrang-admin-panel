@@ -1,5 +1,10 @@
 # PRD: Master Data Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Master Data Management module provides CRUD and list capabilities for organizational and risk-reference data used across the HSE Dashboard: offices (with hierarchy), departments, job positions, areas, rooms, risk categories, risks, and risk mitigations. All list endpoints support an `options` query bypass for use in dropdowns/selects. Approvals master data is covered in PRD Approvals.
@@ -111,3 +116,36 @@ All under `frontend/src/modules/master-data`; routes in `masterDataRoutes.ts`. A
 
 - **Backend:** Prisma (all master tables), JwtAuthGuard, RolesGuard, PermissionsGuard, AllowOptionsBypass.
 - **Frontend:** Auth, core API; other modules (users, risk-assessment, work-permits, inspections, etc.) consume these entities via options/list APIs.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for offices, departments, job positions, areas, rooms, risk categories, risks, and risk mitigations.
+- [FR-2] All list endpoints must support pagination, search, and `isActive` filter; applicable endpoints must support additional entity-specific filters (e.g. `parentId` for offices, `officeId` for areas, `areaId` for rooms, `riskCategoryId` for risks, `riskId` for risk mitigations).
+- [FR-3] All list endpoints must support `options=true` bypass so that form dropdowns can load options without requiring the full list permission (JWT still required).
+- [FR-4] The office endpoint must expose a hierarchy endpoint (`GET /offices/hierarchy`) for building a tree view of parent/child offices.
+- [FR-5] The department endpoint must support a get-by-code route (`GET /departments/code/:code`).
+- [FR-6] Each entity must enforce active/inactive state (`isActive`) so that inactive master data is excluded from options and lookups by default.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Inactive records must be excluded from `options=true` responses.
+- [NFR-3] All write operations must require a valid JWT and the corresponding entity permission (e.g. `office:create`).
+- [NFR-4] Permission checks must be enforced via `PermissionsGuard` on all non-public endpoints.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+- [NFR-7] Master data changes must not cascade-delete dependent transactional records; referential integrity must be handled gracefully.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Admin creates a department with a unique code | 201; department accessible via GET by ID and GET by code |
+| AC-2 | Admin calls `GET /offices/hierarchy` | 200; returns tree structure of offices with nested children |
+| AC-3 | Form calls `GET /risks?options=true` with user who lacks `risk:list` | 200; risk options returned (JWT required) |
+| AC-4 | Admin sets an area `isActive: false` | Area excluded from `GET /areas?options=true` results |
+| AC-5 | Admin creates a risk mitigation linked to a risk | 201; mitigation linked to correct risk; `GET /risk-mitigations?riskId=<id>` returns it |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement

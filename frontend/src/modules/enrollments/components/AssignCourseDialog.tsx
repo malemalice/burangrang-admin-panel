@@ -92,7 +92,7 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
     if (open) {
       setIsLoadingOptions(true);
       Promise.all([
-        courseService.getCourses({ page: 1, limit: 100, status: 'published' }),
+        courseService.getCourses({ page: 1, limit: 100, status: 'published', options: true }),
         fetchAllUsersForOptions(),
       ])
         .then(([coursesResponse, usersResponse]) => {

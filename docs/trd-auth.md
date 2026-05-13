@@ -1,5 +1,12 @@
 # Authorization, RBAC, and Data-Level Access
 
+**Document type:** TRD
+**Status:** Deprecated
+**Audience:** Backend Engineers
+**Last updated:** 2026-05-12
+
+> Superseded by [`trd-authorization.md`](trd-authorization.md). This file is retained for historical reference only. Do not act on it.
+
 This document describes the current authorization model and a technical breakdown for implementing data-level access (self / department / super) on scoped modules.
 
 ---

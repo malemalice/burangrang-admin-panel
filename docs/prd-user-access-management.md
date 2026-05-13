@@ -1,5 +1,10 @@
 # PRD: User & Access Management
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The User & Access Management module covers identity and authorization configuration: user accounts (CRUD, profile, change password), roles (CRUD, duplicate, permission assignment), permissions (read-only list), and menus (CRUD, hierarchy, sidebar, role assignment, ordering). Access to endpoints is guarded by JWT and permission checks; list endpoints support an `options` bypass for dropdown/select use.
@@ -22,7 +27,7 @@ The User & Access Management module covers identity and authorization configurat
 - **permission:list** — list permissions (and default permissions).
 - **menu:create,** **menu:list,** **menu:read,** **menu:update,** **menu:delete,** **menu:assign-roles** — menu CRUD, hierarchy, stats, and role assignment.
 
-Sidebar visibility is driven by permission-based lookup (path → permission); see sidebar-permission-lookup-trd.md.
+Sidebar visibility is driven by permission-based lookup (path → permission); see trd-sidebar-permission-lookup.md.
 
 ## User Stories
 
@@ -91,3 +96,40 @@ Sidebar visibility is driven by permission-based lookup (path → permission); s
 
 - **Backend:** Prisma (User, Role, Permission, Menu, Office, Department, JobPosition), JwtAuthGuard, RolesGuard, PermissionsGuard, AllowOptionsBypass for list/options.
 - **Frontend:** Auth (JWT), master-data or shared services for office/department/job position options in user form, core API client. Sidebar uses GET /menus/sidebar and permission-based filtering (see TRD).
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for user accounts including filtering by office, role, department, job position, `isActive`, and search.
+- [FR-2] The system must provide `GET /users/me` and `PATCH /users/me` for the current user to view and update their own profile.
+- [FR-3] The system must allow the current user to change their password with `POST /users/me/change-password` (requires current password for validation).
+- [FR-4] The system must support full CRUD for roles, including a duplicate endpoint that creates a new role with the same permission set.
+- [FR-5] The system must expose a read-only list of all permissions and a default-permissions endpoint.
+- [FR-6] The system must support full CRUD for menus, including a bulk-order update and a hierarchy endpoint.
+- [FR-7] The system must expose `GET /menus/sidebar` which returns the active menu hierarchy filtered by the current user's permissions (path → permission lookup).
+- [FR-8] All list endpoints for users, roles, permissions, and menus must support `options=true` bypass.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] All write operations must require a valid JWT and the corresponding permission.
+- [NFR-3] Password change must validate the current password before accepting the new one; invalid current password must return 400/401.
+- [NFR-4] Sidebar filtering must be computed server-side; the frontend must not filter menu items locally.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Admin creates a user with a role, office, and department | 201; user accessible via GET by ID and in list |
+| AC-2 | Admin duplicates a role | 201; new role created with same permissions as original |
+| AC-3 | User changes password with correct current password | 200; new password accepted at next login |
+| AC-4 | User changes password with wrong current password | 400/401; password not changed |
+| AC-5 | Frontend calls `GET /menus/sidebar` | Returns only menus the user has permission for |
+| AC-6 | Admin reorders menus via bulk order update | 200; menus returned in updated order on next GET |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-authorization.md`](prd-authorization.md) — business requirements for the authorization model
+- [`trd-sidebar-permission-lookup.md`](trd-sidebar-permission-lookup.md) — sidebar visibility TRD

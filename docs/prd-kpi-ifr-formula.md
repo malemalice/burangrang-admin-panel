@@ -1,8 +1,9 @@
 # PRD: KPI IFR (Incident Frequency Rate) Formula
 
-**Document Version:** 1.1  
-**Last Updated:** February 14, 2025  
-**Related Modules:** KPI Frequency Rate, Man Hours, Incidents
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-14
 
 ---
 

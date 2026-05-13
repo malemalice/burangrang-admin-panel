@@ -1,8 +1,9 @@
 # PRD: Dashboard Incident Profile Analytic
 
-**Document Version:** 1.0  
-**Last Updated:** February 8, 2025  
-**Related Modules:** Incident Profile Analytic, Incidents
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-08
 
 ---
 
@@ -195,5 +196,5 @@ Single endpoint returns both count and percentage data for consistent rounding.
 - `backend/erd.md` – Entity relationship documentation
 - `backend/prisma/schema.prisma` – Database schema
 - `frontend/src/modules/incident-profile-analytic/` – Incident Profile Analytic module
-- `docs/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (reference pattern)
+- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (reference pattern)
 - `docs/prd-kpi-ifr-formula.md` – KPI IFR formula (incident-related)

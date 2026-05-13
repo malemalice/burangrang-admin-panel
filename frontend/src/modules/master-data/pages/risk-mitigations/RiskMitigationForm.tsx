@@ -30,7 +30,6 @@ import { RiskMitigation, Risk } from '@/core/lib/types';
 
 // Define form schema
 const formSchema = z.object({
-  eliminate: z.string().optional(),
   eliminationControl: z.string().optional(),
   substitutionControl: z.string().optional(),
   engineeringControl: z.string().optional(),
@@ -58,7 +57,6 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      eliminate: riskMitigation?.eliminate || '',
       eliminationControl: (riskMitigation as any)?.eliminationControl || '',
       substitutionControl: (riskMitigation as any)?.substitutionControl || '',
       engineeringControl: (riskMitigation as any)?.engineeringControl || '',
@@ -141,28 +139,6 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
                   </FormControl>
                   <FormDescription>
                     Select the risk for which this mitigation applies
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="eliminate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Eliminate</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter eliminate control measure"
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value || ''}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Describe measures to eliminate the risk
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

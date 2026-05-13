@@ -1,5 +1,10 @@
 # PRD: Authentication & Authorization
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Authentication & Authorization module provides secure access to the HSE Dashboard. It supports email/password login, Google OAuth, JWT-based session management with refresh tokens, and password reset via email. Authorization is enforced via JWT validation and role-based access (RBAC) with optional permission checks on protected routes.
@@ -75,3 +80,42 @@ The Authentication & Authorization module provides secure access to the HSE Dash
 
 - **Backend:** Mail module (for forgot-password and verification emails), Prisma (User, Role, RefreshToken), JwtModule, Passport (JWT and Google strategies).
 - **Frontend:** Settings module (useAppName for login page), core API client (auth endpoints, token attachment for protected requests).
+
+## Functional Requirements
+
+- [FR-1] The system must support email/password login and return a JWT access token (1 hour) and a refresh token stored in the database.
+- [FR-2] The system must support Google OAuth login; after consent, the backend must redirect the frontend to `/auth/callback` with tokens in query parameters.
+- [FR-3] The system must provide a public signup endpoint for self-registration.
+- [FR-4] The system must support forgot-password: accept an email, generate a reset token, and send a reset link via email.
+- [FR-5] The system must support reset-password: validate the reset token and update the user's password.
+- [FR-6] The system must support logout: validate JWT and invalidate the corresponding refresh token in the database.
+- [FR-7] The system must support token refresh: accept a valid refresh token and return a new access token.
+- [FR-8] Inactive users must be rejected at login with a clear error message.
+- [FR-9] All protected routes must require a valid JWT; unauthenticated requests must return 401.
+
+## Non-Functional Requirements
+
+- [NFR-1] Access tokens must expire in 1 hour; refresh tokens must have a defined expiry.
+- [NFR-2] Passwords must be stored as bcrypt hashes; plaintext passwords must never be stored or logged.
+- [NFR-3] Reset tokens must be single-use and expire after a defined period.
+- [NFR-4] All auth endpoints must be rate-limited to mitigate brute-force attacks.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | User logs in with valid email and password | 200; `accessToken`, `refreshToken`, and user object returned |
+| AC-2 | User logs in with wrong password | 401; error message returned; no tokens issued |
+| AC-3 | Inactive user attempts login | 401; "Account is inactive" message |
+| AC-4 | User initiates Google OAuth | Redirect to Google consent; on success, redirect to `/auth/callback?accessToken=...` |
+| AC-5 | User calls forgot-password with valid email | 200; reset email sent; token stored |
+| AC-6 | User resets password with valid token | 200; new password accepted; token invalidated |
+| AC-7 | User calls `POST /auth/refresh` with valid refresh token | 200; new access token returned |
+| AC-8 | User calls `POST /auth/logout` | 200; refresh token deleted; subsequent refresh attempts fail |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
+- [`prd-authorization.md`](prd-authorization.md) — business requirements for the authorization model

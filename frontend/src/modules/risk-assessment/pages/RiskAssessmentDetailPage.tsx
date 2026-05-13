@@ -481,7 +481,6 @@ const RiskAssessmentDetailPage = () => {
                 postRiskMatrixRating: editingItem.postRiskMatrixRating,
                 postInterpretation: editingItem.postInterpretation,
                 mitigation: editingItem.mitigation ? {
-                  eliminate: editingItem.mitigation.eliminate,
                   eliminationControl: (editingItem.mitigation as any).eliminationControl,
                   substitutionControl: (editingItem.mitigation as any).substitutionControl,
                   engineeringControl: (editingItem.mitigation as any).engineeringControl,
@@ -534,7 +533,6 @@ const RiskAssessmentDetailPage = () => {
                 postRiskMatrixRating: itemToUpdateAction.postRiskMatrixRating,
                 postInterpretation: itemToUpdateAction.postInterpretation,
                 mitigation: itemToUpdateAction.mitigation ? {
-                  eliminate: itemToUpdateAction.mitigation.eliminate,
                   eliminationControl: (itemToUpdateAction.mitigation as any).eliminationControl,
                   substitutionControl: (itemToUpdateAction.mitigation as any).substitutionControl,
                   engineeringControl: (itemToUpdateAction.mitigation as any).engineeringControl,

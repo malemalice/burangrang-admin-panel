@@ -1,5 +1,10 @@
 # PRD: Learning Management System (LMS)
 
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-05-12
+
 ## Overview
 
 The Learning Management System covers courses (with status and slug), chapters (ordered, per course), enrollments (assign course to user, learning context with progress), quizzes (create, link to course/chapter, assign to users, attempts and answers), and progress (per-chapter completion). Enrollments can be data-scoped (self/department/super). List endpoints support an `options` bypass where applicable.
@@ -76,3 +81,40 @@ Routes: /courses, /courses/:id, course player and quiz attempt routes; /enrollme
 
 - **Backend:** Prisma (Course, Chapter, Enrollment, Quiz, Question, Option, Attempt, Answer, Progress, User), Mail for assignment notifications, JwtAuthGuard, PermissionsGuard, AllowOptionsBypass, DataScopeGuard on enrollments where applied.
 - **Frontend:** Auth, core API. Course player and progress depend on enrollment and progress APIs.
+
+## Functional Requirements
+
+- [FR-1] The system must support full CRUD for courses, including status management (DRAFT, PUBLISHED) and slug-based access.
+- [FR-2] The system must support full CRUD for chapters, bulk reorder within a course, and a public read endpoint for unauthenticated chapter browsing.
+- [FR-3] The system must support enrollment creation, admin assignment of courses to users, and listing enrollments with optional data-scope filtering (SELF/DEPARTMENT/SUPER).
+- [FR-4] The system must provide a learning context endpoint (`GET /enrollments/:id/learning-context`) returning course, ordered chapters, and per-chapter progress for the enrolled user.
+- [FR-5] The system must track chapter progress per enrollment, allow progress updates, and allow marking chapters complete.
+- [FR-6] The system must support full CRUD for quizzes and linking quizzes to courses or chapters.
+- [FR-7] The system must support quiz attempts: start, submit answer per question, submit the full attempt, and manual grading of essay answers.
+- [FR-8] List endpoints for courses, chapters, enrollments, and quizzes must support `options=true` bypass for dropdown use.
+
+## Non-Functional Requirements
+
+- [NFR-1] All list endpoints must return paginated results (default 10 per page; max 100).
+- [NFR-2] Enrollment list must respect the user's `dataLevel` (SELF/DEPARTMENT/SUPER) via `DataScopeGuard` where implemented.
+- [NFR-3] All write operations must require a valid JWT and the corresponding permission.
+- [NFR-4] Permission checks must be enforced via `PermissionsGuard` on all non-public endpoints; chapter public-browsing endpoint is exempt.
+- [NFR-5] API responses must return within 2 seconds under normal load.
+- [NFR-6] All UI components must support light and dark mode via semantic design tokens.
+- [NFR-7] Course assignment must trigger an email notification to the enrolled user via the mail service.
+
+## Acceptance Criteria
+
+| # | Scenario | Expected |
+|---|---|---|
+| AC-1 | Admin creates a course with status DRAFT and then publishes it | Course accessible via slug after publishing; DRAFT course not visible to public chapter endpoint |
+| AC-2 | Admin assigns a course to a user | Enrollment record created; user sees course in `GET /enrollments/user`; assignment email sent |
+| AC-3 | Learner completes a chapter | `POST /progress/:chapterId/complete` returns 200; `GET /enrollments/:id/learning-context` reflects completion |
+| AC-4 | Learner starts a quiz attempt, submits answers, and submits attempt | Attempt recorded; result calculated; `GET :id/attempts/current` returns nil after submission |
+| AC-5 | Instructor grades essay answer | `PATCH /quizzes/answers/:answerId/grade` returns 200; grade recorded |
+| AC-6 | DEPARTMENT-scoped user lists enrollments | Only enrollments from the user's department returned |
+
+## Related Documents
+
+- [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and data-scope enforcement
+- [`prd-notifications.md`](prd-notifications.md) — notification and email delivery system used for course assignment

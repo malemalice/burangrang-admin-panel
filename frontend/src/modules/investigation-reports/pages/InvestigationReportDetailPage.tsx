@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ArrowLeft, Pencil, Download, CheckCircle2, RotateCcw } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -33,11 +34,14 @@ const InvestigationReportDetailPage = () => {
   const [report, setReport] = useState<InvestigationReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
 
-  const { toPDF, targetRef } = usePDF({
-    filename: `${report?.reportNumber.replace(/\//g, '-') ?? 'investigation-report'}.pdf`,
-  });
+  const { targetRef } = usePDF(
+    buildPdfOptions({
+      filename: `${report?.reportNumber.replace(/\//g, '-') ?? 'investigation-report'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    }),
+  );
 
   const fetchReport = async () => {
     if (!id) return;
@@ -61,6 +65,26 @@ const InvestigationReportDetailPage = () => {
     fetchReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleExportPDF = async () => {
+    if (!report) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        targetRef,
+        buildPdfOptions({
+          filename: `${report.reportNumber.replace(/\//g, '-')}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+        }),
+      );
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const handleComplete = async () => {
     if (!id) return;
@@ -128,8 +152,9 @@ const InvestigationReportDetailPage = () => {
             <Button variant="outline" onClick={() => navigate(-1)}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
-            <Button variant="outline" onClick={() => toPDF()}>
-              <Download className="mr-2 h-4 w-4" /> Export PDF
+            <Button variant="outline" onClick={handleExportPDF} disabled={isExportingPDF}>
+              <Download className="mr-2 h-4 w-4" />
+              {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
             {isDraft ? (
               <>
@@ -204,11 +229,15 @@ const InvestigationReportDetailPage = () => {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <Label className="text-muted-foreground">Task Performed</Label>
-              <p className="whitespace-pre-line">{report.taskBeingPerformed ?? '—'}</p>
+              {report.taskBeingPerformed
+                ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.taskBeingPerformed }} />
+                : <p className="text-muted-foreground">—</p>}
             </div>
             <div>
               <Label className="text-muted-foreground">Equipment / Materials</Label>
-              <p className="whitespace-pre-line">{report.equipmentUsed ?? '—'}</p>
+              {report.equipmentUsed
+                ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.equipmentUsed }} />
+                : <p className="text-muted-foreground">—</p>}
             </div>
           </CardContent>
         </Card>
@@ -261,7 +290,7 @@ const InvestigationReportDetailPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <CauseList
+            <CauseMatrix
               causes={report.causes.filter(
                 (c) =>
                   c.isSelected &&
@@ -278,7 +307,7 @@ const InvestigationReportDetailPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <CauseList
+            <CauseMatrix
               causes={report.causes.filter(
                 (c) =>
                   c.isSelected &&
@@ -335,27 +364,34 @@ const InvestigationReportDetailPage = () => {
             <CardTitle>K. Signatures / Tanda tangan</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {report.signatories.map((s) => (
-                <div key={s.id} className="rounded-md border p-3">
-                  <p className="font-medium">{s.signatoryRole.replace(/_/g, ' ')}</p>
-                  <p className="text-xs text-muted-foreground">{s.roleName ?? '—'}</p>
-                  <p className="text-sm mt-1">{s.name ?? '—'}</p>
-                  {s.signedAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Signed: {format(new Date(s.signedAt), 'dd MMM yyyy')}
-                    </p>
-                  )}
-                  {s.signatureUrl && (
-                    <img
-                      src={s.signatureUrl}
-                      className="h-12 mt-1 bg-white rounded border max-w-[200px] object-contain"
-                      alt="signature"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            {report.signatories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No signatories recorded.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left p-2 font-medium">Investigator Team / Tim Penyidik</th>
+                      <th className="text-left p-2 font-medium">Name / Nama</th>
+                      <th className="text-left p-2 font-medium">Signature / Tanda Tangan</th>
+                      <th className="text-left p-2 font-medium">Date / Tanggal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.signatories.map((s) => (
+                      <tr key={s.id} className="border-b last:border-0">
+                        <td className="p-2">{s.roleName ?? '—'}</td>
+                        <td className="p-2">{s.name ?? '—'}</td>
+                        <td className="p-2 h-12" />
+                        <td className="p-2">
+                          {s.signedAt ? format(new Date(s.signedAt), 'dd MMM yyyy') : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -366,7 +402,9 @@ const InvestigationReportDetailPage = () => {
           <CardContent className="space-y-3 text-sm">
             <div>
               <Label className="text-muted-foreground">Comments</Label>
-              <p className="whitespace-pre-line">{report.hsComments ?? '—'}</p>
+              {report.hsComments
+                ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.hsComments }} />
+                : <p className="text-muted-foreground">—</p>}
             </div>
             <div className="flex items-center gap-3">
               <Badge variant={report.distributionSafetyCommittee ? 'default' : 'outline'}>
@@ -383,31 +421,60 @@ const InvestigationReportDetailPage = () => {
         </Card>
       </div>
 
-      {/* Off-screen PDF target */}
-      <div style={{ position: 'absolute', left: -10000, top: 0 }}>
-        <div ref={targetRef as any}>
-          <InvestigationReportPDFTemplate report={report} />
-        </div>
+      <div
+        ref={targetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        <InvestigationReportPDFTemplate report={report} />
       </div>
     </div>
   );
 };
 
-const CauseList = ({ causes }: { causes: InvestigationCause[] }) => {
+const CauseMatrix = ({ causes }: { causes: InvestigationCause[] }) => {
   if (causes.length === 0) {
-    return <p className="text-muted-foreground">No causes selected.</p>;
+    return <p className="text-sm text-muted-foreground">No causes selected.</p>;
   }
+
+  // Group selected causes by tier1 → tier2 using snapshot fields
+  const byTier1 = causes.reduce<Record<string, Record<string, InvestigationCause[]>>>(
+    (acc, c) => {
+      if (!acc[c.tier1]) acc[c.tier1] = {};
+      if (!acc[c.tier1][c.tier2]) acc[c.tier1][c.tier2] = [];
+      acc[c.tier1][c.tier2].push(c);
+      return acc;
+    },
+    {},
+  );
+
   return (
-    <ul className="list-disc pl-5 space-y-1">
-      {causes.map((c) => (
-        <li key={c.id}>
-          <span className="font-medium">[{c.causeKey}]</span> {c.causeName}
-          {c.customNotes && (
-            <span className="text-muted-foreground"> — {c.customNotes}</span>
-          )}
-        </li>
+    <div className="space-y-4">
+      {Object.entries(byTier1).map(([tier1, tier2Groups]) => (
+        <div key={tier1} className="space-y-3">
+          <div className="rounded-md bg-muted px-4 py-2">
+            <p className="text-sm font-semibold">{tier1}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Object.entries(tier2Groups).map(([tier2, items]) => (
+              <div key={tier2} className="rounded-md border p-3 space-y-1.5">
+                <p className="text-sm font-medium">{tier2}</p>
+                <div className="space-y-1">
+                  {items.map((c) => (
+                    <div key={c.id} className="px-2 py-1">
+                      <span className="text-sm">{c.causeName}</span>
+                      {c.customNotes && (
+                        <span className="text-xs text-muted-foreground"> — {c.customNotes}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 };
 

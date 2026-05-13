@@ -228,10 +228,6 @@ const ViewRiskRegisterPage = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <h4 className="text-sm font-semibold mb-2">Eliminate</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminate ?? '—'}</p>
-            </div>
-            <div>
               <h4 className="text-sm font-semibold mb-2">Elimination Control</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminationControl ?? '—'}</p>
             </div>

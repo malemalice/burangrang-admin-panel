@@ -310,7 +310,7 @@ Apply this to any cross-module data fetch that feeds a select/combobox in a form
 
 ## 8. Sidebar Permission Filtering
 
-The sidebar is filtered by permissions, not by role assignments. Details in `docs/sidebar-permission-lookup-trd.md`.
+The sidebar is filtered by permissions, not by role assignments. Details in `docs/trd-sidebar-permission-lookup.md`.
 
 ### 8.1 Path → permission map
 
@@ -425,8 +425,8 @@ When implementing a new module, verify:
 ## 12. References
 
 - `docs/prd-authorization.md` — product requirements and acceptance criteria
-- `docs/sidebar-permission-lookup-trd.md` — detailed sidebar implementation spec
-- `docs/authorization-data-scope-validation.md` — QA checklist for data-scope issues
+- `docs/trd-sidebar-permission-lookup.md` — detailed sidebar implementation spec
+- `docs/trd-authorization-data-scope-validation.md` — QA checklist for data-scope issues
 - `backend/src/shared/guards/` — guard implementations
 - `backend/src/shared/decorators/` — decorator implementations
 - `backend/src/shared/services/data-scope.service.ts` — DataScopeService

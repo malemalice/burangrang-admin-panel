@@ -1,5 +1,11 @@
 # Soft delete rollout notes
 
+**Document type:** TRD
+**Status:** Stable
+**Audience:** Backend Engineers
+**Last updated:** 2026-05-12
+
+
 ## Applied migration
 
 - `backend/prisma/migrations/20260426140000_soft_delete_foundation_work_permit/migration.sql` — adds `deletedAt` / `deletedBy` and partial unique indexes for affected business keys.

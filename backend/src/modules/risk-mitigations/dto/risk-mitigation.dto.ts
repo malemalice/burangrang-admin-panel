@@ -6,9 +6,6 @@ export class RiskMitigationDto {
   id: string;
 
   @ApiProperty({ required: false })
-  eliminate?: string;
-
-  @ApiProperty({ required: false })
   eliminationControl?: string;
 
   @ApiProperty({ required: false })

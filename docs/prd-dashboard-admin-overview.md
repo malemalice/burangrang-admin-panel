@@ -1,8 +1,9 @@
 # PRD: Dashboard Admin Overview
 
-**Document Version:** 1.0  
-**Last Updated:** February 8, 2025  
-**Related Modules:** LMS (Courses, Enrollments, Quizzes), Certificates, PPE, Work Permits, Environmental Measurements, Waste Management, Man Hours
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-08
 
 ---
 
@@ -274,5 +275,5 @@ Metrics such as Total Man Hours, Course Completion Rate, Quiz Pass Rate, and YoY
 - `docs/prd-environmental-measurements.md` – Environmental Measurements PRD
 - `docs/prd-waste-management.md` – Waste Management PRD
 - `docs/prd-man-hours.md` – Man Hours PRD
-- `docs/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
-- `docs/dashboard-security-team.md` – Security Team dashboard (similar pattern)
+- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
+- `docs/prd-dashboard-security-team.md` – Security Team dashboard (similar pattern)

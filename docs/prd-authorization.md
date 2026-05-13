@@ -1,6 +1,6 @@
 # PRD — Authorization & Permissions
 
-**Document type:** Product Requirements Document  
+**Document type:** PRD  
 **Status:** Stable  
 **Audience:** Product, Backend, Frontend  
 **Last updated:** 2026-05-09
@@ -215,7 +215,7 @@ Each role ships with a sensible default permission set configured at creation ti
 ## 13. References
 
 - `docs/trd-authorization.md` — technical implementation
-- `docs/sidebar-permission-lookup-trd.md` — sidebar menu permission mapping
+- `docs/trd-sidebar-permission-lookup.md` — sidebar menu permission mapping
 - `backend/TRD.md` §"Guard Chain" and §"Data-Level Access"
 - `frontend/TRD.md` §"Data-Level Access" and §"Options Bypass"
 - `backend/prisma/schema.prisma` — `m_roles`, `m_permissions`, `_PermissionToRole`

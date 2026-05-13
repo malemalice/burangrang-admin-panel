@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 export const riskMitigations = [
   {
-    eliminate: 'Remove the source of risk completely',
+    eliminationControl: 'Remove the source of risk completely',
     engineeringControl: 'Implement regular cleaning and maintenance of floors',
     isActive: true,
   },
@@ -12,7 +12,7 @@ export const riskMitigations = [
     isActive: true,
   },
   {
-    eliminate: 'Remove hazardous chemicals from workplace',
+    eliminationControl: 'Remove hazardous chemicals from workplace',
     personalProtectiveEquipment: 'Proper PPE usage and training',
     isActive: true,
   },
@@ -22,7 +22,7 @@ export const riskMitigations = [
     isActive: true,
   },
   {
-    eliminate: 'Remove ergonomic hazards through workstation redesign',
+    eliminationControl: 'Remove ergonomic hazards through workstation redesign',
     engineeringControl: 'Ergonomic workstation setup',
     isActive: true,
   },

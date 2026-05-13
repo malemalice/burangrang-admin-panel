@@ -1,8 +1,9 @@
 # PRD: Dashboard Security Team
 
-**Document Version:** 1.0  
-**Last Updated:** February 8, 2025  
-**Related Modules:** Security Team, Incidents, Risk Categories
+**Document type:** PRD
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-02-08
 
 ---
 
@@ -548,8 +549,8 @@ INSERT INTO m_risk (name, code, riskCategoryId) VALUES
 - `backend/erd.md` – Entity relationship documentation
 - `backend/prisma/schema.prisma` – Database schema
 - `frontend/src/modules/security-team/` – Security Team module
-- `docs/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
-- `docs/dashboard-incident-profile-analytic.md` – Incident Profile Analytics dashboard
+- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
+- `docs/prd-dashboard-incident-profile-analytic.md` – Incident Profile Analytics dashboard
 
 ---
 

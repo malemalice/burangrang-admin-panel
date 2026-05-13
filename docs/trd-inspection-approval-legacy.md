@@ -1,10 +1,11 @@
-# Business Requirements Document (BRD) & Technical Requirements Document (TRD)
-## Inspection Item Approval Workflow
+# Inspection Item Approval Workflow (Deprecated)
 
-**Document Version:** 1.0  
-**Date:** January 2025  
-**Project:** BSJ Admin Panel - HSE Dashboard  
-**Module:** Inspection Items
+**Document type:** TRD
+**Status:** Deprecated
+**Audience:** Backend, Frontend Engineers
+**Last updated:** 2026-05-12
+
+> Split into [`prd-inspection-approval.md`](prd-inspection-approval.md) (business requirements) and [`trd-inspection-approval.md`](trd-inspection-approval.md) (technical requirements). Retained for historical reference only. Do not act on this document.
 
 ---
 

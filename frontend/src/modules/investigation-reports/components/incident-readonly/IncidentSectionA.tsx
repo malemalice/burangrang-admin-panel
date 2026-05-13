@@ -115,9 +115,9 @@ const IncidentSectionA = ({ incident, reportNumber, variant = 'card' }: Props) =
             <Label className="text-muted-foreground">
               Description of Incident / Deskripsi Kejadian
             </Label>
-            <p className="text-sm whitespace-pre-line">
-              {incident.description ?? '—'}
-            </p>
+            {incident.description
+              ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: incident.description }} />
+              : <p className="text-sm text-muted-foreground">—</p>}
           </div>
         </div>
         <div>
