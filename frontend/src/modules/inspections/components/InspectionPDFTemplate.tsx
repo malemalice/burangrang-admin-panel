@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { Inspection, InspectionItem } from '../types/inspection.types';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { InspectionRiskRateEnum, INSPECTION_RISK_RATE_OPTIONS } from '@/shared/constants/inspection-risk-rate.enum';
 
@@ -67,18 +68,23 @@ export const InspectionPDFTemplate = ({
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Inspection Report: {inspection.code}
-        </h1>
-        <p className="text-sm text-gray-600 mb-2">
-          Created on {format(new Date(inspection.createdAt), 'dd MMM yyyy')}
-        </p>
-        <p className="text-sm font-semibold">
-          Status:{' '}
-          <span className={getInspectionStatusTextClass(inspection.status)}>
-            {getStatusLabel(inspection.status)}
-          </span>
-        </p>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Inspection Report: {inspection.code}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              Created on {format(new Date(inspection.createdAt), 'dd MMM yyyy')} &middot; Status:{' '}
+              <span className={getInspectionStatusTextClass(inspection.status)}>
+                {getStatusLabel(inspection.status)}
+              </span>
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* Inspection Details Section */}

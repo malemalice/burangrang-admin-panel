@@ -64,24 +64,23 @@ export const InspectionItemPDFTemplate = ({ item, checklistRoots = [] }: Inspect
 
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
-      {/* Company header */}
-      <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-8">
-        <PdfAppHeader />
-        <div className="text-right">
-          <div className="text-lg font-bold text-gray-900 uppercase tracking-wide">
-            Inspection Finding Monitoring
+      {/* Header */}
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Inspection Finding Monitoring{item.inspection?.code ? `: ${item.inspection.code}` : ''}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              Status:{' '}
+              <span className={getStatusTextClass(item.status)}>
+                {getStatusLabel(item.status)}
+              </span>
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
           </div>
-          {item.inspection?.code && (
-            <div className="text-xs text-gray-500 mt-0.5">{item.inspection.code}</div>
-          )}
-          <div className="text-xs text-gray-500 mt-0.5">
-            Status:{' '}
-            <span className={getStatusTextClass(item.status)}>
-              {getStatusLabel(item.status)}
-            </span>
-          </div>
-          <div className="text-[10px] text-gray-400 mt-1">
-            Exported: {format(new Date(), 'dd MMMM yyyy HH:mm')}
+          <div className="shrink-0">
+            <PdfAppHeader />
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { PPEWithdrawal, PPEWithdrawalStatus } from '../types/ppe.types';
 import { ApprovalStatusHistory } from '@/modules/master-data';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 interface PPEWithdrawalPDFTemplateProps {
   withdrawal: PPEWithdrawal;
@@ -62,38 +63,19 @@ export function PPEWithdrawalPDFTemplate({
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Document Header */}
-      <div
-        className="mb-6 pb-4"
-        style={{ borderBottom: '2px solid #111' }}
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <p
-              className="text-xs font-semibold text-gray-500 mb-1 tracking-widest uppercase"
-            >
-              Health, Safety &amp; Environment
-            </p>
-            <h1
-              className="font-bold text-gray-900"
-              style={{ fontSize: '22px', letterSpacing: '0.5px' }}
-            >
-              PPE WITHDRAWAL REQUEST
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              PPE Withdrawal Request: {na(withdrawal.withdrawalCode)}
             </h1>
-            <p className="text-sm text-gray-700 mt-1 font-medium">
-              {na(withdrawal.withdrawalCode)}
+            <p className="text-sm text-gray-600 mb-1">
+              Status: {statusLabel[withdrawal.status] ?? withdrawal.status}
             </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
           </div>
-          <div className="text-right text-xs text-gray-600">
-            <p>
-              Generated:{' '}
-              {format(new Date(), 'dd MMM yyyy HH:mm')}
-            </p>
-            <p className="mt-1">
-              Status:{' '}
-              <span className="font-semibold text-gray-900">
-                {statusLabel[withdrawal.status] ?? withdrawal.status}
-              </span>
-            </p>
+          <div className="shrink-0">
+            <PdfAppHeader />
           </div>
         </div>
       </div>
