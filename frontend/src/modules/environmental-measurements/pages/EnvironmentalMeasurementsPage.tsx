@@ -503,8 +503,8 @@ export default function EnvironmentalMeasurementsPage() {
   return (
     <>
       <PageHeader
-        title="Environmental Measurements"
-        subtitle="Record and manage environmental measurements for rooms"
+        title="Non Water Monitoring"
+        subtitle="Record and manage non water monitoring for rooms"
         actions={
           <div className="flex gap-2">
             <Button
@@ -583,8 +583,8 @@ export default function EnvironmentalMeasurementsPage() {
             handleDialogCancel();
           }
         }}
-        title="Delete Environmental Measurement"
-        description="Are you sure you want to delete this environmental measurement record? This action cannot be undone."
+        title="Delete Non Water Monitoring"
+        description="Are you sure you want to delete this non water monitoring record? This action cannot be undone."
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />

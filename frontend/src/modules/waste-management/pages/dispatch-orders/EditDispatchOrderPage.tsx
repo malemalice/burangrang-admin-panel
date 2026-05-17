@@ -9,8 +9,8 @@ export default function EditDispatchOrderPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Edit Dispatch Order" 
-        description="Update dispatch job information"
+        title="Edit Vendor Collection Tracking"
+        description="Update vendor collection tracking information"
         actions={
           <Button variant="outline" onClick={() => navigate('/waste-management/dispatch-orders')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List

@@ -210,7 +210,7 @@ export default function AdminOverviewPage() {
       {/* Environmental */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3">
-          Environmental Measurements
+          Non Water Monitoring
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard

@@ -9,8 +9,8 @@ export default function EditWaterQualityLabReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Edit Water Quality Lab Report" 
-        description="Update report information"
+        title="Edit Water Monitoring"
+        description="Update water monitoring information"
         actions={
           <Button variant="outline" onClick={() => navigate('/waste-management/water-quality-lab-reports')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List

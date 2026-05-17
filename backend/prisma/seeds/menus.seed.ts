@@ -606,7 +606,8 @@ export const seedMenus = async () => {
         name: 'HFACS Catalogue',
         path: '/master/hfacs-nodes',
         icon: 'GitFork',
-        order: 8,
+        parentId: inspectionMenu.id,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -618,12 +619,11 @@ export const seedMenus = async () => {
       },
     });
 
-    // Environmental Measurements menu
-    await prisma.menu.create({
+    // Environmental Quality Monitoring menu group
+    const envQualityMenu = await prisma.menu.create({
       data: {
-        name: 'Environmental Measurements',
-        path: '/environmental-measurements',
-        icon: 'Thermometer',
+        name: 'Environmental Quality Monitoring',
+        icon: 'FlaskConical',
         order: 8,
         isActive: true,
         roles: {
@@ -637,13 +637,32 @@ export const seedMenus = async () => {
       },
     });
 
-    // Water Test Lab menu (top-level) - water & waste categories
     await prisma.menu.create({
       data: {
-        name: 'Water Test Lab',
+        name: 'Non Water Monitoring',
+        path: '/environmental-measurements',
+        icon: 'Thermometer',
+        parentId: envQualityMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Water Monitoring',
         path: '/waste-management/water-quality-lab-reports',
-        icon: 'FlaskConical',
-        order: 9,
+        icon: 'Droplets',
+        parentId: envQualityMenu.id,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -1352,7 +1371,7 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Dispatch Orders',
+        name: 'Vendor Collection Tracking',
         path: '/waste-management/dispatch-orders',
         icon: 'Truck',
         parentId: wasteManagementMenu.id,
@@ -1394,8 +1413,8 @@ export const seedMenus = async () => {
         name: 'Water Quality Parameters',
         path: '/waste-management/water-quality-parameters',
         icon: 'Droplets',
-        parentId: wasteManagementMenu.id,
-        order: 5,
+        parentId: envQualityMenu.id,
+        order: 3,
         isActive: true,
         roles: {
           connect: [

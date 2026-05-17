@@ -128,7 +128,7 @@ export default function DetailWaterQualityLabReportPage() {
       </div>
       <PageHeader
         title={`Report ${data.reportCode}`}
-        subtitle="Water Quality Lab Report Details"
+        subtitle="Water Monitoring Details"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate(-1)}>

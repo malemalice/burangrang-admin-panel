@@ -404,8 +404,8 @@ export default function WaterQualityLabReportsPage() {
         </div>
       )}
       <PageHeader
-        title="Waste Water Lab Results"
-        subtitle="Water quality laboratory test reports"
+        title="Water Monitoring"
+        subtitle="Water monitoring laboratory reports"
         actions={
           <div className="flex gap-2">
             <Button
@@ -446,8 +446,8 @@ export default function WaterQualityLabReportsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onOpenChange={() => setDeleteId(null)}
-        title="Delete Report"
-        description="Are you sure you want to delete this report? This action cannot be undone."
+        title="Delete Water Monitoring"
+        description="Are you sure you want to delete this water monitoring record? This action cannot be undone."
         onConfirm={handleDelete}
         variant="destructive"
       />

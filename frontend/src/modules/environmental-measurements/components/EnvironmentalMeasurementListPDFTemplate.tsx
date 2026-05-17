@@ -54,7 +54,7 @@ export function EnvironmentalMeasurementListPDFTemplate({
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Environmental Measurements List</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Non Water Monitoring List</h1>
             <p className="text-sm text-gray-600 mb-1">{measurements.length} record(s)</p>
             <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
           </div>

@@ -141,7 +141,7 @@ export function EnvironmentalMeasurementPDFTemplate({
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Environmental Measurement Record</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Non Water Monitoring Record</h1>
             <p className="text-sm text-gray-600 mb-1">
               Workplace environmental monitoring &middot; {format(new Date(measurement.date), 'dd MMMM yyyy')}
             </p>

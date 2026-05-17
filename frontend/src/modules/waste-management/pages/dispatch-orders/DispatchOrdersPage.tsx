@@ -279,11 +279,11 @@ export default function DispatchOrdersPage() {
       </div>
 
       <PageHeader
-        title="Dispatch Orders"
-        subtitle="Manage waste dispatch orders"
+        title="Vendor Collection Tracking"
+        subtitle="Manage vendor collection tracking"
         actions={
           <Button onClick={() => navigate('/waste-management/dispatch-orders/create')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Dispatch Order
+            <Plus className="mr-2 h-4 w-4" /> Add Tracking
           </Button>
         }
       />
@@ -312,8 +312,8 @@ export default function DispatchOrdersPage() {
       <ConfirmDialog
         open={!!deleteId}
         onOpenChange={(open) => !open && setDeleteId(null)}
-        title="Delete Dispatch Order"
-        description="Are you sure you want to delete this order? This action cannot be undone."
+        title="Delete Vendor Collection Tracking"
+        description="Are you sure you want to delete this vendor collection tracking record? This action cannot be undone."
         onConfirm={handleDelete}
         variant="destructive"
       />
