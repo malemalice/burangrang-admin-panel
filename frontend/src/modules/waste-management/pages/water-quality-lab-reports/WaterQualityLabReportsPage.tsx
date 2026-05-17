@@ -146,6 +146,8 @@ export default function WaterQualityLabReportsPage() {
       id: 'reportDateRange',
       label: 'Report Date',
       type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
     },
   ];
 

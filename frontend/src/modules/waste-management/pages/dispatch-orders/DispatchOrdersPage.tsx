@@ -15,7 +15,7 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { dispatchOrderService } from '../../services/wasteManagementService';
-import { DispatchOrder, PaginatedResponse } from '../../types/waste-management.types';
+import { DispatchOrder, DispatchOrderFilters, PaginatedResponse } from '../../types/waste-management.types';
 import { DispatchOrderPDFTemplate } from '../../components/DispatchOrderPDFTemplate';
 
 function getStatusBadge(status?: string) {
@@ -60,15 +60,40 @@ export default function DispatchOrdersPage() {
     }),
   );
 
-  const filterFields: FilterField[] = [];
+  const filterFields: FilterField[] = [
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Draft', value: GeneralStatusEnum.DRAFT },
+        { label: 'Scheduled', value: GeneralStatusEnum.SCHEDULED },
+        { label: 'Open', value: GeneralStatusEnum.OPEN },
+        { label: 'Waiting Approval', value: GeneralStatusEnum.WAITING_APPROVAL },
+        { label: 'Done', value: GeneralStatusEnum.DONE },
+        { label: 'Rejected', value: GeneralStatusEnum.REJECTED },
+      ],
+    },
+    {
+      id: 'dispatchDateRange',
+      label: 'Dispatch Date',
+      type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
+    },
+  ];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {
+      const dateRange = activeFilters.dispatchDateRange?.value as { from?: string; to?: string } | undefined;
+      const params: DispatchOrderFilters = {
         page,
         limit,
         search: search || undefined,
+        status: activeFilters.status?.value,
+        dispatchDateFrom: dateRange?.from ? dateRange.from.split('T')[0] : undefined,
+        dispatchDateTo: dateRange?.to ? dateRange.to.split('T')[0] : undefined,
       };
       const response = await dispatchOrderService.getAll(params);
       const result = response.data as PaginatedResponse<DispatchOrder>;
@@ -160,7 +185,15 @@ export default function DispatchOrdersPage() {
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     filters.forEach((filter) => {
-      newActiveFilters[filter.id] = { value: filter.value, label: String(filter.value) };
+      if (filter.id === 'dispatchDateRange') {
+        const range = filter.value as { from?: string; to?: string };
+        newActiveFilters[filter.id] = {
+          value: range,
+          label: [range.from, range.to].filter(Boolean).join(' - '),
+        };
+      } else {
+        newActiveFilters[filter.id] = { value: filter.value, label: String(filter.value) };
+      }
     });
     setActiveFilters(newActiveFilters);
     setPage(1);

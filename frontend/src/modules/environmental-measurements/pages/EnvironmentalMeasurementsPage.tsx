@@ -133,6 +133,7 @@ export default function EnvironmentalMeasurementsPage() {
       label: 'Measurement date range',
       type: 'dateRange',
       dateRangeMode: 'date',
+      showRelativePresets: true,
     },
     {
       id: 'roomName',

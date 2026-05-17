@@ -492,7 +492,10 @@ export interface TreatmentPlantFilters extends PaginationParams {
   officeId?: string;
 }
 
-export interface WaterQualityParameterFilters extends PaginationParams { }
+export interface WaterQualityParameterFilters extends PaginationParams {
+  dateSampleTakenFrom?: string;
+  dateSampleTakenTo?: string;
+}
 
 export interface WasteTypeFilters extends PaginationParams {
   wasteType?: WasteTypeEnum;
@@ -528,8 +531,12 @@ export interface WeightReportFilters extends PaginationParams {
   status?: WeightReportStatusEnum;
   reportMonth?: MonthEnum;
   reportYear?: number;
+  reportDateFrom?: string;
+  reportDateTo?: string;
 }
 
 export interface DispatchOrderFilters extends PaginationParams {
   status?: GeneralStatusEnum;
+  dispatchDateFrom?: string;
+  dispatchDateTo?: string;
 }
