@@ -4,14 +4,20 @@ import { containsHtmlTags, getYoutubeEmbedUrl } from '@/core/lib/media-utils';
 import { Button } from '@/core/components/ui/button';
 
 interface VideoChapterPlayerProps {
+  chapterId: string;
   src: string;
   title: string;
 }
 
-const VideoChapterPlayer = ({ src, title }: VideoChapterPlayerProps) => {
+const VideoChapterPlayer = ({ chapterId, src, title }: VideoChapterPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+
+  useEffect(() => {
+    setIsPlaying(false);
+    setHasCompleted(false);
+  }, [chapterId, src]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -121,7 +127,12 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
     case 'video':
       return (
         chapter.contentUrl ? (
-          <VideoChapterPlayer src={chapter.contentUrl} title={chapter.title} />
+          <VideoChapterPlayer
+            key={`${chapter.id}:${chapter.contentUrl}`}
+            chapterId={chapter.id}
+            src={chapter.contentUrl}
+            title={chapter.title}
+          />
         ) : (
           <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
             <div className="flex items-center justify-center h-full text-white">
