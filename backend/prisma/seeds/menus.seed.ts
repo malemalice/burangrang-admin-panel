@@ -606,7 +606,7 @@ export const seedMenus = async () => {
         name: 'HFACS Catalogue',
         path: '/master/hfacs-nodes',
         icon: 'GitFork',
-        parentId: inspectionMenu.id,
+        parentId: incidentsMenu.id,
         order: 4,
         isActive: true,
         roles: {
@@ -1311,10 +1311,10 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create Waste Management menu
-    const wasteManagementMenu = await prisma.menu.create({
+    // Create STP Monitoring menu
+    const stpMonitoringMenu = await prisma.menu.create({
       data: {
-        name: 'Waste Management',
+        name: 'STP Monitoring',
         icon: 'Recycle',
         order: 10,
         isActive: true,
@@ -1329,13 +1329,13 @@ export const seedMenus = async () => {
       },
     });
 
-    // Waste Management - Wastewater submenus (Manager/User: read & list only)
+    // STP Monitoring - Wastewater submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
         name: 'Waste Water Flow Recording',
         path: '/waste-management/monthly-flow-reports',
         icon: 'Waves',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 1,
         isActive: true,
         roles: {
@@ -1349,13 +1349,13 @@ export const seedMenus = async () => {
       },
     });
 
-    // Waste Management - Solid Waste submenus (Manager/User: read & list only)
+    // STP Monitoring - Solid Waste submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
         name: 'Solid Waste Recording',
         path: '/waste-management/weight-reports',
         icon: 'Scale',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 2,
         isActive: true,
         roles: {
@@ -1374,7 +1374,7 @@ export const seedMenus = async () => {
         name: 'Vendor Collection Tracking',
         path: '/waste-management/dispatch-orders',
         icon: 'Truck',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 3,
         isActive: true,
         roles: {
@@ -1388,13 +1388,13 @@ export const seedMenus = async () => {
       },
     });
 
-    // Waste Management - Master Data submenus (Manager/User: read & list only)
+    // STP Monitoring - Master Data submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
         name: 'Treatment Plants',
         path: '/waste-management/treatment-plants',
         icon: 'Factory',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 4,
         isActive: true,
         roles: {
@@ -1432,7 +1432,7 @@ export const seedMenus = async () => {
         name: 'Waste Types',
         path: '/waste-management/waste-types',
         icon: 'Tags',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 6,
         isActive: true,
         roles: {
@@ -1451,7 +1451,7 @@ export const seedMenus = async () => {
         name: 'Waste Sources',
         path: '/waste-management/waste-sources',
         icon: 'Building',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 7,
         isActive: true,
         roles: {
@@ -1470,7 +1470,7 @@ export const seedMenus = async () => {
         name: 'Storage Locations',
         path: '/waste-management/storage-locations',
         icon: 'Warehouse',
-        parentId: wasteManagementMenu.id,
+        parentId: stpMonitoringMenu.id,
         order: 8,
         isActive: true,
         roles: {
