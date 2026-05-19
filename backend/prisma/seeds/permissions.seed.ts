@@ -317,6 +317,11 @@ export const permissions = [
   { name: 'reminder:update', description: 'Update reminder information' },
   { name: 'reminder:delete', description: 'Delete reminders' },
   { name: 'reminder:list', description: 'List all reminders' },
+  {
+    name: 'reminder:manage-department',
+    description:
+      'Manage department/role/office-level reminders created by other users (prevents orphans when creator leaves)',
+  },
 
   // PPE Management
   { name: 'ppe:create', description: 'Create new PPE records' },

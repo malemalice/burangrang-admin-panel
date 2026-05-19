@@ -7,159 +7,155 @@ import {
   CreateReminderDTO,
   UpdateReminderDTO,
   ReminderLog,
+  ReminderOccurrence,
+  ReminderOccurrenceDTO,
+  FindOccurrencesParams,
 } from '../types/reminder.types';
 
-// Convert ReminderDTO from backend to Reminder model for frontend
-const mapReminderDtoToReminder = (reminderDto: ReminderDTO): Reminder => {
-  return {
-    id: reminderDto.id,
-    userId: reminderDto.userId,
-    entity: reminderDto.entity,
-    entityId: reminderDto.entityId,
-    message: reminderDto.message,
-    remindAt: reminderDto.remindAt,
-    repeatType: reminderDto.repeatType,
-    repeatUntil: reminderDto.repeatUntil,
-    status: reminderDto.status,
-    lastSentAt: reminderDto.lastSentAt || undefined,
-    createdAt: reminderDto.createdAt,
-    updatedAt: reminderDto.updatedAt,
-  };
-};
+const mapReminderDtoToReminder = (dto: ReminderDTO): Reminder => ({
+  id: dto.id,
+  targetType: dto.targetType,
+  targetId: dto.targetId,
+  createdBy: dto.createdBy,
+  entity: dto.entity,
+  entityId: dto.entityId,
+  subjectType: dto.subjectType,
+  subjectId: dto.subjectId,
+  message: dto.message,
+  remindAt: dto.remindAt,
+  repeatType: dto.repeatType,
+  repeatUntil: dto.repeatUntil,
+  dayOfMonth: dto.dayOfMonth,
+  dayOfWeek: dto.dayOfWeek,
+  status: dto.status,
+  lastSentAt: dto.lastSentAt ?? undefined,
+  createdAt: dto.createdAt,
+  updatedAt: dto.updatedAt,
+});
 
-// Convert Reminder from frontend to UpdateReminderDTO for backend
-const mapReminderToUpdateDto = (reminder: Partial<Reminder>): UpdateReminderDTO => {
-  return {
-    entity: reminder.entity,
-    entityId: reminder.entityId,
-    message: reminder.message,
-    remindAt: reminder.remindAt,
-    repeatType: reminder.repeatType,
-    repeatUntil: reminder.repeatUntil,
-    status: reminder.status,
-  };
-};
+const mapOccurrenceDto = (dto: ReminderOccurrenceDTO): ReminderOccurrence => ({
+  ...dto,
+});
 
 const reminderService = {
-  // Get all reminders with pagination and filtering
-  getReminders: async (params: PaginationParams): Promise<PaginatedResponse<Reminder>> => {
-    try {
-      const queryParams = new URLSearchParams({
-        page: params.page.toString(),
-        limit: params.limit.toString(),
+  getReminders: async (
+    params: PaginationParams,
+  ): Promise<PaginatedResponse<Reminder>> => {
+    const queryParams = new URLSearchParams({
+      page: params.page.toString(),
+      limit: params.limit.toString(),
+    });
+    if (params.sortBy) {
+      queryParams.append('sortBy', params.sortBy);
+      queryParams.append('sortOrder', params.sortOrder || 'asc');
+    }
+    if (params.search) queryParams.append('search', params.search);
+    if (params.filters) {
+      Object.entries(params.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
       });
-
-      // Add sorting if provided
-      if (params.sortBy) {
-        queryParams.append('sortBy', params.sortBy);
-        queryParams.append('sortOrder', params.sortOrder || 'asc');
-      }
-
-      // Add search if provided
-      if (params.search) {
-        queryParams.append('search', params.search);
-      }
-
-      // Add any additional filters
-      if (params.filters) {
-        Object.entries(params.filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            queryParams.append(key, value.toString());
-          }
-        });
-      }
-
-      const response = await api.get(`/reminders?${queryParams.toString()}`);
-      return {
-        data: response.data.data.map(mapReminderDtoToReminder),
-        meta: response.data.meta,
-      };
-    } catch (error) {
-      console.error('Error fetching reminders:', error);
-      throw error;
     }
+
+    const response = await api.get(`/reminders?${queryParams.toString()}`);
+    return {
+      data: response.data.data.map(mapReminderDtoToReminder),
+      meta: response.data.meta,
+    };
   },
 
-  // Get a single reminder by ID
   getReminderById: async (id: string): Promise<Reminder> => {
-    try {
-      const response = await api.get(`/reminders/${id}`);
-      return mapReminderDtoToReminder(response.data);
-    } catch (error) {
-      console.error(`Error fetching reminder ${id}:`, error);
-      throw error;
-    }
+    const response = await api.get(`/reminders/${id}`);
+    return mapReminderDtoToReminder(response.data);
   },
 
-  // Get reminder logs
   getReminderLogs: async (id: string): Promise<ReminderLog[]> => {
-    try {
-      const response = await api.get(`/reminders/${id}/logs`);
-      return response.data.map((log: any) => ({
-        id: log.id,
-        reminderId: log.reminderId,
-        executionStatus: log.executionStatus,
-        executionDuration: log.executionDuration,
-        failureReason: log.failureReason,
-        notificationId: log.notificationId,
-        emailSent: log.emailSent,
-        emailError: log.emailError,
-        executedAt: log.executedAt,
-        createdAt: log.createdAt,
-      }));
-    } catch (error) {
-      console.error(`Error fetching reminder logs ${id}:`, error);
-      throw error;
-    }
+    const response = await api.get(`/reminders/${id}/logs`);
+    return response.data.map((log: any) => ({
+      id: log.id,
+      reminderId: log.reminderId,
+      executionStatus: log.executionStatus,
+      executionDuration: log.executionDuration,
+      failureReason: log.failureReason,
+      notificationId: log.notificationId,
+      emailSent: log.emailSent,
+      emailError: log.emailError,
+      executedAt: log.executedAt,
+      createdAt: log.createdAt,
+    }));
   },
 
-  // Create a new reminder
-  createReminder: async (reminderData: CreateReminderDTO): Promise<Reminder> => {
+  createReminder: async (data: CreateReminderDTO): Promise<Reminder> => {
     try {
-      const response = await api.post('/reminders', reminderData);
+      const response = await api.post('/reminders', data);
       return mapReminderDtoToReminder(response.data);
     } catch (error: any) {
-      console.error('Error creating reminder:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create reminder';
-      throw new Error(errorMessage);
+      throw new Error(
+        error.response?.data?.message || 'Failed to create reminder',
+      );
     }
   },
 
-  // Update an existing reminder
-  updateReminder: async (id: string, reminderData: UpdateReminderDTO): Promise<Reminder> => {
+  updateReminder: async (
+    id: string,
+    data: UpdateReminderDTO,
+  ): Promise<Reminder> => {
     try {
-      const response = await api.patch(`/reminders/${id}`, reminderData);
+      const response = await api.patch(`/reminders/${id}`, data);
       return mapReminderDtoToReminder(response.data);
     } catch (error: any) {
-      console.error(`Error updating reminder ${id}:`, error);
-      const errorMessage = error.response?.data?.message || 'Failed to update reminder';
-      throw new Error(errorMessage);
+      throw new Error(
+        error.response?.data?.message || 'Failed to update reminder',
+      );
     }
   },
 
-  // Delete a reminder
   deleteReminder: async (id: string): Promise<void> => {
     try {
       await api.delete(`/reminders/${id}`);
     } catch (error: any) {
-      console.error(`Error deleting reminder ${id}:`, error);
-      const errorMessage = error.response?.data?.message || 'Failed to delete reminder';
-      throw new Error(errorMessage);
+      throw new Error(
+        error.response?.data?.message || 'Failed to delete reminder',
+      );
     }
   },
 
-  // Manually trigger notification for a reminder
-  triggerNotification: async (id: string): Promise<{ success: boolean; message: string; notificationId?: string }> => {
+  triggerNotification: async (
+    id: string,
+  ): Promise<{ success: boolean; message: string; notificationId?: string }> => {
     try {
       const response = await api.post(`/reminders/${id}/trigger`);
       return response.data;
     } catch (error: any) {
-      console.error(`Error triggering notification for reminder ${id}:`, error);
-      const errorMessage = error.response?.data?.message || 'Failed to trigger notification';
-      throw new Error(errorMessage);
+      throw new Error(
+        error.response?.data?.message || 'Failed to trigger notification',
+      );
     }
+  },
+
+  // ----- Occurrences -----
+
+  getOccurrences: async (
+    params: FindOccurrencesParams,
+  ): Promise<ReminderOccurrence[]> => {
+    const qp = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qp.append(k, String(v));
+    });
+    const response = await api.get(`/reminders/occurrences?${qp.toString()}`);
+    return (response.data as ReminderOccurrenceDTO[]).map(mapOccurrenceDto);
+  },
+
+  acknowledgeOccurrence: async (id: string): Promise<ReminderOccurrence> => {
+    const response = await api.patch(`/reminders/occurrences/${id}/acknowledge`);
+    return mapOccurrenceDto(response.data);
+  },
+
+  dismissOccurrence: async (id: string): Promise<ReminderOccurrence> => {
+    const response = await api.patch(`/reminders/occurrences/${id}/dismiss`);
+    return mapOccurrenceDto(response.data);
   },
 };
 
 export default reminderService;
-

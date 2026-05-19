@@ -353,11 +353,16 @@ const RemindersPage = () => {
         title="Reminders"
         subtitle="Manage your reminders and notifications"
         actions={
-          <PermissionGuard permission="reminder:create">
-            <ThemeButton onClick={() => navigate('/reminders/new')}>
-              <BellPlus className="mr-2 h-4 w-4" /> Add Reminder
-            </ThemeButton>
-          </PermissionGuard>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/reminders/calendar')}>
+              <Calendar className="mr-2 h-4 w-4" /> Calendar
+            </Button>
+            <PermissionGuard permission="reminder:create">
+              <ThemeButton onClick={() => navigate('/reminders/new')}>
+                <BellPlus className="mr-2 h-4 w-4" /> Add Reminder
+              </ThemeButton>
+            </PermissionGuard>
+          </div>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

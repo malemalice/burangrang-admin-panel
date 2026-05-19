@@ -17,6 +17,8 @@ import {
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { treatmentPlantSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
@@ -510,6 +512,14 @@ export default function WeightReportsPage() {
             />
           )}
         </div>
+      </div>
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="weight-reports"
+          entityLabel="Weight Report"
+          subjectPicker={treatmentPlantSubjectPicker}
+        />
       </div>
     </>
   );

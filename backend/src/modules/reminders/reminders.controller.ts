@@ -23,6 +23,8 @@ import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { FindRemindersDto } from './dto/find-reminders.dto';
 import { ReminderDto, ReminderLogDto } from './dto/reminder.dto';
+import { ReminderOccurrenceDto } from './dto/occurrence.dto';
+import { FindOccurrencesDto } from './dto/find-occurrences.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
@@ -35,6 +37,55 @@ import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RemindersController {
   constructor(private readonly remindersService: RemindersService) {}
+
+  // ----- Occurrence endpoints (registered before :id to avoid route collision) -----
+
+  @Get('occurrences')
+  @ApiOperation({
+    summary: 'List reminder occurrences in a date range (calendar query)',
+  })
+  @ApiQuery({ name: 'from', required: true, type: String })
+  @ApiQuery({ name: 'to', required: true, type: String })
+  @ApiQuery({ name: 'scope', required: false, enum: ['mine', 'all'] })
+  @ApiQuery({ name: 'entity', required: false, type: String })
+  @ApiQuery({ name: 'subjectType', required: false, type: String })
+  @ApiQuery({ name: 'subjectId', required: false, type: String })
+  @ApiQuery({ name: 'reminderId', required: false, type: String })
+  @ApiQuery({ name: 'state', required: false, type: String })
+  @ApiResponse({ status: 200, type: [ReminderOccurrenceDto] })
+  @Permissions('reminder:list')
+  async findOccurrences(
+    @Query() query: FindOccurrencesDto,
+    @Request() req,
+  ): Promise<ReminderOccurrenceDto[]> {
+    return this.remindersService.findOccurrences(req.user.id, query);
+  }
+
+  @Patch('occurrences/:id/acknowledge')
+  @ApiOperation({ summary: 'Acknowledge an occurrence (group-level ack)' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, type: ReminderOccurrenceDto })
+  @Permissions('reminder:update')
+  async acknowledgeOccurrence(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<ReminderOccurrenceDto> {
+    return this.remindersService.acknowledgeOccurrence(id, req.user.id);
+  }
+
+  @Patch('occurrences/:id/dismiss')
+  @ApiOperation({ summary: 'Dismiss an occurrence (group-level dismiss)' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, type: ReminderOccurrenceDto })
+  @Permissions('reminder:update')
+  async dismissOccurrence(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<ReminderOccurrenceDto> {
+    return this.remindersService.dismissOccurrence(id, req.user.id);
+  }
+
+  // ----- existing reminder endpoints -----
 
   @Post()
   @ApiOperation({ summary: 'Create a new reminder' })

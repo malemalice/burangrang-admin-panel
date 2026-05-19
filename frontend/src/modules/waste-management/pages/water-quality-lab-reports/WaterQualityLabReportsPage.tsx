@@ -8,6 +8,8 @@ import { Button } from '@/core/components/ui/button';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { treatmentPlantSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
 import {
   WaterQualityLabReport,
@@ -453,6 +455,14 @@ export default function WaterQualityLabReportsPage() {
         onConfirm={handleDelete}
         variant="destructive"
       />
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="water-quality-lab-reports"
+          entityLabel="Water Quality Lab Report"
+          subjectPicker={treatmentPlantSubjectPicker}
+        />
+      </div>
     </>
   );
 }

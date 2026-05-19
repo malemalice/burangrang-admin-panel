@@ -40,14 +40,30 @@ export class FindRemindersDto extends FindAllQueryDto {
   @IsString()
   entity?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by entity ID',
     example: 'uuid-of-entity',
-    required: false 
+    required: false
   })
   @IsOptional()
   @IsString()
   entityId?: string;
+
+  @ApiProperty({
+    description: 'Filter by subject type (e.g. "treatment-plant")',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  subjectType?: string;
+
+  @ApiProperty({
+    description: 'Filter by subject id',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  subjectId?: string;
 
   @ApiProperty({ 
     description: 'Filter reminders from date (ISO 8601 format)',

@@ -32,6 +32,13 @@ const mockPrisma = {
     findMany: jest.fn(),
     create: jest.fn(),
   },
+  reminderOccurrence: {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  },
   notificationType: {
     findFirst: jest.fn(),
     create: jest.fn(),
@@ -376,7 +383,6 @@ describe('RemindersService', () => {
       const result = await service.findOne(reminderId, userId);
 
       expect(result).toEqual(reminder);
-      expect(mockErrorHandler.throwIfNotFoundById).not.toHaveBeenCalled();
     });
 
     it('should call throwIfNotFoundById when reminder not found or no access', async () => {
@@ -417,7 +423,7 @@ describe('RemindersService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(existing);
       const updated = { ...existing, message: 'New' };
       (mockPrisma.reminder.update as jest.Mock).mockResolvedValue(updated);
 
@@ -449,7 +455,7 @@ describe('RemindersService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(existing);
 
       await expect(
         service.update(reminderId, userId, {
@@ -458,8 +464,8 @@ describe('RemindersService', () => {
       ).rejects.toThrow(/future/);
     });
 
-    it('should call throwIfNotFoundById when reminder not found or not creator', async () => {
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(null);
+    it('should throw NotFound when reminder does not exist', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.update(reminderId, 'other-user', { message: 'New' }),
@@ -477,9 +483,10 @@ describe('RemindersService', () => {
     const userId = 'creator-1';
 
     it('should set status to CANCELLED when user is creator', async () => {
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue({
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
         id: reminderId,
         createdBy: userId,
+        targetType: ReminderTargetTypeEnum.USER,
       });
       (mockPrisma.reminder.update as jest.Mock).mockResolvedValue({});
 
@@ -491,8 +498,8 @@ describe('RemindersService', () => {
       });
     });
 
-    it('should call throwIfNotFoundById when not creator', async () => {
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(null);
+    it('should throw NotFound when reminder does not exist', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(service.remove(reminderId, 'other-user')).rejects.toThrow();
       expect(mockErrorHandler.throwIfNotFoundById).toHaveBeenCalledWith(
@@ -801,6 +808,276 @@ describe('RemindersService', () => {
       expect(
         mockNotificationsService.createNotificationForRoles,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('calculateNextOccurrence', () => {
+    it('DAILY: advances by one day', () => {
+      const start = new Date('2026-03-10T09:00:00Z');
+      const next = service.calculateNextOccurrence(
+        start,
+        ReminderRepeatTypeEnum.DAILY,
+      );
+      expect(next?.toISOString()).toBe('2026-03-11T09:00:00.000Z');
+    });
+
+    it('WEEKLY: advances by seven days', () => {
+      const start = new Date('2026-03-10T09:00:00Z');
+      const next = service.calculateNextOccurrence(
+        start,
+        ReminderRepeatTypeEnum.WEEKLY,
+      );
+      expect(next?.toISOString()).toBe('2026-03-17T09:00:00.000Z');
+    });
+
+    it('MONTHLY with dayOfMonth=31 clamps to Feb 28 (non-leap)', () => {
+      const start = new Date('2027-01-31T09:00:00Z');
+      const next = service.calculateNextOccurrence(
+        start,
+        ReminderRepeatTypeEnum.MONTHLY,
+        31,
+      );
+      // 2027 is not a leap year → Feb has 28 days
+      expect(next?.getUTCMonth()).toBe(1); // Feb
+      expect(next?.getUTCDate()).toBe(28);
+    });
+
+    it('MONTHLY with dayOfMonth=31 clamps to Feb 29 in a leap year', () => {
+      const start = new Date('2028-01-31T09:00:00Z');
+      const next = service.calculateNextOccurrence(
+        start,
+        ReminderRepeatTypeEnum.MONTHLY,
+        31,
+      );
+      // 2028 is a leap year
+      expect(next?.getUTCMonth()).toBe(1);
+      expect(next?.getUTCDate()).toBe(29);
+    });
+
+    it('MONTHLY without dayOfMonth uses currentAt day', () => {
+      const start = new Date('2026-03-10T09:00:00Z');
+      const next = service.calculateNextOccurrence(
+        start,
+        ReminderRepeatTypeEnum.MONTHLY,
+      );
+      expect(next?.getUTCMonth()).toBe(3); // April
+      expect(next?.getUTCDate()).toBe(10);
+    });
+
+    it('NONE returns null', () => {
+      const next = service.calculateNextOccurrence(
+        new Date(),
+        ReminderRepeatTypeEnum.NONE,
+      );
+      expect(next).toBeNull();
+    });
+  });
+
+  describe('materializeOccurrences', () => {
+    it('inserts one occurrence for a one-off reminder', async () => {
+      const remindAt = new Date('2026-06-01T09:00:00Z');
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        remindAt,
+        repeatType: null,
+        repeatUntil: null,
+        status: 'PENDING',
+        dayOfMonth: null,
+        dayOfWeek: null,
+      });
+      (mockPrisma.reminderOccurrence.create as jest.Mock).mockResolvedValue({});
+
+      const n = await service.materializeOccurrences(
+        'rem-1',
+        new Date('2026-09-01T00:00:00Z'),
+      );
+      expect(n).toBe(1);
+      expect(mockPrisma.reminderOccurrence.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('is idempotent on P2002 unique violations', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        remindAt: new Date('2026-06-01T09:00:00Z'),
+        repeatType: null,
+        status: 'PENDING',
+      });
+      const uniqueErr: any = new Error('unique violation');
+      uniqueErr.code = 'P2002';
+      (mockPrisma.reminderOccurrence.create as jest.Mock).mockRejectedValue(
+        uniqueErr,
+      );
+
+      const n = await service.materializeOccurrences(
+        'rem-1',
+        new Date('2026-09-01T00:00:00Z'),
+      );
+      expect(n).toBe(0); // skipped, did not throw
+    });
+
+    it('returns 0 for a cancelled reminder', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        status: 'CANCELLED',
+      });
+      const n = await service.materializeOccurrences('rem-1', new Date());
+      expect(n).toBe(0);
+      expect(mockPrisma.reminderOccurrence.create).not.toHaveBeenCalled();
+    });
+
+    it('materialises multiple occurrences for a DAILY recurring reminder', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        remindAt: new Date('2026-06-01T09:00:00Z'),
+        repeatType: ReminderRepeatTypeEnum.DAILY,
+        repeatUntil: new Date('2026-06-05T09:00:00Z'),
+        status: 'PENDING',
+      });
+      (mockPrisma.reminderOccurrence.create as jest.Mock).mockResolvedValue({});
+
+      const n = await service.materializeOccurrences(
+        'rem-1',
+        new Date('2026-12-01T00:00:00Z'),
+      );
+      // June 1, 2, 3, 4, 5 inclusive = 5 occurrences
+      expect(n).toBe(5);
+    });
+  });
+
+  describe('sweepMissed', () => {
+    it('updates FIRED occurrences past the grace window to MISSED', async () => {
+      (mockPrisma.reminderOccurrence.updateMany as jest.Mock).mockResolvedValue({
+        count: 3,
+      });
+      const flipped = await service.sweepMissed();
+      expect(flipped).toBe(3);
+
+      const call = (mockPrisma.reminderOccurrence.updateMany as jest.Mock).mock
+        .calls[0][0];
+      expect(call.where.state).toBe('FIRED');
+      expect(call.where.acknowledgedAt).toBeNull();
+      expect(call.where.dismissedAt).toBeNull();
+      expect(call.data.state).toBe('MISSED');
+    });
+  });
+
+  describe('acknowledgeOccurrence / dismissOccurrence', () => {
+    const userId = 'user-1';
+
+    beforeEach(() => {
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        roleId: null,
+        departmentId: null,
+        officeId: null,
+      });
+    });
+
+    it('acknowledge: transitions state and stamps acknowledgedBy/At', async () => {
+      (mockPrisma.reminderOccurrence.findFirst as jest.Mock).mockResolvedValue({
+        id: 'occ-1',
+        reminderId: 'rem-1',
+        reminder: { createdBy: userId, message: 'm', targetType: 'USER', targetId: userId },
+      });
+      (mockPrisma.reminderOccurrence.update as jest.Mock).mockResolvedValue({
+        id: 'occ-1',
+        reminderId: 'rem-1',
+        scheduledAt: new Date(),
+        state: 'ACKNOWLEDGED',
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date(),
+        reminder: { message: 'm', targetType: 'USER', targetId: userId },
+      });
+
+      const result = await service.acknowledgeOccurrence('occ-1', userId);
+      expect(result.state).toBe('ACKNOWLEDGED');
+      const call = (mockPrisma.reminderOccurrence.update as jest.Mock).mock
+        .calls[0][0];
+      expect(call.data.acknowledgedBy).toBe(userId);
+      expect(call.data.state).toBe('ACKNOWLEDGED');
+    });
+
+    it('dismiss: transitions state and stamps dismissedBy/At', async () => {
+      (mockPrisma.reminderOccurrence.findFirst as jest.Mock).mockResolvedValue({
+        id: 'occ-1',
+        reminderId: 'rem-1',
+        reminder: { createdBy: userId, message: 'm', targetType: 'USER', targetId: userId },
+      });
+      (mockPrisma.reminderOccurrence.update as jest.Mock).mockResolvedValue({
+        id: 'occ-1',
+        reminderId: 'rem-1',
+        scheduledAt: new Date(),
+        state: 'DISMISSED',
+        dismissedBy: userId,
+        dismissedAt: new Date(),
+        reminder: { message: 'm', targetType: 'USER', targetId: userId },
+      });
+
+      const result = await service.dismissOccurrence('occ-1', userId);
+      expect(result.state).toBe('DISMISSED');
+      const call = (mockPrisma.reminderOccurrence.update as jest.Mock).mock
+        .calls[0][0];
+      expect(call.data.dismissedBy).toBe(userId);
+      expect(call.data.state).toBe('DISMISSED');
+    });
+  });
+
+  describe('update: edit rights', () => {
+    const creatorId = 'creator-1';
+    const otherUserId = 'other-1';
+
+    it('rejects non-creator without reminder:manage-department on group reminder', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        createdBy: creatorId,
+        targetType: ReminderTargetTypeEnum.DEPARTMENT,
+        targetId: 'dept-1',
+      });
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        permissions: [],
+        role: { permissions: [{ name: 'reminder:list' }] },
+      });
+
+      await expect(
+        service.update('rem-1', otherUserId, { message: 'x' }),
+      ).rejects.toThrow(/reminder:manage-department/);
+    });
+
+    it('allows non-creator with reminder:manage-department on group reminder', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        createdBy: creatorId,
+        targetType: ReminderTargetTypeEnum.DEPARTMENT,
+        targetId: 'dept-1',
+      });
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        permissions: [],
+        role: {
+          permissions: [{ name: 'reminder:manage-department' }],
+        },
+      });
+      (mockPrisma.reminder.update as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        message: 'x',
+      });
+
+      const result = await service.update('rem-1', otherUserId, {
+        message: 'x',
+      });
+      expect(result).toBeTruthy();
+      expect(mockPrisma.reminder.update).toHaveBeenCalled();
+    });
+
+    it('always rejects non-creator on USER-target reminder regardless of permission', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        createdBy: creatorId,
+        targetType: ReminderTargetTypeEnum.USER,
+        targetId: creatorId,
+      });
+
+      await expect(
+        service.update('rem-1', otherUserId, { message: 'x' }),
+      ).rejects.toThrow(/Only the creator/);
     });
   });
 });
