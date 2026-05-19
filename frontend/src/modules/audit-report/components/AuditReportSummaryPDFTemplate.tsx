@@ -69,16 +69,17 @@ const SummaryBox = ({
 
 export function AuditReportSummaryPDFTemplate({ report, periodLabel }: Props) {
   return (
-    <div className="bg-white p-6 space-y-5 font-sans">
+    <div className="bg-white p-8 space-y-5" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
-      <div className="flex items-start justify-between border-b-2 border-gray-800 pb-3">
-        <PdfAppHeader />
-        <div className="text-right">
-          <div className="text-lg font-bold text-gray-900 uppercase tracking-wide">Audit Report</div>
-          <div className="text-xs text-gray-500 mt-0.5">Summary View</div>
-          <div className="text-xs text-gray-500">{periodLabel}</div>
-          <div className="text-[10px] text-gray-400 mt-1">
-            Exported: {format(new Date(), 'dd MMMM yyyy HH:mm')}
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Audit Report — Summary View</h1>
+            <p className="text-sm text-gray-600 mb-1">{periodLabel}</p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
           </div>
         </div>
       </div>

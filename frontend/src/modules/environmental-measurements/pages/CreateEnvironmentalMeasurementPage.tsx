@@ -10,8 +10,8 @@ const CreateEnvironmentalMeasurementPage = () => {
   return (
     <>
       <PageHeader
-        title="Create Environmental Measurement"
-        subtitle="Record a new environmental measurement"
+        title="Create Non Water Monitoring"
+        subtitle="Record a new non water monitoring"
         actions={
           <Button variant="outline" onClick={() => navigate('/environmental-measurements')}>
             <ArrowLeft className="mr-2 h-4 w-4" />

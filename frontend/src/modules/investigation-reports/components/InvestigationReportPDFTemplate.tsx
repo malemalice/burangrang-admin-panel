@@ -112,32 +112,24 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
 
   return (
     <div
-      style={{
-        width: 800,
-        padding: 24,
-        fontFamily: 'Arial, sans-serif',
-        fontSize: 11,
-        color: '#000',
-        background: '#fff',
-      }}
+      className="bg-white p-8"
+      style={{ fontFamily: 'Arial, sans-serif', fontSize: 11, color: '#000' }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 16, margin: 0 }}>
-            ACCIDENT INVESTIGATION REPORT
-          </h1>
-          <h2 style={{ fontSize: 13, margin: '4px 0' }}>
-            Laporan Investigasi Kecelakaan
-          </h2>
-          <p style={{ margin: 0, fontSize: 10 }}>
-            Form: BSJ/F/H-3-3.5C/Rev1 — Report No: <strong>{report.reportNumber}</strong>
-          </p>
-          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#555' }}>
-            Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}
-          </p>
-        </div>
-        <div style={{ flexShrink: 0 }}>
-          <PdfAppHeader />
+      {/* Header */}
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Accident Investigation Report: {report.reportNumber}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              Laporan Investigasi Kecelakaan &middot; Form: BSJ/F/H-3-3.5C/Rev1
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
         </div>
       </div>
 

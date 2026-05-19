@@ -67,6 +67,8 @@ export class DispatchOrdersController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'dispatchDateFrom', required: false, type: String, description: 'ISO date string (inclusive)' })
+  @ApiQuery({ name: 'dispatchDateTo', required: false, type: String, description: 'ISO date string (inclusive)' })
   @ApiQuery({ name: 'isActive', required: false, type: String })
   @ApiQuery({
     name: 'options',
@@ -86,6 +88,8 @@ export class DispatchOrdersController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('dispatchDateFrom') dispatchDateFrom?: string,
+    @Query('dispatchDateTo') dispatchDateTo?: string,
     @Query('isActive') isActive?: string,
   ) {
     return this.service.findAll({
@@ -93,6 +97,8 @@ export class DispatchOrdersController {
       limit: limit ? parseInt(limit, 10) : undefined,
       search,
       status,
+      dispatchDateFrom,
+      dispatchDateTo,
       isActive:
         isActive === 'true' ? true : isActive === 'false' ? false : undefined,
     });

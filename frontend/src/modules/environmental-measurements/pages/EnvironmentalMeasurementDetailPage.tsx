@@ -284,7 +284,7 @@ export default function EnvironmentalMeasurementDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Environmental Measurement: ${measurement.room?.code ?? format(new Date(measurement.date), 'yyyy-MM-dd')}`}
+        title={`Non Water Monitoring: ${measurement.room?.code ?? format(new Date(measurement.date), 'yyyy-MM-dd')}`}
         subtitle={`Created on ${format(new Date(measurement.createdAt), 'dd MMM yyyy')}`}
         actions={
           <div className="flex gap-2 flex-wrap">

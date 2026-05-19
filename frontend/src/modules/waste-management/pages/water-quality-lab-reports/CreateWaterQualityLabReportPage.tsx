@@ -9,8 +9,8 @@ export default function CreateWaterQualityLabReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Create Water Quality Lab Report" 
-        description="Add a new lab report"
+        title="Create Water Monitoring"
+        description="Add a new water monitoring report"
         actions={
           <Button variant="outline" onClick={() => navigate('/waste-management/water-quality-lab-reports')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List

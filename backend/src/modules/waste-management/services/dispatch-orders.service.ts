@@ -18,6 +18,8 @@ interface FindAllOptions {
   isActive?: boolean;
   search?: string;
   status?: string;
+  dispatchDateFrom?: string;
+  dispatchDateTo?: string;
 }
 
 const attachmentInclude = { orderBy: { order: 'asc' as const } };
@@ -180,6 +182,8 @@ export class DispatchOrdersService {
       isActive,
       search,
       status,
+      dispatchDateFrom,
+      dispatchDateTo,
     } = options || {};
     const where: any = {};
 
@@ -191,6 +195,11 @@ export class DispatchOrdersService {
     }
     if (isActive !== undefined) where.isActive = isActive;
     if (status) where.status = status;
+    if (dispatchDateFrom || dispatchDateTo) {
+      where.dispatchDate = {};
+      if (dispatchDateFrom) where.dispatchDate.gte = new Date(dispatchDateFrom);
+      if (dispatchDateTo) where.dispatchDate.lte = new Date(dispatchDateTo + 'T23:59:59.999Z');
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.dispatchOrder.findMany({

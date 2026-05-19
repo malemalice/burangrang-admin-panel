@@ -123,6 +123,8 @@ export default function MonthlyFlowReportsPage() {
       id: 'reportDateRange',
       label: 'Report Date',
       type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
     },
   ];
 

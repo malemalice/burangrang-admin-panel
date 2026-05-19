@@ -70,6 +70,8 @@ export class WeightReportsController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'reportMonth', required: false, type: String })
   @ApiQuery({ name: 'reportYear', required: false, type: Number })
+  @ApiQuery({ name: 'reportDateFrom', required: false, type: String, description: 'ISO date string (inclusive)' })
+  @ApiQuery({ name: 'reportDateTo', required: false, type: String, description: 'ISO date string (inclusive)' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({
     name: 'options',
@@ -93,6 +95,8 @@ export class WeightReportsController {
     @Query('status') status?: string,
     @Query('reportMonth') reportMonth?: string,
     @Query('reportYear') reportYear?: string,
+    @Query('reportDateFrom') reportDateFrom?: string,
+    @Query('reportDateTo') reportDateTo?: string,
     @Query('isActive') isActive?: string,
   ) {
     return this.service.findAll({
@@ -104,6 +108,8 @@ export class WeightReportsController {
       status,
       reportMonth,
       reportYear: reportYear ? parseInt(reportYear, 10) : undefined,
+      reportDateFrom,
+      reportDateTo,
       isActive:
         isActive === 'true' ? true : isActive === 'false' ? false : undefined,
     });

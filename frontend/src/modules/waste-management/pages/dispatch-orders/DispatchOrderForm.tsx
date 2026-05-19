@@ -188,7 +188,7 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
           ...(attachments.length ? { attachments } : {}),
         };
         await dispatchOrderService.create(submitData);
-        toast.success('Dispatch order created successfully');
+        toast.success('Vendor collection tracking created successfully');
       } else if (id) {
         const submitData: UpdateDispatchOrderData = {
           dispatchDate: new Date(data.dispatchDate).toISOString(),
@@ -198,7 +198,7 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
           attachments,
         };
         await dispatchOrderService.update(id, submitData);
-        toast.success('Dispatch order updated successfully');
+        toast.success('Vendor collection tracking updated successfully');
       }
       navigate('/waste-management/dispatch-orders');
     } catch (error: any) {

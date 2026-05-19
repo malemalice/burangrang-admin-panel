@@ -38,6 +38,8 @@ interface FindAllOptions {
   status?: string;
   reportMonth?: string;
   reportYear?: number;
+  reportDateFrom?: string;
+  reportDateTo?: string;
 }
 
 @Injectable()
@@ -210,6 +212,8 @@ export class WeightReportsService {
       status,
       reportMonth,
       reportYear,
+      reportDateFrom,
+      reportDateTo,
     } = options || {};
     const where: any = {};
 
@@ -222,6 +226,11 @@ export class WeightReportsService {
     if (status) where.status = status;
     if (reportMonth) where.reportMonth = reportMonth;
     if (reportYear) where.reportYear = reportYear;
+    if (reportDateFrom || reportDateTo) {
+      where.reportDate = {};
+      if (reportDateFrom) where.reportDate.gte = new Date(reportDateFrom);
+      if (reportDateTo) where.reportDate.lte = new Date(reportDateTo + 'T23:59:59.999Z');
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.weightReport.findMany({

@@ -66,6 +66,8 @@ export class WaterQualityParametersController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'dateSampleTakenFrom', required: false, type: String, description: 'ISO date string (inclusive)' })
+  @ApiQuery({ name: 'dateSampleTakenTo', required: false, type: String, description: 'ISO date string (inclusive)' })
   @ApiQuery({
     name: 'options',
     required: false,
@@ -86,6 +88,8 @@ export class WaterQualityParametersController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('dateSampleTakenFrom') dateSampleTakenFrom?: string,
+    @Query('dateSampleTakenTo') dateSampleTakenTo?: string,
   ): Promise<{ data: WaterQualityParameterDto[]; meta: { total: number } }> {
     return this.service.findAll({
       page: page ? parseInt(page, 10) : undefined,
@@ -94,6 +98,8 @@ export class WaterQualityParametersController {
       sortOrder,
       isActive: isActive === undefined ? undefined : isActive === 'true',
       search,
+      dateSampleTakenFrom,
+      dateSampleTakenTo,
     });
   }
 
