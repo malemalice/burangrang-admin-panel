@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ChapterContent from './ChapterContent';
-import { Chapter } from '../types/course.types';
+import { Chapter, ProgressStatus } from '../types/course.types';
 
 const createVideoChapter = (overrides: Partial<Chapter>): Chapter => ({
   id: overrides.id ?? 'chapter-video-a',
@@ -26,6 +26,87 @@ const createVideoChapter = (overrides: Partial<Chapter>): Chapter => ({
 describe('ChapterContent - video controls completion state', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('renders full controls when video progress is already completed on mount', () => {
+    const chapter = createVideoChapter({});
+    const { container } = render(
+      <ChapterContent chapter={chapter} progressStatus={ProgressStatus.COMPLETED} />,
+    );
+
+    const video = container.querySelector('video') as HTMLVideoElement;
+    expect(video).toBeInTheDocument();
+    expect(video.controls).toBe(true);
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+  });
+
+  it('calls onVideoComplete when video ends', () => {
+    const chapter = createVideoChapter({});
+    const onVideoComplete = vi.fn();
+    const { container } = render(
+      <ChapterContent chapter={chapter} onVideoComplete={onVideoComplete} />,
+    );
+
+    const video = container.querySelector('video') as HTMLVideoElement;
+
+    act(() => {
+      video.dispatchEvent(new Event('ended'));
+    });
+
+    expect(video.controls).toBe(true);
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(onVideoComplete).toHaveBeenCalledTimes(1);
+    expect(onVideoComplete).toHaveBeenCalledWith(chapter.id);
+  });
+
+  it('shows loading state after Play and clears it on playing', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+
+    const chapter = createVideoChapter({});
+    const { container } = render(<ChapterContent chapter={chapter} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    });
+
+    expect(screen.getByText('Loading video...')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+
+    const video = container.querySelector('video') as HTMLVideoElement;
+
+    act(() => {
+      video.dispatchEvent(new Event('playing'));
+    });
+
+    expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+    expect(screen.getByText('Complete this video to unlock full controls')).toBeInTheDocument();
+  });
+
+  it('restores Play/Restart overlay after play error', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new DOMException('AbortError'));
+
+    const chapter = createVideoChapter({});
+    const { container } = render(<ChapterContent chapter={chapter} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    });
+
+    // After play() rejects, loading clears and Play/Restart buttons return
+    expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeInTheDocument();
+
+    // Simulate browser error event after rejection
+    const video = container.querySelector('video') as HTMLVideoElement;
+    act(() => {
+      video.dispatchEvent(new Event('error'));
+    });
+
+    // Still showing Play/Restart, not stuck in hint state
+    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.queryByText('Complete this video to unlock full controls')).not.toBeInTheDocument();
   });
 
   it('resets controls and completion state when navigating to another video chapter', () => {

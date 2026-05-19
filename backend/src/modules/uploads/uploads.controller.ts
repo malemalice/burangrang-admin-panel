@@ -143,58 +143,118 @@ export class UploadsController {
   @ApiOperation({ summary: 'Download public file by ID' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'File downloaded successfully' })
+  @ApiResponse({ status: 206, description: 'Partial content (range request)' })
   @ApiResponse({ status: 404, description: 'File not found' })
+  @ApiResponse({ status: 416, description: 'Range not satisfiable' })
   @Public()
   async downloadPublicFile(
     @Param('id') id: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
-    const fileBuffer = await this.uploadsService.downloadFile(
-      id,
-      undefined,
-      req.ip,
-      req.get('User-Agent'),
-    );
+    const [fileBuffer, fileUpload] = await Promise.all([
+      this.uploadsService.downloadFile(id, undefined, req.ip, req.get('User-Agent')),
+      this.uploadsService.findOne(id),
+    ]);
 
-    const fileUpload = await this.uploadsService.findOne(id);
-
-    res.set({
-      'Content-Type': fileUpload.mimeType,
-      'Content-Disposition': `inline; filename="${fileUpload.originalName}"`,
-      'Content-Length': fileUpload.size.toString(),
-    });
-
-    res.send(fileBuffer);
+    return this.serveFileWithRangeSupport(req, res, fileBuffer, fileUpload);
   }
 
   @Get('private/:accessToken')
   @ApiOperation({ summary: 'Download private file by access token' })
   @ApiParam({ name: 'accessToken', type: String })
   @ApiResponse({ status: 200, description: 'File downloaded successfully' })
+  @ApiResponse({ status: 206, description: 'Partial content (range request)' })
   @ApiResponse({ status: 404, description: 'File not found' })
+  @ApiResponse({ status: 416, description: 'Range not satisfiable' })
   @Public()
   async downloadPrivateFile(
     @Param('accessToken') accessToken: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
-    const fileBuffer = await this.uploadsService.downloadFileByToken(
-      accessToken,
-      undefined,
-      req.ip,
-      req.get('User-Agent'),
-    );
+    const [fileBuffer, fileUpload] = await Promise.all([
+      this.uploadsService.downloadFileByToken(accessToken, undefined, req.ip, req.get('User-Agent')),
+      this.uploadsService.findByAccessToken(accessToken),
+    ]);
 
-    const fileUpload = await this.uploadsService.findByAccessToken(accessToken);
+    return this.serveFileWithRangeSupport(req, res, fileBuffer, fileUpload);
+  }
 
-    res.set({
-      'Content-Type': fileUpload.mimeType,
-      'Content-Disposition': `inline; filename="${fileUpload.originalName}"`,
-      'Content-Length': fileUpload.size.toString(),
-    });
+  /**
+   * Serves a file buffer with HTTP byte-range support so browser <video> elements
+   * can seek and stream without downloading the entire file first.
+   *
+   * Behaviour:
+   *  - No Range header  → 200 OK, full file, Accept-Ranges: bytes
+   *  - Valid Range      → 206 Partial Content, sliced buffer
+   *  - Invalid Range    → 416 Range Not Satisfiable
+   */
+  private serveFileWithRangeSupport(
+    req: Request,
+    res: Response,
+    fileBuffer: Buffer,
+    fileUpload: { mimeType: string; originalName: string },
+  ): void {
+    const totalSize = fileBuffer.length;
+    const mimeType = fileUpload.mimeType;
+    const fileName = fileUpload.originalName;
+    const rangeHeader = req.headers['range'] as string | undefined;
 
-    res.send(fileBuffer);
+    // Always advertise range support
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+
+    if (!rangeHeader) {
+      // Full file response
+      res.setHeader('Content-Length', totalSize);
+      res.status(200).send(fileBuffer);
+      return;
+    }
+
+    // Parse "bytes=start-end" — only single range supported
+    const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match) {
+      res.setHeader('Content-Range', `bytes */${totalSize}`);
+      res.status(416).end();
+      return;
+    }
+
+    const rawStart = match[1];
+    const rawEnd = match[2];
+
+    let start: number;
+    let end: number;
+
+    if (rawStart === '') {
+      const suffixLength = parseInt(rawEnd, 10);
+      if (isNaN(suffixLength) || suffixLength <= 0) {
+        res.setHeader('Content-Range', `bytes */${totalSize}`);
+        res.status(416).end();
+        return;
+      }
+
+      start = Math.max(totalSize - suffixLength, 0);
+      end = totalSize - 1;
+    } else {
+      start = parseInt(rawStart, 10);
+      end = rawEnd !== '' ? parseInt(rawEnd, 10) : totalSize - 1;
+      end = Math.min(end, totalSize - 1);
+    }
+
+    if (isNaN(start) || isNaN(end) || start > end || start < 0 || start >= totalSize) {
+      res.setHeader('Content-Range', `bytes */${totalSize}`);
+      res.status(416).end();
+      return;
+    }
+
+    const chunkSize = end - start + 1;
+    const chunk = fileBuffer.slice(start, end + 1);
+
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+    res.setHeader('Content-Length', chunkSize);
+    res.status(206).send(chunk);
   }
 
   @Get(':id')

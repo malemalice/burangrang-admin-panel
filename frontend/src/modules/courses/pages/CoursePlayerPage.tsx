@@ -9,7 +9,7 @@ import { useIsMobile } from '@/core/hooks/useIsMobile';
 import ChapterSidebar from '../components/ChapterSidebar';
 import ChapterContent from '../components/ChapterContent';
 import QuizPlayer from '../components/QuizPlayer';
-import { LearningContext, ProgressStatus } from '../types/course.types';
+import { LearningContext, Progress, ProgressStatus } from '../types/course.types';
 import progressService from '../services/progressService';
 
 const CoursePlayerPage = () => {
@@ -142,39 +142,70 @@ const CoursePlayerPage = () => {
     setSidebarOpen(false);
   };
 
-  const handleComplete = async () => {
-    if (!learningContext || !currentChapterId) return;
+  const applyProgressUpdate = (updatedProgress: Progress) => {
+    setLearningContext(prev => {
+      if (!prev) return null;
+      const newProgress = [...prev.progress];
+      const idx = newProgress.findIndex(p => p.chapterId === updatedProgress.chapterId);
+      if (idx >= 0) {
+        newProgress[idx] = updatedProgress;
+      } else {
+        newProgress.push(updatedProgress);
+      }
+      return { ...prev, progress: newProgress };
+    });
+  };
+
+  const persistChapterCompletion = async (
+    chapterId: string,
+    { autoAdvance }: { autoAdvance: boolean },
+  ) => {
+    if (!learningContext) return;
+
+    const alreadyCompleted = learningContext.progress.find(
+      p => p.chapterId === chapterId,
+    )?.status === ProgressStatus.COMPLETED;
+
+    if (alreadyCompleted) {
+      if (autoAdvance) {
+        const chapters = learningContext.course.chapters || [];
+        const currentIndex = chapters.findIndex(c => c.id === chapterId);
+        if (currentIndex < chapters.length - 1) {
+          setCurrentChapterId(chapters[currentIndex + 1].id);
+        }
+      }
+      return;
+    }
 
     try {
       const updatedProgress = await progressService.completeChapter(
         learningContext.enrollment.id,
-        currentChapterId
+        chapterId,
       );
+      applyProgressUpdate(updatedProgress);
 
-      setLearningContext(prev => {
-        if (!prev) return null;
-        const newProgress = [...prev.progress];
-        const idx = newProgress.findIndex(p => p.chapterId === currentChapterId);
-        if (idx >= 0) {
-          newProgress[idx] = updatedProgress;
-        } else {
-          newProgress.push(updatedProgress);
+      if (autoAdvance) {
+        toast.success('Chapter completed!');
+        const chapters = learningContext.course.chapters || [];
+        const currentIndex = chapters.findIndex(c => c.id === chapterId);
+        if (currentIndex < chapters.length - 1) {
+          setCurrentChapterId(chapters[currentIndex + 1].id);
         }
-        return { ...prev, progress: newProgress };
-      });
-
-      toast.success('Chapter completed!');
-
-      // Auto-advance logic could go here
-      const chapters = learningContext.course.chapters || [];
-      const currentIndex = chapters.findIndex(c => c.id === currentChapterId);
-      if (currentIndex < chapters.length - 1) {
-        setCurrentChapterId(chapters[currentIndex + 1].id);
       }
-
-    } catch (error) {
+    } catch {
       toast.error('Failed to update progress');
     }
+  };
+
+  // Called by VideoChapterPlayer when video ends — persist without auto-advance
+  const handleVideoComplete = (chapterId: string) => {
+    void persistChapterCompletion(chapterId, { autoAdvance: false });
+  };
+
+  // Called by "Mark as Complete" button — persist and auto-advance
+  const handleComplete = async () => {
+    if (!currentChapterId) return;
+    await persistChapterCompletion(currentChapterId, { autoAdvance: true });
   };
 
   if (isLoading) {
@@ -189,6 +220,9 @@ const CoursePlayerPage = () => {
 
   const currentChapter = learningContext.course.chapters?.find(c => c.id === currentChapterId);
   const currentQuiz = learningContext.quizzes?.find(q => q.id === currentQuizId);
+  const currentChapterProgress = learningContext.progress.find(
+    progress => progress.chapterId === currentChapterId,
+  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -273,7 +307,11 @@ const CoursePlayerPage = () => {
                   <p className="mt-2 text-muted-foreground">{currentChapter.description}</p>
                 </div>
 
-                <ChapterContent chapter={currentChapter} />
+                <ChapterContent
+                  chapter={currentChapter}
+                  progressStatus={currentChapterProgress?.status}
+                  onVideoComplete={handleVideoComplete}
+                />
 
                 <div className="flex justify-between items-center pt-6 border-t">
                   <div className="flex gap-2">
@@ -301,7 +339,8 @@ const CoursePlayerPage = () => {
                       const chapters = learningContext.course.chapters || [];
                       const currentIndex = chapters.findIndex(c => c.id === currentChapterId);
                       const nextChapter = currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null;
-                      const isCompleted = learningContext.progress.find(p => p.chapterId === currentChapterId)?.status === ProgressStatus.COMPLETED;
+                      const isCompleted =
+                        currentChapterProgress?.status === ProgressStatus.COMPLETED;
 
                       return (
                         <>
