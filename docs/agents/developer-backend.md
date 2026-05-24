@@ -8,17 +8,27 @@ Owns NestJS server-side code: modules, controllers, services, DTOs, guards, Pris
 
 ## Reference docs
 
-| Doc | Sections relevant to this role |
+Open the file when its trigger applies — not before. Each row is one file, one observable condition.
+
+| File | Open when |
 |---|---|
-| [docs/trd/backend/index.md](../trd/backend/index.md) | Cross-cutting backend patterns. Open only the sub-file relevant to your task: [architecture.md](../trd/backend/architecture.md), [core-patterns.md](../trd/backend/core-patterns.md), [api-design.md](../trd/backend/api-design.md), [security.md](../trd/backend/security.md), [error-handling.md](../trd/backend/error-handling.md), [dto-mapping.md](../trd/backend/dto-mapping.md), [database.md](../trd/backend/database.md), [testing.md](../trd/backend/testing.md), [quality-guidelines.md](../trd/backend/quality-guidelines.md) |
-| [docs/trd/backend/modules/](../trd/backend/modules/) | Module-specific TRDs: [upload.md](../trd/backend/modules/upload.md), [reminder.md](../trd/backend/modules/reminder.md), [approval.md](../trd/backend/modules/approval.md), [mail.md](../trd/backend/modules/mail.md) |
-| [docs/trd/stack-architecture.md](../trd/stack-architecture.md) | Backend architecture overview, stack versions |
-| [docs/trd/constraints-integrations.md](../trd/constraints-integrations.md) | Guard chain, data-scoped entities, API envelope |
-| [docs/erd/index.md](../erd/index.md) → [docs/erd/notes.md](../erd/notes.md) | Naming, soft-delete, data scope |
-| [docs/erd/full.md](../erd/full.md), [docs/erd/quick-reference.md](../erd/quick-reference.md) | Entity-specific schema |
-| [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma) | Source of truth |
-| Cross-cutting TRDs in `docs/trd-*.md` | Auth, authorization, data-scope, soft-delete, inspection-approval, investigation schema, reminders |
-| [docs/references/index.md](../references/index.md) | Prisma, NestJS, Zod (when needed) |
+| [docs/trd/backend/core-patterns.md](../trd/backend/core-patterns.md) | Creating a new module, controller, service, or DTO from scratch — copy the boilerplate |
+| [docs/trd/backend/security.md](../trd/backend/security.md) | Adding `@UseGuards`, `@Roles`, `@Permissions`, `@AllowOptionsBypass`, or touching a data-scoped entity (Enrollments / WorkPermits / Certificates / PPE Withdrawals) |
+| [docs/trd/backend/api-design.md](../trd/backend/api-design.md) | Designing a new endpoint — especially list endpoints with pagination, sorting, `search`, or `?options=true` |
+| [docs/trd/backend/error-handling.md](../trd/backend/error-handling.md) | Throwing an exception or wondering what HTTP status / shape to return |
+| [docs/trd/backend/dto-mapping.md](../trd/backend/dto-mapping.md) | Wiring `DtoMapperService` in a service constructor, or transforming entity→DTO with relations/exclusions |
+| [docs/trd/backend/database.md](../trd/backend/database.md) | Editing `schema.prisma`, naming a new table (`m_` / `t_` / `_`), or asking what migration commands to run |
+| [docs/trd/backend/testing.md](../trd/backend/testing.md) | Writing `*.spec.ts` for a service or controller |
+| [docs/trd/backend/quality-guidelines.md](../trd/backend/quality-guidelines.md) | Self-reviewing before opening a PR (compliance checklist) |
+| [docs/trd/backend/modules/upload.md](../trd/backend/modules/upload.md) | Touching `backend/src/modules/uploads/` (file upload, storage abstraction, access tokens) |
+| [docs/trd/backend/modules/reminder.md](../trd/backend/modules/reminder.md) | Touching `backend/src/modules/reminders/` or the every-minute cron |
+| [docs/trd/backend/modules/approval.md](../trd/backend/modules/approval.md) | Wiring a module into Master Approval, using sentinel values, or writing `t_approvals` records |
+| [docs/trd/backend/modules/mail.md](../trd/backend/modules/mail.md) | Sending email or editing a Handlebars template in `m_email_templates` |
+| [docs/erd/notes.md](../erd/notes.md) | Confirming naming convention, soft-delete rule, or which entities are data-scoped |
+| [docs/erd/full.md](../erd/full.md), [docs/erd/quick-reference.md](../erd/quick-reference.md) | Looking up a specific entity's fields / relationships before editing schema |
+| [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma) | **Always before** generating a migration — it's the source of truth |
+| `docs/trd-auth.md` / `docs/trd-authorization*.md` / `docs/trd-soft-delete-*.md` / `docs/trd-inspection-approval*.md` / `docs/trd-investigation-report-schema.md` / `docs/trd-reminders-calendar.md` | Working on the specific cross-cutting topic named in the filename |
+| [docs/references/prisma.md](../references/prisma.md), [nestjs.md](../references/nestjs.md), [zod.md](../references/zod.md) | About to call a library API and unsure of the current signature |
 
 Do not extract content from these docs into this file. Reference only.
 

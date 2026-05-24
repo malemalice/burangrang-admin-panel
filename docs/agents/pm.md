@@ -8,12 +8,18 @@ Owns product scope, acceptance criteria, prioritisation, and PRD updates. This p
 
 ## Reference docs
 
-| Doc | Sections relevant to this role |
+Open the file when its trigger applies — not before. Each row is one file, one observable condition.
+
+| File | Open when |
 |---|---|
-| [docs/prd/index.md](../prd/index.md) | Cross-cutting + per-domain PRD map |
-| [docs/prd/problem-goals.md](../prd/problem-goals.md), [personas.md](../prd/personas.md), [features.md](../prd/features.md), [open-questions.md](../prd/open-questions.md) | Cross-cutting product context |
-| Relevant `docs/prd-<domain>.md` | Per-domain detail (32 files) |
-| [docs/trd/constraints-integrations.md](../trd/constraints-integrations.md) | Hard constraints that bound any product decision |
+| [docs/prd/index.md](../prd/index.md) | First time scoping a request — find which per-domain PRD covers it |
+| `docs/prd-<domain>.md` (e.g. `docs/prd-incidents.md`) | A request names a specific domain — read only that PRD |
+| [docs/prd/problem-goals.md](../prd/problem-goals.md) | A request seems off-strategy — verify against goals / non-goals |
+| [docs/prd/personas.md](../prd/personas.md) | A request invokes a new user type — check if persona exists, or extend the file |
+| [docs/prd/features.md](../prd/features.md) | Scoping a cross-domain feature — see what already exists in the map |
+| [docs/prd/open-questions.md](../prd/open-questions.md) | A decision is blocked — add a row; or check if it's already been asked |
+| [docs/trd/constraints-integrations.md](../trd/constraints-integrations.md) | About to approve scope — confirm it doesn't violate a hard constraint (data scope, soft delete, guard chain, no hardcoded approvers) |
+| [docs/QUALITY_SCORE.md](../QUALITY_SCORE.md) | Scoping in a C/D-graded domain — scope conservatively, prefer fixes over expansions |
 
 Do not extract content from these docs into this file. Reference only.
 

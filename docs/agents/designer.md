@@ -8,12 +8,20 @@ UI/UX specialist for the HSE Dashboard, a backoffice ERP. Deliver **beautiful** 
 
 ## Reference docs
 
-| Doc | Sections relevant to this role |
+Open the file when its trigger applies — not before. Each row is one file, one observable condition.
+
+| File | Open when |
 |---|---|
-| [docs/design-system/index.md](../design-system/index.md) | All sub-files (tokens, components, motion, accessibility, icons) |
-| [docs/design-system/principles.md](../design-system/principles.md) | UI/UX principles, layout, component patterns, workflow/status rendering, form guidelines |
-| [docs/design-system/patterns.md](../design-system/patterns.md) | Color system, typography, spacing, theme, animations, component usage DO/DON'T |
-| [docs/agents/developer-frontend.md](./developer-frontend.md) | Implementation rules that must align with design decisions |
+| [docs/design-system/tokens.md](../design-system/tokens.md) | About to use any colour, spacing value, or font-size — confirm semantic token / 8px grid |
+| [docs/design-system/components.md](../design-system/components.md) | Specifying a button, input, dialog, dropdown, table, badge, or any primitive — check the shadcn inventory first |
+| [docs/design-system/principles.md](../design-system/principles.md) | Deciding modal-vs-page, sort/filter UX, density, master-detail layout, breadcrumbs, or PDF export structure |
+| [docs/design-system/workflow-status.md](../design-system/workflow-status.md) | Designing an approval timeline, status-driven action buttons, or a "how this workflow works" info dialog |
+| [docs/design-system/form-layout.md](../design-system/form-layout.md) | Designing a Create/Edit page — confirm PageHeader + max-w-4xl + Card, two-column grid, action button placement |
+| [docs/design-system/motion.md](../design-system/motion.md) | Adding hover/focus/open animation — confirm duration and easing |
+| [docs/design-system/accessibility.md](../design-system/accessibility.md) | Any new interactive element — confirm contrast, focus ring, keyboard nav |
+| [docs/design-system/icons.md](../design-system/icons.md) | Picking an icon — confirm Lucide name + size (16/20/24) |
+| [docs/design-system/patterns.md](../design-system/patterns.md) | Need the deep design reference — full colour scales, animation durations, CSS variables, DO/DON'T examples |
+| [docs/agents/developer-frontend.md](./developer-frontend.md) | Handing a spec to a frontend developer — confirm the implementation patterns align with the design |
 
 Do not extract content from these docs into this file. Reference only.
 

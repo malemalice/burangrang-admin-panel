@@ -8,15 +8,24 @@ Owns React + Vite client-side code: feature modules, routes, pages, components, 
 
 ## Reference docs
 
-| Doc | Sections relevant to this role |
+Open the file when its trigger applies — not before. Each row is one file, one observable condition.
+
+| File | Open when |
 |---|---|
-| [docs/trd/frontend/index.md](../trd/frontend/index.md) | Cross-cutting frontend patterns. Open only the sub-file relevant: [folder-structure.md](../trd/frontend/folder-structure.md), [module-template.md](../trd/frontend/module-template.md), [implementation-guidelines.md](../trd/frontend/implementation-guidelines.md), [module-interaction.md](../trd/frontend/module-interaction.md), [guidance.md](../trd/frontend/guidance.md), [reference.md](../trd/frontend/reference.md) |
-| [docs/design-system/principles.md](../design-system/principles.md) | UI/UX principles, layout, component patterns, workflow/status rendering, form guidelines (deep) |
-| [docs/design-system/patterns.md](../design-system/patterns.md) | Color system, typography, spacing, theme, animations, DO/DON'T (deep) |
-| [docs/design-system/index.md](../design-system/index.md) | All sub-files: tokens, components, motion, accessibility, icons |
-| [docs/trd/stack-architecture.md](../trd/stack-architecture.md) | Frontend stack + module structure |
-| [docs/trd/constraints-integrations.md](../trd/constraints-integrations.md) | API envelope, workflow constraints |
-| [docs/references/index.md](../references/index.md) | React Query, Radix/shadcn, Zod, react-hook-form |
+| [docs/trd/frontend/folder-structure.md](../trd/frontend/folder-structure.md) | Creating a new module — confirming the `modules/<name>/{components,pages,services,types,hooks,routes}/` layout |
+| [docs/trd/frontend/module-template.md](../trd/frontend/module-template.md) | Writing `modules/<name>/index.ts` barrel exports |
+| [docs/trd/frontend/implementation-guidelines.md](../trd/frontend/implementation-guidelines.md) | Registering routes (`React.lazy`), building a thin edit-page shell, or wiring tsconfig paths |
+| [docs/trd/frontend/api-services.md](../trd/frontend/api-services.md) | Writing a `<module>Service.ts`, fetching options across modules with `options: true`, or handling a 403 from a data-scoped endpoint |
+| [docs/trd/frontend/tables-dropdowns.md](../trd/frontend/tables-dropdowns.md) | Building a list page with `DataTable`, wiring a row-action dropdown that opens a confirm dialog, or putting a combobox inside a `Dialog` |
+| [docs/trd/frontend/crud-hooks.md](../trd/frontend/crud-hooks.md) | Adding `use[Entities]` / `use[Entity]` for a module |
+| [docs/trd/frontend/forms.md](../trd/frontend/forms.md) | Building a Create/Edit page, the form component itself, or loading cross-module dropdown options |
+| [docs/design-system/form-layout.md](../design-system/form-layout.md) | Form looks wrong — confirm PageHeader + max-w-4xl + Card structure, two-column grid, spacing, loading/error states |
+| [docs/design-system/workflow-status.md](../design-system/workflow-status.md) | Rendering an approval timeline, status action buttons, or a workflow info dialog |
+| [docs/design-system/tokens.md](../design-system/tokens.md) | About to write `bg-blue-500` — stop, use a semantic token instead |
+| [docs/design-system/components.md](../design-system/components.md) | About to build a one-off button/input — check if shadcn already has it |
+| [docs/design-system/accessibility.md](../design-system/accessibility.md) | Adding interactive UI — confirm WCAG AA, focus, ARIA, keyboard |
+| [docs/design-system/icons.md](../design-system/icons.md) | Importing a Lucide icon — confirm size (16/20/24) and naming |
+| [docs/references/react-query.md](../references/react-query.md), [react-hook-form.md](../references/react-hook-form.md), [zod.md](../references/zod.md), [radix-shadcn.md](../references/radix-shadcn.md) | About to call a library API and unsure of the current signature |
 
 Do not extract content from these docs into this file. Reference only.
 

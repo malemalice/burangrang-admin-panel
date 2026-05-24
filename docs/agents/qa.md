@@ -8,15 +8,20 @@ Owns test coverage: backend Jest unit + integration tests, end-to-end Playwright
 
 ## Reference docs
 
-| Doc | Sections relevant to this role |
+Open the file when its trigger applies — not before. Each row is one file, one observable condition.
+
+| File | Open when |
 |---|---|
-| [docs/trd/backend/](../trd/backend/) | Backend patterns for test setup: [core-patterns.md](../trd/backend/core-patterns.md), [security.md](../trd/backend/security.md) (guard chain tests), [testing.md](../trd/backend/testing.md) |
-| [docs/QUALITY_SCORE.md](../QUALITY_SCORE.md) | Domain health — prioritise C/D domains |
-| [docs/auth-data-level-qa-test-plan.md](../auth-data-level-qa-test-plan.md) | Existing data-level auth QA plan |
-| [docs/notification-qa-test-plan.md](../notification-qa-test-plan.md) | Existing notifications QA plan |
-| [docs/notification-bugs.md](../notification-bugs.md) | Known notification regressions |
-| `playwright/` | E2E suite |
-| `backend/src/**/*.spec.ts` | Backend test patterns |
+| [docs/trd/backend/testing.md](../trd/backend/testing.md) | Writing a new `*.spec.ts` — copy the service or controller test scaffold |
+| [docs/trd/backend/security.md](../trd/backend/security.md) | Adding tests for a secured endpoint — cover unauth, wrong role, missing permission, wrong data scope |
+| [docs/trd/backend/core-patterns.md](../trd/backend/core-patterns.md) | Test setup needs service / DI knowledge — check the canonical injection pattern |
+| [docs/QUALITY_SCORE.md](../QUALITY_SCORE.md) | Choosing what to test — start with C/D-graded domains; bump coverage there |
+| [docs/auth-data-level-qa-test-plan.md](../auth-data-level-qa-test-plan.md) | Touching anything data-scoped (Enrollments / WorkPermits / Certificates / PPE) — follow the existing plan |
+| [docs/notification-qa-test-plan.md](../notification-qa-test-plan.md) | Touching the notifications module |
+| [docs/notification-bugs.md](../notification-bugs.md) | Notification test failed — check if it's a known regression before filing |
+| `playwright/` | Adding or modifying an end-to-end flow |
+| `backend/src/**/*.spec.ts` | Need a working example of how an existing module tests its service / controller |
+| [docs/exec-plans/tech-debt-tracker.md](../exec-plans/tech-debt-tracker.md) | Discovered flakiness or untested critical path — add a TD row before forgetting |
 
 Do not extract content from these docs into this file. Reference only.
 
