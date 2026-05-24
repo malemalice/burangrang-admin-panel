@@ -1,6 +1,6 @@
 # Exec Plan: tidy-leftover-docs
 
-> Status: [ ] Draft | [x] In Progress | [ ] Blocked | [ ] Complete
+> Status: [ ] Draft | [ ] In Progress | [ ] Blocked | [x] Complete
 > Created: 2026-05-24
 > Agent(s): Backend Developer, Frontend Developer (light); primarily a docs/repo-hygiene task
 > Touches: `backend/{TRD.md,erd.md,erd-quick-reference.md,erd-pre.md,BRD-risk-assessment.md,jest-reminders.log}`, `frontend/{TRD.md,todo-refactor.md,prompt.md,DEPLOYMENT.md}`, `docs/trd/`, `docs/erd/`, `docs/design-system/`, `docs/prd-risk-management.md`, `.gitignore`

@@ -6,17 +6,17 @@
 
 | ID | Area | Description | Severity (H/M/L) | Discovered | Owner |
 |---|---|---|---|---|---|
-| TD-001 | Docs | `backend/erd-pre.md` is a legacy ERD snapshot — archive or merge into `backend/erd.md` | L | 2026-05-24 | — |
 | TD-002 | Docs | `docs/trd-inspection-approval-legacy.md` should be merged or removed after legacy path is fully retired | L | 2026-05-24 | — |
-| TD-003 | Frontend | No unit-test infrastructure in `frontend/` (no Jest/Vitest setup). Coverage is E2E-only via Playwright | M | 2026-05-24 | — |
-| TD-004 | Docs | `backend/TRD.md` (70KB) and `frontend/TRD.md` (117KB) are monolithic — consider breaking into section files under `docs/trd/` and `docs/design-system/` (currently the new sub-files only navigate, not replace) | M | 2026-05-24 | — |
+| TD-003 | Frontend | No unit-test infrastructure in `frontend/` (no Jest/Vitest setup). Coverage is E2E-only via Playwright. *Update 2026-05-24: `frontend/vitest.config.ts` exists — investigate state.* | M | 2026-05-24 | — |
 | TD-005 | Docs | `.specstory/` and `.cursor/plans/` contain historical session logs — confirm retention policy or archive | L | 2026-05-24 | — |
+| TD-006 | Docs | 32 `docs/prd-*.md` files and 11 `docs/trd-*.md` cross-cutting files still reference old `backend/TRD.md` / `frontend/TRD.md` section names. Redirects resolve, but readers land at the new index rather than the specific section. Sweep and update on next docs maintenance pass. | L | 2026-05-24 | — |
 
 ## Resolved items
 
 | ID | Area | Resolution | Resolved |
 |---|---|---|---|
-| _(none yet)_ | | | |
+| TD-001 | Docs | `git rm backend/erd-pre.md` — legacy ERD snapshot removed; `backend/erd.md` (now `docs/erd/full.md`) is the single source | 2026-05-24 |
+| TD-004 | Docs | Split `backend/TRD.md` (1955 lines) into `docs/trd/backend/*` (19 sub-files) and `frontend/TRD.md` (2881 lines) into `docs/trd/frontend/*` (9 sub-files) + `docs/design-system/{principles,patterns}.md`. Monoliths replaced with redirects. | 2026-05-24 |
 
 ## How to add an item
 

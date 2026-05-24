@@ -46,3 +46,4 @@
 | Date | Domain | Old score | New score | Changed by |
 |---|---|---|---|---|
 | 2026-05-24 | (all) | — | initial seed | bootstrap |
+| 2026-05-24 | (docs structure) | — | — | tidy-leftover-docs exec-plan: TRDs split into structured sub-files; ERDs moved under `docs/erd/`; strays triaged. No code changes; domain scores unchanged. |
