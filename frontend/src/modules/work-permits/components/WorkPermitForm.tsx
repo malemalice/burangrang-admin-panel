@@ -337,15 +337,17 @@ function WorkerCertificateReadonly({
   );
 }
 
-/** Resolves the latest available (DONE, not yet consumed) screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
+/** Resolves the latest available (DONE, not yet consumed) screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). In edit mode, also accepts a screening already consumed by this permit. */
 function WorkerAutoLinkedHealthScreening({
   control,
   index,
   setValue,
+  workPermitId,
 }: {
   control: Control<FormValues>;
   index: number;
   setValue: UseFormSetValue<FormValues>;
+  workPermitId?: string;
 }) {
   const userId = useWatch({ control, name: `workers.${index}.userId` });
   const linkedId = useWatch({ control, name: `workers.${index}.healthScreeningId` });
@@ -375,7 +377,11 @@ function WorkerAutoLinkedHealthScreening({
           limit: 20,
         });
         if (cancelled) return;
-        const pick = res.data.find(isHealthScreeningListItemEligible);
+        const pick = res.data.find(
+          (s) =>
+            isHealthScreeningListItemEligible(s) ||
+            (workPermitId && s.consumedByWorkPermitId === workPermitId && s.status === 'DONE'),
+        );
         if (pick) {
           setValue(`workers.${index}.healthScreeningId`, pick.id);
           setPreview(pick);
@@ -395,7 +401,7 @@ function WorkerAutoLinkedHealthScreening({
     return () => {
       cancelled = true;
     };
-  }, [userId, index, setValue]);
+  }, [userId, index, setValue, workPermitId]);
 
   return (
     <>
@@ -1713,6 +1719,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     control={form.control}
                     index={index}
                     setValue={form.setValue}
+                    workPermitId={workPermit?.id}
                   />
                 </CardContent>
               </Card>
