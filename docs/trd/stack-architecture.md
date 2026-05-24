@@ -61,7 +61,7 @@
 - [folder-structure.md](./frontend/folder-structure.md)
 - [module-template.md](./frontend/module-template.md)
 - [implementation-guidelines.md](./frontend/implementation-guidelines.md) — imports, routes, communication
-- [module-interaction.md](./frontend/module-interaction.md) — API calls, tables, CRUD, forms, error handling
+- [api-services.md](./frontend/api-services.md), [tables-dropdowns.md](./frontend/tables-dropdowns.md), [crud-hooks.md](./frontend/crud-hooks.md), [forms.md](./frontend/forms.md) — service layer, tables, CRUD hooks, form components (formerly bundled in module-interaction.md)
 - [docs/design-system/principles.md](../design-system/principles.md) — UI/UX principles, layout, component patterns, workflow/status, form guidelines
 - [docs/design-system/patterns.md](../design-system/patterns.md) — Design system reference: color, typography, spacing, theme
 

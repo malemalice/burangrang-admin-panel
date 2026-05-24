@@ -11,7 +11,11 @@
 | [folder-structure.md](./folder-structure.md) | Target folder structure under `frontend/src/` |
 | [module-template.md](./module-template.md) | Per-module folder structure + barrel export pattern |
 | [implementation-guidelines.md](./implementation-guidelines.md) | Imports, route-level code splitting, edit-page vs form data fetching, module communication, shared component strategy |
-| [module-interaction.md](./module-interaction.md) | API calling conventions, table display, CRUD, form handling, data transformation, error strategies, cross-module communication |
+| [api-services.md](./api-services.md) | Service layer, inter-module API calls, DTO↔model transforms, error handling, data-level 403 |
+| [tables-dropdowns.md](./tables-dropdowns.md) | DataTable, Dropdown+Dialog focus-trap pattern, ModalCombobox-inside-Dialog, filter fields |
+| [crud-hooks.md](./crud-hooks.md) | `use[Entities]` / `use[Entity]` custom hook patterns |
+| [forms.md](./forms.md) | React Hook Form + Zod page/component patterns, cross-module options loading |
+| [module-interaction.md](./module-interaction.md) | Navigation stub linking to the 4 files above (kept for backward-compat) |
 | [guidance.md](./guidance.md) | Anti-patterns, implementation checklist, development workflow, migration strategy |
 | [reference.md](./reference.md) | Code examples library + barrel export appendix |
 | [meta.md](./meta.md) | Module development metrics, success metrics, next steps, benefits, references, history |
