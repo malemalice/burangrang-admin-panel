@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  Award,
   Bell,
   Droplet,
   FlaskConical,
@@ -50,6 +51,12 @@ export const ENTITY_REGISTRY: Record<string, EntityRegistryEntry> = {
     listRoute: '/environmental-measurements',
     recordRoute: '/environmental-measurements/{entityId}',
     subjectQueryKey: { room: 'roomId' },
+  },
+  't_certificates': {
+    label: 'Certificate',
+    icon: Award,
+    listRoute: '/certificates',
+    recordRoute: '/certificates/{entityId}',
   },
 };
 
