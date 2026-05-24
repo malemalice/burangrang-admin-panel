@@ -303,7 +303,110 @@ All settings are seeded by `ZohoConfigService.onModuleInit()`. Sensitive keys ar
 
 ---
 
-## 10. Current Scope & Planned Extensions
+## 10. Setup & Prerequisites
+
+Before the integration can function end-to-end, both the HSE system and Zoho SDP must be configured. All HSE settings are stored in the `Settings` table and seeded automatically on first boot by `ZohoConfigService.onModuleInit()` — they start as empty strings and must be filled in by an administrator.
+
+---
+
+### 10.1 HSE Side
+
+#### Database
+The following tables must exist (created by the Zoho migration):
+- `t_zoho_webhook_logs`
+- `t_zoho_ticket_risk_assessment_map`
+- `t_zoho_outbound_jobs`
+
+Run `npx prisma migrate deploy` before enabling the integration.
+
+#### Required Settings (Settings module)
+
+| Setting Key | Required For | What to Set |
+|---|---|---|
+| `zoho.webhook.enabled` | Inbound | Set to `true` to accept webhooks |
+| `zoho.webhook.auth_mode` | Inbound auth | `secret` (default), `signature`, or `jwt` |
+| `zoho.webhook.secret` | Inbound auth | Shared secret string — must match what Zoho SDP sends in `X-Zoho-Webhook-Secret` (modes: `secret`, `signature`) |
+| `zoho.webhook.jwt` | Inbound auth | Static bearer token — only required when `auth_mode=jwt` |
+| `zoho.sdp.base_url` | Outbound | Zoho SDP instance URL, e.g. `https://servicedesk.hapfor.com` |
+| `zoho.sdp.authtoken` | Outbound | API auth token issued by Zoho SDP for HSE to call `PUT /api/v3/requests/{id}`. Without this, outbound ticket creates are skipped silently. |
+| `zoho.inbound.default_department_id` | Inbound | UUID of an active HSE department used as fallback when `departmentId` from Zoho doesn't match any internal department |
+| `zoho.inbound.integration_user_id` | Inbound | UUID of the HSE user that will appear as creator of Risk Assessments created by inbound webhooks. Falls back to the oldest active user if not set. |
+| `zoho.sync.enabled` | Outbound | Set to `true` to enable outbound status sync to Zoho |
+
+#### Prerequisites in HSE data
+- At least one active **Department** must exist (required for `default_department_id`).
+- At least one active **User** must exist (required for `integration_user_id` fallback).
+
+---
+
+### 10.2 Zoho SDP Side
+
+#### Webhook Configuration
+Configure Zoho SDP to call the HSE webhook endpoint on ticket create and update events:
+
+| Field | Value |
+|---|---|
+| **URL** | `POST https://<hse-host>/integrations/zoho/webhook` |
+| **Events** | `Ticket_Add`, `Ticket_Update` |
+| **Header: X-Zoho-Event** | Must be set to `Ticket_Add` or `Ticket_Update` |
+| **Header: X-Zoho-Request-Id** | Recommended — unique ID per delivery for idempotency |
+| **Auth header** | Depends on `auth_mode` configured in HSE (see below) |
+
+Auth headers by mode:
+
+| `auth_mode` | Header Zoho must send |
+|---|---|
+| `secret` (default) | `X-Zoho-Webhook-Secret: <shared-secret>` |
+| `signature` | `X-Zoho-Signature: <HMAC-SHA256 hex of raw body using shared secret>` |
+| `jwt` | `Authorization: Bearer <static-token>` |
+
+The shared secret / token must match exactly what is stored in HSE Settings.
+
+#### Payload Fields
+Zoho SDP must include the following fields in the webhook `data` object for full functionality:
+
+| Field | Required | Notes |
+|---|---|---|
+| `id` | **Yes** | Zoho ticket ID — missing ID causes the event to be ignored |
+| `ticketNumber` | Recommended | Used in the generated HSE Risk Assessment code |
+| `subject` | Recommended | Included in HSE description |
+| `description` | Optional | Included in HSE description |
+| `priority` | Optional | Mapped to HSE severity (`urgent/critical` → EXTREME, `high` → HIGH, etc.) |
+| `departmentId` | Optional | Used to match HSE department; falls back to default if missing or unmatched |
+| `status` | Required for `Ticket_Update` | Used to drive HSE status mapping |
+
+#### API Token for Outbound
+HSE calls `PUT /api/v3/requests/{id}` to update Zoho ticket status. An `authtoken` must be issued from Zoho SDP (under Admin → API → Auth Token) and stored in HSE Settings as `zoho.sdp.authtoken`.
+
+The outbound request format used by HSE:
+```
+PUT https://<base_url>/api/v3/requests/{ticketId}
+Headers:
+  authtoken: <SDP_AUTHTOKEN>
+  Accept: application/vnd.manageengine.sdp.v3+json
+  Content-Type: application/x-www-form-urlencoded
+Body:
+  input_data={"request":{"status":{"name":"<Zoho status>"}}}
+```
+
+---
+
+### 10.3 Validation Checklist
+
+Before going live, verify the following:
+
+- [ ] `t_zoho_webhook_logs`, `t_zoho_ticket_risk_assessment_map`, `t_zoho_outbound_jobs` tables exist
+- [ ] `zoho.webhook.enabled = true` and `zoho.webhook.auth_mode` is set
+- [ ] Shared secret / JWT token is set in both HSE and Zoho SDP
+- [ ] `zoho.inbound.default_department_id` points to a valid active department
+- [ ] `zoho.inbound.integration_user_id` points to a valid active user (or at least one active user exists)
+- [ ] `zoho.sdp.base_url` and `zoho.sdp.authtoken` are set for outbound sync
+- [ ] Zoho SDP webhook is pointed to `POST https://<hse-host>/integrations/zoho/webhook`
+- [ ] A test `Ticket_Add` webhook returns HTTP 200 and creates a Risk Assessment
+
+---
+
+## 11. Current Scope & Planned Extensions
 
 ### Currently Implemented
 - ✅ Inbound webhook from Zoho SDP (`Ticket_Add`, `Ticket_Update`)
@@ -312,6 +415,8 @@ All settings are seeded by `ZohoConfigService.onModuleInit()`. Sensitive keys ar
 - ✅ Outbound: create Zoho ticket when new HSE Risk Assessment is created
 - ✅ Outbound: sync status to Zoho when Risk Assessment status changes
 - ✅ Async outbound job queue with retry + dead-letter
+- ✅ **Zoho Integration settings UI** — "Zoho Integration" tab in `/settings` (Super Admin) to configure all 18 settings keys and monitor integration health
+- ✅ **Integration health endpoint** — `GET /integrations/zoho/health` (JWT) returning live connection test, config status, and job queue counters
 
 ### Not Yet Implemented (Planned)
 - ❌ **Work Permit sync** — specified in `work-permit.md` but not built. Requires a `ZohoTicketWorkPermitMap` model and outbound job trigger in the work-permit module. Pattern mirrors the risk-assessment implementation.
@@ -319,20 +424,67 @@ All settings are seeded by `ZohoConfigService.onModuleInit()`. Sensitive keys ar
 
 ---
 
-## 11. API Endpoints Summary
+## 12. API Endpoints Summary
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/integrations/zoho/webhook` | ZohoWebhookGuard | Primary webhook receiver |
 | POST | `/webhooks/zoho` | ZohoWebhookGuard | Legacy route (deprecated, still active) |
+| GET | `/integrations/zoho/health` | JwtAuthGuard | Integration health — live connection test + config status + job counters |
+
+### `GET /integrations/zoho/health` Response Shape
+
+```json
+{
+  "configStatus": {
+    "webhookEnabled": true,
+    "syncEnabled": true,
+    "authMode": "secret",
+    "hasWebhookSecret": true,
+    "hasSdpAuthtoken": true,
+    "hasSdpBaseUrl": true,
+    "hasDefaultDepartmentId": false,
+    "hasIntegrationUserId": false
+  },
+  "connectionTest": {
+    "ok": true,
+    "statusCode": 200,
+    "latencyMs": 312,
+    "error": null
+  },
+  "recentWebhookLogCount": 14,
+  "pendingJobCount": 0,
+  "deadLetterJobCount": 2
+}
+```
+
+`connectionTest` is a live probe: `ZohoDeskApiClient.testConnection()` sends `GET /api/v3/requests?page_size=1` to the configured SDP base URL with the stored authtoken. `ok: false` with `error` set means the SDP API is unreachable, the authtoken is invalid, or `SDP_AUTHTOKEN` is not configured.
 
 ## Frontend Pages & Components
 
-None. Backend-only integration.
+| Page | Path | Permission | Description |
+|---|---|---|---|
+| Settings — Zoho Integration tab | `/settings` → "Zoho Integration" tab | Super Admin | Configure all 18 Zoho settings keys; view live integration health |
+
+### Zoho Integration Tab Layout
+
+The tab is divided into 5 cards:
+
+| Card | Contents |
+|---|---|
+| **Integration Health** | Copyable webhook URL; live connection test banner (green/red + latency); 8-item config status grid; job queue counters (webhooks 24h, pending jobs, dead-letter jobs); Refresh button |
+| **Master Toggles** | `zoho.sync.enabled` and `zoho.webhook.enabled` switches — auto-save on toggle |
+| **Inbound Webhook** | Auth mode radio (secret / signature / jwt); conditional secret/JWT fields; default department ID; integration user ID; default status select; inbound status map JSON textarea |
+| **Outbound — Zoho SDP API** | SDP base URL; API version; auth token; allow self-signed SSL switch; outbound status map JSON textarea |
+| **Worker & Retry** | Max retries; base delay (ms); max delay (ms); batch size |
+
+**Sensitive fields** (webhook secret, JWT token, SDP authtoken) are never pre-filled on page load — the user must type a new value to replace the stored one. Leaving the field blank on save preserves the existing value.
+
+**JSON status maps** are validated client-side with `JSON.parse()` before saving; an inline error is shown if the format is invalid.
 
 ---
 
-## 12. Functional Requirements
+## 13. Functional Requirements
 
 - [FR-1] Expose `POST /integrations/zoho/webhook` to receive Zoho SDP payloads. `POST /webhooks/zoho` must remain as a functional legacy alias.
 - [FR-2] Authenticate inbound webhooks via the configured `auth_mode`; reject invalid/missing auth with 401/403.
@@ -345,20 +497,23 @@ None. Backend-only integration.
 - [FR-9] Process outbound jobs on a 10-second cron with `FOR UPDATE SKIP LOCKED` for concurrent safety.
 - [FR-10] Retry failed outbound jobs with exponential backoff + jitter up to max attempts; permanently failed jobs enter dead-letter state.
 - [FR-11] All Zoho credentials must be stored in the Settings table, never hardcoded; sensitive keys must be masked in logs.
+- [FR-12] Expose `GET /integrations/zoho/health` (JWT-protected) that returns config completeness flags, a live connectivity probe result against the Zoho SDP API, and job queue counters (pending, dead-letter, recent webhooks).
+- [FR-13] Provide a "Zoho Integration" settings tab in the frontend where Super Admins can view and update all 18 Zoho configuration keys; sensitive fields must not be pre-filled on load.
 
 ---
 
-## 13. Non-Functional Requirements
+## 14. Non-Functional Requirements
 
 - [NFR-1] Webhook endpoint must return within 500ms (processing is async).
 - [NFR-2] All webhook processing must be idempotent — Zoho retries must not cause duplicate side effects.
 - [NFR-3] Outbound worker must tolerate concurrent instances without double-processing (enforced by `FOR UPDATE SKIP LOCKED`).
 - [NFR-4] Dead-lettered jobs must be observable via access logs (`source: zoho_outbound_worker`, `result: dead_letter`).
-- [NFR-5] No frontend UI is required. Configuration is via the Settings module.
+- [NFR-5] ~~No frontend UI is required.~~ Configuration and health monitoring is available via the Settings module → "Zoho Integration" tab (Super Admin only).
+- [NFR-6] The `GET /integrations/zoho/health` connection probe must not throw — all errors must be caught and returned as `{ ok: false, error: "..." }` so the endpoint always returns 200 with a usable response.
 
 ---
 
-## 14. Acceptance Criteria
+## 15. Acceptance Criteria
 
 | # | Scenario | Expected |
 |---|---|---|
@@ -371,6 +526,59 @@ None. Backend-only integration.
 | AC-7 | Outbound job fails with HTTP 503 | Job → FAILED_RETRY; `nextRetryAt` set with backoff |
 | AC-8 | Outbound job fails 6 consecutive times | Job → FAILED_DEAD_LETTER; no further retries |
 | AC-9 | `zoho.sync.enabled` set to `false` | No outbound jobs enqueued; webhook still accepted |
+
+---
+
+## 16. Open Issues
+
+These issues were identified by code inspection (May 2026) and are not yet resolved. Each represents a known gap between the current implementation and correct bidirectional sync behavior.
+
+---
+
+### OI-1 — Inbound status update bypasses HSE workflow and ignores current state
+
+**Severity:** High
+**File:** `zoho-webhook.service.ts` → `updateMappedRiskAssessmentFromZoho`
+
+When Zoho sends a `Ticket_Update`, the mapped HSE Risk Assessment status is overwritten via a raw `prisma.riskAssessment.update()` call without reading the current HSE status first. This means:
+
+- A record in `WAITING_APPROVAL` can be silently downgraded to `OPEN` if Zoho sends `Open`.
+- The update bypasses the HSE approval workflow entirely — no transition guard, no approval line check.
+- There is no concept of "Zoho may not override a status that is further along the HSE workflow."
+
+**Expected behavior:** Inbound status changes should be rejected or logged as skipped if the mapped target status is behind the current HSE status in the workflow order (`DRAFT < OPEN < WAITING_APPROVAL < DONE/REJECTED`).
+
+---
+
+### OI-2 — Inbound `Ticket_Update` unconditionally overwrites description, actionPlan, and departmentId
+
+**Severity:** Medium
+**File:** `zoho-webhook.service.ts` → `updateMappedRiskAssessmentFromZoho`
+
+Every inbound `Ticket_Update` replaces `description`, `actionPlan`, and `departmentId` on the HSE Risk Assessment regardless of whether an operator has manually edited those fields. There is no diff, no merge, and no opt-out. Manual HSE edits made after the initial Zoho import are silently lost on the next Zoho update.
+
+**Expected behavior:** Either (a) skip field overwrites if the record has been manually edited since last Zoho sync, or (b) document clearly that Zoho is the authoritative source for these fields and operators should not edit them.
+
+---
+
+### OI-3 — Outbound job queue has no dedup against already-pending jobs
+
+**Severity:** Medium
+**File:** `risk-assessment-zoho-sync.service.ts` → `enqueueStatusSyncIfNeeded`
+
+The only guard against duplicate outbound jobs is `mapping.lastZohoStatus === targetStatus`. Since `lastZohoStatus` is updated only after a job **succeeds**, any status changes while a job is `PENDING` or in retry backoff bypass the guard and enqueue additional jobs for the same ticket. Rapid status transitions (e.g. DRAFT → OPEN → WAITING_APPROVAL in quick succession) produce multiple stacked jobs. While they eventually execute in order, intermediate states are pushed to Zoho unnecessarily, and under retry conditions the final Zoho state is determined by whichever job lands last.
+
+**Expected behavior:** Before enqueuing a new outbound job, check whether a `PENDING` or `PROCESSING` job already exists for the same `mappingId`. If one exists, either update its `targetStatus` in place or cancel it and replace with the newer job.
+
+---
+
+### OI-4 — Bidirectional loop guard is timing-dependent
+
+**Severity:** Low–Medium
+
+The loop-break mechanism relies on `lastZohoStatus` being set before Zoho's bounce webhook arrives. Under normal conditions (job succeeds quickly, Zoho webhook delayed) the guard works: `lastZohoStatus` is set to `Closed`, and when Zoho bounces back with `Closed` → HSE `CLOSE` → outbound target `Closed` → skipped because `lastZohoStatus === targetStatus`. However, if the outbound job is in retry backoff (could be up to 60 seconds), Zoho's bounce webhook arrives while `lastZohoStatus` is still the pre-update value, and a new outbound job is enqueued — starting another loop iteration.
+
+**Expected behavior:** The loop guard should also check for existing pending jobs (see OI-3). Resolving OI-3 would mitigate most cases of OI-4 as well.
 
 ---
 
