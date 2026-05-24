@@ -63,7 +63,7 @@ export default function WaterQualityDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Water Quality Lab Dashboard"
+        title="Water Monitoring Dashboard"
         subtitle="Monthly results per treatment plant for one parameter at a time"
       />
 
