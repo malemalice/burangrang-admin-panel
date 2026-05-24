@@ -1151,11 +1151,50 @@ export class WorkPermitsService {
 
     if (workPermit.workers) {
       const consumed: any[] = workPermit.consumedHealthScreenings ?? [];
+      const consumedUserIds = new Set<string>(consumed.map((s) => s.userId));
+
+      // Surface latest DONE, not-yet-consumed declarations so the public/authenticated
+      // page can show "Available" status after a worker finishes the questionnaire,
+      // before the applicant submits the permit (which is when consumption fires).
+      const candidateUserIds: string[] = (workPermit.workers ?? [])
+        .map((w: any) => w.worker?.user?.id ?? w.worker?.userId)
+        .filter((id: string | undefined): id is string => !!id && !consumedUserIds.has(id));
+
+      const availableByUserId = new Map<
+        string,
+        { id: string; status: string; quizId: string }
+      >();
+      if (candidateUserIds.length > 0) {
+        const rows = await this.prisma.healthScreening.findMany({
+          where: {
+            userId: { in: candidateUserIds },
+            status: 'DONE',
+            consumedByWorkPermitId: null,
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, userId: true, status: true, quizId: true },
+        });
+        for (const r of rows) {
+          if (!availableByUserId.has(r.userId)) {
+            availableByUserId.set(r.userId, {
+              id: r.id,
+              status: r.status,
+              quizId: r.quizId,
+            });
+          }
+        }
+      }
+
       base.workers = workPermit.workers.map((w: any) => {
         const wr = w.worker;
         const u = wr?.user;
         const prof = u?.profession;
-        const hs = consumed.find((s) => s.userId === (u?.id ?? wr?.userId));
+        const userIdKey = (u?.id ?? wr?.userId) as string | undefined;
+        const consumedHs = consumed.find((s) => s.userId === userIdKey);
+        const availableHs = !consumedHs && userIdKey
+          ? availableByUserId.get(userIdKey)
+          : undefined;
+        const hs = consumedHs ?? availableHs;
         return {
           id: w.id,
           workerId: w.workerId,
@@ -1168,7 +1207,7 @@ export class WorkPermitsService {
             ? {
               id: hs.id,
               status: hs.status,
-              consumedByWorkPermitId: hs.consumedByWorkPermitId ?? null,
+              consumedByWorkPermitId: consumedHs?.consumedByWorkPermitId ?? null,
               quizId: hs.quizId,
             }
             : undefined,
