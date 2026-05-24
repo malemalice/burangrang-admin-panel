@@ -13,7 +13,7 @@ The Incident Management module supports reporting, tracking, and approving safet
 
 ## Key Features
 
-- Create, list (paginated, filter by area, risk category, status, type, classification, priority, source, assigned department, assignee, search), read, update, soft-delete incidents.
+- Create, list (paginated, filter by area, risk category, status, type, classification, priority, source, assigned department, assignee, search), read, update, soft-delete incidents. Soft-delete does **not** cascade to the linked `InvestigationReport` (1:1 via `incidentId`); see [`../investigation-report-accident.md`](../investigation-report-accident.md) §1.1 for the current interaction between incident soft-delete and investigation edits.
 - Nested create/update: injured persons (name, gender, level of injury, body part, type of injury, mechanism of injury, department), witnesses (name, gender, department), assets (polymorphic: ASSET/HEAVY_EQUIPMENT/SAFETY_EQUIPMENT or free-text), images (URL, caption, order), attachments (URL, order).
 - Workflow: submit for approval, approve (with optional notes), reject (with reason); check approval rights; get approval timeline.
 - List supports `options=true` for permission bypass (e.g. selects).

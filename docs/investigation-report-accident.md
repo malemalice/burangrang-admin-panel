@@ -38,6 +38,8 @@ The investigation form allows investigators to correct or supplement incident da
 
 > **Save behaviour:** When the investigation form is saved, **two API calls are made in sequence**: (1) create/update the investigation report, (2) `PATCH /incidents/:id` with updated incident-level fields (description, images, injuredPersons, treatment, absence, treatmentDescription, needToStopActivity, stopLocally, stopWholeSchool, witnesses). A failure in either call surfaces a toast error.
 
+> **Soft-delete interaction (current behavior, 2026-05-24):** Investigation report create/update is **not** blocked when the parent incident is soft-deleted (`Incident.isActive = false`). `investigation-reports.service.ts` (`create` ~L257-268, `update` ~L448-529) does not check `incident.isActive`, and the cascading `PATCH /incidents/:id` continues to write to a soft-deleted incident. This is a known gap; the intended behavior is to block both operations once the parent incident is soft-deleted. Tightening requires a service-layer guard and is tracked as a separate change.
+
 ---
 
 ## 1.2 Investigation Trigger

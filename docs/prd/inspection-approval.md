@@ -39,7 +39,7 @@ The Inspection Item Approval Workflow enables systematic verification and approv
 ## Functional Requirements
 
 - [FR-1] The system must support three form modes (Creator, Updater, Verifier); field permissions must be controlled per mode.
-- [FR-2] Only users with valid approval rights (matching department and job position in the current Master Approval line for `INSPECTION_ITEM`) may access Verifier mode.
+- [FR-2] Only users with valid approval rights may access Verifier mode. The "current approval line" is **dynamically resolved at runtime** — sentinel values `@ENTITY_DEPARTMENT` / `@ENTITY_JOB_POSITION` in the Master Approval config are replaced server-side using the inspection item's assigned `departmentId` and the creator's `jobPositionId` (see `approval-resolver.service.ts`). The user's department + job position is then compared against those resolved values. Static department/job-position IDs in the master config (when not sentinels) are matched literally. See [`approvals.md`](approvals.md) §3 / FR-6 for the runtime resolution contract; this PRD does not introduce a separate static-master matching mode.
 - [FR-3] The system must enforce the status lifecycle: OPEN → WAITING_APPROVAL (on Updater submit) → CLOSED (on approve) or OPEN (on reject).
 - [FR-4] When status is CLOSED, all edit actions must be hidden; only View is available.
 - [FR-5] The Verify button must only appear when status is `WAITING_APPROVAL` AND the current user has approval rights for the item.

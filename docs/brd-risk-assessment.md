@@ -44,7 +44,7 @@ The Risk Assessment Management System enables systematic identification, evaluat
 - Department assignment
 - Assessment date
 - Description and action plan
-- Status tracking (SCHEDULED, DRAFT, OPEN, WAITING_APPROVAL, DONE, REJECTED)
+- Status tracking (SCHEDULED, DRAFT, OPEN, WAITING_APPROVAL, DONE, REJECTED, CLOSE)
 
 **FR-02:** System shall support assignment to specific users for action execution
 
@@ -82,12 +82,12 @@ The Risk Assessment Management System enables systematic identification, evaluat
 
 ### 4.4 Workflow Management
 
-**FR-07:** Risk assessments shall progress through defined statuses:
+**FR-07:** Risk assessments shall progress through defined statuses (per `RiskAssessmentStatus` in `backend/prisma/schema.prisma`):
 ```
-DRAFT → OPEN → WAITING_APPROVAL → DONE
-         ↓
-      REJECTED (with notes) → OPEN (for revision)
+SCHEDULED → DRAFT → OPEN → WAITING_APPROVAL → DONE → CLOSE
+                                            ↘ REJECTED
 ```
+Rejected assessments are terminal in the current implementation; revising a rejected assessment is done by creating a new assessment. (Reconciled with code on 2026-05-24.)
 
 **FR-08:** System shall integrate with approval workflow system based on:
 - Department hierarchy

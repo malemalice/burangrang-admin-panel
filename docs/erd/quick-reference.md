@@ -4,6 +4,8 @@
 
 # ERD Quick Reference Guide
 
+> **Last reconciled with `backend/prisma/schema.prisma`:** 2026-05-24. Sections touched: Inspection (junction inspectors, `InspectionImage`), Incident System (replaces legacy `AccidentReport`), Risk Assessment (Threat→Risk rename, status enum). `WorkPermit` applicant fields (`applicantUserId`, `applicantSignedAt`, `applicantSignature`) confirmed present in schema. When in doubt, `schema.prisma` is authoritative.
+
 ## Core Entities & Relationships
 
 ### User Management
@@ -66,9 +68,9 @@
 
 ### Inspection System
 - **Area** (id, name, code, description, officeId?, isActive)
-- **Inspection** (id, code, inspectorId, areaId, inspectionDate, hseCategoryId, findingIssue, description, assignedDepartmentId, assigneeId?, controlMeasure, followUpNotes, status, isActive, createdBy)
-- **InspectionPhoto** (id, inspectionId, photoUrl, caption, order)
-- **Inspection** ↔ **User** (many-to-many for multiple inspectors)
+- **Inspection** (id, code, areaId, inspectionDate, hseCategoryId, findingIssue, description, assignedDepartmentId, assigneeId?, controlMeasure, followUpNotes, status, isActive, createdBy) — note: inspectors are stored via the `InspectionInspector` junction (no single `inspectorId` column)
+- **InspectionImage** (id, inspectionId, imageUrl, caption, order)
+- **InspectionInspector** (id, inspectionId, inspectorId, order) — junction supporting multiple inspectors per inspection
 - **InspectionChecklist** (id, parentId?, name, code?, description, order, isActive) — self-referencing tree: depth-0=template root, depth-1=category headers, depth-2=leaf items
 - **InspectionRiskRateEnum**: SAFE(1), LOW_HAZARD(2), MODERATE_HAZARD(3), CRITICAL_HAZARD(4)
 - **InspectionItem.checklistId** → **InspectionChecklist** (optional, points to root record only)
@@ -83,10 +85,13 @@
 - **AuditImage** (id, auditId, imageUrl, caption, order)
 - **Audit** ↔ **User** (many-to-many for multiple auditors)
 
-### Accident Report System
-- **AccidentReport** (id, code, accidentDate, areaId, accidentClassification, reportedBy, controlMeasure, dueDate, expectedOutcome, assignedDepartmentId, assigneeId?, status, source, isActive, createdBy)
-- **AccidentReportImage** (id, accidentReportId, imageUrl, caption, order)
-- **AccidentClassificationEnum**: MAJOR, MINOR, FATALITY
+### Incident System
+> The legacy `AccidentReport` / `AccidentReportImage` models have been replaced by `Incident` (see `backend/prisma/schema.prisma`). Old references retained below for example-query parity only.
+- **Incident** (id, code, subject, incidentDate, areaId, type, incidentClassification, priority, sourceId, description, controlMeasure, dueDate, needFurtherInvestigation, treatment, absence, treatmentDescription, needToStopActivity, stopLocally, stopWholeSchool, assignedDepartmentId, assigneeId?, status, isActive, createdBy)
+- **IncidentImage** (id, incidentId, imageUrl, caption, order)
+- **IncidentInjuredPerson** (id, incidentId, injuredPersonName, gender, position?, departmentId?, injuredBodyPart, typeOfInjury, mechanismOfInjury, order)
+- **IncidentWitness** (id, incidentId, witnessName, gender, position?, departmentId?, order)
+- **AccidentClassificationEnum**: MAJOR, MINOR, FATALITY (now used on Incident)
 - **SourceEnum**: SYSTEM, ZOHO
 
 ### Investigation Reports & HFACS Catalogue
@@ -122,8 +127,8 @@
 
 ### Risk Assessment
 - **RiskMatrix** (id, likelihoodLevel, consequenceLevel, interpretation)
-- **RiskAssessment** (id, code, description, departmentId, assessmentDate, createdBy, status, assigneeId?, actionPlan?)
-- **RiskAssessmentItem** (id, riskAssessmentId, mThreatId, mHseCategoryId, likelihoodLevel, consequenceLevel, riskMatrixRating)
+- **RiskAssessment** (id, code, description, departmentId, assessmentDate, createdBy, status, assigneeId?, actionPlan?) — status enum `SCHEDULED|DRAFT|OPEN|WAITING_APPROVAL|DONE|REJECTED|CLOSE`
+- **RiskAssessmentItem** (id, riskAssessmentId, mRiskId, mRiskCategoryId, likelihoodLevel, consequenceLevel, riskMatrixRating, interpretation?, postLikelihoodLevel?, postConsequenceLevel?, postRiskMatrixRating?, postInterpretation?) — note: Threat→Risk rename; references `m_risk` and `m_risk_categories`, not legacy `m_threats`/`m_hse_categories`
 
 ### Notification System
 - **NotificationType** (id, name, description, isActive)
