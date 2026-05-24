@@ -15,7 +15,7 @@ Owns NestJS server-side code: modules, controllers, services, DTOs, guards, Pris
 | [docs/trd/stack-architecture.md](../trd/stack-architecture.md) | Backend architecture overview, stack versions |
 | [docs/trd/constraints-integrations.md](../trd/constraints-integrations.md) | Guard chain, data-scoped entities, API envelope |
 | [docs/erd/index.md](../erd/index.md) → [docs/erd/notes.md](../erd/notes.md) | Naming, soft-delete, data scope |
-| [`backend/erd.md`](../../backend/erd.md), [`backend/erd-quick-reference.md`](../../backend/erd-quick-reference.md) | Entity-specific schema |
+| [docs/erd/full.md](../erd/full.md), [docs/erd/quick-reference.md](../erd/quick-reference.md) | Entity-specific schema |
 | [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma) | Source of truth |
 | Cross-cutting TRDs in `docs/trd-*.md` | Auth, authorization, data-scope, soft-delete, inspection-approval, investigation schema, reminders |
 | [docs/references/index.md](../references/index.md) | Prisma, NestJS, Zod (when needed) |
@@ -39,7 +39,7 @@ Do not extract content from these docs into this file. Reference only.
 - Inject services from `SharedModule`: `PrismaService`, `ErrorHandlingService`, `DtoMapperService`.
 - Use `@AllowOptionsBypass()` on list endpoints that serve dropdowns; `?options=true` skips permission check (JWT still required).
 - Apply `@DataScoped('EntityName')` + `DataScopeGuard` **only** for: Enrollments, Work Permits, Certificates, PPE Withdrawals.
-- Update [`backend/erd.md`](../../backend/erd.md) when `schema.prisma` changes.
+- Update [docs/erd/full.md](../erd/full.md) when `schema.prisma` changes.
 - Add `createdAt`, `updatedAt`, `createdBy` (transactional), soft-delete columns (most tables), `isActive` (master data) per [docs/erd/notes.md](../erd/notes.md).
 - Throw typed exceptions; let `ErrorHandlingService` translate to the response envelope.
 
@@ -58,7 +58,7 @@ Before marking a task complete:
 - [ ] Guard chain wired correctly
 - [ ] DTO has `@ApiProperty()` and validation decorators
 - [ ] Module imports `SharedModule`
-- [ ] If schema changed: `backend/erd.md` updated; migration generated but **not** applied without user approval
+- [ ] If schema changed: [docs/erd/full.md](../erd/full.md) updated; migration generated but **not** applied without user approval
 - [ ] If touched [Approval Module](../trd/backend/modules/approval.md) integration: `t_approvals` only written on approver action, not on status change
 - [ ] If data-scoped entity touched: `@DataScoped()` present
 - [ ] `npm run lint` and `npm run test` pass (run explicitly; do not assume)

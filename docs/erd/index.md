@@ -15,8 +15,8 @@
 ## Authoritative files
 
 - [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma) — source of truth
-- [`backend/erd.md`](../../backend/erd.md) — full ERD documentation
-- [`backend/erd-quick-reference.md`](../../backend/erd-quick-reference.md) — quick lookup
+- [full.md](./full.md) — full ERD documentation
+- [quick-reference.md](./quick-reference.md) — quick lookup
 - `backend/prisma/migrations/` — 138 migrations (do not edit historical migrations; generate new ones)
 
 ## Naming convention (must follow)

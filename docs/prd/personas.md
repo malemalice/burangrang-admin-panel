@@ -1,6 +1,6 @@
 # Personas
 
-Personas are inferred from the RBAC model (`backend/erd.md` → `m_roles`, `_PermissionToRole`) and per-domain PRDs. Authoritative role definitions live in seed data (`backend/prisma/seeds/`).
+Personas are inferred from the RBAC model ([docs/erd/full.md](../erd/full.md) → `m_roles`, `_PermissionToRole`) and per-domain PRDs. Authoritative role definitions live in seed data (`backend/prisma/seeds/`).
 
 ## Admin / Super-admin
 

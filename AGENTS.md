@@ -86,7 +86,7 @@ Each agent, when finished, must output:
 |---|---|
 | Feature / bug (backend) | [docs/index.md](./docs/index.md) → [docs/trd/backend/index.md](./docs/trd/backend/index.md) → specific sub-file |
 | Feature / bug (frontend) | [docs/index.md](./docs/index.md) → [docs/trd/index.md](./docs/trd/index.md) → `frontend/TRD.md` (specific section) |
-| Data / schema | [docs/erd/index.md](./docs/erd/index.md) → `backend/erd.md` / `backend/prisma/schema.prisma` |
+| Data / schema | [docs/erd/index.md](./docs/erd/index.md) → [docs/erd/full.md](./docs/erd/full.md) / `backend/prisma/schema.prisma` |
 | UI / styling | [docs/design-system/index.md](./docs/design-system/index.md) |
 | Per-domain product context | [docs/prd/index.md](./docs/prd/index.md) → relevant `docs/prd-<domain>.md` |
 | Cross-cutting TRDs (auth, soft-delete, etc.) | [docs/trd/index.md](./docs/trd/index.md) → relevant `docs/trd-<topic>.md` |
@@ -115,5 +115,5 @@ The "why" behind every pattern lives in [principles.md](./principles.md) — rea
 - Never run database migrations or seed scripts without explicit user approval.
 - Never hardcode secrets — use env vars (see `backend/.env.example`, `frontend/.env.example`).
 - Never bypass the guard chain: `JwtAuthGuard → RolesGuard → PermissionsGuard → [DataScopeGuard]`.
-- Never edit files under [docs/trd/](./docs/trd/), `backend/erd.md`, or `docs/prd-*.md` / `docs/trd-*.md` without flagging it in your exec-plan — these are authoritative and rarely change.
+- Never edit files under [docs/trd/](./docs/trd/), [docs/erd/](./docs/erd/), or `docs/prd-*.md` / `docs/trd-*.md` without flagging it in your exec-plan — these are authoritative and rarely change.
 - Never use `bg-blue-500` or hex colors — only semantic tokens (see [docs/design-system/tokens.md](./docs/design-system/tokens.md)).

@@ -1,6 +1,6 @@
 # Relationships
 
-> This file documents recurring relationship patterns. Specific relationships live in [`backend/erd.md`](../../backend/erd.md) and [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma).
+> This file documents recurring relationship patterns. Specific relationships live in [full.md](./full.md) and [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma).
 
 ## Common patterns
 
@@ -47,4 +47,4 @@ Let the database enforce what the domain demands.
 
 ## Cardinality cheat-sheet
 
-For a quick visual of who-relates-to-whom, see [`backend/erd-quick-reference.md`](../../backend/erd-quick-reference.md). For the full diagram and field-level detail, see [`backend/erd.md`](../../backend/erd.md).
+For a quick visual of who-relates-to-whom, see [quick-reference.md](./quick-reference.md). For the full diagram and field-level detail, see [full.md](./full.md).

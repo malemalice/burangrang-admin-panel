@@ -4,8 +4,8 @@
 
 ## How to find an entity
 
-1. Quick name lookup: open [`backend/erd-quick-reference.md`](../../backend/erd-quick-reference.md)
-2. Full definition & relationships: open [`backend/erd.md`](../../backend/erd.md), search for the entity name
+1. Quick name lookup: open [quick-reference.md](./quick-reference.md)
+2. Full definition & relationships: open [full.md](./full.md), search for the entity name
 3. Source of truth: open [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma), search for `model <EntityName>`
 
 ## Entity classes by prefix

@@ -14,12 +14,12 @@ If the feature touches >3 files or >1 role: create `docs/exec-plans/active/<feat
 
 ## 2. Schema impact (Backend)
 
-- Read [docs/erd/index.md](../erd/index.md) → search [`backend/erd.md`](../../backend/erd.md) for the affected entity
+- Read [docs/erd/index.md](../erd/index.md) → search [docs/erd/full.md](../erd/full.md) for the affected entity
 - If a schema change is needed:
   - Edit `backend/prisma/schema.prisma`
   - Generate migration (`npx prisma migrate dev --create-only`)
   - **Do not apply** — flag for user approval
-  - Update `backend/erd.md`
+  - Update [docs/erd/full.md](../erd/full.md)
 
 ## 3. Component reuse (Designer / Frontend)
 
@@ -67,7 +67,7 @@ If the feature touches >3 files or >1 role: create `docs/exec-plans/active/<feat
 - [ ] `npm run test` passes (backend)
 - [ ] `npx playwright test` passes (if E2E touched)
 - [ ] TypeScript compiles with no errors
-- [ ] If schema changed: migration generated; `backend/erd.md` updated
+- [ ] If schema changed: migration generated; [docs/erd/full.md](../erd/full.md) updated
 - [ ] Verified manually in browser at `http://localhost:5173` — golden path + at least one edge case
 - [ ] Light AND dark mode both look correct
 - [ ] Keyboard navigation works

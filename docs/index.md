@@ -16,7 +16,7 @@
 |---|---|---|
 | Product Requirements | [prd/index.md](./prd/index.md) | Per-domain PRDs (32 files) + cross-cutting product context |
 | Technical Requirements | [trd/index.md](./trd/index.md) | Stack, deployment, decisions, plus structured [trd/backend/](./trd/backend/) and [trd/frontend/](./trd/frontend/) |
-| Entity Relationship | [erd/index.md](./erd/index.md) | Data models, relationships, naming. Anchors into `backend/erd.md` |
+| Entity Relationship | [erd/index.md](./erd/index.md) | Data models, relationships, naming. Full ERD now lives in `docs/erd/full.md` |
 | Design System | [design-system/index.md](./design-system/index.md) | Tokens, components, motion, accessibility, icons |
 
 ## Agent roles & playbooks
@@ -45,7 +45,7 @@
 These files are already authoritative — do not move or rename:
 
 - `backend/TRD.md`, `frontend/TRD.md` — now redirects; structured content lives in [docs/trd/backend/](./trd/backend/) and [docs/trd/frontend/](./trd/frontend/)
-- `backend/erd.md`, `backend/erd-quick-reference.md` — ERD
+- `backend/erd.md`, `backend/erd-quick-reference.md` — now redirects; ERD content moved to [docs/erd/full.md](./erd/full.md) and [docs/erd/quick-reference.md](./erd/quick-reference.md)
 - `docs/trd-auth.md`, `docs/trd-authorization.md`, `docs/trd-authorization-data-scope-validation.md`, `docs/trd-sidebar-permission-lookup.md`, `docs/trd-soft-delete-inventory.md`, `docs/trd-soft-delete-rollout.md`, `docs/trd-inspection-approval.md`, `docs/trd-inspection-approval-legacy.md`, `docs/trd-investigation-report-schema.md`, `docs/trd-reminders-calendar.md`
 - `docs/prd-*.md` (32 per-domain PRDs)
 - `docs/CONTRIBUTING.md`, `docs/auth-data-level-qa-test-plan.md`, `docs/notification-qa-test-plan.md`, `docs/docs-compliance-gap-audit.md`, `docs/work-permit-gap-audit.md`, `docs/options-query-parameter-gap-audit.md`, `docs/notification-bugs.md`, `docs/investigation-report-accident.md`
