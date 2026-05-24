@@ -49,6 +49,9 @@ import {
   IncidentClassificationEnum,
 } from '@/modules/incidents/types/incident.types';
 import {
+  FIXED_SIGNATORY_SLOTS,
+  SIGNATORY_ROLE_LABELS,
+  InvestigationSignatoryRoleEnum,
   InvestigationStatusEnum,
   type InvestigationReport,
 } from '../types/investigation-report.types';
@@ -161,6 +164,7 @@ const actionPlanSchema = z.object({
 });
 
 const signatorySchema = z.object({
+  signatoryRole: z.string().optional(),
   roleName: z.string().optional(),
   name: z.string().optional(),
   signedAt: z.string().optional(),
@@ -321,11 +325,15 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   }, [leafItems, report]);
 
   const initialSignatories = useMemo(() => {
-    return (report?.signatories ?? []).map((s) => ({
-      roleName: s.roleName ?? '',
-      name: s.name ?? '',
-      signedAt: s.signedAt ? format(new Date(s.signedAt), 'yyyy-MM-dd') : '',
-    }));
+    return FIXED_SIGNATORY_SLOTS.map((role) => {
+      const existing = report?.signatories?.find((s) => s.signatoryRole === role);
+      return {
+        signatoryRole: role,
+        roleName: existing?.roleName ?? '',
+        name: existing?.name ?? '',
+        signedAt: existing?.signedAt ? format(new Date(existing.signedAt), 'yyyy-MM-dd') : '',
+      };
+    });
   }, [report]);
 
   const form = useForm<FormValues>({
@@ -419,7 +427,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const { fields: imageFields, append: appendImage, remove: removeImage } =
     useFieldArray({ control: form.control, name: 'images' });
 
-  const { fields: signatoryFields, append: appendSignatory, remove: removeSignatory } =
+  const { fields: signatoryFields } =
     useFieldArray({ control: form.control, name: 'signatories' });
 
   useEffect(() => {
@@ -535,14 +543,13 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
             : undefined,
           order: i,
         })),
-        signatories: data.signatories
-          .filter((s) => s.roleName || s.name)
-          .map((s, i) => ({
-            roleName: s.roleName || undefined,
-            name: s.name || undefined,
-            signedAt: s.signedAt ? new Date(s.signedAt).toISOString() : undefined,
-            order: i,
-          })),
+        signatories: data.signatories.map((s, i) => ({
+          signatoryRole: (s.signatoryRole as InvestigationSignatoryRoleEnum) || undefined,
+          roleName: s.roleName || undefined,
+          name: s.name || undefined,
+          signedAt: s.signedAt ? new Date(s.signedAt).toISOString() : undefined,
+          order: i,
+        })),
         hsComments: data.hsComments || undefined,
       };
 
@@ -1475,74 +1482,65 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {signatoryFields.map((field, index) => (
-                      <tr key={field.id} className="border-b last:border-0">
-                        <td className="p-2">
-                          <FormField
-                            control={form.control}
-                            name={`signatories.${index}.roleName`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0">
-                                <FormControl>
-                                  <Input {...field} placeholder="e.g. HSE Manager" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
+                    {signatoryFields.map((field, index) => {
+                      const role = field.signatoryRole as InvestigationSignatoryRoleEnum;
+                      const label = role ? SIGNATORY_ROLE_LABELS[role] : null;
+                      return (
+                        <tr key={field.id} className="border-b last:border-0">
+                          <td className="p-2">
+                            {label && (
+                              <p className="text-xs font-medium text-muted-foreground mb-1">
+                                {label.en} / {label.id}
+                              </p>
                             )}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <FormField
-                            control={form.control}
-                            name={`signatories.${index}.name`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0">
-                                <FormControl>
-                                  <Input {...field} placeholder="Full name" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <FormField
-                            control={form.control}
-                            name={`signatories.${index}.signedAt`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0">
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeSignatory(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                            <FormField
+                              control={form.control}
+                              name={`signatories.${index}.roleName`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <Input {...field} placeholder="e.g. HSE Manager" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <FormField
+                              control={form.control}
+                              name={`signatories.${index}.name`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <Input {...field} placeholder="Full name" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <FormField
+                              control={form.control}
+                              name={`signatories.${index}.signedAt`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <Input type="date" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => appendSignatory({ roleName: '', name: '', signedAt: '' })}
-            >
-              <Plus className="mr-1 h-4 w-4" /> Add Signatory
-            </Button>
           </CardContent>
         </Card>
 

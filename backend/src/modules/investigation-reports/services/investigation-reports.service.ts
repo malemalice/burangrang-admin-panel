@@ -335,11 +335,11 @@ export class InvestigationReportsService {
     data: InvestigationReportDto[];
     meta: { total: number; page: number; limit: number };
   }> {
-    const VALID_SORT_FIELDS = ['reportNumber', 'createdAt', 'updatedAt', 'status'] as const;
+    const VALID_SORT_FIELDS = ['reportNumber', 'createdAt', 'updatedAt', 'status', 'incidentDate'] as const;
     const {
       page = 1,
       limit = 10,
-      sortBy: rawSortBy = 'createdAt',
+      sortBy: rawSortBy = 'incidentDate',
       sortOrder = 'desc',
       isActive,
       status,
@@ -355,7 +355,7 @@ export class InvestigationReportsService {
       : 'createdAt';
 
     const where: Prisma.InvestigationReportWhereInput = {};
-    if (isActive !== undefined) where.isActive = isActive;
+    where.isActive = isActive !== undefined ? isActive : true;
     if (status) where.status = Array.isArray(status) ? { in: status } : status;
     if (incidentId) where.incidentId = incidentId;
 
@@ -389,12 +389,17 @@ export class InvestigationReportsService {
     }
 
     const skip = (page - 1) * limit;
+    const orderBy =
+      sortBy === 'incidentDate'
+        ? { incident: { incidentDate: sortOrder as Prisma.SortOrder } }
+        : { [sortBy]: sortOrder };
+
     const [data, total] = await Promise.all([
       this.prisma.investigationReport.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy,
         include: FULL_INCLUDE,
       }),
       this.prisma.investigationReport.count({ where }),
@@ -410,8 +415,8 @@ export class InvestigationReportsService {
     id: string,
     userId: string,
   ): Promise<InvestigationReportDto> {
-    const report = await this.prisma.investigationReport.findUnique({
-      where: { id },
+    const report = await this.prisma.investigationReport.findFirst({
+      where: { id, isActive: true },
       include: FULL_INCLUDE,
     });
     this.errorHandler.throwIfNotFoundById('Investigation Report', id, report);
@@ -437,8 +442,8 @@ export class InvestigationReportsService {
     incidentId: string,
     userId: string,
   ): Promise<InvestigationReportDto | null> {
-    const report = await this.prisma.investigationReport.findUnique({
-      where: { incidentId },
+    const report = await this.prisma.investigationReport.findFirst({
+      where: { incidentId, isActive: true },
       include: FULL_INCLUDE,
     });
     if (!report) return null;
@@ -452,9 +457,15 @@ export class InvestigationReportsService {
   ): Promise<InvestigationReportDto> {
     const existing = await this.prisma.investigationReport.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     this.errorHandler.throwIfNotFoundById('Investigation Report', id, existing);
+    if (existing!.status === InvestigationStatusEnum.COMPLETE) {
+      this.errorHandler.throwForbidden(
+        'Cannot edit a completed investigation report — reopen it first',
+        'investigation-report',
+      );
+    }
 
     // Editing requires HSE role
     const user = await this.resolveUserContext(userId);
@@ -531,9 +542,15 @@ export class InvestigationReportsService {
   async remove(id: string): Promise<InvestigationReportDto> {
     const existing = await this.prisma.investigationReport.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     this.errorHandler.throwIfNotFoundById('Investigation Report', id, existing);
+    if (existing!.status === InvestigationStatusEnum.COMPLETE) {
+      this.errorHandler.throwForbidden(
+        'Cannot delete a completed investigation report',
+        'investigation-report',
+      );
+    }
 
     const report = await this.errorHandler.safeExecute(
       () =>
