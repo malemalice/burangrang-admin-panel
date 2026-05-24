@@ -235,9 +235,6 @@ const formSchema = z.object({
   signatories: z.array(signatorySchema),
 
   hsComments: z.string().optional(),
-  distributionSafetyCommittee: z.boolean().default(false),
-  distributionHeadOfBusinessOp: z.boolean().default(false),
-  distributionRelatedDepartment: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -407,9 +404,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
       signatories: initialSignatories,
 
       hsComments: report?.hsComments ?? '',
-      distributionSafetyCommittee: report?.distributionSafetyCommittee ?? false,
-      distributionHeadOfBusinessOp: report?.distributionHeadOfBusinessOp ?? false,
-      distributionRelatedDepartment: report?.distributionRelatedDepartment ?? false,
     },
   });
 
@@ -550,9 +544,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
             order: i,
           })),
         hsComments: data.hsComments || undefined,
-        distributionSafetyCommittee: data.distributionSafetyCommittee,
-        distributionHeadOfBusinessOp: data.distributionHeadOfBusinessOp,
-        distributionRelatedDepartment: data.distributionRelatedDepartment,
       };
 
       const saved =
@@ -1555,18 +1546,18 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           </CardContent>
         </Card>
 
-        {/* Section L — H&S Comments + Distribution */}
+        {/* Section L — Health & Safety Comments */}
         <Card>
           <CardHeader>
             <CardTitle>L. Health and Safety Comments / Komentar Health and Safety</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <FormField
               control={form.control}
               name="hsComments"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>H&S Comments</FormLabel>
+                  <FormLabel>Health &amp; Safety Comments</FormLabel>
                   <FormControl>
                     <Editor value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
@@ -1574,35 +1565,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 </FormItem>
               )}
             />
-            <div className="space-y-2">
-              <Label>Distribution / Distribusi</Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {(
-                  [
-                    ['distributionSafetyCommittee', 'Safety Committee'],
-                    ['distributionHeadOfBusinessOp', 'Head of Business Operation'],
-                    ['distributionRelatedDepartment', 'Related Department'],
-                  ] as const
-                ).map(([name, label]) => (
-                  <FormField
-                    key={name}
-                    control={form.control}
-                    name={name}
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 rounded-md border p-3">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <Label className="font-normal cursor-pointer">{label}</Label>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </div>
-            </div>
           </CardContent>
         </Card>
 

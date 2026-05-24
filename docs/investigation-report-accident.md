@@ -62,12 +62,11 @@ An investigation report may only be created when the linked incident has been fl
 
 | Actor | Description |
 |---|---|
-| **HSE Officer / HSE Manager** | Sets `needFurtherInvestigation` on incident; creates, edits, and submits investigation reports; signs Section L |
+| **HSE Officer / HSE Manager** | Sets `needFurtherInvestigation` on incident; creates, edits, and completes investigation reports; writes Section L comments |
 | **Lead Investigator** | Signs Section K as Penyidik 1 |
 | **2nd / 3rd Investigator** | Signs Section K as Penyidik 2/3 |
 | **Related Manager** | Signs Section K as Manager terkait |
 | **Security Representative** | Signs Section K |
-| **H&S Reviewer** | Reviews submitted reports; writes Section L comments |
 | **Read-only Viewer** | Related department staff; can view but not edit |
 
 ---
@@ -611,34 +610,20 @@ Each slot captures: `roleName` (e.g., "HSE Manager"), `name` (full name), `signa
 
 | Field | EN Label | ID Label | Type |
 |---|---|---|---|
-| hsComments | H&S Comments | Komentar Health and Safety | text (plain, multi-line — line breaks preserved; rich HTML not supported) |
-| hsCommentSignedBy | Signed by | Ditandatangani oleh | FK → t_users |
-| hsCommentSignedAt | Date | Tanggal | date |
-
-**Distribution (Distribusi):**
-
-| Field | EN Label | ID Label | Type |
-|---|---|---|---|
-| distributionSafetyCommittee | Safety Committee | Safety Committee | boolean checkbox |
-| distributionHeadOfBusinessOp | Head of Business Operation | Head of Business Operation | boolean checkbox |
-| distributionRelatedDepartment | Related Department | Related Department | boolean checkbox |
+| hsComments | Health & Safety Comments | Komentar Health and Safety | text (plain, multi-line — line breaks preserved; rich HTML not supported) |
 
 ---
 
 ## 4. Status Workflow
 
 ```
-DRAFT ──► SUBMITTED ──► REVIEWED ──► APPROVED
-  ▲                         │
-  └─────────────────────────┘ (returned for revision)
+DRAFT ──► COMPLETE
 ```
 
 | Transition | Trigger | Actor |
 |---|---|---|
-| → SUBMITTED | "Submit for Review" action | Any authorized creator |
-| → REVIEWED | H&S signs Section L | H&S Officer / H&S Manager |
-| → APPROVED | Final approval action | H&S Manager |
-| REVIEWED → DRAFT | "Return for Revision" action | H&S Manager |
+| → COMPLETE | "Save & Mark Complete" action | HSE Officer / HSE Manager |
+| COMPLETE → DRAFT | Edit action (reopens to draft) | HSE Officer / HSE Manager |
 
 ---
 
@@ -655,9 +640,9 @@ DRAFT ──► SUBMITTED ──► REVIEWED ──► APPROVED
 | FR-007 | Sections H and I SHALL render the full HFACS catalogue as checkboxes. Each checked item results in one row in `t_investigation_causes`. "Others" checkboxes SHALL expose a free-text input for `customNotes`. |
 | FR-008 | Section J SHALL support adding, editing, reordering, and deleting remedial action plan items. Each item SHALL track: action plan text, responsible person (free text), target date (or TBD note), and verification date. |
 | FR-009 | Section K SHALL present 5 signature slots. Each slot SHALL allow capture of: role label (editable), full name, signature image upload, and signed date. |
-| FR-010 | Section L SHALL allow the H&S Officer to add comments (rich text) and capture their signature with date. |
-| FR-011 | Distribution checkboxes (Section L) SHALL be togglable at any time by authorized users. The system SHALL record when each distribution flag was last set. |
-| FR-012 | The system SHALL enforce the status workflow: DRAFT → SUBMITTED → REVIEWED → APPROVED. Status transitions SHALL be logged with timestamp and actor. |
+| FR-010 | Section L SHALL allow the H&S Officer to add plain-text Health & Safety comments (line breaks preserved). |
+| FR-011 | ~~Removed — distribution checkboxes are not implemented.~~ |
+| FR-012 | The system SHALL support two statuses: `DRAFT` and `COMPLETE`. The "Save & Mark Complete" action transitions a report from DRAFT to COMPLETE. A COMPLETE report can be reopened to DRAFT via the Edit action. |
 | FR-013 | The system SHALL generate a PDF export of the completed report that matches the original BSJ/F/H-3-3.5C/Rev1 form layout. The PDF SHALL use the react-to-pdf client-side pattern. |
 | FR-014 | The list view SHALL support filtering by: status, incident date range, incident type, area, and investigator. Pagination and search SHALL persist in URL via `useSearchParams`. |
 | FR-015 | The system SHALL flag action plan items as overdue when: `targetDate` is set AND `targetDate < today` AND `verificationDate` is null. Overdue items SHALL be visually highlighted and filterable. |
@@ -666,7 +651,7 @@ DRAFT ──► SUBMITTED ──► REVIEWED ──► APPROVED
 | FR-018 | The PDF export SHALL match the per-section rendering contract in §3.0 and the cross-cutting rules in §3.1, preserving visual parity with `BSJ/F/H-3-3.5C/Rev1`. |
 | FR-019 | The HFACS matrix (Sections H & I) SHALL use semantic theme tokens for tier bands and selected-leaf highlights. Raw hex / HSL / Tailwind palette colors are prohibited; the matrix MUST render correctly in both light and dark mode. |
 | FR-020 | Section J SHALL render `targetDateNotes` verbatim in the Target Date column when `targetDate` is null, in Form (read-back), Detail, and PDF. |
-| FR-021 | The Detail page SHALL expose status-aware actions: **Edit** (DRAFT), **Submit for Review** (DRAFT), **Approve** + **Return for Revision** (REVIEWED), **Export PDF** (any status), gated by both current status and user role per the workflow in §4. Buttons not applicable to the current status MUST be hidden, not just disabled. |
+| FR-021 | The Detail page SHALL expose status-aware actions: **Edit** (DRAFT only), **Export PDF** (any status). Buttons not applicable to the current status MUST be hidden, not just disabled. |
 | FR-022 | The list page SHALL display columns: Report No, Incident Date, Area, Incident Type, Status, Lead Investigator, Actions. Default sort: Incident Date desc. Persist sort, pagination, search, and filters in URL via `useSearchParams` (per existing list-page convention). |
 
 ---

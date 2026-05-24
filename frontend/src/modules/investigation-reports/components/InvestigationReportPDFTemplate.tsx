@@ -260,20 +260,10 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
       </table>
 
       <PdfSectionTitle>
-        L. H&S Comments / Komentar Health and Safety
+        L. Health &amp; Safety Comments / Komentar Health and Safety
       </PdfSectionTitle>
       <p style={{ whiteSpace: 'pre-line', marginBottom: 8 }}>
         {report.hsComments ?? '—'}
-      </p>
-      <p style={{ marginBottom: 12 }}>
-        Distribution:{' '}
-        {[
-          report.distributionSafetyCommittee && 'Safety Committee',
-          report.distributionHeadOfBusinessOp && 'Head of Business Operation',
-          report.distributionRelatedDepartment && 'Related Department',
-        ]
-          .filter(Boolean)
-          .join(', ') || '—'}
       </p>
 
       <div

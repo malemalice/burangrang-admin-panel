@@ -399,23 +399,12 @@ const InvestigationReportDetailPage = () => {
           <CardHeader>
             <CardTitle>L. Health and Safety Comments / Komentar Health and Safety</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="text-sm">
             <div>
-              <Label className="text-muted-foreground">Comments</Label>
+              <Label className="text-muted-foreground">Health &amp; Safety Comments</Label>
               {report.hsComments
                 ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.hsComments }} />
                 : <p className="text-muted-foreground">—</p>}
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant={report.distributionSafetyCommittee ? 'default' : 'outline'}>
-                Safety Committee
-              </Badge>
-              <Badge variant={report.distributionHeadOfBusinessOp ? 'default' : 'outline'}>
-                Head of Business Op.
-              </Badge>
-              <Badge variant={report.distributionRelatedDepartment ? 'default' : 'outline'}>
-                Related Department
-              </Badge>
             </div>
           </CardContent>
         </Card>
