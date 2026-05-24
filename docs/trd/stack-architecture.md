@@ -57,14 +57,13 @@
 - Core: `frontend/src/core/` (components/ui — shadcn primitives, contexts, hooks, lib, pages, routes, types, utils)
 - Shared: `frontend/src/shared/`
 
-**Read these sections of `frontend/TRD.md` before frontend work:**
-- §Target Folder Structure (line 73)
-- §Module Structure Template (line 126)
-- §Technical Implementation Guidelines → Imports, Routes, Communication (line 156)
-- §UI/UX Principles (line 236)
-- §Layout & Structure Patterns (line 306)
-- §Component Patterns → Tables, Filters, Modals, Status, Workflow (line 337)
-- §Form Page Specific Guidelines (line 776)
+**Read the relevant sub-file in [docs/trd/frontend/](./frontend/) before frontend work:**
+- [folder-structure.md](./frontend/folder-structure.md)
+- [module-template.md](./frontend/module-template.md)
+- [implementation-guidelines.md](./frontend/implementation-guidelines.md) — imports, routes, communication
+- [module-interaction.md](./frontend/module-interaction.md) — API calls, tables, CRUD, forms, error handling
+- [docs/design-system/principles.md](../design-system/principles.md) — UI/UX principles, layout, component patterns, workflow/status, form guidelines
+- [docs/design-system/patterns.md](../design-system/patterns.md) — Design system reference: color, typography, spacing, theme
 
 ## Cross-cutting
 

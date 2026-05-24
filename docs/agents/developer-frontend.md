@@ -10,7 +10,9 @@ Owns React + Vite client-side code: feature modules, routes, pages, components, 
 
 | Doc | Sections relevant to this role |
 |---|---|
-| [`frontend/TRD.md`](../../frontend/TRD.md) | §Target Folder Structure (L73), §Module Structure Template (L126), §Technical Implementation Guidelines (L156), §UI/UX Principles (L236), §Layout Patterns (L306), §Component Patterns (L337), §Document Workflow & Status (L386), §PDF Export (L720), §Form Page Guidelines (L776) |
+| [docs/trd/frontend/index.md](../trd/frontend/index.md) | Cross-cutting frontend patterns. Open only the sub-file relevant: [folder-structure.md](../trd/frontend/folder-structure.md), [module-template.md](../trd/frontend/module-template.md), [implementation-guidelines.md](../trd/frontend/implementation-guidelines.md), [module-interaction.md](../trd/frontend/module-interaction.md), [guidance.md](../trd/frontend/guidance.md), [reference.md](../trd/frontend/reference.md) |
+| [docs/design-system/principles.md](../design-system/principles.md) | UI/UX principles, layout, component patterns, workflow/status rendering, form guidelines (deep) |
+| [docs/design-system/patterns.md](../design-system/patterns.md) | Color system, typography, spacing, theme, animations, DO/DON'T (deep) |
 | [docs/design-system/index.md](../design-system/index.md) | All sub-files: tokens, components, motion, accessibility, icons |
 | [docs/trd/stack-architecture.md](../trd/stack-architecture.md) | Frontend stack + module structure |
 | [docs/trd/constraints-integrations.md](../trd/constraints-integrations.md) | API envelope, workflow constraints |
@@ -55,7 +57,7 @@ Do not extract content from these docs into this file. Reference only.
 ## Checklist
 
 Before marking a task complete:
-- [ ] Module structure matches `frontend/TRD.md` template (routes / pages / components / services / hooks / types)
+- [ ] Module structure matches [docs/trd/frontend/module-template.md](../trd/frontend/module-template.md) (routes / pages / components / services / hooks / types)
 - [ ] Service layer transforms DTOs (no raw API shapes in components)
 - [ ] Form uses React Hook Form + Zod
 - [ ] Tables use `DataTable`; pages use `PageHeader`

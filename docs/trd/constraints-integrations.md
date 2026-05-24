@@ -24,7 +24,7 @@
 
 - Approval steps are **always** read from `Master Approval` config — never hardcoded approver names.
 - Workflow status order (default): `DRAFT/SCHEDULED → OPEN → WAITING_APPROVAL → DONE/REJECTED`
-- Approval timeline rendering: `history[]` (actual `t_approvals` rows) first, then non-completed entries from `allApprovalLines[]` deduped by `(dept.id + jobPosition.id + line)`. See [docs/agents/developer-frontend.md](../agents/developer-frontend.md), [docs/trd/backend/modules/approval.md](./backend/modules/approval.md), and `frontend/TRD.md` §Document Workflow & Status Management Patterns (until Phase 2 completes).
+- Approval timeline rendering: `history[]` (actual `t_approvals` rows) first, then non-completed entries from `allApprovalLines[]` deduped by `(dept.id + jobPosition.id + line)`. See [docs/agents/developer-frontend.md](../agents/developer-frontend.md), [docs/trd/backend/modules/approval.md](./backend/modules/approval.md), and [docs/design-system/principles.md](../design-system/principles.md) §Document Workflow & Status Management Patterns.
 
 ## API constraints
 

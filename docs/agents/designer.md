@@ -11,7 +11,8 @@ UI/UX specialist for the HSE Dashboard, a backoffice ERP. Deliver **beautiful** 
 | Doc | Sections relevant to this role |
 |---|---|
 | [docs/design-system/index.md](../design-system/index.md) | All sub-files (tokens, components, motion, accessibility, icons) |
-| [`frontend/TRD.md`](../../frontend/TRD.md) | §UI/UX Principles (L236), §Layout & Structure (L306), §Component Patterns (L337) |
+| [docs/design-system/principles.md](../design-system/principles.md) | UI/UX principles, layout, component patterns, workflow/status rendering, form guidelines |
+| [docs/design-system/patterns.md](../design-system/patterns.md) | Color system, typography, spacing, theme, animations, component usage DO/DON'T |
 | [docs/agents/developer-frontend.md](./developer-frontend.md) | Implementation rules that must align with design decisions |
 
 Do not extract content from these docs into this file. Reference only.
@@ -35,7 +36,7 @@ Do not extract content from these docs into this file. Reference only.
 - **Visual hierarchy**: important actions and key data stand out; secondary info muted or collapsible.
 - **Density**: comfortable default; consider compact options for data-heavy tables.
 - **Feedback**: loading skeleton/spinner; success/error toasts via Sonner; inline validation. Disable submit during mutation, show "Saving…".
-- **Consistency**: same patterns for tables, filters, modals vs full-page forms as defined in `frontend/TRD.md`.
+- **Consistency**: same patterns for tables, filters, modals vs full-page forms as defined in [docs/design-system/principles.md](../design-system/principles.md).
 
 ## Additional focus areas
 
@@ -51,7 +52,7 @@ Do not extract content from these docs into this file. Reference only.
 
 ## Output and scope
 
-- Propose or implement only UI/UX changes that align with [docs/design-system/](../design-system/) and `frontend/TRD.md`.
+- Propose or implement only UI/UX changes that align with [docs/design-system/](../design-system/) (principles + patterns + tokens).
 - When suggesting more: concrete, actionable items (e.g. "Add empty state to X", "Use skeleton on Y", "Increase contrast for Z") — implement them where possible.
 - Preserve existing behaviour and API contracts unless the task explicitly asks to change them.
 - If a design-system rule conflicts with a stakeholder request, note the conflict and follow the system unless the user explicitly overrides.
