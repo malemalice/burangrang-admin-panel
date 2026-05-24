@@ -1762,9 +1762,7 @@ export class DashboardService {
 
     const reports = await this.prisma.waterQualityLabReport.findMany({
       where: {
-        isActive: true,
         category,
-        status: WaterQualityLabReportStatusEnum.DONE,
         reportDate: { gte: yearStart, lt: yearEnd },
       },
       select: {

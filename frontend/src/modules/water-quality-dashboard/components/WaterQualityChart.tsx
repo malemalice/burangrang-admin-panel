@@ -144,6 +144,7 @@ export function WaterQualityChart({ data }: WaterQualityChartProps) {
                     y={averageValue}
                     stroke="#EF4444"
                     strokeWidth={2}
+                    ifOverflow="extendDomain"
                     label={{
                       value: `Average ${averageValue.toFixed(2)}`,
                       position: 'insideTopRight',
@@ -158,6 +159,7 @@ export function WaterQualityChart({ data }: WaterQualityChartProps) {
                     stroke="#F59E0B"
                     strokeDasharray="5 5"
                     strokeWidth={2}
+                    ifOverflow="extendDomain"
                     label={{
                       value: `Regulatory Limit ${parameter.regulatoryLimit}`,
                       position: 'insideBottomRight',
