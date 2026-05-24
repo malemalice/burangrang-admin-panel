@@ -85,6 +85,11 @@ export class CreateInvestigationReportDto {
   @ApiProperty({ type: [String], default: [], required: false })
   mechanismsSummary?: string[];
 
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false, nullable: true, description: 'Section B1 — URL of the annotated body diagram PNG' })
+  bodyDiagramUrl?: string;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => UpsertInvestigationCostDto)

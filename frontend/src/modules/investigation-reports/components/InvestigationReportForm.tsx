@@ -55,6 +55,7 @@ import {
 import hfacsNodeService from '@/modules/master-data/services/hfacsNodeService';
 import type { HfacsNodeDTO } from '@/modules/master-data/types/master-data.types';
 import type { SearchableSelectOption } from '@/core/components/ui/searchable-select';
+import BodyDiagramCanvas from './BodyDiagramCanvas';
 
 // ── Enum label maps ────────────────────────────────────────────────────────────
 
@@ -198,6 +199,7 @@ const formSchema = z.object({
   bodyPartsSummary: z.array(z.string()).default([]),
   injuryTypesSummary: z.array(z.string()).default([]),
   mechanismsSummary: z.array(z.string()).default([]),
+  bodyDiagramUrl: z.string().nullable().optional(),
 
   // Section A1/A2 — investigation-specific
   taskBeingPerformed: z.string().optional(),
@@ -344,6 +346,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
       bodyPartsSummary: report?.bodyPartsSummary ?? [],
       injuryTypesSummary: report?.injuryTypesSummary ?? [],
       mechanismsSummary: report?.mechanismsSummary ?? [],
+      bodyDiagramUrl: report?.bodyDiagramUrl ?? null,
 
       // Section A1/A2
       taskBeingPerformed: report?.taskBeingPerformed ?? '',
@@ -517,6 +520,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         bodyPartsSummary: data.bodyPartsSummary,
         injuryTypesSummary: data.injuryTypesSummary,
         mechanismsSummary: data.mechanismsSummary,
+        bodyDiagramUrl: data.bodyDiagramUrl ?? null,
         cost: {
           medicalCost: parseNumber(data.costMedical),
           lostTimeCost: parseNumber(data.costLostTime),
@@ -814,7 +818,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         </Card>
 
         {/* Section B — Injury Details (reactive from Section C + editable B4) */}
-        <SectionBEditable form={form} />
+        <SectionBEditable form={form} uploadCategoryId={uploadCategoryId} />
 
         {/* Section C — Injured Persons (editable) */}
         <Card>
@@ -1693,12 +1697,13 @@ const INCIDENT_CLASSIFICATION_OPTIONS: { value: IncidentClassificationEnum; en: 
 
 interface SectionBEditableProps {
   form: ReturnType<typeof useForm<FormValues>>;
+  uploadCategoryId: string | null;
 }
 
 const toggleArrayValue = (arr: string[], value: string): string[] =>
   arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 
-const SectionBEditable = ({ form }: SectionBEditableProps) => {
+const SectionBEditable = ({ form, uploadCategoryId }: SectionBEditableProps) => {
   const bodyPartsSummary = form.watch('bodyPartsSummary');
   const injuryTypesSummary = form.watch('injuryTypesSummary');
   const mechanismsSummary = form.watch('mechanismsSummary');
@@ -1728,6 +1733,16 @@ const SectionBEditable = ({ form }: SectionBEditableProps) => {
           }))}
           onToggle={(value) => toggle('bodyPartsSummary', value)}
         />
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            B1. Body Diagram / Diagram Tubuh
+          </p>
+          <BodyDiagramCanvas
+            value={form.watch('bodyDiagramUrl')}
+            onChange={(url) => form.setValue('bodyDiagramUrl', url, { shouldDirty: true })}
+            uploadCategoryId={uploadCategoryId}
+          />
+        </div>
         <BGroupEditable
           label="B2. Type of Injury / Tipe Cidera"
           items={TYPE_OF_INJURY_ROWS_B.map((row) => ({

@@ -3460,6 +3460,7 @@ model InvestigationReport {
   bodyPartsSummary   String[]
   injuryTypesSummary String[]
   mechanismsSummary  String[]
+  bodyDiagramUrl     String?  @db.Text
 
   isActive  Boolean  @default(true)
   createdBy String

@@ -153,7 +153,7 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
 
       {incident && (
         <>
-          <IncidentSectionB incident={incident} variant="pdf" />
+          <IncidentSectionB incident={incident} variant="pdf" bodyDiagramUrl={report.bodyDiagramUrl} />
           <IncidentSectionC incident={incident} variant="pdf" />
           <IncidentSectionD incident={incident} variant="pdf" />
           <IncidentSectionE incident={incident} variant="pdf" />

@@ -244,7 +244,7 @@ const InvestigationReportDetailPage = () => {
 
         {report.incident && (
           <>
-            <IncidentSectionB incident={report.incident} />
+            <IncidentSectionB incident={report.incident} bodyDiagramUrl={report.bodyDiagramUrl} />
             <IncidentSectionC incident={report.incident} />
             <IncidentSectionD incident={report.incident} />
             <IncidentSectionE incident={report.incident} />

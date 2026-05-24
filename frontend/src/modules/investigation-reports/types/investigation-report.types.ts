@@ -91,6 +91,7 @@ export interface InvestigationReport {
   bodyPartsSummary: string[];
   injuryTypesSummary: string[];
   mechanismsSummary: string[];
+  bodyDiagramUrl?: string | null;
   isActive: boolean;
   createdBy: string;
   creator?: User;
@@ -159,6 +160,7 @@ export interface CreateInvestigationReportDTO {
   bodyPartsSummary?: string[];
   injuryTypesSummary?: string[];
   mechanismsSummary?: string[];
+  bodyDiagramUrl?: string | null;
   cost?: UpsertInvestigationCostInput;
   causes?: UpsertInvestigationCauseInput[];
   actionPlans?: UpsertInvestigationActionPlanInput[];

@@ -77,6 +77,10 @@ export class InvestigationReportDto {
   @Expose()
   mechanismsSummary: string[];
 
+  @ApiProperty({ required: false, nullable: true })
+  @Expose()
+  bodyDiagramUrl?: string | null;
+
   @ApiProperty()
   @Expose()
   isActive: boolean;

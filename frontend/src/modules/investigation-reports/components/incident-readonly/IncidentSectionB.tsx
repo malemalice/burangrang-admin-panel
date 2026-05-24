@@ -8,10 +8,12 @@ import {
   type Incident,
 } from '@/modules/incidents/types/incident.types';
 import SectionShell, { type SectionVariant } from './SectionShell';
+import BodyDiagramCanvas from '../BodyDiagramCanvas';
 
 interface Props {
   incident: Incident;
   variant?: SectionVariant;
+  bodyDiagramUrl?: string | null;
 }
 
 // PRD §B1 — HEAD and NECK collapse into a single "Head / Neck" choice.
@@ -77,7 +79,7 @@ const LEVEL_OF_INJURY_ROWS: Array<{
   { value: IncidentClassificationEnum.FATALITY, en: 'Fatality (loss of life)', id: 'Kehilangan nyawa' },
 ];
 
-const IncidentSectionB = ({ incident, variant = 'card' }: Props) => {
+const IncidentSectionB = ({ incident, variant = 'card', bodyDiagramUrl }: Props) => {
   const persons = incident.injuredPersons ?? [];
   const hasPersons = persons.length > 0;
 
@@ -115,6 +117,16 @@ const IncidentSectionB = ({ incident, variant = 'card' }: Props) => {
             label: `${r.en} / ${r.id}`,
             checked: isBodyPartChecked(r),
           })),
+        )}
+        {bodyDiagramUrl && (
+          <>
+            <p style={{ fontWeight: 600, margin: '8px 0 4px' }}>B1. Body Diagram / Diagram Tubuh</p>
+            <img
+              src={bodyDiagramUrl}
+              alt="Body diagram"
+              style={{ maxWidth: '100%', maxHeight: 320, border: '1px solid #ccc', display: 'block' }}
+            />
+          </>
         )}
         <p style={{ fontWeight: 600, margin: '8px 0 4px' }}>B2. Type of Injury</p>
         {pdfList(
@@ -187,6 +199,12 @@ const IncidentSectionB = ({ incident, variant = 'card' }: Props) => {
           />
         </div>
       )}
+      <div className="mt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          B1. Body Diagram / Diagram Tubuh
+        </p>
+        <BodyDiagramCanvas value={bodyDiagramUrl} readOnly />
+      </div>
     </SectionShell>
   );
 };
