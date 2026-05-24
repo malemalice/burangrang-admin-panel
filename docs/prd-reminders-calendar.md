@@ -3,16 +3,18 @@
 **Document type:** PRD
 **Status:** Draft
 **Audience:** Product, Backend, Frontend
-**Last updated:** 2026-05-18
+**Last updated:** 2026-05-24
 
 ## Overview
 
 Today the `reminders` module supports creating scheduled reminders centrally and sending notifications when due. This PRD extends it in two directions:
 
-1. **Per-module attach** — modules across the app (starting with Waste Management → Monthly Flow Reports) can attach reminders to their own records or to module-level subjects (e.g. treatment plants), without each module reimplementing reminder logic.
-2. **Calendar view** — a Google-Calendar-style view that lets users see upcoming and missed reminders across all modules at a glance, with deep-links back to the originating record or module.
+1. **Per-module attach** — modules across the app can host a Reminders section on their **list page** (e.g. `/waste-management/monthly-flow-reports`), without each module reimplementing reminder logic. Reminders are configured *at the module level*; they are not bound to a specific record id. A reminder may optionally be filed under a *subject* (e.g. Treatment Plant #2) picked from a per-module combobox.
+2. **Calendar view** — a Google-Calendar-style view that lets users see upcoming and missed reminders across all modules at a glance, with deep-links back to the originating module (filtered by subject when applicable).
 
-**Scope:** Backend `reminders` module (schema additions, occurrences model, query API); frontend `reminders` module (calendar page, shared per-module attach component); integration points in modules that opt-in (initial: monthly-flow-reports via treatment-plants).
+**Scope:** Backend `reminders` module (schema additions, occurrences model, query API); frontend `reminders` module (calendar page, shared list-page section component + per-module subject pickers); integration on the four initial host pages — Monthly Flow Reports, Water Quality Lab Reports, Weight Reports, Environmental Measurements.
+
+**Why list pages, not detail pages:** putting the Reminders section on a record's detail page (e.g. Treatment Plant #2) quietly implies the reminder belongs to that record. The actual model is that reminders belong to the **workflow** (the module), with subject as an optional pivot. Detail pages were tried and rejected during implementation.
 
 **Out of scope:** Replacing the existing `notifications` module. Reminders continue to *produce* notifications; the calendar consumes reminder occurrences directly.
 
@@ -40,7 +42,8 @@ This separation resolves an ambiguity in the previous model: when a treatment pl
 
 ## Key Features
 
-- **Per-module attach component** — shared frontend section (`<RemindersSection entity subjectType subjectId>`) that any module's detail page can drop in to list/create/edit reminders scoped to that context.
+- **Per-module attach component** — shared frontend section (`<RemindersSection entity subjectPicker?>`) that a module's **list page** drops in. The section lists all reminders for that module and exposes a "+ New" button that opens a create dialog.
+- **Subject as an optional picker** — modules that have a meaningful subject expose a per-module picker (e.g. Treatment Plant for Monthly Flow Reports, Room for Environmental Measurements). The user can pick one when creating, or leave it blank for a module-wide reminder. Subject is a *property* of the reminder, not a *scope* that constrains where the section lives.
 - **Subject-aware reminders** — `subjectType` + `subjectId` columns on the reminder row, nullable, queryable, deep-linkable.
 - **Occurrences as first-class data** — each scheduled fire of a recurring reminder is its own row in `t_reminder_occurrences`, with independent state (scheduled / fired / acknowledged / dismissed / missed). Enables historical view and per-occurrence ack.
 - **Calendar page** — month / week / agenda views; events grouped by day; color/icon by module; click event → side panel with details + "open record" deep-link + ack/dismiss actions.
@@ -53,8 +56,9 @@ This separation resolves an ambiguity in the previous model: when a treatment pl
 
 Existing permissions remain (`reminder:list`, `reminder:create`, `reminder:update`, `reminder:delete`, `reminder:read`). New behavior:
 
-- **Edit rights for group-targeted reminders** — see open decision below. Default proposal: creator + users with `reminder:manage-department` for the targeted department.
-- **Per-module attach respects module permissions** — to attach a reminder to a Monthly Flow Report, user must have list access to that module. The reminders permissions are also checked.
+- **Edit rights for group-targeted reminders** — creator + users with `reminder:manage-department` for the targeted department (locked in §"Resolved Decisions").
+- **Section button visibility (frontend)** — the section's "+ New", edit, and delete buttons are wrapped with `PermissionGuard`. Users without `reminder:create` see the section header + the rows but no create button; without `reminder:update` they see no edit pencil; without `reminder:delete` they see no trash icon. A user with only `reminder:list` sees a read-only section.
+- **Required role grant** — the `reminder:*` permissions live in `permissions.seed.ts` but must be **assigned to each role** that should see the section. If a role has no `reminder:list`, the section's list query 403s and the section renders its empty state (with the create button gated by `reminder:create`).
 - **Calendar view requires `reminder:list`**. Same scoping rules as the existing list endpoint.
 
 ## Functional Requirements
@@ -89,17 +93,18 @@ Existing permissions remain (`reminder:list`, `reminder:create`, `reminder:updat
 
 ## User Stories
 
-- As a Production dept user, I can open the Treatment Plant #2 detail page and see/manage reminders tied to that plant.
-- As a Production dept user, I receive a notification when Plant #2's monthly flow report is due, and on the calendar I see this as an event linking me to the monthly-flow-reports list filtered by Plant #2.
+- As a Production dept user, I open the **Monthly Flow Reports list page** and see the Reminders section at the bottom; from there I can configure per-plant monthly reminders.
+- As a Production dept user, I create three separate reminders on that page — one for Plant #1 (day 5), one for Plant #2 (day 10), one for Plant #3 (day 15) — by picking the plant in the "Treatment plant (optional)" combobox in the create dialog.
+- As a Production dept user, I receive a notification when Plant #2's monthly flow report is due, and on the calendar I see this as an event linking me to the Monthly Flow Reports list filtered by Plant #2.
 - As a user, I can open the Reminders Calendar to see all reminders relevant to me this month, distinguishing upcoming, missed, and completed events.
-- As a user, I can click a calendar event to see details and either acknowledge it or open the related record.
-- As a dept manager, I can create a recurring department-level reminder ("submit monthly flow report on the 10th") without tying it to any specific report record.
-- As a user, when the original creator of a department reminder leaves the company, a current dept manager can still edit or cancel that recurring reminder.
+- As a user, I can click a calendar event to see details and either acknowledge it or open the related module page.
+- As a dept manager, I can create a recurring department-level reminder ("submit a monthly flow report on the 10th") without picking any specific plant — leaving the subject blank scopes the reminder to the whole module.
+- As a user, when the original creator of a department reminder leaves the company, a current dept manager (with `reminder:manage-department`) can still edit or cancel that recurring reminder.
 
 ## Key Workflows
 
-1. **Create reminder from module page**
-   User on Treatment Plant #2 detail → "Reminders" section → "+ New" → form pre-fills `entity=monthly-flow-reports`, `subjectType=treatment-plant`, `subjectId=#2` → user picks target, message, recurrence → save → backend creates reminder + materializes first N occurrences.
+1. **Create reminder from a module list page**
+   User on `/waste-management/monthly-flow-reports` → scrolls to the "Reminders" section at the bottom → "+ New" → dialog opens with `entity` pre-filled (`monthly-flow-reports`) and a "Treatment plant (optional)" combobox → user picks Plant #2 (or leaves blank), sets message, schedule (Monthly, day 10), and recipient → save → backend persists `entity=monthly-flow-reports`, `subjectType=treatment-plant`, `subjectId=<plant-2-id>` and materialises first N occurrences.
 
 2. **Scheduler fires an occurrence**
    Cron picks up `SCHEDULED` occurrences with `scheduledAt <= now` → creates notification via existing pipeline → stamps `firedAt` and state `FIRED` on the occurrence → if recurring, ensures next occurrence is materialized.
@@ -211,56 +216,70 @@ Conventions:
 - "Acknowledge" remains available for MISSED occurrences (late ack clears the missed flag).
 - "Open in module" uses the deep-link resolver (see TRD §4.4).
 
-### Layout 3 — Setup: `RemindersSection` on a module detail page
+### Layout 3 — Setup: `RemindersSection` on a module **list page**
 
-This is where reminders are created and managed in context. Treatment Plant detail page shown — same component drops onto any module's detail page.
+This is where reminders are created and managed. Monthly Flow Reports list page shown — the same component drops onto each of the four initial host pages.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│ ← Back to Treatment Plants                                                          │
-│ Treatment Plant #2                                                       [Edit plant]│
+│ Monthly Flow Reports                                              [+ New Report]    │
+│ Manage monthly waste flow submissions                                               │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ Details ───────────────┐  ┌─ Operations ────────────┐  ┌─ Reports ────────────┐ │
-│ │ Code         TP-002     │  │ Status       Active     │  │ Last flow report     │ │
-│ │ Capacity     500 m³/d   │  │ Commissioned 2023-08    │  │   2026-04-30  ✓      │ │
-│ │ Location     Site North │  │ Operator     Production │  │ Next due  2026-05-10 │ │
-│ └─────────────────────────┘  └─────────────────────────┘  └─────────────────────┘ │
+│ [Search…]  [Filters]                                                                │
+│                                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │ Code      │ Plant     │ Period   │ Submitted   │ Status    │ Actions  │    │    │
+│  ├─────────────────────────────────────────────────────────────────────────────┤    │
+│  │ FR-2026-03│ Plant #1  │ 2026-04  │ 2026-05-04  │ Approved  │ … │    │       │    │
+│  │ FR-2026-04│ Plant #2  │ 2026-04  │ 2026-05-08  │ Submitted │ … │    │       │    │
+│  │ FR-2026-05│ Plant #3  │ 2026-04  │ —           │ Draft     │ … │    │       │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                  [< 1 of 1 >]      │
 │                                                                                     │
 │ ┌─ Reminders ────────────────────────────────────────────────────────[+ New]──────┐ │
 │ │                                                                                  │ │
-│ │  📅 Submit monthly flow report for Plant #2                                      │ │
+│ │  🔔 Submit monthly flow report                       [Plant #2]                 │ │
 │ │     Monthly, day 10  ·  To: Production dept  ·  Next: May 10, 2026             │ │
-│ │     ● 1 missed in last 90d                          [Edit] [Delete] [View runs] │ │
+│ │     ● 1 missed in last 90d                                    [✎] [⟲] [🗑]      │ │
 │ │  ─────────────────────────────────────────────────────────────────────────────  │ │
-│ │  🧪 Submit water quality lab report for Plant #2                                 │ │
-│ │     Monthly, day 15  ·  To: Lab team  ·  Next: May 15, 2026                    │ │
-│ │                                                       [Edit] [Delete] [View runs]│ │
+│ │  🔔 Submit monthly flow report                       [Plant #1]                 │ │
+│ │     Monthly, day 5   ·  To: Production dept  ·  Next: June 5, 2026             │ │
+│ │                                                               [✎] [⟲] [🗑]      │ │
 │ │  ─────────────────────────────────────────────────────────────────────────────  │ │
-│ │  ⚖ Submit weight report for Plant #2                                            │ │
-│ │     Weekly, Mon  ·  To: Production dept  ·  Next: May 18, 2026                 │ │
-│ │                                                       [Edit] [Delete] [View runs]│ │
+│ │  🔔 Submit monthly flow report                       [Plant #3]                 │ │
+│ │     Monthly, day 15  ·  To: Production dept  ·  Next: May 15, 2026             │ │
+│ │                                                               [✎] [⟲] [🗑]      │ │
+│ │  ─────────────────────────────────────────────────────────────────────────────  │ │
+│ │  🔔 Reminder to do plant maintenance check                                      │ │
+│ │     Monthly, day 1   ·  To: Production dept  ·  Next: June 1, 2026             │ │
+│ │     (no subject — module-wide)                                [✎] [⟲] [🗑]      │ │
 │ └──────────────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Conventions:
-- One row = one reminder series.
-- Shows schedule summary, target, next fire, and a missed-count health badge when recent occurrences were missed.
-- "View runs" expands the recent occurrence history inline (or jumps to calendar pre-filtered on that series).
-- `<RemindersSection entity subjectType subjectId defaultTarget />` is the same component everywhere — only `entity` and `subjectType` vary per host page.
+- The Reminders section lives **below the main list/data table** on each host page.
+- One row = one reminder series. Subject (when set) is shown as an outlined chip next to the message.
+- Rows show schedule summary, target, next fire, and a missed-count health badge when recent occurrences were missed.
+- Action icons: `✎` Edit, `⟲` View runs, `🗑` Delete. Edit and Delete are hidden via `PermissionGuard` when the user lacks the corresponding permission.
+- The "+ New" button is gated by `reminder:create`.
+- Same component on every host: `<RemindersSection entity entityLabel subjectPicker? defaultTarget? />`. The `subjectPicker` is the only thing that varies per module (Treatment Plant for the three Waste-Management pages, Room for Environmental Measurements).
 
 ### Layout 4 — Setup: Create reminder dialog
 
+Launched from the Monthly Flow Reports list page → `+ New` in the Reminders section. `entity` is implicit (the host page sets it); the subject picker is the only "what is this about" control and is **optional**.
+
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│  New reminder for Treatment Plant #2                            ✕ │
+│  New Monthly Flow Report reminder                               ✕ │
 ├────────────────────────────────────────────────────────────────────┤
 │                                                                    │
-│  What is this reminder for?                                        │
+│  Treatment plant (optional)                                        │
 │  ┌────────────────────────────────────────────────────────────┐    │
-│  │ Monthly Flow Report                                      ▾ │    │  ← entity picker
-│  └────────────────────────────────────────────────────────────┘    │     (pre-fillable)
-│  Subject:  Treatment Plant #2 (locked)                             │
+│  │ Plant #2 — TP-002                                       ▾ │    │  ← ModalCombobox
+│  └────────────────────────────────────────────────────────────┘    │     (treatment plants)
+│  ⓘ Leave blank for a module-wide reminder; pick one to scope it    │
+│    to a specific treatment plant.                                  │
 │                                                                    │
 │  Message                                                           │
 │  ┌────────────────────────────────────────────────────────────┐    │
@@ -298,7 +317,8 @@ Conventions:
 ```
 
 Conventions:
-- `entity` and `subject` pre-filled from page context; subject locked when launched from a subject-bound page.
+- `entity` is implicit (set by the host page); not shown in the dialog.
+- Subject picker is always **optional** — no "locked" mode. Available only when the host page wires up a `subjectPicker`.
 - `defaultTarget` pre-fills "Send to" — the common case is one click to confirm.
 - Local TZ for the time picker; UTC for storage.
 - Inside-dialog combobox uses `ModalCombobox` (project rule — avoid `SearchableSelect` focus traps).
@@ -308,17 +328,19 @@ Conventions:
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Treatment    │    │ "Reminders"  │    │ "+ New"      │    │ Reminder     │
-│ Plant detail │ →  │ section      │ →  │ dialog       │ →  │ active &     │
-│ page         │    │ (3 existing) │    │ (pre-filled) │    │ on calendar  │
+│ Monthly Flow │    │ "Reminders"  │    │ "+ New"      │    │ Reminder     │
+│ Reports LIST │ →  │ section      │ →  │ dialog       │ →  │ active &     │
+│ page         │    │ (below table)│    │ (pick plant) │    │ on calendar  │
 └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
 
 Once active, the reminder appears in:
-  ▸ /reminders            (list)
-  ▸ /reminders/calendar   (calendar)
-  ▸ Treatment Plant detail → Reminders section
+  ▸ /reminders                                  (central list)
+  ▸ /reminders/calendar                         (calendar)
+  ▸ The same module list page's Reminders section
   ▸ Notification bell + email when due
 ```
+
+The same shape applies to the other three host pages: Water Quality Lab Reports list, Weight Reports list (both with treatment-plant picker), and Environmental Measurements list (with room picker).
 
 ### Resolved layout decisions
 
