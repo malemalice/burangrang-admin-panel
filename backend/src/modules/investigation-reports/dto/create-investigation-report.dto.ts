@@ -67,6 +67,24 @@ export class CreateInvestigationReportDto {
   @ApiProperty({ required: false, default: false })
   distributionRelatedDepartment?: boolean;
 
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({ type: [String], default: [], required: false })
+  bodyPartsSummary?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({ type: [String], default: [], required: false })
+  injuryTypesSummary?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({ type: [String], default: [], required: false })
+  mechanismsSummary?: string[];
+
   @IsOptional()
   @ValidateNested()
   @Type(() => UpsertInvestigationCostDto)

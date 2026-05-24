@@ -88,6 +88,9 @@ export interface InvestigationReport {
   distributionSafetyCommittee: boolean;
   distributionHeadOfBusinessOp: boolean;
   distributionRelatedDepartment: boolean;
+  bodyPartsSummary: string[];
+  injuryTypesSummary: string[];
+  mechanismsSummary: string[];
   isActive: boolean;
   createdBy: string;
   creator?: User;
@@ -153,6 +156,9 @@ export interface CreateInvestigationReportDTO {
   distributionSafetyCommittee?: boolean;
   distributionHeadOfBusinessOp?: boolean;
   distributionRelatedDepartment?: boolean;
+  bodyPartsSummary?: string[];
+  injuryTypesSummary?: string[];
+  mechanismsSummary?: string[];
   cost?: UpsertInvestigationCostInput;
   causes?: UpsertInvestigationCauseInput[];
   actionPlans?: UpsertInvestigationActionPlanInput[];

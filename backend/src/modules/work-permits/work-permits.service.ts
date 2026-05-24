@@ -205,10 +205,15 @@ export class WorkPermitsService {
     }>,
   ): Promise<void> {
     const userIds = [...new Set(workers.map((w) => w.userId))];
-    const existing = await this.prisma.worker.findMany({
-      where: { userId: { in: userIds } },
-    });
+    const [existing, userRows] = await Promise.all([
+      this.prisma.worker.findMany({ where: { userId: { in: userIds } } }),
+      this.prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, firstName: true, lastName: true, email: true },
+      }),
+    ]);
     const byUser = new Map(existing.map((x) => [x.userId, x]));
+    const userById = new Map(userRows.map((u) => [u.id, u]));
     for (const w of workers) {
       const row = byUser.get(w.userId);
       const mergedUrl =
@@ -219,8 +224,13 @@ export class WorkPermitsService {
       const hasUrl =
         mergedUrl != null && String(mergedUrl).trim().length > 0;
       if (!hasUrl && !w.healthScreeningId) {
+        const u = userById.get(w.userId);
+        const workerLabel = u
+          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || w.userId
+          : w.userId;
         this.errorHandler.throwBadRequest(
-          'Each worker must have a health declaration URL and/or a linked health screening',
+          `Worker "${workerLabel}" is missing a health declaration. ` +
+          `Upload a declaration file on the worker profile, or start a new health declaration for this worker.`,
         );
       }
     }
@@ -625,7 +635,7 @@ export class WorkPermitsService {
       } else {
         // Internal users must explicitly pick an applicant contractor.
         if (!requestedApplicantId) {
-          this.errorHandler.throwBadRequest('applicantUserId is required when creating a work permit on behalf');
+          this.errorHandler.throwBadRequest('Please select a contractor as the applicant for this work permit');
         }
 
         const applicant = await this.prisma.user.findFirst({
@@ -1417,14 +1427,21 @@ export class WorkPermitsService {
 
       // Data-level scope: hide rows user is not allowed to see.
       // Approver exception: if the user is a configured approver for WORK_PERMIT,
-      // also include all records that are currently in an approval-pending status.
+      // also include records in approval-pending statuses AND the two post-approval
+      // statuses (WAITING_APPLICANT_SIGN, APPROVED) so that permits remain visible
+      // to approvers after all signatures are collected.
       const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'WorkPermit', where);
       const { isApprover, pendingStatuses } =
         await this.approvalAccessService.isApproverForEntityType(APPROVAL_ENTITIES.WORK_PERMIT, userContext);
 
       let accessWhere: Prisma.WorkPermitWhereInput;
       if (isApprover && pendingStatuses.length > 0) {
-        const approverBranch: Prisma.WorkPermitWhereInput = { status: { in: pendingStatuses as any } };
+        const approverVisibleStatuses = [
+          ...pendingStatuses,
+          WorkPermitStatusEnum.WAITING_APPLICANT_SIGN,
+          WorkPermitStatusEnum.APPROVED,
+        ];
+        const approverBranch: Prisma.WorkPermitWhereInput = { status: { in: approverVisibleStatuses as any } };
         accessWhere =
           scopeWhere && Object.keys(scopeWhere).length > 0
             ? { OR: [scopeWhere, approverBranch] }

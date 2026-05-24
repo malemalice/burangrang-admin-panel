@@ -65,6 +65,18 @@ export class InvestigationReportDto {
   @Expose()
   distributionRelatedDepartment: boolean;
 
+  @ApiProperty({ type: [String] })
+  @Expose()
+  bodyPartsSummary: string[];
+
+  @ApiProperty({ type: [String] })
+  @Expose()
+  injuryTypesSummary: string[];
+
+  @ApiProperty({ type: [String] })
+  @Expose()
+  mechanismsSummary: string[];
+
   @ApiProperty()
   @Expose()
   isActive: boolean;

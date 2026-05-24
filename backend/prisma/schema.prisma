@@ -3457,6 +3457,10 @@ model InvestigationReport {
   distributionHeadOfBusinessOp  Boolean @default(false)
   distributionRelatedDepartment Boolean @default(false)
 
+  bodyPartsSummary   String[]
+  injuryTypesSummary String[]
+  mechanismsSummary  String[]
+
   isActive  Boolean  @default(true)
   createdBy String
   createdAt DateTime @default(now())
