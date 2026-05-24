@@ -298,4 +298,4 @@ Period is applied to:
 - `backend/erd.md` – Entity relationship documentation
 - `backend/prisma/schema.prisma` – Database schema
 - `frontend/src/modules/hazard-analytics/` – Hazard Analytics module
-- `docs/prd-kpi-ifr-formula.md` – KPI IFR formula (incident-related)
+- `docs/prd/kpi-ifr-formula.md` – KPI IFR formula (incident-related)

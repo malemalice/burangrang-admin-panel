@@ -27,7 +27,7 @@ Open the file when its trigger applies — not before. Each row is one file, one
 | [docs/erd/notes.md](../erd/notes.md) | Confirming naming convention, soft-delete rule, or which entities are data-scoped |
 | [docs/erd/full.md](../erd/full.md), [docs/erd/quick-reference.md](../erd/quick-reference.md) | Looking up a specific entity's fields / relationships before editing schema |
 | [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma) | **Always before** generating a migration — it's the source of truth |
-| `docs/trd-auth.md` / `docs/trd-authorization*.md` / `docs/trd-soft-delete-*.md` / `docs/trd-inspection-approval*.md` / `docs/trd-investigation-report-schema.md` / `docs/trd-reminders-calendar.md` | Working on the specific cross-cutting topic named in the filename |
+| `docs/trd-authorization.md` / `docs/trd-soft-delete-*.md` / `docs/trd-inspection-approval.md` / `docs/trd-investigation-report-schema.md` / `docs/trd-reminders-calendar.md` | Working on the specific cross-cutting topic named in the filename |
 | [docs/references/prisma.md](../references/prisma.md), [nestjs.md](../references/nestjs.md), [zod.md](../references/zod.md) | About to call a library API and unsure of the current signature |
 
 Do not extract content from these docs into this file. Reference only.
@@ -45,7 +45,7 @@ Do not extract content from these docs into this file. Reference only.
 ## Rules
 
 ### Must
-- Follow guard chain order exactly. Never reorder.
+- Follow the guard chain order exactly (see L38 above). Never reorder. Spec: [docs/trd-authorization.md §1](../trd-authorization.md).
 - Inject services from `SharedModule`: `PrismaService`, `ErrorHandlingService`, `DtoMapperService`.
 - Use `@AllowOptionsBypass()` on list endpoints that serve dropdowns; `?options=true` skips permission check (JWT still required).
 - Apply `@DataScoped('EntityName')` + `DataScopeGuard` **only** for: Enrollments, Work Permits, Certificates, PPE Withdrawals.

@@ -87,4 +87,4 @@ Routes: /environmental-measurements (list, create, edit).
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-master-data.md`](prd-master-data.md) — rooms master data referenced by this module
+- [`master-data.md`](master-data.md) — rooms master data referenced by this module

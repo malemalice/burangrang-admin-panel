@@ -47,7 +47,7 @@ Use sub-agents when a task has independent parallel concerns or requires sequent
 ### Parallel execution
 
 Run agents at the same time when their outputs do not depend on each other. Example for a new "Add custom field to Incident form" task:
-- Agent A (PM): confirm field is in [docs/prd-incidents.md](./docs/prd-incidents.md) scope, write acceptance criteria
+- Agent A (PM): confirm field is in [docs/prd/incidents.md](./docs/prd/incidents.md) scope, write acceptance criteria
 - Agent B (Backend): check [docs/erd/index.md](./docs/erd/index.md) for incidents schema, identify migration needed
 - Agent C (Designer): check [docs/design-system/components.md](./docs/design-system/components.md) for the right form input
 
@@ -88,7 +88,7 @@ Each agent, when finished, must output:
 | Feature / bug (frontend) | [docs/index.md](./docs/index.md) → [docs/trd/index.md](./docs/trd/index.md) → `frontend/TRD.md` (specific section) |
 | Data / schema | [docs/erd/index.md](./docs/erd/index.md) → [docs/erd/full.md](./docs/erd/full.md) / `backend/prisma/schema.prisma` |
 | UI / styling | [docs/design-system/index.md](./docs/design-system/index.md) |
-| Per-domain product context | [docs/prd/index.md](./docs/prd/index.md) → relevant `docs/prd-<domain>.md` |
+| Per-domain product context | [docs/prd/index.md](./docs/prd/index.md) → relevant `docs/prd/<domain>.md` |
 | Cross-cutting TRDs (auth, soft-delete, etc.) | [docs/trd/index.md](./docs/trd/index.md) → relevant `docs/trd-<topic>.md` |
 | Complex task (>3 files or >1 role) | [docs/exec-plans/active/_template.md](./docs/exec-plans/active/_template.md) — create plan first |
 | Any domain graded C or below | [docs/QUALITY_SCORE.md](./docs/QUALITY_SCORE.md) — read before touching |
@@ -115,5 +115,5 @@ The "why" behind every pattern lives in [principles.md](./principles.md) — rea
 - Never run database migrations or seed scripts without explicit user approval.
 - Never hardcode secrets — use env vars (see `backend/.env.example`, `frontend/.env.example`).
 - Never bypass the guard chain: `JwtAuthGuard → RolesGuard → PermissionsGuard → [DataScopeGuard]`.
-- Never edit files under [docs/trd/](./docs/trd/), [docs/erd/](./docs/erd/), or `docs/prd-*.md` / `docs/trd-*.md` without flagging it in your exec-plan — these are authoritative and rarely change.
+- Never edit files under [docs/trd/](./docs/trd/), [docs/erd/](./docs/erd/), [docs/prd/](./docs/prd/), or `docs/trd-*.md` without flagging it in your exec-plan — these are authoritative and rarely change.
 - Never use `bg-blue-500` or hex colors — only semantic tokens (see [docs/design-system/tokens.md](./docs/design-system/tokens.md)).

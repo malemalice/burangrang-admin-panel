@@ -148,6 +148,6 @@ The Notification System delivers in-app and email notifications to users based o
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-communication.md`](prd-communication.md) — communication module that triggers notifications
+- [`communication.md`](communication.md) — communication module that triggers notifications
 - Bug register and fix details: [`notification-bugs.md`](notification-bugs.md)
 - QA test plan: [`notification-qa-test-plan.md`](notification-qa-test-plan.md)

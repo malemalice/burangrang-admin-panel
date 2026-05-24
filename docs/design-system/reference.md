@@ -1,6 +1,6 @@
 > [← Design System Index](./index.md)
 >
-> *Deep reference: full BurangrangDesign colour scales (50-950), typography scale, spacing tokens, theme variables, animation durations, component variants, DO/DON'T anti-patterns.*
+> *Deep design-system reference: full BurangrangDesign colour scales (50-950), typography scale, spacing tokens, theme variables, animation durations, component variants, DO/DON'T anti-patterns. For the scannable token quick-reference see [tokens.md](./tokens.md); for reusable UX patterns see [component-patterns.md](./component-patterns.md).*
 
 > This file holds the **Design System** section originally in `frontend/TRD.md` L915–1443, absorbed into the design system on 2026-05-24. See [exec-plan](../exec-plans/completed/2026-05-24-tidy-leftover-docs.md).
 

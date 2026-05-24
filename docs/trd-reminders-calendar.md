@@ -5,7 +5,7 @@
 **Audience:** Backend, Frontend Engineers
 **Last updated:** 2026-05-24
 
-> For business rationale, user stories, and open product decisions, see `docs/prd-reminders-calendar.md`.
+> For business rationale, user stories, and open product decisions, see `docs/prd/reminders-calendar.md`.
 
 ---
 
@@ -376,8 +376,8 @@ The `reminder:list / read / create / update / delete` permissions are pre-existi
 
 ## 8. References
 
-- PRD: `docs/prd-reminders-calendar.md`
+- PRD: `docs/prd/reminders-calendar.md`
 - Existing reminders backend: `backend/src/modules/reminders/`
 - Existing reminders frontend: `frontend/src/modules/reminders/`
-- Notifications: `docs/prd-notifications.md`
+- Notifications: `docs/prd/notifications.md`
 - Auth chain: `docs/trd-authorization.md`, `backend/docs/auth.md`

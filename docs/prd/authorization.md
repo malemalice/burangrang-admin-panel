@@ -215,7 +215,7 @@ Each role ships with a sensible default permission set configured at creation ti
 ## 13. References
 
 - `docs/trd-authorization.md` — technical implementation
-- `docs/trd-sidebar-permission-lookup.md` — sidebar menu permission mapping
+- `docs/trd-authorization.md` §8 — sidebar menu permission mapping
 - `backend/TRD.md` §"Guard Chain" and §"Data-Level Access"
 - `frontend/TRD.md` §"Data-Level Access" and §"Options Bypass"
 - `backend/prisma/schema.prisma` — `m_roles`, `m_permissions`, `_PermissionToRole`

@@ -177,5 +177,5 @@ https://panel.soulyousee.com?embed_token=eyJzaXRlSWQiOiJoc2UtZ29vZ2xlLXNpdGUifQ.
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-settings.md`](prd-settings.md) — Settings module where the Embed section is surfaced
-- [`prd-auth.md`](prd-auth.md) — Core auth module extended by embed endpoints
+- [`settings.md`](settings.md) — Settings module where the Embed section is surfaced
+- [`auth.md`](auth.md) — Core auth module extended by embed endpoints

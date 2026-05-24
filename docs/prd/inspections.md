@@ -126,5 +126,5 @@ The Inspection Management module supports creating and managing inspections: eac
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-approvals.md`](prd-approvals.md) — master approval workflow (used for inspection item approval)
-- [`prd-master-data.md`](prd-master-data.md) — areas, risk categories, risks master data
+- [`approvals.md`](approvals.md) — master approval workflow (used for inspection item approval)
+- [`master-data.md`](master-data.md) — areas, risk categories, risks master data

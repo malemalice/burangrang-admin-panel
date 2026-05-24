@@ -268,12 +268,12 @@ Metrics such as Total Man Hours, Course Completion Rate, Quiz Pass Rate, and YoY
 - `backend/erd.md` – Entity relationship documentation
 - `backend/prisma/schema.prisma` – Database schema
 - `frontend/src/modules/admin-overview/` – Admin Overview module
-- `docs/prd-learning-management.md` – LMS PRD
-- `docs/prd-certificates.md` – Certificate Management PRD
-- `docs/prd-ppe.md` – PPE module PRD
-- `docs/prd-work-permits.md` – Work Permits PRD
-- `docs/prd-environmental-measurements.md` – Environmental Measurements PRD
-- `docs/prd-waste-management.md` – Waste Management PRD
-- `docs/prd-man-hours.md` – Man Hours PRD
-- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
-- `docs/prd-dashboard-security-team.md` – Security Team dashboard (similar pattern)
+- `docs/prd/learning-management.md` – LMS PRD
+- `docs/prd/certificates.md` – Certificate Management PRD
+- `docs/prd/ppe.md` – PPE module PRD
+- `docs/prd/work-permits.md` – Work Permits PRD
+- `docs/prd/environmental-measurements.md` – Environmental Measurements PRD
+- `docs/prd/waste-management.md` – Waste Management PRD
+- `docs/prd/man-hours.md` – Man Hours PRD
+- `docs/prd/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
+- `docs/prd/dashboard-security-team.md` – Security Team dashboard (similar pattern)

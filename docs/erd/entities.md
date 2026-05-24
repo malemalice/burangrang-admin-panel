@@ -32,7 +32,7 @@ Subject to `DataScopeGuard` (`SELF` / `DEPARTMENT` / `SUPER`):
 - Certificates
 - PPE Withdrawals
 
-See [notes.md](./notes.md) and [../trd-authorization-data-scope-validation.md](../trd-authorization-data-scope-validation.md).
+See [notes.md](./notes.md) and [../trd-authorization.md §6](../trd-authorization.md).
 
 ## Required columns on new entities
 

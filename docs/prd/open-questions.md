@@ -13,5 +13,5 @@
 ## How to use
 
 1. When a feature decision is unclear, add a row here rather than coding around it.
-2. Tag the per-domain PRD it affects (e.g. "blocks [prd-incidents.md](../prd-incidents.md)").
+2. Tag the per-domain PRD it affects (e.g. "blocks [incidents.md](./incidents.md)").
 3. When resolved, move the resolution into the per-domain PRD and delete the row from this file.

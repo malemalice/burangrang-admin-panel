@@ -7,7 +7,7 @@
 
 ## Overview
 
-Technical implementation details for the Inspection Item Approval Workflow. See [`prd-inspection-approval.md`](prd-inspection-approval.md) for business requirements and user stories.
+Technical implementation details for the Inspection Item Approval Workflow. See [`prd/inspection-approval.md`](prd/inspection-approval.md) for business requirements and user stories.
 
 ---
 
@@ -262,6 +262,6 @@ Approval endpoints use existing master approvals service:
 
 ## Related Documents
 
-- [`prd-inspection-approval.md`](prd-inspection-approval.md) — Business requirements for this workflow
+- [`prd/inspection-approval.md`](prd/inspection-approval.md) — Business requirements for this workflow
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-approvals.md`](prd-approvals.md) — Master approval workflow
+- [`prd/approvals.md`](prd/approvals.md) — Master approval workflow

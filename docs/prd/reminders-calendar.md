@@ -359,5 +359,5 @@ The same shape applies to the other three host pages: Water Quality Lab Reports 
 ## References
 
 - Existing module: `backend/src/modules/reminders/`, `frontend/src/modules/reminders/`
-- Related PRD: `docs/prd-notifications.md`
+- Related PRD: `docs/prd/notifications.md`
 - Companion TRD: `docs/trd-reminders-calendar.md`

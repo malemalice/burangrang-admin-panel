@@ -120,5 +120,5 @@ Routes: /incidents, /incidents/new, /incidents/:id/edit, /incidents/:id.
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-approvals.md`](prd-approvals.md) — master approval workflow system
+- [`approvals.md`](approvals.md) — master approval workflow system
 - [`investigation-report-accident.md`](investigation-report-accident.md) — post-incident investigation form extension

@@ -118,4 +118,4 @@ The Authentication & Authorization module provides secure access to the HSE Dash
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-authorization.md`](prd-authorization.md) — business requirements for the authorization model
+- [`authorization.md`](authorization.md) — business requirements for the authorization model

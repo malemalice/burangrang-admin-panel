@@ -5,6 +5,8 @@
 **Audience:** Backend Engineers
 **Last updated:** 2026-05-12
 
+> **Scope:** Per-model soft-delete status (what is/isn't migrated) and the contract for each affected model. For applied migration files and remaining hard-delete cleanups, see [`trd-soft-delete-rollout.md`](./trd-soft-delete-rollout.md).
+
 Slices 1–2, slice **3a** (risk + LMS), slice **3b** (settings, KPI HSE targets, man hours, environmental measurements, email templates, master approvals), slice **3c** (audit element / clause / criteria), and slice **3d** (risk assessment + line items + `t_risk_mitigation` rows for those items) are implemented. Remaining hard deletes are listed in `docs/trd-soft-delete-rollout.md`.
 
 ## Contract

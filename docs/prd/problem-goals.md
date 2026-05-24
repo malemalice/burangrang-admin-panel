@@ -29,4 +29,4 @@ HSE (Health, Safety, Environment) operations at the target organisation are trac
 
 ## Why this exists
 
-See [principles.md](../../principles.md) for the engineering values that shape every decision. Per-domain product detail lives in [docs/prd-*.md](../) (32 files indexed by [prd/index.md](./index.md)).
+See [principles.md](../../principles.md) for the engineering values that shape every decision. Per-domain product detail lives in [docs/prd/*.md](../) (32 files indexed by [prd/index.md](./index.md)).

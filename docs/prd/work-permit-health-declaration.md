@@ -1,6 +1,6 @@
 # PRD Extension: Health Declaration & Vendor Portal (Work Permit)
 
-**Document type:** Extension to [prd-work-permit.md](./prd-work-permit.md)  
+**Document type:** Extension to [work-permit.md](./work-permit.md)  
 **Version:** 0.1  
 **Date:** April 19, 2026  
 **Status:** Draft — product / UX intent (not yet implemented as described)
@@ -204,7 +204,7 @@ Exact FKs are an implementation choice; the important product rule is: **auditor
 
 | Parent doc | This extension |
 |------------|----------------|
-| [prd-work-permit.md](./prd-work-permit.md) | §5–6 workers, `healthDeclarationUrl`, statuses |
+| [work-permit.md](./work-permit.md) | §5–6 workers, `healthDeclarationUrl`, statuses |
 | Schema | `Quiz`, `QuizQuestion`, `WorkPermitWorker` (evolve) |
 | Future PRs | Vendor module routes, RBAC, questionnaire `kind` migration |
 

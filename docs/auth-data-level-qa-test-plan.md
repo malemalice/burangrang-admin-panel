@@ -4,7 +4,7 @@
 **Status:** Draft
 **Audience:** QA, Backend, Frontend
 **Scope:** Enrollments, Work permits, Certificates, PPE withdrawals only.
-**Reference:** [trd-auth.md](trd-auth.md) section 5.
+**Reference:** [trd-authorization.md](trd-authorization.md) §6 (Data-Level Access).
 **Last updated:** 2026-05-12
 
 ---

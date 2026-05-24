@@ -104,4 +104,4 @@ The Communication System covers in-app **notifications** (CRUD, list for current
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-notifications.md`](prd-notifications.md) — detailed notification system specification
+- [`notifications.md`](notifications.md) — detailed notification system specification

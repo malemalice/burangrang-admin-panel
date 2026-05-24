@@ -9,13 +9,13 @@
 
 | Domain | Score | Backend coverage | Frontend coverage | Last reviewed | Notes |
 |---|---|---|---|---|---|
-| Auth | B | Jest | Playwright | 2026-05-24 | Mature; OAuth + JWT covered. See `docs/trd-auth.md`. |
+| Auth | B | Jest | Playwright | 2026-05-24 | Mature; OAuth + JWT covered. See `docs/trd-authorization.md`. |
 | Authorization (roles, permissions) | B | Jest | Playwright | 2026-05-24 | Guard chain covered. See `docs/trd-authorization.md`. |
 | Data-scope (SELF/DEPT/SUPER) | B | Jest + `docs/auth-data-level-qa-test-plan.md` | Playwright | 2026-05-24 | Sensitive — always test on changes. |
 | User Access Management | B | Jest | — | 2026-05-24 | |
 | Master Data | B | Jest | — | 2026-05-24 | |
 | Incidents | B | Jest | Playwright | 2026-05-24 | Core HSE entity. |
-| Inspections + Approval | C | partial | partial | 2026-05-24 | Mid-migration; legacy path still around (`docs/trd-inspection-approval-legacy.md`). **Extra caution.** |
+| Inspections + Approval | C | partial | partial | 2026-05-24 | Mid-migration; legacy path retired (see `docs/trd-inspection-approval.md`). **Extra caution.** |
 | Risk Management | B | Jest | — | 2026-05-24 | |
 | Work Permit + Health Declaration | B | Jest | Playwright | 2026-05-24 | Data-scoped; complex approval flow. |
 | PPE | B | Jest | — | 2026-05-24 | Data-scoped. |

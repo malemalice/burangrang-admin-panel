@@ -1,6 +1,6 @@
 > [← Design System Index](./index.md)
 >
-> *Quick reference: shadcn/ui primitives inventory, project-specific shared components (`DataTable`, `PageHeader`, `ModalCombobox`), button hierarchy, page form layout, dialog rules, table/workflow/PDF/empty-state patterns.*
+> *Inventory of UI primitives + project-specific component contracts (what to use, with what props/variants). For reusable UX **patterns** (when to use a modal vs a page, how to handle bulk actions, breadcrumbs, audit trails, etc.) see [component-patterns.md](./component-patterns.md). For form-page layout, see [form-layout.md](./form-layout.md). For workflow status & approvals, see [workflow-status.md](./workflow-status.md).*
 
 # Components
 
@@ -37,21 +37,13 @@ Action-color rules:
 
 ## Page form layout
 
-```
-PageHeader (page level)
-  └── max-w-4xl mx-auto wrapper
-      └── Card form
-          └── CardHeader / CardContent (space-y-6)
-              └── grid grid-cols-1 md:grid-cols-2 gap-6 (related fields)
-                  or single column (full-width fields like textarea)
-```
+> Full spec — including the `PageHeader` → `max-w-4xl` → Card → `space-y-6` structure, two-column grid for related fields, action-button placement, and loading/error states — lives in [form-layout.md](./form-layout.md). Form state library (React Hook Form + Zod) is documented in [docs/trd/frontend/forms.md](../trd/frontend/forms.md).
 
-## Form rules
+## Form rules (component-level)
 
-- React Hook Form + Zod resolver
-- Schema-validated; one source of state
-- Two-column grid for related short fields; single column for textareas, long inputs, file upload
-- Modal for ≤5 fields; full page for complex/multi-step
+- Inside a `<Dialog>`: use `ModalCombobox`, **not** `SearchableSelect` (portal/focus conflict).
+- Dropdown opens a `<Dialog>`: close the dropdown first to prevent focus traps.
+- Modal for ≤5 fields; full page for complex/multi-step (decision rationale: [component-patterns.md](./component-patterns.md) §Modal vs Page Decision).
 
 ## Dialog rules
 
@@ -78,9 +70,11 @@ PageHeader (page level)
 
 Client-side via `react-to-pdf`. Dedicated template component, hidden off-screen, full data fetched before capture. See `frontend/TRD.md` §PDF Export (line 720).
 
-## Empty / loading / error states
+## Empty / loading / error states (component behavior)
 
 - Empty: icon + short message + primary CTA ("Create first item")
 - Loading: skeleton when layout is known; spinner only as fallback
 - 403 on data-scoped row: explicit message "You do not have access to this record"
 - Empty list ≠ error; show empty state, not an error
+
+> For the general empty-state pattern (illustration choice, copy guidelines, helper text), see [component-patterns.md](./component-patterns.md) §Empty States.

@@ -196,5 +196,5 @@ Single endpoint returns both count and percentage data for consistent rounding.
 - `backend/erd.md` – Entity relationship documentation
 - `backend/prisma/schema.prisma` – Database schema
 - `frontend/src/modules/incident-profile-analytic/` – Incident Profile Analytic module
-- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (reference pattern)
-- `docs/prd-kpi-ifr-formula.md` – KPI IFR formula (incident-related)
+- `docs/prd/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (reference pattern)
+- `docs/prd/kpi-ifr-formula.md` – KPI IFR formula (incident-related)

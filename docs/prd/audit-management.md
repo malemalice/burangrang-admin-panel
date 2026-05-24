@@ -343,4 +343,4 @@ User with audit-result:list
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-approvals.md`](prd-approvals.md) — master approval workflow used by audit items
+- [`approvals.md`](approvals.md) — master approval workflow used by audit items

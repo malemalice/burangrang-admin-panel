@@ -4,7 +4,7 @@
 **Status:** Draft
 **Audience:** Product, Backend, Frontend
 **Last updated:** 2026-04-12
-**PRD Reference:** `docs/prd-work-permit.md` (BSJ/F.5/H&S Policy 05/Rev 02)
+**PRD Reference:** `docs/prd/work-permit.md` (BSJ/F.5/H&S Policy 05/Rev 02)
 **Scope:** Form fields and data attributes (Sections A–F + Data Model + Status States)
 
 ---

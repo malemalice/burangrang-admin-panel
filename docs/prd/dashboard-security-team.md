@@ -549,8 +549,8 @@ INSERT INTO m_risk (name, code, riskCategoryId) VALUES
 - `backend/erd.md` – Entity relationship documentation
 - `backend/prisma/schema.prisma` – Database schema
 - `frontend/src/modules/security-team/` – Security Team module
-- `docs/prd-dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
-- `docs/prd-dashboard-incident-profile-analytic.md` – Incident Profile Analytics dashboard
+- `docs/prd/dashboard-hazard-analytic.md` – Hazard Analytics dashboard (similar pattern)
+- `docs/prd/dashboard-incident-profile-analytic.md` – Incident Profile Analytics dashboard
 
 ---
 

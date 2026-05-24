@@ -7,7 +7,7 @@
 
 ## Overview
 
-The Man Hours module records and reports workforce exposure by **named line** (`name`, e.g. class or cohort), **month**, **year**, and **group** (`STUDENT` or `NON_STUDENT`). Each record carries **quantity** (`qty`), **man hours per day** (`manHourPerDay`), and **derived** totals (`totalWorkingDays`, `lostHour`, `total`) with optional **notes**. Records are **soft-deleted** (not removed from the database). The module supports full CRUD (with list pagination and filters), a **read-only detail** view, and an **aggregated report** by year range and optional group for dashboards and KPIs (e.g. IFR; see prd-kpi-ifr-formula.md). The list endpoint supports an **`options`** bypass (JWT auth; permission check relaxed when used as documented in Swagger).
+The Man Hours module records and reports workforce exposure by **named line** (`name`, e.g. class or cohort), **month**, **year**, and **group** (`STUDENT` or `NON_STUDENT`). Each record carries **quantity** (`qty`), **man hours per day** (`manHourPerDay`), and **derived** totals (`totalWorkingDays`, `lostHour`, `total`) with optional **notes**. Records are **soft-deleted** (not removed from the database). The module supports full CRUD (with list pagination and filters), a **read-only detail** view, and an **aggregated report** by year range and optional group for dashboards and KPIs (e.g. IFR; see kpi-ifr-formula.md). The list endpoint supports an **`options`** bypass (JWT auth; permission check relaxed when used as documented in Swagger).
 
 **Scope:** Backend [`backend/src/modules/man-hours/`](backend/src/modules/man-hours/); frontend [`frontend/src/modules/man-hours/`](frontend/src/modules/man-hours/).
 
@@ -117,4 +117,4 @@ The Man Hours module records and reports workforce exposure by **named line** (`
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-kpi-ifr-formula.md`](prd-kpi-ifr-formula.md) — IFR formula that consumes man hour report data
+- [`kpi-ifr-formula.md`](kpi-ifr-formula.md) — IFR formula that consumes man hour report data

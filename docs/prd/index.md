@@ -1,7 +1,9 @@
 # Product Requirements — Index
 
-> Per-domain PRDs live in `docs/prd-*.md` (32 files). Read only the domain relevant to your task.
+> Per-domain PRDs live in `docs/prd/<slug>.md` (32 files). Read only the domain relevant to your task.
 > Cross-cutting product context lives in the sub-files below.
+>
+> **Splitting policy:** PRDs are not split en masse. If a single PRD exceeds ~500 lines (currently `dashboard.md`, `dashboard-security-team.md`, `work-permit.md`) **and** you're already editing it, split it into a sub-folder (e.g. `docs/prd/work-permit/{overview,requirements,workflows}.md`) as part of that change. Otherwise, leave it alone.
 
 ## Cross-cutting
 
@@ -16,35 +18,35 @@
 
 | Domain | PRD |
 |---|---|
-| Auth | [../prd-auth.md](../prd-auth.md) |
-| Authorization | [../prd-authorization.md](../prd-authorization.md) |
-| Approvals | [../prd-approvals.md](../prd-approvals.md) |
-| Audit Management | [../prd-audit-management.md](../prd-audit-management.md) |
-| Certificates | [../prd-certificates.md](../prd-certificates.md) |
-| Communication | [../prd-communication.md](../prd-communication.md) |
-| Dashboard (main) | [../prd-dashboard.md](../prd-dashboard.md) |
-| Dashboard — Admin Overview | [../prd-dashboard-admin-overview.md](../prd-dashboard-admin-overview.md) |
-| Dashboard — Hazard Analytic | [../prd-dashboard-hazard-analytic.md](../prd-dashboard-hazard-analytic.md) |
-| Dashboard — Incident Profile | [../prd-dashboard-incident-profile-analytic.md](../prd-dashboard-incident-profile-analytic.md) |
-| Dashboard — Security Team | [../prd-dashboard-security-team.md](../prd-dashboard-security-team.md) |
-| Embed Google Site | [../prd-embed-google-site.md](../prd-embed-google-site.md) |
-| Environmental Measurements | [../prd-environmental-measurements.md](../prd-environmental-measurements.md) |
-| Incidents | [../prd-incidents.md](../prd-incidents.md) |
-| Inspections | [../prd-inspections.md](../prd-inspections.md) |
-| Inspection Approval | [../prd-inspection-approval.md](../prd-inspection-approval.md) |
-| KPI / IFR Formula | [../prd-kpi-ifr-formula.md](../prd-kpi-ifr-formula.md) |
-| Learning Management | [../prd-learning-management.md](../prd-learning-management.md) |
-| Man Hours | [../prd-man-hours.md](../prd-man-hours.md) |
-| Master Data | [../prd-master-data.md](../prd-master-data.md) |
-| Notifications | [../prd-notifications.md](../prd-notifications.md) |
-| Personal Home | [../prd-personal-home.md](../prd-personal-home.md) |
-| PPE | [../prd-ppe.md](../prd-ppe.md) |
-| Reminders & Calendar | [../prd-reminders-calendar.md](../prd-reminders-calendar.md) |
-| Risk Management | [../prd-risk-management.md](../prd-risk-management.md) |
-| Settings | [../prd-settings.md](../prd-settings.md) |
-| Uploads | [../prd-uploads.md](../prd-uploads.md) |
-| User Access Management | [../prd-user-access-management.md](../prd-user-access-management.md) |
-| Waste Management | [../prd-waste-management.md](../prd-waste-management.md) |
-| Work Permit | [../prd-work-permit.md](../prd-work-permit.md) |
-| Work Permit — Health Declaration | [../prd-work-permit-health-declaration.md](../prd-work-permit-health-declaration.md) |
-| Zoho Integration | [../prd-zoho-integration.md](../prd-zoho-integration.md) |
+| Auth | [./auth.md](./auth.md) |
+| Authorization | [./authorization.md](./authorization.md) |
+| Approvals | [./approvals.md](./approvals.md) |
+| Audit Management | [./audit-management.md](./audit-management.md) |
+| Certificates | [./certificates.md](./certificates.md) |
+| Communication | [./communication.md](./communication.md) |
+| Dashboard (main) | [./dashboard.md](./dashboard.md) |
+| Dashboard — Admin Overview | [./dashboard-admin-overview.md](./dashboard-admin-overview.md) |
+| Dashboard — Hazard Analytic | [./dashboard-hazard-analytic.md](./dashboard-hazard-analytic.md) |
+| Dashboard — Incident Profile | [./dashboard-incident-profile-analytic.md](./dashboard-incident-profile-analytic.md) |
+| Dashboard — Security Team | [./dashboard-security-team.md](./dashboard-security-team.md) |
+| Embed Google Site | [./embed-google-site.md](./embed-google-site.md) |
+| Environmental Measurements | [./environmental-measurements.md](./environmental-measurements.md) |
+| Incidents | [./incidents.md](./incidents.md) |
+| Inspections | [./inspections.md](./inspections.md) |
+| Inspection Approval | [./inspection-approval.md](./inspection-approval.md) |
+| KPI / IFR Formula | [./kpi-ifr-formula.md](./kpi-ifr-formula.md) |
+| Learning Management | [./learning-management.md](./learning-management.md) |
+| Man Hours | [./man-hours.md](./man-hours.md) |
+| Master Data | [./master-data.md](./master-data.md) |
+| Notifications | [./notifications.md](./notifications.md) |
+| Personal Home | [./personal-home.md](./personal-home.md) |
+| PPE | [./ppe.md](./ppe.md) |
+| Reminders & Calendar | [./reminders-calendar.md](./reminders-calendar.md) |
+| Risk Management | [./risk-management.md](./risk-management.md) |
+| Settings | [./settings.md](./settings.md) |
+| Uploads | [./uploads.md](./uploads.md) |
+| User Access Management | [./user-access-management.md](./user-access-management.md) |
+| Waste Management | [./waste-management.md](./waste-management.md) |
+| Work Permit | [./work-permit.md](./work-permit.md) |
+| Work Permit — Health Declaration | [./work-permit-health-declaration.md](./work-permit-health-declaration.md) |
+| Zoho Integration | [./zoho-integration.md](./zoho-integration.md) |

@@ -141,4 +141,4 @@ Routes defined in `ppe/routes/ppeRoutes.tsx` (imported in core routes).
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and data-scope enforcement
-- [`prd-master-data.md`](prd-master-data.md) — master data module (departments used in withdrawals)
+- [`master-data.md`](master-data.md) — master data module (departments used in withdrawals)

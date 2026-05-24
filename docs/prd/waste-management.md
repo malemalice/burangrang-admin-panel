@@ -96,4 +96,4 @@ Routes: all under /waste-management/* (e.g. /waste-management/treatment-plants, 
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-master-data.md`](prd-master-data.md) — master data entities (areas, offices) referenced by this module
+- [`master-data.md`](master-data.md) — master data entities (areas, offices) referenced by this module

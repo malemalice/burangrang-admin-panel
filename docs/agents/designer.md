@@ -20,7 +20,7 @@ Open the file when its trigger applies — not before. Each row is one file, one
 | [docs/design-system/motion.md](../design-system/motion.md) | Adding hover/focus/open animation — confirm duration and easing |
 | [docs/design-system/accessibility.md](../design-system/accessibility.md) | Any new interactive element — confirm contrast, focus ring, keyboard nav |
 | [docs/design-system/icons.md](../design-system/icons.md) | Picking an icon — confirm Lucide name + size (16/20/24) |
-| [docs/design-system/patterns.md](../design-system/patterns.md) | Need the deep design reference — full colour scales, animation durations, CSS variables, DO/DON'T examples |
+| [docs/design-system/reference.md](../design-system/reference.md) | Need the deep design reference — full colour scales, animation durations, CSS variables, DO/DON'T examples |
 | [docs/agents/developer-frontend.md](./developer-frontend.md) | Handing a spec to a frontend developer — confirm the implementation patterns align with the design |
 
 Do not extract content from these docs into this file. Reference only.
@@ -35,7 +35,7 @@ Do not extract content from these docs into this file. Reference only.
 - **Status badges**: green (active/success), yellow/amber (pending), gray (inactive), red (error/rejected), blue (info). `*-100` bg + `*-800` text.
 - **Buttons**: hierarchy — Primary > Outline/Secondary > Ghost > Destructive. Use `Button` variants, not custom classes.
 - **Theme**: all UI must work in light AND dark mode via design tokens; no fixed light/dark colors.
-- **Forms**: `PageHeader` (page level) → `max-w-4xl mx-auto` → Card form → `space-y-6`. Two-column grid (`grid grid-cols-1 md:grid-cols-2 gap-6`) for related fields. PageHeader **never** inside the form component.
+- **Forms**: follow the page structure in [form-layout.md](../design-system/form-layout.md) (PageHeader at page level → `max-w-4xl` wrapper → Card form → two-column grid for related fields; PageHeader **never** inside the form component).
 
 ## Beauty and efficiency (backoffice focus)
 

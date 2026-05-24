@@ -512,7 +512,7 @@ Catatan (Note): ___________
 
 ## Related documents
 
-- **[prd-work-permit-health-declaration.md](./prd-work-permit-health-declaration.md)** — Extension: vendor portal, worker roster, health declaration questionnaire (`HEALTH_DECLARATION` type), onboarding.
+- **[work-permit-health-declaration.md](./work-permit-health-declaration.md)** — Extension: vendor portal, worker roster, health declaration questionnaire (`HEALTH_DECLARATION` type), onboarding.
 
 ---
 

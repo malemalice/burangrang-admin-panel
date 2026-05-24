@@ -129,5 +129,5 @@ The Inspection Item Approval Workflow enables systematic verification and approv
 
 - [`trd-inspection-approval.md`](trd-inspection-approval.md) — Technical implementation details for this workflow
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-approvals.md`](prd-approvals.md) — Master approval workflow (used by inspection items)
-- [`prd-inspections.md`](prd-inspections.md) — Parent inspections module PRD
+- [`approvals.md`](approvals.md) — Master approval workflow (used by inspection items)
+- [`inspections.md`](inspections.md) — Parent inspections module PRD

@@ -67,7 +67,7 @@
 - [implementation-guidelines.md](./frontend/implementation-guidelines.md) — imports, routes, communication
 - [api-services.md](./frontend/api-services.md), [tables-dropdowns.md](./frontend/tables-dropdowns.md), [crud-hooks.md](./frontend/crud-hooks.md), [forms.md](./frontend/forms.md) — service layer, tables, CRUD hooks, form components (formerly bundled in module-interaction.md)
 - [docs/design-system/principles.md](../design-system/principles.md) — UI/UX principles, layout, component patterns, workflow/status, form guidelines
-- [docs/design-system/patterns.md](../design-system/patterns.md) — Design system reference: color, typography, spacing, theme
+- [docs/design-system/reference.md](../design-system/reference.md) — Design system reference: color, typography, spacing, theme
 
 ## Cross-cutting
 

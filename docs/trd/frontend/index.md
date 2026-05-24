@@ -1,7 +1,7 @@
 # Frontend Technical Reference Document — Index
 
 > Read only the sub-file relevant to your task. Do not load all sub-files.
-> Authoritative source for frontend (React + Vite) patterns at HSE Dashboard. Content split from the original `frontend/TRD.md` on 2026-05-24. The UI/UX Principles and Design System sections were absorbed into [docs/design-system/](../../design-system/) — see [principles.md](../../design-system/principles.md) and [patterns.md](../../design-system/patterns.md) there.
+> Authoritative source for frontend (React + Vite) patterns at HSE Dashboard. Content split from the original `frontend/TRD.md` on 2026-05-24. The UI/UX Principles and Design System sections were absorbed into [docs/design-system/](../../design-system/) — see [principles.md](../../design-system/principles.md) and [reference.md](../../design-system/reference.md) there.
 
 ## Cross-cutting
 
@@ -27,7 +27,7 @@ The UI/UX Principles and Design System sections from the original `frontend/TRD.
 | Original section | Now at |
 |---|---|
 | 🎨 UI/UX Principles (L236–914) | [docs/design-system/principles.md](../../design-system/principles.md) |
-| 🎨 Design System (L915–1443) | [docs/design-system/patterns.md](../../design-system/patterns.md) |
+| 🎨 Design System (L915–1443) | [docs/design-system/reference.md](../../design-system/reference.md) |
 
 Existing [docs/design-system/](../../design-system/) sub-files (tokens, components, motion, accessibility, icons) reference these as authoritative sources.
 

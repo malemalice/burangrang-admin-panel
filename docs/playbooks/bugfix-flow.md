@@ -14,7 +14,7 @@ If the fix touches >3 files or >1 role: create an exec-plan in [docs/exec-plans/
 
 ## 2. Understand expected behaviour
 
-- Backend: read the relevant sub-file in [docs/trd/backend/](../trd/backend/) and the per-domain PRD in `docs/prd-<domain>.md`
+- Backend: read the relevant sub-file in [docs/trd/backend/](../trd/backend/) and the per-domain PRD in `docs/prd/<domain>.md`
 - Frontend: read the relevant section of [`frontend/TRD.md`](../../frontend/TRD.md) and the per-domain PRD
 - Data: read [docs/erd/index.md](../erd/index.md) → [docs/erd/full.md](../erd/full.md) for the affected entity
 

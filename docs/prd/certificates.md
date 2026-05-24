@@ -112,4 +112,4 @@ Routes: /certificates (list), /certificates/categories, create/edit/detail for c
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and data-scope enforcement
-- [`prd-approvals.md`](prd-approvals.md) — master approval workflow system
+- [`approvals.md`](approvals.md) — master approval workflow system

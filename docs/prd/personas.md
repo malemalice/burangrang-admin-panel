@@ -10,7 +10,7 @@ Personas are inferred from the RBAC model ([docs/erd/full.md](../erd/full.md) â†
 
 - Full system access (SUPER data scope)
 - Manages users, roles, permissions, menus, offices, departments, master data
-- Owns: [prd-user-access-management.md](../prd-user-access-management.md), [prd-settings.md](../prd-settings.md), [prd-master-data.md](../prd-master-data.md)
+- Owns: [user-access-management.md](./user-access-management.md), [settings.md](./settings.md), [master-data.md](./master-data.md)
 
 ## Department Head / Manager
 
@@ -21,22 +21,22 @@ Personas are inferred from the RBAC model ([docs/erd/full.md](../erd/full.md) â†
 ## HSE / Security Team
 
 - Cross-department visibility on incidents, inspections, risk register
-- Owns: [prd-dashboard-security-team.md](../prd-dashboard-security-team.md), [prd-dashboard-hazard-analytic.md](../prd-dashboard-hazard-analytic.md), [prd-incidents.md](../prd-incidents.md), [prd-risk-management.md](../prd-risk-management.md), [prd-inspections.md](../prd-inspections.md)
+- Owns: [dashboard-security-team.md](./dashboard-security-team.md), [dashboard-hazard-analytic.md](./dashboard-hazard-analytic.md), [incidents.md](./incidents.md), [risk-management.md](./risk-management.md), [inspections.md](./inspections.md)
 
 ## Employee
 
 - SELF data scope â€” sees own records (own incidents reported, own PPE withdrawals, own enrollments)
-- Owns: [prd-personal-home.md](../prd-personal-home.md)
+- Owns: [personal-home.md](./personal-home.md)
 
 ## Contractor / External worker
 
 - Work permit workflow participant (health declaration, permit application)
-- Owns: [prd-work-permit.md](../prd-work-permit.md), [prd-work-permit-health-declaration.md](../prd-work-permit-health-declaration.md)
+- Owns: [work-permit.md](./work-permit.md), [work-permit-health-declaration.md](./work-permit-health-declaration.md)
 
 ## Auditor
 
 - Read-only access to historical records, soft-deleted rows, audit logs
-- Owns: [prd-audit-management.md](../prd-audit-management.md)
+- Owns: [audit-management.md](./audit-management.md)
 
 ## Data scope cheat-sheet
 
@@ -46,4 +46,4 @@ Personas are inferred from the RBAC model ([docs/erd/full.md](../erd/full.md) â†
 | `DEPARTMENT` | Own department's rows |
 | `SELF` | Own rows only (created by / assigned to me) |
 
-Entities subject to data scope: Enrollments, Work Permits, Certificates, PPE Withdrawals. See [docs/erd/notes.md](../erd/notes.md) and [docs/trd-authorization-data-scope-validation.md](../trd-authorization-data-scope-validation.md).
+Entities subject to data scope: Enrollments, Work Permits, Certificates, PPE Withdrawals. See [docs/erd/notes.md](../erd/notes.md) and [docs/trd-authorization.md Â§6.7](../trd-authorization.md).

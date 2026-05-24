@@ -141,5 +141,5 @@ Routes: /risk-assessment (list, new, :id, :id/edit), /risk-matrix (view grid), /
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-approvals.md`](prd-approvals.md) — master approval workflow system
-- [`prd-master-data.md`](prd-master-data.md) — risk categories, risks, risk mitigations master data
+- [`approvals.md`](approvals.md) — master approval workflow system
+- [`master-data.md`](master-data.md) — risk categories, risks, risk mitigations master data

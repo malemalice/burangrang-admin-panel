@@ -37,7 +37,7 @@ Do not extract content from these docs into this file. Reference only.
 - Routes registered with lazy bundles
 - Forms: React Hook Form + Zod resolver, schema-validated
 - Tables: shared `DataTable` from `@/core/components/ui/data-table/DataTable`
-- Pages: `PageHeader` at the top, `max-w-4xl mx-auto` form wrapper
+- Pages: follow the form-page structure in [docs/design-system/form-layout.md](../design-system/form-layout.md) (`PageHeader` at top, `max-w-4xl mx-auto` form wrapper, Card form)
 - URL is source of truth for list state (page, filters, search, sort) via `useSearchParams`
 - Back button uses `navigate(-1)`
 

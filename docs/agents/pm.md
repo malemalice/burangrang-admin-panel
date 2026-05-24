@@ -1,6 +1,6 @@
 # Product Manager Agent
 
-> **Read order:** [AGENTS.md](../../AGENTS.md) → this file → [docs/index.md](../index.md) → [docs/prd/index.md](../prd/index.md) and the relevant per-domain `docs/prd-*.md` → check [docs/exec-plans/active/](../exec-plans/) → only then explore.
+> **Read order:** [AGENTS.md](../../AGENTS.md) → this file → [docs/index.md](../index.md) → [docs/prd/index.md](../prd/index.md) and the relevant per-domain `docs/prd/*.md` → check [docs/exec-plans/active/](../exec-plans/) → only then explore.
 
 ## Role
 
@@ -13,7 +13,7 @@ Open the file when its trigger applies — not before. Each row is one file, one
 | File | Open when |
 |---|---|
 | [docs/prd/index.md](../prd/index.md) | First time scoping a request — find which per-domain PRD covers it |
-| `docs/prd-<domain>.md` (e.g. `docs/prd-incidents.md`) | A request names a specific domain — read only that PRD |
+| `docs/prd/<domain>.md` (e.g. `docs/prd/incidents.md`) | A request names a specific domain — read only that PRD |
 | [docs/prd/problem-goals.md](../prd/problem-goals.md) | A request seems off-strategy — verify against goals / non-goals |
 | [docs/prd/personas.md](../prd/personas.md) | A request invokes a new user type — check if persona exists, or extend the file |
 | [docs/prd/features.md](../prd/features.md) | Scoping a cross-domain feature — see what already exists in the map |

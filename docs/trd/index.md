@@ -25,13 +25,9 @@
 
 | Topic | File |
 |---|---|
-| Authentication | [../trd-auth.md](../trd-auth.md) |
-| Authorization | [../trd-authorization.md](../trd-authorization.md) |
-| Data-scope validation | [../trd-authorization-data-scope-validation.md](../trd-authorization-data-scope-validation.md) |
-| Sidebar permission lookup | [../trd-sidebar-permission-lookup.md](../trd-sidebar-permission-lookup.md) |
+| Authorization (auth, RBAC, data scope, sidebar) | [../trd-authorization.md](../trd-authorization.md) |
 | Soft delete (inventory) | [../trd-soft-delete-inventory.md](../trd-soft-delete-inventory.md) |
 | Soft delete (rollout) | [../trd-soft-delete-rollout.md](../trd-soft-delete-rollout.md) |
 | Inspection approval | [../trd-inspection-approval.md](../trd-inspection-approval.md) |
-| Inspection approval (legacy) | [../trd-inspection-approval-legacy.md](../trd-inspection-approval-legacy.md) |
 | Investigation report schema | [../trd-investigation-report-schema.md](../trd-investigation-report-schema.md) |
 | Reminders & calendar | [../trd-reminders-calendar.md](../trd-reminders-calendar.md) |

@@ -19,8 +19,8 @@
 | Integration | Purpose | Reference |
 |---|---|---|
 | Google OAuth | Alternate login | `backend/src/modules/auth/`, `passport-google-oauth20@2.0.0` |
-| Zoho | HRIS / external data sync | [../prd-zoho-integration.md](../prd-zoho-integration.md) |
-| Google Site embed | Embedded external content surface | [../prd-embed-google-site.md](../prd-embed-google-site.md) |
+| Zoho | HRIS / external data sync | [../prd/zoho-integration.md](../prd/zoho-integration.md) |
+| Google Site embed | Embedded external content surface | [../prd/embed-google-site.md](../prd/embed-google-site.md) |
 | SMTP | Notification email delivery | `@nestjs-modules/mailer@2.0.2`, env: SMTP_* |
 | PostgreSQL | Primary database | env: `DATABASE_URL` |
 

@@ -46,8 +46,8 @@ These files are already authoritative — do not move or rename:
 
 - `backend/TRD.md`, `frontend/TRD.md` — now redirects; structured content lives in [docs/trd/backend/](./trd/backend/) and [docs/trd/frontend/](./trd/frontend/)
 - `backend/erd.md`, `backend/erd-quick-reference.md` — now redirects; ERD content moved to [docs/erd/full.md](./erd/full.md) and [docs/erd/quick-reference.md](./erd/quick-reference.md)
-- `docs/trd-auth.md`, `docs/trd-authorization.md`, `docs/trd-authorization-data-scope-validation.md`, `docs/trd-sidebar-permission-lookup.md`, `docs/trd-soft-delete-inventory.md`, `docs/trd-soft-delete-rollout.md`, `docs/trd-inspection-approval.md`, `docs/trd-inspection-approval-legacy.md`, `docs/trd-investigation-report-schema.md`, `docs/trd-reminders-calendar.md`
-- `docs/prd-*.md` (32 per-domain PRDs)
+- `docs/trd-authorization.md`, `docs/trd-soft-delete-inventory.md`, `docs/trd-soft-delete-rollout.md`, `docs/trd-inspection-approval.md`, `docs/trd-investigation-report-schema.md`, `docs/trd-reminders-calendar.md`
+- `docs/prd/*.md` (32 per-domain PRDs + cross-cutting index/features/personas/problem-goals/open-questions)
 - `docs/CONTRIBUTING.md`, `docs/auth-data-level-qa-test-plan.md`, `docs/notification-qa-test-plan.md`, `docs/docs-compliance-gap-audit.md`, `docs/work-permit-gap-audit.md`, `docs/options-query-parameter-gap-audit.md`, `docs/notification-bugs.md`, `docs/investigation-report-accident.md`
 
 ## Navigation rules

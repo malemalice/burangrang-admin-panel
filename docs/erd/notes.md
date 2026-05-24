@@ -39,7 +39,7 @@ Data scope levels:
 
 Other entities are governed by role/permission only — do **not** add `@DataScoped` reflexively.
 
-See [docs/trd/backend/security.md](../trd/backend/security.md) and [../trd-authorization-data-scope-validation.md](../trd-authorization-data-scope-validation.md).
+See [docs/trd/backend/security.md](../trd/backend/security.md) and [../trd-authorization.md §6](../trd-authorization.md).
 
 ## Status enums
 

@@ -9,16 +9,15 @@
 
 ## Overview
 
-This document consolidates **all dashboard-related metrics, formulas, data sources, and schema mappings** across the HSE Dashboard system. It combines information from:
+This document is the **cross-dashboard index**: KPI frequency-rate formulas (TRIFR / TRSR / LTICR) consolidated against `BSJ -IFR-SR.xlsx` historical data, shared concepts (fiscal year, period filtering, recordable criteria, man-hour groups), and a system-wide implementation status summary.
 
-- `BSJ -IFR-SR.xlsx` — BSJ historical KPI data (IFR, SFR, LTI Case Rate, Man Hours)
-- `docs/prd-kpi-ifr-formula.md` — IFR/TRIFR formula specification
-- `docs/prd-dashboard-hazard-analytic.md` — Hazard & Non-Conformance Analytics
-- `docs/prd-dashboard-incident-profile-analytic.md` — Incident Profile Analytics
-- `docs/prd-dashboard-security-team.md` — Security Team Dashboard
-- `docs/prd-dashboard-admin-overview.md` — Admin Overview Dashboard
+For per-dashboard metric specs, follow the section links. Each domain dashboard PRD is the **source of truth** for its own metrics, formulas, and schema mapping:
 
-Each section covers: what the metric is, the formula, which schema tables/fields it maps to, and the current implementation status.
+- [`kpi-ifr-formula.md`](./kpi-ifr-formula.md) — KPI Frequency Rate formula detail (§1 here is the cross-XLSX consolidation)
+- [`dashboard-hazard-analytic.md`](./dashboard-hazard-analytic.md) — Hazard & Non-Conformance Analytics (§2)
+- [`dashboard-incident-profile-analytic.md`](./dashboard-incident-profile-analytic.md) — Incident Profile Analytics (§3)
+- [`dashboard-security-team.md`](./dashboard-security-team.md) — Security Team Dashboard (§4)
+- [`dashboard-admin-overview.md`](./dashboard-admin-overview.md) — Admin Overview Dashboard (§5)
 
 ---
 
@@ -40,7 +39,7 @@ Each section covers: what the metric is, the formula, which schema tables/fields
 
 ## 1. KPI Frequency Rate Metrics
 
-**Source:** `BSJ -IFR-SR.xlsx` (sheet: IFR-SR), `prd-kpi-ifr-formula.md`  
+**Source:** `BSJ -IFR-SR.xlsx` (sheet: IFR-SR), `kpi-ifr-formula.md`  
 **Route:** `/kpi-frequency-rate`  
 **Fiscal Year:** Aug YYYY to Jul YYYY+1 (e.g., 2024-2025 = Aug 2024 – Jul 2025)
 
@@ -254,135 +253,45 @@ Each class has monthly student counts and total hours. This granularity is suppo
 
 ## 2. Hazard & Non-Conformance Analytics
 
-**Source:** `docs/prd-dashboard-hazard-analytic.md`  
+**Authoritative spec:** [`dashboard-hazard-analytic.md`](./dashboard-hazard-analytic.md)
 **Route:** `/dashboard/hazard-analytics`
 
-### Metrics
+Covers Incident Summary, Monthly Hazards, Hazard Case Status, Type of Hazard, Non-Conformance Criteria, Responsible Action, and Top 10 Unsafe Conditions. Status mapping (`Open` vs `Closed`) and the incident-category-to-schema mapping (Fatality / Major / Minor / Near Miss / Hazard) live in the domain file.
 
-| # | Metric | Formula | Data Source |
-|---|--------|---------|-------------|
-| 2.1 | **Incident Summary** | COUNT by `incidentType` × `incidentClassification` (Fatality, Major, Minor, Near Miss, Hazard) per period | `t_incidents` |
-| 2.2 | **Monthly Hazards** | COUNT by category × month | `t_incidents` grouped by `incidentDate` month |
-| 2.3 | **Hazard Case Status** | COUNT open vs closed by `GeneralStatusEnum` mapping | `t_incidents` and/or `t_inspection_items` |
-| 2.4 | **Type of Hazard** | COUNT by `riskCategoryId` → `m_risk_categories.name` | `t_incidents` JOIN `m_risk_categories` |
-| 2.5 | **Non-Conformance Criteria** | COUNT non-compliant audit items by `auditCriteriaId` | `t_audit_items` JOIN `m_audit_criteria` WHERE `compliantStatus` IN (NOT_COMPLY_MAJOR, NOT_COMPLY_MINOR) |
-| 2.6 | **Responsible Action** | COUNT by `assignedDepartmentId` → `m_departments.name` | `t_incidents` and/or `t_inspection_items` JOIN `m_departments` |
-| 2.7 | **Top 10 Unsafe Conditions** | COUNT by `riskId` → `m_risk.name`, ORDER DESC LIMIT 10 | `t_inspection_items` JOIN `m_risk` |
-
-**Status mapping (Open/Closed):**
-
-| Dashboard Status | `GeneralStatusEnum` values |
-|---|---|
-| Open | OPEN, WAITING_APPROVAL, SCHEDULED, DRAFT |
-| Closed | DONE, CLOSE |
-
-**Incident category mapping:**
-
-| Dashboard Category | Schema Filter |
-|---|---|
-| Fatality | `incidentClassification = 'FATALITY'` |
-| Major Accident | `incidentType = 'ACCIDENT'` AND `incidentClassification = 'MAJOR'` |
-| Minor Accident | `incidentType = 'ACCIDENT'` AND `incidentClassification = 'MINOR'` |
-| Near Miss | `incidentType = 'NEAR_MISS'` |
-| Hazard | `incidentType = 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE'` |
-
-**API:** `GET /dashboard/incident-summary?periodFrom=YYYY-MM&periodTo=YYYY-MM`  
-**Status:** Incident Summary + Incident Chart ✅ Implemented; all others use mock data
+**API:** `GET /dashboard/incident-summary?periodFrom=YYYY-MM&periodTo=YYYY-MM`
 
 ---
 
 ## 3. Incident Profile Analytics
 
-**Source:** `docs/prd-dashboard-incident-profile-analytic.md`  
+**Authoritative spec:** [`dashboard-incident-profile-analytic.md`](./dashboard-incident-profile-analytic.md)
 **Route:** `/dashboard/incident-profile-analytic`
 
-### Metrics
+Scope: Minor accidents only. Categorisation derives from `t_incident_injured_persons.mechanismOfInjury` with human-readable labels; full enum→label table lives in the domain file.
 
-| # | Metric | Formula | Data Source |
-|---|--------|---------|-------------|
-| 3.1 | **Incident Count by Category** | COUNT minor incidents grouped by `mechanismOfInjury` × fiscal year | `t_incidents` JOIN `t_incident_injured_persons` WHERE `incidentType='ACCIDENT'` AND `incidentClassification='MINOR'` |
-| 3.2 | **Incident Percentage by Category** | `(yearCount / totalForCategory) × 100` | Derived from 3.1 counts |
-
-**Scope:** Minor incidents only (`incidentType = 'ACCIDENT'` AND `incidentClassification = 'MINOR'`).
-
-**Category derivation:** `mechanismOfInjury` from `t_incident_injured_persons` with label mapping:
-
-| Enum | Label |
-|------|-------|
-| STRUCK_BY | Struck by or caught between objects |
-| FAILING_OBJECT | Got hit by falling object |
-| TRIP, SLIP, FALL | Fall (tripped or slipped) |
-| CHEMICAL | Chemical exposure |
-| VEHICLES | Vehicle accident |
-| MECHINARY | Injury caused by machinery |
-| ELECTRICITY | Injury caused by electricity |
-| HAND_TOOLS | Got cut due to sharp edge material |
-| FALL_FROM_HEIGHT | Fall from height |
-| FLYING_OBJECT | Eye injury caused by flying particles |
-| OTHER | Other |
-
-**API:** `GET /dashboard/incident-profile?fiscalYears=year2022_2023&fiscalYears=year2023_2024`  
-**Status:** ✅ Implemented (backend + frontend)
+**API:** `GET /dashboard/incident-profile?fiscalYears=...`
 
 ---
 
 ## 4. Security Team Dashboard
 
-**Source:** `docs/prd-dashboard-security-team.md`  
+**Authoritative spec:** [`dashboard-security-team.md`](./dashboard-security-team.md)
 **Route:** `/dashboard/security-team`
 
-### Metrics
+Covers Incident Summary (YoY), Type of Non-Conformance, Parties Involved, Case Status, SIFR Comparison, and Monthly Incidents. SIFR formula and Major/Moderate/Minor severity split live in the domain file.
 
-| # | Metric | Formula | Data Source |
-|---|--------|---------|-------------|
-| 4.1 | **Incident Summary (YoY)** | COUNT by severity (Major/Moderate/Minor) with previous year comparison | `t_incidents`, `t_incident_injured_persons` |
-| 4.2 | **Type of Non-Conformance** | COUNT by security risk type (Sabotage, Assault, Theft, etc.) | `t_incidents` JOIN `m_risk_categories` JOIN `m_risk` WHERE security category |
-| 4.3 | **Parties Involved** | COUNT by party type (Staff, Students, Visitors, etc.) from injured persons/witnesses | `t_incident_injured_persons`, `t_incident_witnesses` JOIN `m_departments` |
-| 4.4 | **Case Status** | COUNT open vs closed | `t_incidents` |
-| 4.5 | **SIFR Comparison** | `SIFR = (Security Incidents × 1,000,000) ÷ Total Man-Hours` by severity × year | `t_incidents`, `t_man_hours` |
-| 4.6 | **Monthly Incidents** | COUNT by severity × month | `t_incidents`, `t_incident_injured_persons` |
-
-**Security severity split:**
-
-| Category | Schema Mapping |
-|---|---|
-| Major | `incidentClassification = 'MAJOR'` |
-| Moderate | `incidentClassification = 'MINOR'` AND `levelOfInjury = 'MODERATE'` |
-| Minor | `incidentClassification = 'MINOR'` AND `levelOfInjury` IN (MINOR, NOT_SPECIFIED) |
-
-**SIFR formula:**
-
-```
-SIFR = (Number of Security Incidents ÷ Total Man-Hours) × 1,000,000
-Major Rate = (Major Incidents ÷ Total Man-Hours) × 1,000,000
-Moderate Rate = (Moderate Incidents ÷ Total Man-Hours) × 1,000,000
-Minor Rate = (Minor Incidents ÷ Total Man-Hours) × 1,000,000
-```
-
-**API:** `GET /dashboard/security-team?periodFrom=YYYY-MM&periodTo=YYYY-MM` (proposed)  
-**Status:** ❌ All widgets use mock data
+**API:** `GET /dashboard/security-team?periodFrom=YYYY-MM&periodTo=YYYY-MM` (proposed)
 
 ---
 
 ## 5. Admin Overview Dashboard
 
-**Source:** `docs/prd-dashboard-admin-overview.md`  
+**Authoritative spec:** [`dashboard-admin-overview.md`](./dashboard-admin-overview.md)
 **Route:** `/dashboard/admin-overview`
 
-### Metrics (7 module sections)
+Covers seven module sections: Learning Management, Certificates, PPE & Equipment, Work Permits, Environmental, Waste Management, Man Hours. Per-module metric formulas and data sources live in the domain file.
 
-| # | Module | Metrics | Data Source |
-|---|--------|---------|-------------|
-| 5.1 | **Learning Management** | Overdue enrollments, Course completion rate %, Quiz pass rate % | `t_enrollments`, `t_progress`, `t_quiz_attempts` |
-| 5.2 | **Certificates** | Expiring in 30 days, Renewal backlog, Categories count | `t_certificates`, `t_certificate_renewals`, `m_certificate_categories` |
-| 5.3 | **PPE & Equipment** | Low stock/expiring items, Withdrawals pending, Top equipment | `t_ppe_stock_items`, `t_ppe_withdrawals`, `t_ppe_withdrawal_items` |
-| 5.4 | **Work Permits** | Pending approval, Active permits, Rejection rate % | `t_work_permits` |
-| 5.5 | **Environmental** | Rooms not measured, Coverage %, Readings recorded | `t_environmental_measurements`, `m_rooms` |
-| 5.6 | **Waste Management** | Reports pending review, Missing reports, Total waste weight | `t_monthly_flow_reports`, `t_water_quality_lab_reports`, `t_weight_reports`, `t_weight_report_items` |
-| 5.7 | **Man Hours** | Total man-hours, Student vs non-student split, YoY change % | `t_man_hours` |
-
-**API:** `GET /dashboard/admin-overview?periodFrom=YYYY-MM&periodTo=YYYY-MM` (proposed)  
-**Status:** ❌ All metrics use mock data
+**API:** `GET /dashboard/admin-overview?periodFrom=YYYY-MM&periodTo=YYYY-MM` (proposed)
 
 ---
 
@@ -507,13 +416,13 @@ Shared across TRIFR, TRSR, LTICR:
 
 - `backend/erd.md` — Entity relationship documentation
 - `backend/prisma/schema.prisma` — Database schema
-- `docs/prd-kpi-ifr-formula.md` — KPI IFR formula detail
-- `docs/prd-dashboard-hazard-analytic.md` — Hazard Analytics detail
-- `docs/prd-dashboard-incident-profile-analytic.md` — Incident Profile detail
-- `docs/prd-dashboard-security-team.md` — Security Team detail
-- `docs/prd-dashboard-admin-overview.md` — Admin Overview detail
-- `docs/prd-man-hours.md` — Man Hours module
-- `docs/prd-incidents.md` — Incident Management module
+- `docs/prd/kpi-ifr-formula.md` — KPI IFR formula detail
+- `docs/prd/dashboard-hazard-analytic.md` — Hazard Analytics detail
+- `docs/prd/dashboard-incident-profile-analytic.md` — Incident Profile detail
+- `docs/prd/dashboard-security-team.md` — Security Team detail
+- `docs/prd/dashboard-admin-overview.md` — Admin Overview detail
+- `docs/prd/man-hours.md` — Man Hours module
+- `docs/prd/incidents.md` — Incident Management module
 - `refs/BSJ -IFR-SR.xlsx` — BSJ historical KPI reference data
 - `frontend/src/modules/kpi-frequency-rate/` — KPI Frequency Rate frontend module
 - `backend/src/modules/kpi/` — KPI backend module

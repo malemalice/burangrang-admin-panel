@@ -117,4 +117,4 @@ Routes: /courses, /courses/:id, course player and quiz attempt routes; /enrollme
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and data-scope enforcement
-- [`prd-notifications.md`](prd-notifications.md) — notification and email delivery system used for course assignment
+- [`notifications.md`](notifications.md) — notification and email delivery system used for course assignment

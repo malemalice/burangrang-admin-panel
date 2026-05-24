@@ -8,48 +8,48 @@ Top-level feature inventory. Each row links to its authoritative per-domain PRD.
 
 ## Identity & Access
 
-- Authentication ([prd-auth.md](../prd-auth.md)) — local + Google OAuth, JWT
-- Authorization ([prd-authorization.md](../prd-authorization.md)) — roles, permissions, menu access
-- User Access Management ([prd-user-access-management.md](../prd-user-access-management.md))
+- Authentication ([auth.md](./auth.md)) — local + Google OAuth, JWT
+- Authorization ([authorization.md](./authorization.md)) — roles, permissions, menu access
+- User Access Management ([user-access-management.md](./user-access-management.md))
 
 ## Core HSE Workflows
 
-- Incidents ([prd-incidents.md](../prd-incidents.md)) — report, investigate, close
-- Inspections ([prd-inspections.md](../prd-inspections.md)) + Inspection Approval ([prd-inspection-approval.md](../prd-inspection-approval.md))
-- Risk Management ([prd-risk-management.md](../prd-risk-management.md)) — risk register, hazard analysis
-- Work Permit ([prd-work-permit.md](../prd-work-permit.md)) + Health Declaration ([prd-work-permit-health-declaration.md](../prd-work-permit-health-declaration.md))
-- PPE ([prd-ppe.md](../prd-ppe.md)) — withdrawals, stock
-- Certificates ([prd-certificates.md](../prd-certificates.md))
-- Environmental Measurements ([prd-environmental-measurements.md](../prd-environmental-measurements.md))
-- Waste Management ([prd-waste-management.md](../prd-waste-management.md))
-- Man Hours ([prd-man-hours.md](../prd-man-hours.md))
+- Incidents ([incidents.md](./incidents.md)) — report, investigate, close
+- Inspections ([inspections.md](./inspections.md)) + Inspection Approval ([inspection-approval.md](./inspection-approval.md))
+- Risk Management ([risk-management.md](./risk-management.md)) — risk register, hazard analysis
+- Work Permit ([work-permit.md](./work-permit.md)) + Health Declaration ([work-permit-health-declaration.md](./work-permit-health-declaration.md))
+- PPE ([ppe.md](./ppe.md)) — withdrawals, stock
+- Certificates ([certificates.md](./certificates.md))
+- Environmental Measurements ([environmental-measurements.md](./environmental-measurements.md))
+- Waste Management ([waste-management.md](./waste-management.md))
+- Man Hours ([man-hours.md](./man-hours.md))
 
 ## Cross-cutting
 
-- Approvals ([prd-approvals.md](../prd-approvals.md)) — workflow config + execution history
-- Notifications ([prd-notifications.md](../prd-notifications.md))
-- Communication ([prd-communication.md](../prd-communication.md))
-- Reminders & Calendar ([prd-reminders-calendar.md](../prd-reminders-calendar.md))
-- Uploads ([prd-uploads.md](../prd-uploads.md))
-- Learning Management ([prd-learning-management.md](../prd-learning-management.md))
-- Audit Management ([prd-audit-management.md](../prd-audit-management.md))
+- Approvals ([approvals.md](./approvals.md)) — workflow config + execution history
+- Notifications ([notifications.md](./notifications.md))
+- Communication ([communication.md](./communication.md))
+- Reminders & Calendar ([reminders-calendar.md](./reminders-calendar.md))
+- Uploads ([uploads.md](./uploads.md))
+- Learning Management ([learning-management.md](./learning-management.md))
+- Audit Management ([audit-management.md](./audit-management.md))
 
 ## Dashboards
 
-- Personal Home ([prd-personal-home.md](../prd-personal-home.md))
-- Main Dashboard ([prd-dashboard.md](../prd-dashboard.md))
-- Admin Overview ([prd-dashboard-admin-overview.md](../prd-dashboard-admin-overview.md))
-- Hazard Analytic ([prd-dashboard-hazard-analytic.md](../prd-dashboard-hazard-analytic.md))
-- Incident Profile Analytic ([prd-dashboard-incident-profile-analytic.md](../prd-dashboard-incident-profile-analytic.md))
-- Security Team ([prd-dashboard-security-team.md](../prd-dashboard-security-team.md))
-- KPI / IFR Formula ([prd-kpi-ifr-formula.md](../prd-kpi-ifr-formula.md))
+- Personal Home ([personal-home.md](./personal-home.md))
+- Main Dashboard ([dashboard.md](./dashboard.md))
+- Admin Overview ([dashboard-admin-overview.md](./dashboard-admin-overview.md))
+- Hazard Analytic ([dashboard-hazard-analytic.md](./dashboard-hazard-analytic.md))
+- Incident Profile Analytic ([dashboard-incident-profile-analytic.md](./dashboard-incident-profile-analytic.md))
+- Security Team ([dashboard-security-team.md](./dashboard-security-team.md))
+- KPI / IFR Formula ([kpi-ifr-formula.md](./kpi-ifr-formula.md))
 
 ## Admin & Config
 
-- Settings ([prd-settings.md](../prd-settings.md))
-- Master Data ([prd-master-data.md](../prd-master-data.md))
+- Settings ([settings.md](./settings.md))
+- Master Data ([master-data.md](./master-data.md))
 
 ## Integrations
 
-- Zoho Integration ([prd-zoho-integration.md](../prd-zoho-integration.md))
-- Embed Google Site ([prd-embed-google-site.md](../prd-embed-google-site.md))
+- Zoho Integration ([zoho-integration.md](./zoho-integration.md))
+- Embed Google Site ([embed-google-site.md](./embed-google-site.md))

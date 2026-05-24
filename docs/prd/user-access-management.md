@@ -27,7 +27,7 @@ The User & Access Management module covers identity and authorization configurat
 - **permission:list** — list permissions (and default permissions).
 - **menu:create,** **menu:list,** **menu:read,** **menu:update,** **menu:delete,** **menu:assign-roles** — menu CRUD, hierarchy, stats, and role assignment.
 
-Sidebar visibility is driven by permission-based lookup (path → permission); see trd-sidebar-permission-lookup.md.
+Sidebar visibility is driven by permission-based lookup (path → permission); see [`trd-authorization.md`](../trd-authorization.md) §8.
 
 ## User Stories
 
@@ -131,5 +131,5 @@ Sidebar visibility is driven by permission-based lookup (path → permission); s
 ## Related Documents
 
 - [`trd-authorization.md`](trd-authorization.md) — RBAC guard chain and permission enforcement
-- [`prd-authorization.md`](prd-authorization.md) — business requirements for the authorization model
-- [`trd-sidebar-permission-lookup.md`](trd-sidebar-permission-lookup.md) — sidebar visibility TRD
+- [`authorization.md`](authorization.md) — business requirements for the authorization model
+- [`trd-authorization.md`](../trd-authorization.md) §8 — sidebar visibility TRD
