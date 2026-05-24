@@ -12,8 +12,10 @@
 | [motion.md](./motion.md) | Transition durations and easing |
 | [accessibility.md](./accessibility.md) | WCAG AA, focus, ARIA, keyboard |
 | [icons.md](./icons.md) | Lucide React, 16/20/24px sizing |
-| [principles.md](./principles.md) | UI/UX principles for back-office systems, layout patterns, component patterns, status/workflow rendering, form guidelines (deep / from frontend/TRD.md L236–914) |
-| [patterns.md](./patterns.md) | Design system reference: color system, typography scale, spacing, theme system, animations, component usage DO/DON'T (deep / from frontend/TRD.md L915–1443) |
+| [principles.md](./principles.md) | UI/UX principles, layout patterns, component patterns (tables, filters, modals), advanced features (PDF export, bulk actions). Trimmed 2026-05-24 — workflow + form-layout extracted. |
+| [workflow-status.md](./workflow-status.md) | Status-based action visibility, button hierarchy, approval timeline (history vs allApprovalLines), dynamic Master-Approval-driven workflow guideline UI, status handlers, approval dialog |
+| [form-layout.md](./form-layout.md) | Form page structure (PageHeader → max-w-4xl → Card), spacing standards, action buttons, loading/error state patterns, optimal viewport |
+| [patterns.md](./patterns.md) | Design system reference: color system, typography scale, spacing, theme system, animations, component usage DO/DON'T |
 
 ## Implementation primitives
 
