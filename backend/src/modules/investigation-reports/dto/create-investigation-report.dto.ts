@@ -67,6 +67,29 @@ export class CreateInvestigationReportDto {
   @ApiProperty({ required: false, default: false })
   distributionRelatedDepartment?: boolean;
 
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({ type: [String], default: [], required: false })
+  bodyPartsSummary?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({ type: [String], default: [], required: false })
+  injuryTypesSummary?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({ type: [String], default: [], required: false })
+  mechanismsSummary?: string[];
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false, nullable: true, description: 'Section B1 — URL of the annotated body diagram PNG' })
+  bodyDiagramUrl?: string;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => UpsertInvestigationCostDto)

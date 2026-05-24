@@ -1,6 +1,8 @@
 import { format } from 'date-fns';
 import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 import {
+  FIXED_SIGNATORY_SLOTS,
+  SIGNATORY_ROLE_LABELS,
   type InvestigationCause,
   type InvestigationReport,
   InvestigationCauseSectionEnum,
@@ -153,7 +155,7 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
 
       {incident && (
         <>
-          <IncidentSectionB incident={incident} variant="pdf" />
+          <IncidentSectionB incident={incident} variant="pdf" bodyDiagramUrl={report.bodyDiagramUrl} />
           <IncidentSectionC incident={incident} variant="pdf" />
           <IncidentSectionD incident={incident} variant="pdf" />
           <IncidentSectionE incident={incident} variant="pdf" />
@@ -246,35 +248,37 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
           </tr>
         </thead>
         <tbody>
-          {report.signatories.map((s) => (
-            <tr key={s.id}>
-              <td style={pdfCell}>{s.roleName ?? '—'}</td>
-              <td style={pdfCell}>{s.name ?? '—'}</td>
-              <td style={{ ...pdfCell, minHeight: 48, height: 48 }}>{/* blank for physical signature */}</td>
-              <td style={pdfCell}>
-                {s.signedAt ? format(new Date(s.signedAt), 'dd MMM yyyy') : '—'}
-              </td>
-            </tr>
-          ))}
+          {FIXED_SIGNATORY_SLOTS.map((role) => {
+            const saved = report.signatories.find((s) => s.signatoryRole === role);
+            const label = SIGNATORY_ROLE_LABELS[role];
+            return (
+              <tr key={role}>
+                <td style={pdfCell}>
+                  <div style={{ fontWeight: 600, fontSize: 10 }}>{label.en} / {label.id}</div>
+                  {saved?.roleName && <div style={{ fontSize: 9, color: '#555' }}>{saved.roleName}</div>}
+                </td>
+                <td style={pdfCell}>{saved?.name ?? '—'}</td>
+                <td style={{ ...pdfCell, minHeight: 48, height: 48 }}>{/* blank for physical signature */}</td>
+                <td style={pdfCell}>
+                  {saved?.signedAt ? format(new Date(saved.signedAt), 'dd MMM yyyy') : '—'}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
       <PdfSectionTitle>
-        L. H&S Comments / Komentar Health and Safety
+        L. Health &amp; Safety Comments / Komentar Health and Safety
       </PdfSectionTitle>
-      <p style={{ whiteSpace: 'pre-line', marginBottom: 8 }}>
-        {report.hsComments ?? '—'}
-      </p>
-      <p style={{ marginBottom: 12 }}>
-        Distribution:{' '}
-        {[
-          report.distributionSafetyCommittee && 'Safety Committee',
-          report.distributionHeadOfBusinessOp && 'Head of Business Operation',
-          report.distributionRelatedDepartment && 'Related Department',
-        ]
-          .filter(Boolean)
-          .join(', ') || '—'}
-      </p>
+      {report.hsComments ? (
+        <div
+          style={{ marginBottom: 8, fontSize: 11 }}
+          dangerouslySetInnerHTML={{ __html: report.hsComments }}
+        />
+      ) : (
+        <p style={{ marginBottom: 8 }}>—</p>
+      )}
 
       <div
         style={{

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { IsString, IsOptional, IsEnum, IsDate, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDate, IsBoolean, IsInt } from 'class-validator';
 
 export enum ReminderStatusEnum {
   PENDING = 'PENDING',
@@ -60,6 +60,21 @@ export class ReminderDto {
   @IsString()
   entityId?: string;
 
+  @ApiProperty({
+    description: 'Subject type — what the reminder is about (e.g. "treatment-plant").',
+    required: false,
+  })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  subjectType?: string;
+
+  @ApiProperty({ description: 'Subject primary key.', required: false })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  subjectId?: string;
+
   @ApiProperty({ description: 'Reminder message content' })
   @Expose()
   @IsString()
@@ -85,6 +100,21 @@ export class ReminderDto {
   @IsOptional()
   @IsDate()
   repeatUntil?: Date;
+
+  @ApiProperty({
+    description: 'MONTHLY: day of month (1..31), last-day fallback for short months.',
+    required: false,
+  })
+  @Expose()
+  @IsOptional()
+  @IsInt()
+  dayOfMonth?: number;
+
+  @ApiProperty({ description: 'WEEKLY: day of week (0..6, Sunday=0).', required: false })
+  @Expose()
+  @IsOptional()
+  @IsInt()
+  dayOfWeek?: number;
 
   @ApiProperty({
     description: 'Current status of the reminder',

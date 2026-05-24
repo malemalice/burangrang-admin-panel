@@ -48,7 +48,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
               Water Quality Lab Report: {report.reportCode}
             </h1>
             <p className="text-sm text-gray-600 mb-1">
-              Report Date: {report.reportDate ? format(new Date(report.reportDate), 'dd MMM yyyy') : '—'}
+              {report.treatmentPlant?.name ?? '—'}
             </p>
             <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
           </div>

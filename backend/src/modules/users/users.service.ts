@@ -505,29 +505,30 @@ export class UsersService {
       select: {
         certificateUrl: true,
         healthDeclarationUrl: true,
-        healthScreenings: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          where:
-            requester.role === (Role.SUPER_ADMIN as string)
-              ? undefined
-              : { companyId: requesterCompanyId! },
-          include: {
-            quiz: { select: { id: true, title: true } },
-          },
-        },
       },
     });
 
-    const latestHealthScreening = workerRow?.healthScreenings?.[0]
+    // Query by userId directly so newly submitted declarations (workerId still null) are visible.
+    const latestHealthScreeningRaw = await this.prisma.healthScreening.findFirst({
+      where: {
+        userId: targetUserId,
+        ...(requester.role !== (Role.SUPER_ADMIN as string) && requesterCompanyId
+          ? { companyId: requesterCompanyId }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { quiz: { select: { id: true, title: true } } },
+    });
+
+    const latestHealthScreening = latestHealthScreeningRaw
       ? {
-          id: workerRow.healthScreenings[0].id,
-          status: workerRow.healthScreenings[0].status,
-          quizId: workerRow.healthScreenings[0].quizId,
-          quiz: workerRow.healthScreenings[0].quiz
+          id: latestHealthScreeningRaw.id,
+          status: latestHealthScreeningRaw.status,
+          quizId: latestHealthScreeningRaw.quizId,
+          quiz: latestHealthScreeningRaw.quiz
             ? {
-                id: workerRow.healthScreenings[0].quiz.id,
-                title: workerRow.healthScreenings[0].quiz.title,
+                id: latestHealthScreeningRaw.quiz.id,
+                title: latestHealthScreeningRaw.quiz.title,
               }
             : undefined,
         }

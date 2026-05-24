@@ -1,4 +1,37 @@
-import { RiskRatingEnum } from '@prisma/client';
+import { RiskRatingEnum, WaterQualityLabReportCategoryEnum } from '@prisma/client';
+
+export interface WaterQualityLabDashboardParameter {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+  standardLimit: number | null;
+  regulatoryLimit: number | null;
+  displayOrder: number | null;
+}
+
+export interface WaterQualityLabDashboardPlant {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface WaterQualityLabDashboardMonth {
+  month: number;
+  values: Record<string, number | null>;
+}
+
+export interface WaterQualityLabDashboardData {
+  category: WaterQualityLabReportCategoryEnum;
+  year: number;
+  parameter: WaterQualityLabDashboardParameter | null;
+  availableParameters: WaterQualityLabDashboardParameter[];
+  plants: WaterQualityLabDashboardPlant[];
+  months: WaterQualityLabDashboardMonth[];
+  averageValue: number | null;
+  trendline: { slope: number; intercept: number } | null;
+  yearSummary: { count: number; average: number | null };
+}
 
 export interface RiskOverview {
   totalAssessments: number;

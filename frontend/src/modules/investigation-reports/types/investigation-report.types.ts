@@ -19,6 +19,22 @@ export enum InvestigationSignatoryRoleEnum {
   SECURITY = 'SECURITY',
 }
 
+export const SIGNATORY_ROLE_LABELS: Record<InvestigationSignatoryRoleEnum, { en: string; id: string }> = {
+  [InvestigationSignatoryRoleEnum.LEAD_INVESTIGATOR]: { en: 'Lead Investigator', id: 'Pemimpin Investigator' },
+  [InvestigationSignatoryRoleEnum.INVESTIGATOR_2]: { en: 'Investigator 2', id: 'Investigator 2' },
+  [InvestigationSignatoryRoleEnum.INVESTIGATOR_3]: { en: 'Investigator 3', id: 'Investigator 3' },
+  [InvestigationSignatoryRoleEnum.RELATED_MANAGER]: { en: 'Related Manager', id: 'Manajer Terkait' },
+  [InvestigationSignatoryRoleEnum.SECURITY]: { en: 'Security', id: 'Keamanan' },
+};
+
+export const FIXED_SIGNATORY_SLOTS = [
+  InvestigationSignatoryRoleEnum.LEAD_INVESTIGATOR,
+  InvestigationSignatoryRoleEnum.INVESTIGATOR_2,
+  InvestigationSignatoryRoleEnum.INVESTIGATOR_3,
+  InvestigationSignatoryRoleEnum.RELATED_MANAGER,
+  InvestigationSignatoryRoleEnum.SECURITY,
+] as const;
+
 export interface InvestigationCost {
   id: string;
   investigationReportId: string;
@@ -88,6 +104,10 @@ export interface InvestigationReport {
   distributionSafetyCommittee: boolean;
   distributionHeadOfBusinessOp: boolean;
   distributionRelatedDepartment: boolean;
+  bodyPartsSummary: string[];
+  injuryTypesSummary: string[];
+  mechanismsSummary: string[];
+  bodyDiagramUrl?: string | null;
   isActive: boolean;
   createdBy: string;
   creator?: User;
@@ -153,6 +173,10 @@ export interface CreateInvestigationReportDTO {
   distributionSafetyCommittee?: boolean;
   distributionHeadOfBusinessOp?: boolean;
   distributionRelatedDepartment?: boolean;
+  bodyPartsSummary?: string[];
+  injuryTypesSummary?: string[];
+  mechanismsSummary?: string[];
+  bodyDiagramUrl?: string | null;
   cost?: UpsertInvestigationCostInput;
   causes?: UpsertInvestigationCauseInput[];
   actionPlans?: UpsertInvestigationActionPlanInput[];

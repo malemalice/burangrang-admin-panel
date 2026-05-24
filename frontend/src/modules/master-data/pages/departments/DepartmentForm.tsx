@@ -4,6 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import axios from 'axios';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -35,6 +36,16 @@ type FormValues = z.infer<typeof formSchema>;
 interface DepartmentFormProps {
   department?: Department;
   mode: 'create' | 'edit';
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const msg = (error.response?.data as { message?: string | string[] } | undefined)?.message;
+    if (typeof msg === 'string' && msg.trim() !== '') return msg;
+    if (Array.isArray(msg) && msg.length > 0) return msg.join(', ');
+  }
+  if (error instanceof Error && error.message.trim() !== '') return error.message;
+  return fallback;
 }
 
 const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
@@ -71,7 +82,7 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
             code: department.code,
             description: department.description || '',
             emails: department.emails && department.emails.length > 0 ? department.emails : [],
-            isActive: department.isActive || true,
+            isActive: department.isActive ?? true,
           });
         }
 
@@ -115,7 +126,7 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
       navigate('/master/departments');
     } catch (error: unknown) {
       console.error('Error saving department:', error);
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} department`;
+      const errorMessage = getApiErrorMessage(error, `Failed to ${mode} department`);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);

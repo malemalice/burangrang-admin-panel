@@ -76,6 +76,7 @@ const PublicWorkPermitPage = () => {
   const [classificationContentEnabled, setClassificationContentEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [ackSafetyGuideline, setAckSafetyGuideline] = useState(false);
@@ -774,6 +775,15 @@ const PublicWorkPermitPage = () => {
         mitigationsLoadingByRiskId={mitigationsLoadingByRiskId}
         mitigationsErrorByRiskId={mitigationsErrorByRiskId}
         publicApplicantToken={token}
+        refreshing={refreshing}
+        onRefresh={async () => {
+          setRefreshing(true);
+          try {
+            await load({ silent: true });
+          } finally {
+            setRefreshing(false);
+          }
+        }}
       />
 
       {canSignSk &&

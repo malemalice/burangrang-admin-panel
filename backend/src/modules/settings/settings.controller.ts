@@ -30,7 +30,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
-import { Public } from 'src/shared/decorators/public.decorator';
+import { Public } from '../../shared/decorators/public.decorator';
 import { SETTINGS_KEYS } from './constants/settings-keys';
 
 interface RequestWithUser extends Request {

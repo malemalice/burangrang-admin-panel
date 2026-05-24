@@ -21,6 +21,8 @@ import approvalService, { type ApprovalStatusHistory } from '@/modules/master-da
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import environmentalMeasurementService from '../services/environmentalMeasurementService';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { roomSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import { EnvironmentalMeasurementListPDFTemplate } from '../components/EnvironmentalMeasurementListPDFTemplate';
 import { EnvironmentalMeasurementPDFTemplate } from '../components/EnvironmentalMeasurementPDFTemplate';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
@@ -589,6 +591,14 @@ export default function EnvironmentalMeasurementsPage() {
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="environmental-measurements"
+          entityLabel="Environmental Measurement"
+          subjectPicker={roomSubjectPicker}
+        />
+      </div>
     </>
   );
 }

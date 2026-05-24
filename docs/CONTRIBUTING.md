@@ -19,7 +19,7 @@ Use this table to decide which type to create:
 
 | When you need to… | Document type | File naming |
 |---|---|---|
-| Define what a module does, its requirements, and API | PRD | `prd-<module>.md` |
+| Define what a module does, its requirements, and API | PRD | `prd/<module>.md` |
 | Define how a system/pattern must be implemented technically | TRD | `trd-<topic>.md` |
 | Describe manual test cases for a feature or system | QA Test Plan | `<topic>-qa-test-plan.md` |
 | Compare what the PRD says vs what the code actually does | Gap Audit | `<topic>-gap-audit.md` |
@@ -149,7 +149,7 @@ Routes: `/path`, `/path/new`, `/path/:id`, `/path/:id/edit`.
 ## Related Documents
 
 - [`trd-<topic>.md`](trd-<topic>.md) — implementation details
-- [`prd-<related>.md`](prd-<related>.md) — related module
+- [`prd/<related>.md`](prd/<related>.md) — related module
 ```
 
 ### 4.2 Writing rules for PRDs
@@ -176,7 +176,7 @@ Routes: `/path`, `/path/new`, `/path/:id`, `/path/:id/edit`.
 **Audience:** Backend, Frontend Engineers
 **Last updated:** YYYY-MM-DD
 
-> For business rationale and UX requirements, see `docs/prd-<module>.md`.
+> For business rationale and UX requirements, see `docs/prd/<module>.md`.
 
 ---
 
@@ -215,7 +215,7 @@ Agents and reviewers use this to verify a module is correctly implemented.
 
 ## 6. References
 
-- [`prd-<module>.md`](prd-<module>.md)
+- [`prd/<module>.md`](prd/<module>.md)
 - [`backend/TRD.md`](../backend/TRD.md)
 ```
 
@@ -299,7 +299,7 @@ Agents and reviewers use this to verify a module is correctly implemented.
 
 **Document type:** Gap Audit Report
 **Date:** YYYY-MM-DD
-**PRD Reference:** `docs/prd-<module>.md`
+**PRD Reference:** `docs/prd/<module>.md`
 **Scope:** [Which sections / fields are audited]
 **Last updated:** YYYY-MM-DD
 

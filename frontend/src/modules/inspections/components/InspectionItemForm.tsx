@@ -434,7 +434,7 @@ const InspectionItemForm = ({
         // If user doesn't have permission, we'll just skip it (assignee field is optional)
         // Fetch users when assigneeId is editable or when creating with inspection (for inspectors dropdown)
         const assigneePermission = FIELD_PERMISSIONS[formMode]?.assigneeId;
-        if (assigneePermission === 'editable' || createWithInspection) {
+        if (assigneePermission === 'editable' || assigneePermission === 'readonly' || createWithInspection) {
           try {
             const usersResponse = await userService.getAll({ page: 1, limit: 1000, options: true });
             setUsers(usersResponse.data);

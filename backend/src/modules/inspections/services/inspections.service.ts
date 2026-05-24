@@ -148,72 +148,76 @@ export class InspectionsService {
   ): Promise<InspectionDto> {
     const { items, inspectors, areaIds, ...data } = createInspectionDto;
 
-    const inspection = await this.prisma.inspection.create({
-      data: {
-        ...data,
-        createdBy: userId,
-        ...(areaIds && areaIds.length > 0 && {
-          areas: {
-            create: areaIds.map((areaId) => ({
-              areaId,
-            })),
-          },
-        }),
-        ...(items && items.length > 0 && {
-          items: {
-            create: items.map((item) => {
-              const { images, ...itemData } = item;
-              const createData: any = { ...itemData };
-              if (images && images.length > 0) {
-                createData.images = {
-                  create: images.map((img) => ({
-                    imageUrl: img.imageUrl,
-                    caption: img.caption || null,
-                    type: img.type || 'GENERAL',
-                    order: img.order,
-                  })),
-                };
-              }
-              return createData;
+    const inspection = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.inspection.create({
+          data: {
+            ...data,
+            createdBy: userId,
+            ...(areaIds && areaIds.length > 0 && {
+              areas: {
+                create: areaIds.map((areaId) => ({
+                  areaId,
+                })),
+              },
+            }),
+            ...(items && items.length > 0 && {
+              items: {
+                create: items.map((item) => {
+                  const { images, ...itemData } = item;
+                  const createData: any = { ...itemData };
+                  if (images && images.length > 0) {
+                    createData.images = {
+                      create: images.map((img) => ({
+                        imageUrl: img.imageUrl,
+                        caption: img.caption || null,
+                        type: img.type || 'GENERAL',
+                        order: img.order,
+                      })),
+                    };
+                  }
+                  return createData;
+                }),
+              },
+            }),
+            ...(inspectors && inspectors.length > 0 && {
+              inspectors: {
+                create: inspectors.map((inspector) => ({
+                  ...inspector,
+                })),
+              },
             }),
           },
-        }),
-        ...(inspectors && inspectors.length > 0 && {
-          inspectors: {
-            create: inspectors.map((inspector) => ({
-              ...inspector,
-            })),
-          },
-        }),
-      },
-      include: {
-        items: {
           include: {
-            area: true,
-            riskCategory: true,
-            risk: true,
-            assignedDepartment: true,
-            assignee: true,
-            images: {
+            items: {
+              include: {
+                area: true,
+                riskCategory: true,
+                risk: true,
+                assignedDepartment: true,
+                assignee: true,
+                images: {
+                  orderBy: { order: 'asc' },
+                },
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+            inspectors: {
+              include: {
+                inspector: true,
+              },
               orderBy: { order: 'asc' },
             },
+            areas: {
+              include: {
+                area: true,
+              },
+            },
+            creator: true,
           },
-          orderBy: { createdAt: 'asc' },
-        },
-        inspectors: {
-          include: {
-            inspector: true,
-          },
-          orderBy: { order: 'asc' },
-        },
-        areas: {
-          include: {
-            area: true,
-          },
-        },
-        creator: true,
-      },
-    });
+        }),
+      'Inspection',
+    );
 
     // Create reminder if status is SCHEDULED
     if (inspection.status === GeneralStatusEnum.SCHEDULED) {
@@ -978,6 +982,8 @@ export class InspectionsService {
     await this.prisma.inspectionItem.delete({
       where: { id: itemId },
     });
+
+    await this.recomputeFinalInspectionValue(inspectionId);
   }
 
   // Inspection Images CRUD operations

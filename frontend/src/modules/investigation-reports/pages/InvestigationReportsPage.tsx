@@ -9,6 +9,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import DataTable from '@/core/components/ui/data-table/DataTable';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import investigationReportsService, { type FindInvestigationReportsParams } from '../services/investigationReportsService';
 import {
   InvestigationSignatoryRoleEnum,
@@ -29,6 +30,9 @@ const STATUS_CONFIG: Record<InvestigationStatusEnum, { label: string; className:
 
 const InvestigationReportsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('investigation-report:update');
+  const canDelete = hasPermission('investigation-report:delete');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [reports, setReports] = useState<InvestigationReport[]>([]);
@@ -157,29 +161,33 @@ const InvestigationReportsPage = () => {
             >
               <Eye className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/investigation-reports/${row.id}/edit`)}
-              className="text-amber-600 hover:bg-amber-50"
-              title="Edit"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeleteTarget(row)}
-              className="text-red-600 hover:bg-red-50"
-              title="Delete"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/investigation-reports/${row.id}/edit`)}
+                className="text-amber-600 hover:bg-amber-50"
+                title="Edit"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeleteTarget(row)}
+                className="text-red-600 hover:bg-red-50"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         ),
       },
     ],
-    [navigate],
+    [navigate, canEdit, canDelete],
   );
 
   return (

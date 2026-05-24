@@ -5,6 +5,7 @@
 **Audience:** Backend Engineers
 **Last updated:** 2026-05-12
 
+> **Scope:** Applied migration files, remaining hard-delete services to fix, and frontend rollout notes. For the per-model contract and which models are in/out of scope, see [`trd-soft-delete-inventory.md`](./trd-soft-delete-inventory.md).
 
 ## Applied migration
 

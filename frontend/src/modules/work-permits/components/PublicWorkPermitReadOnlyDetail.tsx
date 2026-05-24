@@ -3,7 +3,7 @@ import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMiti
 import { format } from 'date-fns';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Copy, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
@@ -234,6 +234,10 @@ type Props = {
   mitigationsErrorByRiskId: Record<string, string | undefined>;
   /** When set, show worker health declaration status and token-based fill links */
   publicApplicantToken?: string;
+  /** Re-fetches the public permit so newly completed worker declarations appear */
+  onRefresh?: () => void;
+  /** Disables the refresh button + shows a spinner while a refresh is in flight */
+  refreshing?: boolean;
 };
 
 /**
@@ -248,6 +252,8 @@ export function PublicWorkPermitReadOnlyDetail({
   mitigationsLoadingByRiskId,
   mitigationsErrorByRiskId,
   publicApplicantToken,
+  onRefresh,
+  refreshing = false,
 }: Props) {
 
   const createdByLabel = (() => {
@@ -400,8 +406,24 @@ export function PublicWorkPermitReadOnlyDetail({
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
+              {publicApplicantToken && onRefresh ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Refresh permit status
+                </Button>
+              ) : null}
             </CardHeader>
             <CardContent>
               {publicApplicantToken ? (
@@ -410,7 +432,7 @@ export function PublicWorkPermitReadOnlyDetail({
                     Each worker on this permit must have a valid health declaration: either a completed online
                     declaration (below) or a declaration file already stored on the worker profile. Links are
                     time-limited—share one with the worker to complete the questionnaire, or open it for them. After
-                    they finish, refresh this page to see updated status.
+                    they finish, click <strong>Refresh permit status</strong> above to see the updated status.
                   </AlertDescription>
                 </Alert>
               ) : null}

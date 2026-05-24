@@ -11,12 +11,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Badge } from '@/core/components/ui/badge';
 import { Label } from '@/core/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/core/components/ui/alert';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import investigationReportsService from '../services/investigationReportsService';
 import {
+  FIXED_SIGNATORY_SLOTS,
+  SIGNATORY_ROLE_LABELS,
   InvestigationCauseSectionEnum,
   InvestigationStatusEnum,
   type InvestigationCause,
   type InvestigationReport,
+  type InvestigationSignatory,
 } from '../types/investigation-report.types';
 import InvestigationReportPDFTemplate from '../components/InvestigationReportPDFTemplate';
 import {
@@ -31,6 +35,8 @@ import {
 const InvestigationReportDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('investigation-report:update');
   const [report, setReport] = useState<InvestigationReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
@@ -156,7 +162,7 @@ const InvestigationReportDetailPage = () => {
               <Download className="mr-2 h-4 w-4" />
               {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
-            {isDraft ? (
+            {isDraft && canEdit && (
               <>
                 <Button onClick={() => navigate(`/investigation-reports/${report.id}/edit`)}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -169,7 +175,8 @@ const InvestigationReportDetailPage = () => {
                   <CheckCircle2 className="mr-2 h-4 w-4" /> Mark Complete
                 </Button>
               </>
-            ) : (
+            )}
+            {!isDraft && canEdit && (
               <Button variant="outline" onClick={handleReopen} disabled={isMutating}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Reopen
               </Button>
@@ -244,7 +251,7 @@ const InvestigationReportDetailPage = () => {
 
         {report.incident && (
           <>
-            <IncidentSectionB incident={report.incident} />
+            <IncidentSectionB incident={report.incident} bodyDiagramUrl={report.bodyDiagramUrl} />
             <IncidentSectionC incident={report.incident} />
             <IncidentSectionD incident={report.incident} />
             <IncidentSectionE incident={report.incident} />
@@ -336,8 +343,13 @@ const InvestigationReportDetailPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.actionPlans.map((a, i) => (
-                    <tr key={a.id} className="border-t">
+                  {report.actionPlans.map((a, i) => {
+                    const isOverdue =
+                      !!a.targetDate &&
+                      !a.verificationDate &&
+                      new Date(a.targetDate) < new Date();
+                    return (
+                    <tr key={a.id} className={`border-t${isOverdue ? ' bg-destructive/10' : ''}`}>
                       <td className="p-2">{i + 1}</td>
                       <td className="p-2 whitespace-pre-line">{a.actionPlan}</td>
                       <td className="p-2">{a.responsiblePerson ?? '—'}</td>
@@ -352,7 +364,8 @@ const InvestigationReportDetailPage = () => {
                           : '—'}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -364,34 +377,7 @@ const InvestigationReportDetailPage = () => {
             <CardTitle>K. Signatures / Tanda tangan</CardTitle>
           </CardHeader>
           <CardContent>
-            {report.signatories.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No signatories recorded.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="text-left p-2 font-medium">Investigator Team / Tim Penyidik</th>
-                      <th className="text-left p-2 font-medium">Name / Nama</th>
-                      <th className="text-left p-2 font-medium">Signature / Tanda Tangan</th>
-                      <th className="text-left p-2 font-medium">Date / Tanggal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.signatories.map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="p-2">{s.roleName ?? '—'}</td>
-                        <td className="p-2">{s.name ?? '—'}</td>
-                        <td className="p-2 h-12" />
-                        <td className="p-2">
-                          {s.signedAt ? format(new Date(s.signedAt), 'dd MMM yyyy') : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <SignatoriesTable signatories={report.signatories} />
           </CardContent>
         </Card>
 
@@ -399,23 +385,12 @@ const InvestigationReportDetailPage = () => {
           <CardHeader>
             <CardTitle>L. Health and Safety Comments / Komentar Health and Safety</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="text-sm">
             <div>
-              <Label className="text-muted-foreground">Comments</Label>
+              <Label className="text-muted-foreground">Health &amp; Safety Comments</Label>
               {report.hsComments
                 ? <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.hsComments }} />
                 : <p className="text-muted-foreground">—</p>}
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant={report.distributionSafetyCommittee ? 'default' : 'outline'}>
-                Safety Committee
-              </Badge>
-              <Badge variant={report.distributionHeadOfBusinessOp ? 'default' : 'outline'}>
-                Head of Business Op.
-              </Badge>
-              <Badge variant={report.distributionRelatedDepartment ? 'default' : 'outline'}>
-                Related Department
-              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -488,5 +463,48 @@ const CostRow = ({ label, value }: { label: string; value?: number | null }) => 
     </span>
   </div>
 );
+
+const SignatoriesTable = ({ signatories }: { signatories: InvestigationSignatory[] }) => {
+  // Merge saved signatories with fixed slots so every slot is always rendered.
+  const rows = FIXED_SIGNATORY_SLOTS.map((role) => {
+    const saved = signatories.find((s) => s.signatoryRole === role);
+    return { role, saved };
+  });
+
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/40">
+            <th className="text-left p-2 font-medium">Investigator Team / Tim Penyidik</th>
+            <th className="text-left p-2 font-medium">Name / Nama</th>
+            <th className="text-left p-2 font-medium">Signature / Tanda Tangan</th>
+            <th className="text-left p-2 font-medium">Date / Tanggal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ role, saved }) => {
+            const label = SIGNATORY_ROLE_LABELS[role];
+            return (
+              <tr key={role} className="border-b last:border-0">
+                <td className="p-2">
+                  <p className="font-medium">{label.en} / {label.id}</p>
+                  {saved?.roleName && (
+                    <p className="text-xs text-muted-foreground">{saved.roleName}</p>
+                  )}
+                </td>
+                <td className="p-2">{saved?.name ?? '—'}</td>
+                <td className="p-2 h-12" />
+                <td className="p-2">
+                  {saved?.signedAt ? format(new Date(saved.signedAt), 'dd MMM yyyy') : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default InvestigationReportDetailPage;

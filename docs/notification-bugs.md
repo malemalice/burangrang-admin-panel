@@ -1,6 +1,6 @@
 # Notification System — Bug Register
 
-This document lists identified bugs with code locations, root cause, impact, and fix approach. See [prd-notifications.md](prd-notifications.md) for product requirements and [notification-qa-test-plan.md](notification-qa-test-plan.md) for verification.
+This document lists identified bugs with code locations, root cause, impact, and fix approach. See [prd/notifications.md](prd/notifications.md) for product requirements and [notification-qa-test-plan.md](notification-qa-test-plan.md) for verification.
 
 ---
 

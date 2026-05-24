@@ -144,9 +144,9 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Dispatch Order: {dispatchOrder.dispatchCode}
+              Vendor Collection Tracking: {dispatchOrder.dispatchCode}
             </h1>
-            <p className="text-sm text-gray-600 mb-1">Waste Dispatch Order</p>
+            <p className="text-sm text-gray-600 mb-1">Waste Vendor Collection Tracking</p>
             <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
           </div>
           <div className="shrink-0">

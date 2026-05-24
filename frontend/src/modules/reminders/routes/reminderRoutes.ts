@@ -5,6 +5,9 @@ const RemindersPage = lazy(() => import('../pages/RemindersPage'));
 const CreateReminderPage = lazy(() => import('../pages/CreateReminderPage'));
 const EditReminderPage = lazy(() => import('../pages/EditReminderPage'));
 const ReminderDetailPage = lazy(() => import('../pages/ReminderDetailPage'));
+const RemindersCalendarPage = lazy(
+  () => import('../pages/calendar/RemindersCalendarPage'),
+);
 
 /**
  * Reminder management module routes
@@ -13,6 +16,10 @@ const reminderRoutes: RouteConfig[] = [
   {
     path: '/reminders',
     component: RemindersPage,
+  },
+  {
+    path: '/reminders/calendar',
+    component: RemindersCalendarPage,
   },
   {
     path: '/reminders/new',

@@ -825,8 +825,17 @@ model Reminder {
   targetId   String // userId, roleId, departmentId, or officeId
 
   // Context linking (polymorphic entity)
-  entity   String? // Context/module name (e.g., "t_incidents", "t_audits")
-  entityId String? // Entity primary key
+  // `entity` = which workflow/module this reminder drives (e.g. "monthly-flow-reports").
+  // `entityId` = a specific record in that module (optional).
+  entity   String?
+  entityId String?
+
+  // Subject - what the reminder is *about*, independent of which workflow it drives.
+  // e.g. entity="monthly-flow-reports" + subjectType="treatment-plant" + subjectId=<plantId>
+  // means "remind about Plant X's flow report" — the workflow and the subject are different
+  // concepts because the same subject (a plant) shows up in several modules.
+  subjectType String?
+  subjectId   String?
 
   // Reminder content and scheduling
   message     String
@@ -836,20 +845,68 @@ model Reminder {
   status      ReminderStatusEnum      @default(PENDING)
   lastSentAt  DateTime?
 
+  // Recurrence detail (additive to repeatType):
+  //   dayOfMonth 1..31 — for MONTHLY, fires on this day with last-day fallback in short months.
+  //   dayOfWeek  0..6  — for WEEKLY, 0=Sunday.
+  dayOfMonth Int?
+  dayOfWeek  Int?
+
   // Metadata
   createdBy String // User who created this reminder
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  createdByUser User          @relation("CreatedReminders", fields: [createdBy], references: [id])
+  createdByUser User                 @relation("CreatedReminders", fields: [createdBy], references: [id])
   logs          ReminderLog[]
+  occurrences   ReminderOccurrence[]
 
   @@index([status, remindAt])
   @@index([targetType, targetId])
   @@index([createdBy])
   @@index([entity, entityId])
+  @@index([entity, subjectType, subjectId])
   @@map("t_reminders")
+}
+
+enum ReminderOccurrenceState {
+  SCHEDULED
+  FIRED
+  ACKNOWLEDGED
+  DISMISSED
+  MISSED
+  FAILED
+}
+
+// Reminder Occurrence - one row per scheduled fire of a reminder.
+// One-off reminders produce one occurrence; recurring reminders materialise the next N occurrences
+// ahead of time so the calendar can render them and per-occurrence ack/missed state can be tracked
+// independently of the parent reminder configuration.
+model ReminderOccurrence {
+  id         String   @id @default(uuid())
+  reminderId String
+  reminder   Reminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+
+  scheduledAt DateTime
+  firedAt     DateTime?
+  state       ReminderOccurrenceState @default(SCHEDULED)
+
+  // Group-level ack (v1): one ack/dismiss per occurrence, regardless of target group size.
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  dismissedBy    String?
+  dismissedAt    DateTime?
+
+  failureReason  String? @db.Text
+  notificationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reminderId, scheduledAt])
+  @@index([scheduledAt, state])
+  @@index([reminderId, scheduledAt])
+  @@map("t_reminder_occurrences")
 }
 
 // Reminder Log - Audit trail for reminder executions
@@ -3399,6 +3456,11 @@ model InvestigationReport {
   distributionSafetyCommittee   Boolean @default(false)
   distributionHeadOfBusinessOp  Boolean @default(false)
   distributionRelatedDepartment Boolean @default(false)
+
+  bodyPartsSummary   String[]
+  injuryTypesSummary String[]
+  mechanismsSummary  String[]
+  bodyDiagramUrl     String?  @db.Text
 
   isActive  Boolean  @default(true)
   createdBy String

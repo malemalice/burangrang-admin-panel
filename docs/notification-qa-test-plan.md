@@ -4,7 +4,7 @@
 **Status:** Draft
 **Audience:** QA, Backend, Frontend
 **Scope:** Notification delivery (in-app and email), no duplicate notifications/emails, list/filter/mark-read, and regression after double-notification fixes.
-**References:** [prd-notifications.md](prd-notifications.md), [notification-bugs.md](notification-bugs.md).
+**References:** [prd/notifications.md](prd/notifications.md), [notification-bugs.md](notification-bugs.md).
 **Last updated:** 2026-05-12
 
 ---

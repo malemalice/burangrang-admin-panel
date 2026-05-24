@@ -5,7 +5,7 @@
 **Audience:** Backend, Frontend Engineers  
 **Last updated:** 2026-05-09
 
-> For the business rationale and UX requirements behind each rule, see `docs/prd-authorization.md`.
+> For the business rationale and UX requirements behind each rule, see `docs/prd/authorization.md`.
 
 ---
 
@@ -73,6 +73,8 @@ Role hierarchy (highest to lowest): `SUPER_ADMIN → ADMIN → MANAGER → USER`
 - Populates `req.userContext: UserContext` (see §4).
 - Does **not** enforce access itself — it only provides context to the service layer.
 - On missing user or role: returns **403**.
+
+> **Enforcement split:** `DataScopeGuard` only provides scope context. The **service layer** enforces filtering via `DataScopeService.buildWhereForList` (list queries) and `DataScopeService.canAccessRecord` (single-record reads/writes). See §6.3.
 
 ---
 
@@ -274,6 +276,30 @@ For these two entities only, a user who appears as an active approver on the rec
 
 Implementation: after the standard `canAccessRecord` check fails, check whether the user is listed as an active approver on the record. If yes, allow access. Apply this OR-merge inside the module service — `DataScopeService` stays pure.
 
+### 6.7 Troubleshooting (data scope vs permission errors)
+
+Use this when a user **has** the right permission names but still sees **empty lists**, **403**, or **400** on work permits, enrollments, certificates, or PPE withdrawals.
+
+**Step 1 — Read the HTTP status:**
+
+| Symptom | Likely meaning |
+|--------|----------------|
+| **403** on API | Missing permission (or data-scope single-record deny). Check merged role + direct permissions; after login, `user.permissions` must include role + direct assignments. |
+| **200** with `data: []` | Permission OK; **data scope** filtered all rows (common for `User` with `SELF` or `Manager` with `departmentId: null`). |
+| **400** with validation message | Business rules (e.g. work-permit workers must be **Guest** or **Contractor** with an **active profession** on their user profile). |
+
+**Step 2 — Inspect user record fields:**
+
+- `role.dataLevel`: `SELF` | `DEPARTMENT` | `SUPER`.
+- `departmentId`: For `DEPARTMENT`, **null** ⇒ empty scoped lists for department-scoped entities.
+
+**Step 3 — Check entity-specific ownership** against the table in §6.4. Mismatch with the actual record's owner explains 200-empty or 403-single-record.
+
+**Step 4 — Reproduce a test account:**
+1. In DB or admin UI: note **role**, **dataLevel**, **departmentId**.
+2. Call the same API with the browser **Network** tab; note status + body.
+3. Compare against §6.4 to decide whether the outcome is expected behavior or a product bug.
+
 ---
 
 ## 7. Options Bypass
@@ -310,37 +336,72 @@ Apply this to any cross-module data fetch that feeds a select/combobox in a form
 
 ## 8. Sidebar Permission Filtering
 
-The sidebar is filtered by permissions, not by role assignments. Details in `docs/trd-sidebar-permission-lookup.md`.
+The sidebar is filtered by **user permissions**, not by Menu↔Role assignments. The mapping from menu path to required permission lives in **code** (no schema change, no Menu→Permission relation).
 
 ### 8.1 Path → permission map
 
-A static or convention-based map in `backend/src/modules/menus/constants/menu-permission-map.ts` maps each menu path to its required permission:
+**Location:** `backend/src/modules/menus/constants/menu-permission-map.ts`.
+
+Two implementation styles are acceptable:
+
+**A. Static map** — explicit `Record<string, string>`:
 
 ```ts
 export const MENU_PATH_PERMISSION_MAP: Record<string, string> = {
   '/':                         'dashboard:read',
   '/users':                    'user:list',
   '/roles':                    'role:list',
+  '/menus':                    'menu:list',
+  '/risk-assessment':          'risk-assessment:list',
+  '/risk-matrix':              'risk-assessment:list',
   '/incidents':                'incident:list',
   '/work-permits':             'work-permit:list',
   '/enrollments':              'enrollment:list',
-  // ... all sidebar paths
+  '/settings':                 'setting:read',
+  '/notifications':            'notification:list',
+  // ... one entry per menu path in m_menus
 };
 ```
 
+The implementing agent must infer the full map from `menus.seed.ts` paths and `permissions.seed.ts` names (use `*:list` or `*:read` per resource).
+
+**B. Convention-based derivation** — `pathToRequiredPermission(path, permissionNames): string | null`:
+- **Primary:** last path segment → singularize + kebab-case → `resource:list`. Accept only if that name exists in the permission set. E.g. `/users` → `user:list`; `/master/risk-categories` → `risk-category:list`.
+- **Fallback:** if the last-segment permission doesn't exist, try the **first** segment. E.g. `/waste-management/treatment-plants` → no `treatment-plant:list` → use `waste-management:list`; `/ppe/stocks` → `ppe:list`.
+- **Singularization examples:** users→user, roles→role, menus→menu, offices→office, departments→department, areas→area, risk-categories→risk-category, job-positions→job-position, safety-equipments→safety-equipment, audit-results→audit-result, mail-templates→mail-template.
+- **Outliers (must be overridden explicitly):**
+  1. `'/'` (root/Dashboard): no path segment. Either add a `dashboard:read` permission and special-case `'/'`, or treat `'/'` as always visible when authenticated. Prefer the permission approach for consistency.
+  2. `'/master/approvals'`: last segment "approvals" would imply `approval:list`, but the only matching permission is `master-approval:list`. Map this explicitly.
+
 ### 8.2 Filtering algorithm
 
-1. Load full active menu tree (no role filter).
-2. Load user's permissions via `user.role.permissions`.
-3. For each menu node:
-   - If `path != null`: visible iff the user has the mapped permission.
-   - If `path == null` (group): visible iff at least one child is visible.
-4. Prune: remove invisible nodes bottom-up; remove parent groups with no visible children.
-5. Return the pruned tree as `MenuDto[]`.
+1. **Load full active menu tree** (no role filter, full hierarchy, ordered by `order` at each level).
+2. **Load user's permissions** via `user.role.permissions`. Extract names: `user.role.permissions.map(p => p.name)`.
+3. **Resolve required permission per node:**
+   - `menu.path != null` → lookup in static map or run dynamic derivation. If no permission is returned → node not visible.
+   - `menu.path == null` (group) → no permission required; visibility derived from children.
+4. **Compute visibility bottom-up:**
+   - Leaf with path → visible iff user has the required permission.
+   - Group (no path) → visible iff at least one child is visible.
+5. **Prune:** remove invisible nodes; remove parent groups left with no visible children.
+6. **Return** the pruned tree as `MenuDto[]` via the existing mapper.
 
 ### 8.3 Missing map entry
 
-A path not in the map → menu is **not visible to anyone**. This is intentional — new menus must be explicitly mapped before they appear.
+A path not in the map (and not resolved by dynamic derivation) → menu is **not visible to anyone**. This is intentional — new menus must be explicitly mapped or follow the convention before they appear.
+
+### 8.4 Service / controller changes
+
+- **`MenusService.getSidebarMenus`** — signature is `getSidebarMenus(userId: string)` (not `userRole`). Loads the user with `role` and `role.permissions`, loads the full active menu tree without role filter, applies §8.2, returns mapped DTOs.
+- **`MenusController`** for `GET /menus/sidebar` — passes `req.user.id` to the service. Swagger description should state that the sidebar is filtered by **user permissions** via the path → permission map.
+- **Menu↔Role relation** is no longer used for sidebar visibility, but is **not** removed in this work — it can still be used by other features (admin UI) or deprecated separately.
+
+### 8.5 Edge cases
+
+- **Path normalization:** pick one convention (e.g. no trailing slash) and normalize both `menu.path` and lookup keys the same way.
+- **Duplicate paths:** if two menus share a path, both are gated by the same permission (one map entry per path is sufficient).
+- **Empty permissions:** a role with no permissions sees no menus that require a permission. With the default (missing = hide), almost nothing appears — this is by design.
+- **New menus:** static map → add an entry; dynamic map → follow the convention or add to the small override map.
 
 ---
 
@@ -424,13 +485,11 @@ When implementing a new module, verify:
 
 ## 12. References
 
-- `docs/prd-authorization.md` — product requirements and acceptance criteria
-- `docs/trd-sidebar-permission-lookup.md` — detailed sidebar implementation spec
-- `docs/trd-authorization-data-scope-validation.md` — QA checklist for data-scope issues
+- `docs/prd/authorization.md` — product requirements and acceptance criteria
 - `backend/src/shared/guards/` — guard implementations
 - `backend/src/shared/decorators/` — decorator implementations
 - `backend/src/shared/services/data-scope.service.ts` — DataScopeService
+- `backend/src/modules/menus/constants/menu-permission-map.ts` — sidebar path → permission map (§8.1)
 - `backend/prisma/seeds/permissions.seed.ts` — permission name registry
 - `backend/prisma/seeds/menus.seed.ts` — menu path registry
-- `backend/TRD.md` §"Guard Chain" §"Options Bypass" §"Data-Level Access"
-- `frontend/TRD.md` §"Options Bypass" §"Data-Level Access"
+- `docs/trd/backend/security.md` — structured backend security overview

@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
-import { IncidentSectionA, IncidentSectionB } from './incident-readonly';
+import { IncidentSectionA } from './incident-readonly';
 import {
   Form,
   FormControl,
@@ -46,14 +46,19 @@ import {
   InjuredBodyPartEnum,
   TypeOfInjuryEnum,
   MechanismOfInjuryEnum,
+  IncidentClassificationEnum,
 } from '@/modules/incidents/types/incident.types';
 import {
+  FIXED_SIGNATORY_SLOTS,
+  SIGNATORY_ROLE_LABELS,
+  InvestigationSignatoryRoleEnum,
   InvestigationStatusEnum,
   type InvestigationReport,
 } from '../types/investigation-report.types';
 import hfacsNodeService from '@/modules/master-data/services/hfacsNodeService';
 import type { HfacsNodeDTO } from '@/modules/master-data/types/master-data.types';
 import type { SearchableSelectOption } from '@/core/components/ui/searchable-select';
+import BodyDiagramCanvas from './BodyDiagramCanvas';
 
 // ── Enum label maps ────────────────────────────────────────────────────────────
 
@@ -159,6 +164,7 @@ const actionPlanSchema = z.object({
 });
 
 const signatorySchema = z.object({
+  signatoryRole: z.string().optional(),
   roleName: z.string().optional(),
   name: z.string().optional(),
   signedAt: z.string().optional(),
@@ -191,6 +197,13 @@ const formSchema = z.object({
   // Section A — editable incident fields
   incidentDescription: z.string().optional(),
   images: z.array(imageSchema).default([]),
+
+  // Section B — injury classification + summary selections
+  incidentClassification: z.string().optional(),
+  bodyPartsSummary: z.array(z.string()).default([]),
+  injuryTypesSummary: z.array(z.string()).default([]),
+  mechanismsSummary: z.array(z.string()).default([]),
+  bodyDiagramUrl: z.string().nullable().optional(),
 
   // Section A1/A2 — investigation-specific
   taskBeingPerformed: z.string().optional(),
@@ -226,9 +239,6 @@ const formSchema = z.object({
   signatories: z.array(signatorySchema),
 
   hsComments: z.string().optional(),
-  distributionSafetyCommittee: z.boolean().default(false),
-  distributionHeadOfBusinessOp: z.boolean().default(false),
-  distributionRelatedDepartment: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -315,11 +325,15 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   }, [leafItems, report]);
 
   const initialSignatories = useMemo(() => {
-    return (report?.signatories ?? []).map((s) => ({
-      roleName: s.roleName ?? '',
-      name: s.name ?? '',
-      signedAt: s.signedAt ? format(new Date(s.signedAt), 'yyyy-MM-dd') : '',
-    }));
+    return FIXED_SIGNATORY_SLOTS.map((role) => {
+      const existing = report?.signatories?.find((s) => s.signatoryRole === role);
+      return {
+        signatoryRole: role,
+        roleName: existing?.roleName ?? '',
+        name: existing?.name ?? '',
+        signedAt: existing?.signedAt ? format(new Date(existing.signedAt), 'yyyy-MM-dd') : '',
+      };
+    });
   }, [report]);
 
   const form = useForm<FormValues>({
@@ -331,6 +345,13 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         imageUrl: img.imageUrl,
         caption: img.caption ?? '',
       })) ?? [],
+
+      // Section B
+      incidentClassification: incident.incidentClassification ?? '',
+      bodyPartsSummary: report?.bodyPartsSummary ?? [],
+      injuryTypesSummary: report?.injuryTypesSummary ?? [],
+      mechanismsSummary: report?.mechanismsSummary ?? [],
+      bodyDiagramUrl: report?.bodyDiagramUrl ?? null,
 
       // Section A1/A2
       taskBeingPerformed: report?.taskBeingPerformed ?? '',
@@ -391,9 +412,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
       signatories: initialSignatories,
 
       hsComments: report?.hsComments ?? '',
-      distributionSafetyCommittee: report?.distributionSafetyCommittee ?? false,
-      distributionHeadOfBusinessOp: report?.distributionHeadOfBusinessOp ?? false,
-      distributionRelatedDepartment: report?.distributionRelatedDepartment ?? false,
     },
   });
 
@@ -409,7 +427,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const { fields: imageFields, append: appendImage, remove: removeImage } =
     useFieldArray({ control: form.control, name: 'images' });
 
-  const { fields: signatoryFields, append: appendSignatory, remove: removeSignatory } =
+  const { fields: signatoryFields } =
     useFieldArray({ control: form.control, name: 'signatories' });
 
   useEffect(() => {
@@ -501,6 +519,10 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         taskBeingPerformed: data.taskBeingPerformed || undefined,
         equipmentUsed: data.equipmentUsed || undefined,
         ...(statusOverride ? { status: statusOverride } : {}),
+        bodyPartsSummary: data.bodyPartsSummary,
+        injuryTypesSummary: data.injuryTypesSummary,
+        mechanismsSummary: data.mechanismsSummary,
+        bodyDiagramUrl: data.bodyDiagramUrl ?? null,
         cost: {
           medicalCost: parseNumber(data.costMedical),
           lostTimeCost: parseNumber(data.costLostTime),
@@ -521,18 +543,14 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
             : undefined,
           order: i,
         })),
-        signatories: data.signatories
-          .filter((s) => s.roleName || s.name)
-          .map((s, i) => ({
-            roleName: s.roleName || undefined,
-            name: s.name || undefined,
-            signedAt: s.signedAt ? new Date(s.signedAt).toISOString() : undefined,
-            order: i,
-          })),
+        signatories: data.signatories.map((s, i) => ({
+          signatoryRole: (s.signatoryRole as InvestigationSignatoryRoleEnum) || undefined,
+          roleName: s.roleName || undefined,
+          name: s.name || undefined,
+          signedAt: s.signedAt ? new Date(s.signedAt).toISOString() : undefined,
+          order: i,
+        })),
         hsComments: data.hsComments || undefined,
-        distributionSafetyCommittee: data.distributionSafetyCommittee,
-        distributionHeadOfBusinessOp: data.distributionHeadOfBusinessOp,
-        distributionRelatedDepartment: data.distributionRelatedDepartment,
       };
 
       const saved =
@@ -543,6 +561,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
       // Update incident-level fields in parallel
       await incidentsService.update(incident.id, {
         description: data.incidentDescription || undefined,
+        incidentClassification: (data.incidentClassification as IncidentClassificationEnum) || undefined,
         treatment: (data.treatment as TreatmentEnum) || undefined,
         absence: (data.absence as AbsenceEnum) || undefined,
         treatmentDescription: data.treatmentDescription || undefined,
@@ -796,8 +815,8 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
           </CardContent>
         </Card>
 
-        {/* Section B — Injury Details (read-only, aggregated from injured persons) */}
-        <IncidentSectionB incident={incident} />
+        {/* Section B — Injury Details (reactive from Section C + editable B4) */}
+        <SectionBEditable form={form} uploadCategoryId={uploadCategoryId} />
 
         {/* Section C — Injured Persons (editable) */}
         <Card>
@@ -1463,89 +1482,80 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {signatoryFields.map((field, index) => (
-                      <tr key={field.id} className="border-b last:border-0">
-                        <td className="p-2">
-                          <FormField
-                            control={form.control}
-                            name={`signatories.${index}.roleName`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0">
-                                <FormControl>
-                                  <Input {...field} placeholder="e.g. HSE Manager" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
+                    {signatoryFields.map((field, index) => {
+                      const role = field.signatoryRole as InvestigationSignatoryRoleEnum;
+                      const label = role ? SIGNATORY_ROLE_LABELS[role] : null;
+                      return (
+                        <tr key={field.id} className="border-b last:border-0">
+                          <td className="p-2">
+                            {label && (
+                              <p className="text-xs font-medium text-muted-foreground mb-1">
+                                {label.en} / {label.id}
+                              </p>
                             )}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <FormField
-                            control={form.control}
-                            name={`signatories.${index}.name`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0">
-                                <FormControl>
-                                  <Input {...field} placeholder="Full name" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <FormField
-                            control={form.control}
-                            name={`signatories.${index}.signedAt`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0">
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeSignatory(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                            <FormField
+                              control={form.control}
+                              name={`signatories.${index}.roleName`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <Input {...field} placeholder="e.g. HSE Manager" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <FormField
+                              control={form.control}
+                              name={`signatories.${index}.name`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <Input {...field} placeholder="Full name" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <FormField
+                              control={form.control}
+                              name={`signatories.${index}.signedAt`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <Input type="date" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => appendSignatory({ roleName: '', name: '', signedAt: '' })}
-            >
-              <Plus className="mr-1 h-4 w-4" /> Add Signatory
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Section L — H&S Comments + Distribution */}
+        {/* Section L — Health & Safety Comments */}
         <Card>
           <CardHeader>
             <CardTitle>L. Health and Safety Comments / Komentar Health and Safety</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <FormField
               control={form.control}
               name="hsComments"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>H&S Comments</FormLabel>
+                  <FormLabel>Health &amp; Safety Comments</FormLabel>
                   <FormControl>
                     <Editor value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
@@ -1553,35 +1563,6 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 </FormItem>
               )}
             />
-            <div className="space-y-2">
-              <Label>Distribution / Distribusi</Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {(
-                  [
-                    ['distributionSafetyCommittee', 'Safety Committee'],
-                    ['distributionHeadOfBusinessOp', 'Head of Business Operation'],
-                    ['distributionRelatedDepartment', 'Related Department'],
-                  ] as const
-                ).map(([name, label]) => (
-                  <FormField
-                    key={name}
-                    control={form.control}
-                    name={name}
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 rounded-md border p-3">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <Label className="font-normal cursor-pointer">{label}</Label>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -1617,6 +1598,206 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
     </Form>
   );
 };
+
+// ── SectionBEditable sub-component ────────────────────────────────────────────
+
+const BODY_PART_ROWS_B: Array<{ values: InjuredBodyPartEnum[]; en: string; id: string }> = [
+  { values: [InjuredBodyPartEnum.HEAD, InjuredBodyPartEnum.NECK], en: 'Head / Neck', id: 'Kepala / Leher' },
+  { values: [InjuredBodyPartEnum.ARM], en: 'Arms', id: 'Lengan' },
+  { values: [InjuredBodyPartEnum.HAND], en: 'Hands', id: 'Tangan' },
+  { values: [InjuredBodyPartEnum.BACK], en: 'Back', id: 'Punggung' },
+  { values: [InjuredBodyPartEnum.CHEST], en: 'Chest', id: 'Dada' },
+  { values: [InjuredBodyPartEnum.ABDOMENT], en: 'Abdomen', id: 'Perut' },
+  { values: [InjuredBodyPartEnum.FEET], en: 'Feet', id: 'Telapak kaki' },
+  { values: [InjuredBodyPartEnum.LEG], en: 'Legs', id: 'Kaki' },
+  { values: [InjuredBodyPartEnum.SKIN], en: 'Skin', id: 'Kulit' },
+  { values: [InjuredBodyPartEnum.EYE], en: 'Eyes', id: 'Mata' },
+  { values: [InjuredBodyPartEnum.INTERNAL_ORGAN], en: 'Internal Organs', id: 'Organ dalam' },
+  { values: [InjuredBodyPartEnum.SHOULDER], en: 'Shoulder', id: 'Pundak' },
+  { values: [InjuredBodyPartEnum.OTHER], en: 'Other', id: 'Lainnya' },
+];
+
+const TYPE_OF_INJURY_ROWS_B: Array<{ value: TypeOfInjuryEnum; en: string; id: string }> = [
+  { value: TypeOfInjuryEnum.DERMATITIS, en: 'Dermatitis', id: 'Peradangan kulit' },
+  { value: TypeOfInjuryEnum.PARALYSIS, en: 'Paralysis', id: 'Kelumpuhan' },
+  { value: TypeOfInjuryEnum.AMPUTATION, en: 'Amputation', id: 'Terpotongnya anggota tubuh' },
+  { value: TypeOfInjuryEnum.CRUSH, en: 'Crush', id: 'Remuk' },
+  { value: TypeOfInjuryEnum.BURN, en: 'Burn', id: 'Luka Bakar' },
+  { value: TypeOfInjuryEnum.CONCUSSION, en: 'Concussion', id: 'Gegar' },
+  { value: TypeOfInjuryEnum.FRACTURE, en: 'Fracture', id: 'Patah tulang' },
+  { value: TypeOfInjuryEnum.LACERATION, en: 'Laceration', id: 'Luka sobek' },
+  { value: TypeOfInjuryEnum.SPRAIN, en: 'Sprain / Strain', id: 'Keseleo' },
+  { value: TypeOfInjuryEnum.BRUISE, en: 'Bruising', id: 'Memar' },
+  { value: TypeOfInjuryEnum.ABRASION, en: 'Abrasion', id: 'Luka lecet' },
+  { value: TypeOfInjuryEnum.OTHER, en: 'Other', id: 'Lainnya' },
+];
+
+const MECHANISM_ROWS_B: Array<{ value: MechanismOfInjuryEnum; en: string; id: string }> = [
+  { value: MechanismOfInjuryEnum.STRUCK_BY, en: 'Struck by', id: 'Ditabrak' },
+  { value: MechanismOfInjuryEnum.CHEMICAL, en: 'Chemicals', id: 'Bahan Kimia' },
+  { value: MechanismOfInjuryEnum.ELECTRICITY, en: 'Electricity', id: 'Listrik' },
+  { value: MechanismOfInjuryEnum.FLYING_OBJECT, en: 'Flying object', id: 'Objek berterbangan' },
+  { value: MechanismOfInjuryEnum.SHARP_OBJECTS, en: 'Sharp objects', id: 'Benda Tajam' },
+  { value: MechanismOfInjuryEnum.FAILING_OBJECT, en: 'Falling Object', id: 'Objek jatuh' },
+  { value: MechanismOfInjuryEnum.VEHICLES, en: 'Vehicles', id: 'Kendaraan' },
+  { value: MechanismOfInjuryEnum.HAND_TOOLS, en: 'Hand Tools', id: 'Perkakas tangan' },
+  { value: MechanismOfInjuryEnum.HEAT_COLD, en: 'Heat / Cold', id: 'Panas / Dingin' },
+  { value: MechanismOfInjuryEnum.TRIP, en: 'Trip / Slip / Fall', id: 'Tersandung/Tergelincir/Terjatuh' },
+  { value: MechanismOfInjuryEnum.MECHINARY, en: 'Machinery', id: 'Mesin' },
+  { value: MechanismOfInjuryEnum.FALL_FROM_HEIGHT, en: 'Fall from Height', id: 'Jatuh dari ketinggian' },
+  { value: MechanismOfInjuryEnum.MANUAL_HANDLING, en: 'Manual Handling', id: 'Pengangkatan manual' },
+  { value: MechanismOfInjuryEnum.OTHER, en: 'Other', id: 'Lainnya' },
+];
+
+const INCIDENT_CLASSIFICATION_OPTIONS: { value: IncidentClassificationEnum; en: string; id: string }[] = [
+  { value: IncidentClassificationEnum.MINOR, en: 'Minor (first aid only)', id: 'Dapat diselesaikan dengan P3K' },
+  { value: IncidentClassificationEnum.MAJOR, en: 'Major (hospital treatment required)', id: 'Perlu penanganan medis di RS' },
+  { value: IncidentClassificationEnum.FATALITY, en: 'Fatality (loss of life)', id: 'Kehilangan nyawa' },
+];
+
+interface SectionBEditableProps {
+  form: ReturnType<typeof useForm<FormValues>>;
+  uploadCategoryId: string | null;
+}
+
+const toggleArrayValue = (arr: string[], value: string): string[] =>
+  arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+
+const SectionBEditable = ({ form, uploadCategoryId }: SectionBEditableProps) => {
+  const bodyPartsSummary = form.watch('bodyPartsSummary');
+  const injuryTypesSummary = form.watch('injuryTypesSummary');
+  const mechanismsSummary = form.watch('mechanismsSummary');
+
+  const toggle = (
+    field: 'bodyPartsSummary' | 'injuryTypesSummary' | 'mechanismsSummary',
+    value: string,
+  ) => {
+    const current = form.getValues(field);
+    form.setValue(field, toggleArrayValue(current, value), { shouldDirty: true });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>B. Injury Details / Rincian Cidera</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <BGroupEditable
+          label="B1. Body Part Injured / Bagian tubuh yang cidera"
+          items={BODY_PART_ROWS_B.map((row) => ({
+            key: row.en,
+            en: row.en,
+            id: row.id,
+            value: row.values[0],
+            checked: row.values.some((v) => bodyPartsSummary.includes(v)),
+          }))}
+          onToggle={(value) => toggle('bodyPartsSummary', value)}
+        />
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            B1. Body Diagram / Diagram Tubuh
+          </p>
+          <BodyDiagramCanvas
+            value={form.watch('bodyDiagramUrl')}
+            onChange={(url) => form.setValue('bodyDiagramUrl', url, { shouldDirty: true })}
+            uploadCategoryId={uploadCategoryId}
+          />
+        </div>
+        <BGroupEditable
+          label="B2. Type of Injury / Tipe Cidera"
+          items={TYPE_OF_INJURY_ROWS_B.map((row) => ({
+            key: row.value,
+            en: row.en,
+            id: row.id,
+            value: row.value,
+            checked: injuryTypesSummary.includes(row.value),
+          }))}
+          onToggle={(value) => toggle('injuryTypesSummary', value)}
+        />
+        <BGroupEditable
+          label="B3. Mechanism of Injury / Mekanisme Cidera"
+          items={MECHANISM_ROWS_B.map((row) => ({
+            key: row.value,
+            en: row.en,
+            id: row.id,
+            value: row.value,
+            checked: mechanismsSummary.includes(row.value),
+          }))}
+          onToggle={(value) => toggle('mechanismsSummary', value)}
+        />
+
+        <FormField
+          control={form.control}
+          name="incidentClassification"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                B4. Level of Injury / Tingkat Cedera
+              </FormLabel>
+              <FormControl>
+                <RadioGroup
+                  value={field.value ?? ''}
+                  onValueChange={field.onChange}
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2"
+                >
+                  {INCIDENT_CLASSIFICATION_OPTIONS.map((opt) => (
+                    <div
+                      key={opt.value}
+                      className={cn(
+                        'flex items-start gap-2 rounded-md border p-3 cursor-pointer',
+                        field.value === opt.value && 'border-primary bg-primary/5',
+                      )}
+                      onClick={() => field.onChange(opt.value)}
+                    >
+                      <RadioGroupItem value={opt.value} id={`classification-${opt.value}`} className="mt-0.5" />
+                      <Label htmlFor={`classification-${opt.value}`} className="font-normal cursor-pointer leading-snug">
+                        <span className="font-medium">{opt.en}</span>
+                        <span className="block text-xs text-muted-foreground">{opt.id}</span>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </CardContent>
+    </Card>
+  );
+};
+
+interface BGroupEditableProps {
+  label: string;
+  items: Array<{ key: string; en: string; id: string; value: string; checked: boolean }>;
+  onToggle: (value: string) => void;
+}
+
+const BGroupEditable = ({ label, items, onToggle }: BGroupEditableProps) => (
+  <div>
+    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+      {label}
+    </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+      {items.map((it) => (
+        <div key={it.key} className="flex items-start gap-2">
+          <Checkbox
+            checked={it.checked}
+            onCheckedChange={() => onToggle(it.value)}
+            className="mt-0.5"
+          />
+          <Label
+            className="text-sm font-normal leading-snug cursor-pointer"
+            onClick={(e) => { e.preventDefault(); onToggle(it.value); }}
+          >
+            <span>{it.en}</span>
+            <span className="text-muted-foreground"> — {it.id}</span>
+          </Label>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 // ── CostInput sub-component ────────────────────────────────────────────────────
 
