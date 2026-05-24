@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsDate,
   IsArray,
+  ArrayMinSize,
   ValidateNested,
   IsNotEmpty,
   IsEnum,
@@ -22,6 +23,7 @@ export class CreateInspectionDto {
   code: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @IsUUID(undefined, { each: true })
   @IsNotEmpty()
   @ApiProperty({ type: [String], description: 'Array of area IDs' })
