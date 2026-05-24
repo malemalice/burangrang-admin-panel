@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Backend file/folder layout under `backend/src/` — app, core, modules, shared, common.*
 
 ## File and Folder Structure
 

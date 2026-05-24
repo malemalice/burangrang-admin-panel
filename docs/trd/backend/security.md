@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Guard chain order (JwtAuth → Roles → Permissions → [DataScope]), decorators, security-layer architecture, data-level access (SELF/DEPT/SUPER) implementation, and the approval-assignee read exception for WorkPermit and PPEWithdrawal.*
 
 ## Security Implementation
 

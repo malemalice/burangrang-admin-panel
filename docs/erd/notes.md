@@ -1,3 +1,7 @@
+> [← ERD Index](./index.md)
+>
+> *Naming convention, soft delete, data-scoped entities (Enrollments / WorkPermits / Certificates / PPE), workflow status enum order, audit columns, identifier conventions, migration rules.*
+
 # ERD Notes
 
 ## Naming convention

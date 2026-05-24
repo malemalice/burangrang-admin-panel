@@ -1,4 +1,6 @@
 > [← Modules Index](./index.md) · [← Backend TRD Index](../index.md)
+>
+> *Mail module with DB-backed Handlebars templates (`m_email_templates`), typed flow methods (verification / password-reset / invitation / password-change), and settings-driven transport config.*
 
 ## Mail Services
 

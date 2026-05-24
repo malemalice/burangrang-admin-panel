@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Code-pattern audit checklists (module / controller / service / DTO / security), common anti-patterns to avoid, reference-module guidelines, ESLint rules, and the compliance scoring rubric.*
 
 ## Code Pattern Audit & Consistency Guidelines
 

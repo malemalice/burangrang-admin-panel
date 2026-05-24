@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Per-module folder layout (components / pages / services / types / hooks / routes) and the `index.ts` barrel export template.*
 
 ## 🏛️ Module Structure Template
 

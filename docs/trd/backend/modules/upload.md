@@ -1,4 +1,6 @@
 > [← Modules Index](./index.md) · [← Backend TRD Index](../index.md)
+>
+> *File upload with category-based MIME / size validation, public + private (token) access, storage abstraction (LocalStorageService now, cloud-ready), SHA256 dedup, audit trail.*
 
 ## Upload Module
 

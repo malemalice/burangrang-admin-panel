@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Prisma config, `m_` / `t_` / `_` table naming convention, PrismaService lifecycle, and the migration / seeding commands (gated — never run without explicit user approval).*
 
 ## Database Integration
 

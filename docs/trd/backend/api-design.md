@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *REST conventions, pagination response envelope, query-param standardisation, error response shape, and the `@AllowOptionsBypass` pattern for dropdown endpoints.*
 
 ## API Design Patterns
 

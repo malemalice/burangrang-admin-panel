@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *ErrorHandlingService API (`throwIfNotFound`, `safeExecute`) and the standardised error-response envelope for each HTTP status (400/401/403/404/409/500).*
 
 ## Error Handling
 

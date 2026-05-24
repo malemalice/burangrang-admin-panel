@@ -1,4 +1,6 @@
 > [← Modules Index](./index.md) · [← Backend TRD Index](../index.md)
+>
+> *Master Approval workflow engine: sentinel values (`@ENTITY_DEPARTMENT`/`@ENTITY_JOB_POSITION`), sequential steps by department + job position, `t_approvals` write rules, and the module integration recipe (work-permits example).*
 
 ## Approval Module
 

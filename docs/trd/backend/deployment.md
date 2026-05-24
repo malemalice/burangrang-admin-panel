@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Env config (`CORS_ORIGINS`, `JWT_SECRET`, `DATABASE_URL`), Dockerfile, production optimisations (helmet / compression / rate-limit), and `/health` + `/ready` endpoints.*
 
 ## Deployment Considerations
 

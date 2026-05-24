@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Module implementation checklist + code quality checklist. Run through before opening a PR.*
 
 ## Implementation Checklist
 

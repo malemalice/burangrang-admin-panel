@@ -1,3 +1,7 @@
+> [← PRD Index](./index.md)
+>
+> *Problem statement, goals, non-goals, and the "why this exists" link to `principles.md`.*
+
 # Problem & Goals
 
 ## Problem

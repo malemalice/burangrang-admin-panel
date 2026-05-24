@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Target frontend folder layout under `src/` — core, modules, shared.*
 
 ## 📁 Target Folder Structure
 

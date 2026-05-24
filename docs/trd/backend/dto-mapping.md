@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *DtoMapperService API (simple / relation / paginated mappers) and the constructor-initialisation pattern.*
 
 ## DTO Mapping
 

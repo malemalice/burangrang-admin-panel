@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Module development metrics, success metrics, next steps, benefits, external references, and the document history table from the original frontend/TRD.md.*
 
 > This file bundles short meta sections originally found in `frontend/TRD.md`: Module Development Metrics, Next Steps, Success Metrics, Benefits, References, Document History.
 

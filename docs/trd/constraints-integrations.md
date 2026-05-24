@@ -1,3 +1,7 @@
+> [← TRD Index](./index.md)
+>
+> *Hard constraints (guard chain, no hardcoded secrets/approvers, data-scoped entities, soft delete), external integrations (Zoho, OAuth, SMTP), API + workflow constraints.*
+
 # Constraints & Integrations
 
 ## Hard constraints

@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *High-level architecture diagram (controllers / services / guards / shared) and the feature-module / shared / core split.*
 
 ## Architecture
 

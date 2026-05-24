@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Unit test folder layout, service / controller `*.spec.ts` scaffolds, and coverage goals (80%+ services, integration on endpoints, E2E for full flows).*
 
 ## Testing Guidelines
 

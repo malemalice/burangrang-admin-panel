@@ -1,3 +1,7 @@
+> [← PRD Index](./index.md)
+>
+> *Top-level feature map: identity/access, core HSE workflows, cross-cutting (approvals, notifications), dashboards, admin/config, integrations. Each row links to the per-domain PRD.*
+
 # Feature Map
 
 Top-level feature inventory. Each row links to its authoritative per-domain PRD.

@@ -1,3 +1,7 @@
+> [← ERD Index](./index.md)
+>
+> *Compact entity-relationship lookup. Open this before `full.md` when you only need to see how entities connect.*
+
 # ERD Quick Reference Guide
 
 ## Core Entities & Relationships

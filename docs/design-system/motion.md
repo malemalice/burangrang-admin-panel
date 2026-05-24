@@ -1,3 +1,7 @@
+> [← Design System Index](./index.md)
+>
+> *Transition durations (`--transition-fast`/`-normal`), Tailwind utilities, micro-interaction rules, and `prefers-reduced-motion` handling.*
+
 # Motion
 
 ## Durations & easing

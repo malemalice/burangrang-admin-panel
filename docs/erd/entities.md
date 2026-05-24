@@ -1,3 +1,7 @@
+> [← ERD Index](./index.md)
+>
+> *Pointers into the full ERD by entity class (`m_*` / `t_*` / `_*`) and the required columns for new entities (UUID PK, audit, soft-delete, isActive, code/slug).*
+
 # Entities
 
 > This file points into `backend/erd.md` and `backend/prisma/schema.prisma`. It does not duplicate entity definitions — those would drift.

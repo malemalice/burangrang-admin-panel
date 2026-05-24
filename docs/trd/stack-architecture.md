@@ -1,3 +1,7 @@
+> [← TRD Index](./index.md)
+>
+> *Cross-cutting stack summary (versions for NestJS, Prisma, React, Vite, etc.) and pointers into structured backend / frontend TRD sub-files.*
+
 # Stack & Architecture
 
 ## Stack summary

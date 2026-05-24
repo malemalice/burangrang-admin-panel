@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Project overview, key technologies, and the 9 core principles (DRY/KISS, consistency, security-first, dynamic sentinel resolution, PDF policy, options bypass, data-level access).*
 
 ## Overview
 

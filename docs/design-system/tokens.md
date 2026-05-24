@@ -1,3 +1,7 @@
+> [← Design System Index](./index.md)
+>
+> *Semantic colour tokens (no hex/palette), status colour pairings, 8px spacing grid, typography scale, border radius and shadow.*
+
 # Design Tokens
 
 ## Colors — semantic tokens only

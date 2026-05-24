@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Quick-reference templates: module barrel, service methods, hook scaffolds, Zod form schema, table column definitions. Plus the barrel export patterns appendix.*
 
 > This file bundles two reference sections originally found in `frontend/TRD.md`: Code Examples Library and Barrel Export Patterns appendix.
 

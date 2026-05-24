@@ -1,4 +1,6 @@
 > [← Modules Index](./index.md) · [← Backend TRD Index](../index.md)
+>
+> *Reminder scheduling (one-time + weekly/monthly), every-minute cron processor (`@nestjs/schedule`), notification + email integration, and status lifecycle (PENDING → SENT/EXPIRED/CANCELLED/FAILED).*
 
 ## Reminder Module
 

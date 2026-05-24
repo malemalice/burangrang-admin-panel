@@ -1,3 +1,7 @@
+> [← TRD Index](./index.md)
+>
+> *ADR-style log of architectural decisions and the template for adding a new one.*
+
 # Architectural Decisions
 
 > ADR-style log. One row per decision. Link to authoritative implementation docs.

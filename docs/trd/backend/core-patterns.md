@@ -1,4 +1,6 @@
 > [← Backend TRD Index](./index.md)
+>
+> *Boilerplate templates: feature module, DTO with class-validator + Swagger decorators, controller with guards + Swagger docs.*
 
 ## Core Implementation Patterns
 

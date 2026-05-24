@@ -1,3 +1,7 @@
+> [← TRD Index](./index.md)
+>
+> *Environments (dev/prod/migrations/reset workflows), deployment artifacts (docker-compose, nginx, certs), health/migration rules, and frontend SPA deployment notes (nginx history fallback, subpath hosting, CORS).*
+
 # Deployment
 
 ## Environments

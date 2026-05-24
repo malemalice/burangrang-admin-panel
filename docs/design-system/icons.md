@@ -1,3 +1,7 @@
+> [← Design System Index](./index.md)
+>
+> *Lucide React only. Sizes (16/20/24 px), import pattern, `Icon` wrapper, inherit text colour, common semantic icon mappings.*
+
 # Icons
 
 ## Library

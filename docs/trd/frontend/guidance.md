@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Anti-patterns to avoid, global implementation checklist, the new-module workflow, and the original modular-restructure migration strategy.*
 
 > This file bundles four short guidance sections originally found in `frontend/TRD.md`: Anti-Patterns to Avoid, Implementation Checklist, Development Workflow, and Migration Strategy.
 

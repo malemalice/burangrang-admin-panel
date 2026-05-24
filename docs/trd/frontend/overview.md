@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Document metadata, executive summary, current state, target architecture, and all version-history "what's new" entries (v1.1 through v1.13) from the original frontend/TRD.md header.*
 
 # Technical Requirements Document (TRD)
 ## Frontend Modular Architecture Restructuring

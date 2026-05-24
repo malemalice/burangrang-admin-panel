@@ -1,4 +1,6 @@
 > [← Frontend TRD Index](./index.md)
+>
+> *Imports + tsconfig paths, route-level code splitting with `React.lazy` + `Suspense`, the edit-page-vs-form data-fetch principle, module communication, shared component strategy.*
 
 ## 🔧 Technical Implementation Guidelines
 

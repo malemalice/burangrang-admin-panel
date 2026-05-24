@@ -1,3 +1,7 @@
+> [← PRD Index](./index.md)
+>
+> *Running list of unresolved product decisions. Add a row when blocked; remove when resolved into a per-domain PRD.*
+
 # Open Product Questions
 
 > Add unresolved decisions here. Move to a per-domain PRD once decided.

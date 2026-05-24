@@ -1,3 +1,7 @@
+> [← Design System Index](./index.md)
+>
+> *Quick reference: shadcn/ui primitives inventory, project-specific shared components (`DataTable`, `PageHeader`, `ModalCombobox`), button hierarchy, page form layout, dialog rules, table/workflow/PDF/empty-state patterns.*
+
 # Components
 
 > All UI primitives live in `frontend/src/core/components/ui/` (shadcn/ui over Radix).

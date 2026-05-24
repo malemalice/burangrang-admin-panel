@@ -1,3 +1,7 @@
+> [← PRD Index](./index.md)
+>
+> *User personas (admin, dept head, HSE/security, employee, contractor, auditor) and the SELF / DEPARTMENT / SUPER data-scope cheat sheet.*
+
 # Personas
 
 Personas are inferred from the RBAC model ([docs/erd/full.md](../erd/full.md) → `m_roles`, `_PermissionToRole`) and per-domain PRDs. Authoritative role definitions live in seed data (`backend/prisma/seeds/`).

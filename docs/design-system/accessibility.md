@@ -1,3 +1,7 @@
+> [← Design System Index](./index.md)
+>
+> *WCAG AA standards, focus rings, form ARIA wiring, dialog/dropdown gotchas, table accessibility, manual + Lighthouse testing checklist.*
+
 # Accessibility
 
 ## Standards

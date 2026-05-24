@@ -1,3 +1,7 @@
+> [← ERD Index](./index.md)
+>
+> *Recurring relationship patterns (self-referencing FK, junction with metadata, dual-ref, workflow config vs execution history, sentinel approval assignees), FK actions, composite uniques.*
+
 # Relationships
 
 > This file documents recurring relationship patterns. Specific relationships live in [full.md](./full.md) and [`backend/prisma/schema.prisma`](../../backend/prisma/schema.prisma).
