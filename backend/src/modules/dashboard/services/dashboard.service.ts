@@ -16,6 +16,7 @@ import {
   PPEWithdrawalStatusEnum,
   ReportStatusEnum,
   RiskRatingEnum,
+  WaterQualityLabReportCategoryEnum,
   WaterQualityLabReportStatusEnum,
   WeightReportStatusEnum,
 } from '@prisma/client';
@@ -40,6 +41,8 @@ import {
   SecuritySifrComparisonData,
   SecurityMonthlyIncidentsData,
   AdminOverviewData,
+  WaterQualityLabDashboardData,
+  WaterQualityLabDashboardParameter,
 } from '../types/dashboard.types';
 import { isNotDeleted } from '../../../shared/utils/soft-delete.util';
 
@@ -1745,4 +1748,194 @@ export class DashboardService {
 
     return result;
   }
-} 
+
+  async getWaterQualityLabDashboard(params: {
+    category: WaterQualityLabReportCategoryEnum;
+    year: number;
+    parameterId?: string;
+  }): Promise<WaterQualityLabDashboardData> {
+    const { category, year } = params;
+    let { parameterId } = params;
+
+    const yearStart = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
+    const yearEnd = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0));
+
+    const reports = await this.prisma.waterQualityLabReport.findMany({
+      where: {
+        isActive: true,
+        category,
+        status: WaterQualityLabReportStatusEnum.DONE,
+        reportDate: { gte: yearStart, lt: yearEnd },
+      },
+      select: {
+        id: true,
+        reportDate: true,
+        treatmentPlantId: true,
+        treatmentPlant: { select: { id: true, name: true, code: true } },
+        labReportResults: {
+          select: {
+            resultValue: true,
+            parameter: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                unit: true,
+                standardLimit: true,
+                regulatoryLimit: true,
+                displayOrder: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { reportDate: 'asc' },
+    });
+
+    const paramMap = new Map<string, WaterQualityLabDashboardParameter>();
+    for (const report of reports) {
+      for (const result of report.labReportResults) {
+        if (!paramMap.has(result.parameter.id)) {
+          paramMap.set(result.parameter.id, {
+            id: result.parameter.id,
+            name: result.parameter.name,
+            code: result.parameter.code,
+            unit: result.parameter.unit,
+            standardLimit: result.parameter.standardLimit
+              ? Number(result.parameter.standardLimit)
+              : null,
+            regulatoryLimit: result.parameter.regulatoryLimit
+              ? Number(result.parameter.regulatoryLimit)
+              : null,
+            displayOrder: result.parameter.displayOrder ?? null,
+          });
+        }
+      }
+    }
+
+    const availableParameters = Array.from(paramMap.values()).sort((a, b) => {
+      const ao = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+      const bo = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return a.name.localeCompare(b.name);
+    });
+
+    if (parameterId && !paramMap.has(parameterId)) {
+      const fallback = await this.prisma.waterQualityParameter.findUnique({
+        where: { id: parameterId },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          unit: true,
+          standardLimit: true,
+          regulatoryLimit: true,
+          displayOrder: true,
+        },
+      });
+      if (fallback) {
+        paramMap.set(fallback.id, {
+          id: fallback.id,
+          name: fallback.name,
+          code: fallback.code,
+          unit: fallback.unit,
+          standardLimit: fallback.standardLimit ? Number(fallback.standardLimit) : null,
+          regulatoryLimit: fallback.regulatoryLimit ? Number(fallback.regulatoryLimit) : null,
+          displayOrder: fallback.displayOrder ?? null,
+        });
+      }
+    }
+
+    if (!parameterId) {
+      parameterId = availableParameters[0]?.id;
+    }
+
+    const selectedParameter = parameterId ? paramMap.get(parameterId) ?? null : null;
+
+    const plantsMap = new Map<string, { id: string; name: string; code: string }>();
+    for (const report of reports) {
+      if (!plantsMap.has(report.treatmentPlantId)) {
+        plantsMap.set(report.treatmentPlantId, {
+          id: report.treatmentPlant.id,
+          name: report.treatmentPlant.name,
+          code: report.treatmentPlant.code,
+        });
+      }
+    }
+    const plants = Array.from(plantsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    type Pick = { value: number; reportDate: Date };
+    const picks = new Map<string, Pick>();
+
+    if (selectedParameter) {
+      for (const report of reports) {
+        const monthIdx = report.reportDate.getUTCMonth();
+        const result = report.labReportResults.find(
+          (r) => r.parameter.id === selectedParameter.id,
+        );
+        if (!result) continue;
+        const key = `${report.treatmentPlantId}|${monthIdx}`;
+        const existing = picks.get(key);
+        if (!existing || report.reportDate > existing.reportDate) {
+          picks.set(key, {
+            value: Number(result.resultValue),
+            reportDate: report.reportDate,
+          });
+        }
+      }
+    }
+
+    const months = Array.from({ length: 12 }, (_, i) => {
+      const monthNumber = i + 1;
+      const values: Record<string, number | null> = {};
+      for (const plant of plants) {
+        const pick = picks.get(`${plant.id}|${i}`);
+        values[plant.id] = pick ? pick.value : null;
+      }
+      return { month: monthNumber, values };
+    });
+
+    const allValues: { x: number; y: number }[] = [];
+    for (let i = 0; i < 12; i++) {
+      for (const plant of plants) {
+        const pick = picks.get(`${plant.id}|${i}`);
+        if (pick) allValues.push({ x: i, y: pick.value });
+      }
+    }
+
+    const averageValue =
+      allValues.length > 0
+        ? allValues.reduce((sum, p) => sum + p.y, 0) / allValues.length
+        : null;
+
+    let trendline: { slope: number; intercept: number } | null = null;
+    if (allValues.length >= 2) {
+      const n = allValues.length;
+      const sumX = allValues.reduce((s, p) => s + p.x, 0);
+      const sumY = allValues.reduce((s, p) => s + p.y, 0);
+      const sumXY = allValues.reduce((s, p) => s + p.x * p.y, 0);
+      const sumX2 = allValues.reduce((s, p) => s + p.x * p.x, 0);
+      const denom = n * sumX2 - sumX * sumX;
+      if (denom !== 0) {
+        const slope = (n * sumXY - sumX * sumY) / denom;
+        const intercept = (sumY - slope * sumX) / n;
+        trendline = { slope, intercept };
+      }
+    }
+
+    return {
+      category,
+      year,
+      parameter: selectedParameter,
+      availableParameters,
+      plants,
+      months,
+      averageValue,
+      trendline,
+      yearSummary: {
+        count: allValues.length,
+        average: averageValue,
+      },
+    };
+  }
+}
