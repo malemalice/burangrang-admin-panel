@@ -1484,7 +1484,7 @@ export class WorkPermitsService {
         accessWhere =
           scopeWhere && Object.keys(scopeWhere).length > 0
             ? { OR: [scopeWhere, approverBranch] }
-            : approverBranch;
+            : {}; // SUPER scope: no restriction needed; approver branch is irrelevant
       } else {
         accessWhere =
           scopeWhere && Object.keys(scopeWhere).length > 0 ? scopeWhere : {};
