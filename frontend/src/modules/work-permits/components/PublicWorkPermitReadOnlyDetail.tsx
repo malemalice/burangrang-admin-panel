@@ -82,9 +82,9 @@ function PublicWorkPermitWorkersList({
         return { label: 'Linked to this permit', className: screeningBadgeClass.linkedHere };
       }
       if (hs.consumedByWorkPermitId == null) {
-        return { label: 'Available', className: screeningBadgeClass.valid };
+        return { label: 'Ready — not yet linked', className: screeningBadgeClass.valid };
       }
-      return { label: 'Used elsewhere', className: screeningBadgeClass.muted };
+      return { label: 'Used by another permit', className: screeningBadgeClass.muted };
     }
     return {
       label: hs.status === 'IN_PROGRESS' ? 'In progress' : hs.status.replace(/_/g, ' '),
@@ -161,9 +161,14 @@ function PublicWorkPermitWorkersList({
               <Badge variant="secondary" className={screeningBadge.className}>
                 {screeningBadge.label}
               </Badge>
-              {hs?.status === 'DONE' && !linkedHere ? (
-                <span className="text-xs text-muted-foreground">
-                  Each permit needs a fresh declaration — start a new one for this worker.
+              {hs?.status === 'DONE' && !linkedHere && hs.consumedByWorkPermitId != null ? (
+                <span className="text-xs text-amber-700 dark:text-amber-400">
+                  Declaration used by another permit — a new declaration is needed.
+                </span>
+              ) : null}
+              {hs?.status === 'DONE' && !linkedHere && hs.consumedByWorkPermitId == null ? (
+                <span className="text-xs text-green-700 dark:text-green-400">
+                  Declaration complete — will be linked when this permit is saved.
                 </span>
               ) : null}
             </div>
@@ -193,7 +198,7 @@ function PublicWorkPermitWorkersList({
                     <Button
                       type="button"
                       size="sm"
-                      variant="secondary"
+                      variant="outline"
                       onClick={() => void copyLink(cached.linkUrl)}
                     >
                       <Copy className="mr-2 h-4 w-4" />
@@ -202,7 +207,6 @@ function PublicWorkPermitWorkersList({
                     <Button
                       type="button"
                       size="sm"
-                      variant="secondary"
                       onClick={() =>
                         window.open(cached.linkUrl, '_blank', 'noopener,noreferrer')
                       }
