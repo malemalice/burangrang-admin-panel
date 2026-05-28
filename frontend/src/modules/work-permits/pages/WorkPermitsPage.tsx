@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, MoreHorizontal, Eye, Edit, Trash2, Copy, Link2, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -34,8 +34,11 @@ import { getWorkPermitStatusColor } from '../utils/statusColors';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
 
+const FILTER_KEYS = ['status', 'companyId', 'areaId'];
+
 const WorkPermitsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = usePermissions();
   const {
     workPermits,
@@ -45,16 +48,28 @@ const WorkPermitsPage = () => {
     deleteWorkPermit,
   } = useWorkPermits();
 
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const activeTab = useMemo(() => searchParams.get('tab') ?? 'all', [searchParams]);
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workPermitToDelete, setWorkPermitToDelete] = useState<WorkPermit | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [companies, setCompanies] = useState<Array<{ label: string; value: string }>>([]);
   const [areas, setAreas] = useState<Array<{ label: string; value: string }>>([]);
-
-  const [activeTab, setActiveTab] = useState('all');
 
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
@@ -117,6 +132,33 @@ const WorkPermitsPage = () => {
     },
   ], [companies, areas]);
 
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+
+    const status = searchParams.get('status');
+    if (status) {
+      const statusField = filterFields.find(f => f.id === 'status');
+      const option = statusField?.options?.find(o => String(o.value) === status);
+      filters.status = { value: status, label: option?.label ?? status };
+    }
+
+    const companyId = searchParams.get('companyId');
+    if (companyId) {
+      const field = filterFields.find(f => f.id === 'companyId');
+      const option = field?.options?.find(o => String(o.value) === companyId);
+      filters.companyId = { value: companyId, label: option?.label ?? companyId };
+    }
+
+    const areaId = searchParams.get('areaId');
+    if (areaId) {
+      const field = filterFields.find(f => f.id === 'areaId');
+      const option = field?.options?.find(o => String(o.value) === areaId);
+      filters.areaId = { value: areaId, label: option?.label ?? areaId };
+    }
+
+    return filters;
+  }, [searchParams, filterFields]);
+
   useEffect(() => {
     const params: WorkPermitSearchParams = {
       page: pageIndex + 1,
@@ -130,78 +172,60 @@ const WorkPermitsPage = () => {
     fetchWorkPermits(params);
   }, [pageIndex, limit, searchTerm, activeFilters, fetchWorkPermits]);
 
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams],
+  );
+
   const handleTabChange = useCallback((value: string) => {
-    setActiveTab(value);
-    setPageIndex(0);
-
-    const newFilters: Record<string, { value: any; label: string }> = {};
-
-    // Preserve non-status filters
-    Object.entries(activeFilters).forEach(([key, item]) => {
-      if (key !== 'status') {
-        newFilters[key] = item;
+    updateSearchParams(next => {
+      if (value === 'all') {
+        next.set('tab', 'all');
+        next.delete('status');
+      } else {
+        next.set('tab', value);
+        next.set('status', value);
       }
+      next.set('page', '1');
     });
+  }, [updateSearchParams]);
 
-    if (value === 'all') {
-      setActiveFilters(newFilters);
-    } else {
-      const statusLabel = value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-      setActiveFilters({
-        ...newFilters,
-        status: { value: value, label: statusLabel },
-      });
-    }
-  }, [activeFilters]);
+  const handleSearch = useCallback((term: string) => {
+    updateSearchParams(next => {
+      const trimmed = term.trim();
+      if (trimmed) {
+        next.set('search', trimmed);
+      } else {
+        next.delete('search');
+      }
+      next.set('page', '1');
+    });
+  }, [updateSearchParams]);
 
   const handleApplyFilters = useCallback((filters: FilterValue[]) => {
-    const filterMap: Record<string, { value: any; label: string }> = {};
-    filters.forEach(filter => {
-      if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
-        const field = filterFields.find(f => f.id === filter.id);
-        let label = String(filter.value);
+    updateSearchParams(next => {
+      FILTER_KEYS.forEach(k => next.delete(k));
 
-        // Get label from field options if available
-        if (field?.options) {
-          const option = field.options.find(opt => {
-            const optValue = typeof opt.value === 'boolean' ? opt.value.toString() : String(opt.value);
-            const filterValue = Array.isArray(filter.value)
-              ? filter.value.map(v => String(v))
-              : String(filter.value);
-            return Array.isArray(filter.value)
-              ? filterValue.includes(optValue)
-              : optValue === filterValue;
-          });
-          if (option) {
-            label = Array.isArray(filter.value)
-              ? filter.value.map(v => {
-                const opt = field.options?.find(o => {
-                  const oValue = typeof o.value === 'boolean' ? o.value.toString() : String(o.value);
-                  return oValue === String(v);
-                });
-                return opt?.label || String(v);
-              }).join(', ')
-              : option.label;
-          }
+      filters.forEach(filter => {
+        if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+          next.set(filter.id, String(filter.value));
         }
+      });
 
-        filterMap[filter.id] = {
-          value: filter.value,
-          label,
-        };
+      const statusFilter = filters.find(f => f.id === 'status' && f.value);
+      if (statusFilter) {
+        next.set('tab', String(statusFilter.value));
+      } else {
+        next.set('tab', 'all');
       }
+
+      next.set('page', '1');
     });
-
-    // Sync tab with status filter if present
-    if (filterMap.status) {
-      setActiveTab(filterMap.status.value as string);
-    } else {
-      setActiveTab('all');
-    }
-
-    setActiveFilters(filterMap);
-    setPageIndex(0);
-  }, [filterFields]);
+  }, [updateSearchParams]);
 
   const handleDelete = async () => {
     if (workPermitToDelete) {
@@ -429,12 +453,12 @@ const WorkPermitsPage = () => {
           pageIndex,
           limit,
           pageCount: Math.ceil(totalWorkPermits / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: (page) => updateSearchParams(next => next.set('page', String(page + 1))),
+          onPageSizeChange: (size) => updateSearchParams(next => { next.set('limit', String(size)); next.set('page', '1'); }),
           total: totalWorkPermits,
         }}
         filterFields={filterFields}
-        onSearch={setSearchTerm}
+        onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
       />
