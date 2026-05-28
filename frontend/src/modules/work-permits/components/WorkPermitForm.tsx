@@ -1143,6 +1143,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     }
   };
 
+  const sanitizeEmployees = (employees: FormValues['employees']) => {
+    if (!employees?.length) return [];
+    return employees
+      .map((e, index) => ({
+        ...e,
+        userId: e.userId?.trim() || undefined,
+        employeeName: e.employeeName?.trim() || undefined,
+        order: index,
+      }))
+      .filter((e) => e.userId || e.employeeName);
+  };
+
   const sanitizeHazards = (hazards: FormValues['hazards']) => {
     if (!hazards?.length) {
       return [];
@@ -1207,6 +1219,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const sanitizedData: FormValues = {
         ...data,
         hazards: sanitizeHazards(data.hazards),
+        employees: sanitizeEmployees(data.employees),
       };
 
       const dataForApi: FormValues = classificationContentEnabled
