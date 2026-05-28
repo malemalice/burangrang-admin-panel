@@ -268,6 +268,7 @@ export function RemindersSection(props: RemindersSectionProps) {
       </CardContent>
 
       <ReminderFormDialog
+        key={editingReminder?.id ?? 'create'}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         reminder={editingReminder}

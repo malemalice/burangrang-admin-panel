@@ -78,6 +78,21 @@ export class RemindersScheduler {
   }
 
   private async processOccurrence(occ: any): Promise<void> {
+    // Atomically claim the occurrence. Two concurrent instances may both pick up the
+    // same SCHEDULED row from getDueOccurrences. Only the first UPDATE that finds
+    // state='SCHEDULED' will succeed; the other gets count=0 and skips.
+    // @ts-ignore - prisma client regen pending
+    const claimed = await this.prisma.reminderOccurrence.updateMany({
+      where: { id: occ.id, state: 'SCHEDULED' },
+      data: { state: 'FIRED', firedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      this.logger.warn(
+        `Occurrence ${occ.id} already claimed by another instance, skipping`,
+      );
+      return;
+    }
+
     const reminder = occ.reminder;
     const startTime = Date.now();
     let notificationId: string | undefined;

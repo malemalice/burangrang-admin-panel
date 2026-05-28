@@ -9,7 +9,6 @@ import {
   IsBoolean,
   Min,
   Max,
-  ValidateIf,
 } from 'class-validator';
 import { ReminderRepeatTypeEnum, ReminderTargetTypeEnum } from './reminder.dto';
 
@@ -80,11 +79,11 @@ export class CreateReminderDto {
   repeatType?: ReminderRepeatTypeEnum;
 
   @ApiProperty({
-    description: 'When to stop repeating (ISO 8601 format). Required if repeatType is not NONE',
+    description: 'When to stop repeating (ISO 8601 format). Leave blank to repeat indefinitely.',
     example: '2025-12-31T23:59:59Z',
     required: false
   })
-  @ValidateIf((o) => o.repeatType && o.repeatType !== ReminderRepeatTypeEnum.NONE)
+  @IsOptional()
   @IsDateString()
   repeatUntil?: string;
 
