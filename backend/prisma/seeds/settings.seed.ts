@@ -3,7 +3,7 @@ import { notDeleted } from './not-deleted';
 
 export const defaultSettings = [
   // Theme Settings
-  { key: 'theme.color', value: 'blue' },
+  { key: 'theme.color', value: 'teal' },
   { key: 'theme.mode', value: 'light' },
 
   // System Settings
