@@ -127,6 +127,11 @@ export class ErrorHandlingService {
         throw new NotFoundException(errorContext);
       }
 
+      // Handle Prisma inconsistent column data (e.g. non-UUID string in UUID field)
+      if (error.code === 'P2023') {
+        throw new NotFoundException(errorContext);
+      }
+
       // Re-throw NestJS exceptions as-is
       if (
         error instanceof NotFoundException ||

@@ -282,10 +282,17 @@ export class RemindersService {
       this.errorHandler.throwIfNotFoundById('Reminder', id, existing);
       await this.assertCanManage(existing, userId);
 
-      await this.prisma.reminder.update({
-        where: { id },
-        data: { status: 'CANCELLED' as any },
-      });
+      await this.prisma.$transaction([
+        // @ts-ignore
+        this.prisma.reminderOccurrence.updateMany({
+          where: { reminderId: id, state: 'SCHEDULED' },
+          data: { state: 'DISMISSED' },
+        }),
+        this.prisma.reminder.update({
+          where: { id },
+          data: { status: 'CANCELLED' as any },
+        }),
+      ]);
     }, 'Deleting reminder');
   }
 
@@ -377,7 +384,11 @@ export class RemindersService {
   async getDueOccurrences(): Promise<any[]> {
     // @ts-ignore
     return this.prisma.reminderOccurrence.findMany({
-      where: { state: 'SCHEDULED', scheduledAt: { lte: new Date() } },
+      where: {
+        state: 'SCHEDULED',
+        scheduledAt: { lte: new Date() },
+        reminder: { status: { not: 'CANCELLED' as any } },
+      },
       include: { reminder: true },
       take: 500,
       orderBy: { scheduledAt: 'asc' },

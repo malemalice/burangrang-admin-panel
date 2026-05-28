@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,15 +34,6 @@ const formSchema = z.object({
   remindAt: z.string().min(1, 'Remind at date and time is required'),
   repeatType: z.nativeEnum(ReminderRepeatType).default(ReminderRepeatType.NONE),
   repeatUntil: z.string().optional(),
-}).refine((data) => {
-  // If repeatType is not NONE, repeatUntil is required
-  if (data.repeatType && data.repeatType !== ReminderRepeatType.NONE) {
-    return !!data.repeatUntil;
-  }
-  return true;
-}, {
-  message: 'Repeat until date is required when repeat type is not None',
-  path: ['repeatUntil'],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -58,36 +49,28 @@ const ReminderForm = ({ reminder, mode }: ReminderFormProps) => {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      entity: '',
-      entityId: '',
-      message: '',
-      remindAt: '',
-      repeatType: ReminderRepeatType.NONE,
-      repeatUntil: '',
-    },
+    defaultValues: reminder
+      ? {
+          entity: reminder.entity || '',
+          entityId: reminder.entityId || '',
+          message: reminder.message,
+          remindAt: reminder.remindAt
+            ? new Date(reminder.remindAt).toISOString().slice(0, 16)
+            : '',
+          repeatType: reminder.repeatType || ReminderRepeatType.NONE,
+          repeatUntil: reminder.repeatUntil
+            ? new Date(reminder.repeatUntil).toISOString().slice(0, 16)
+            : '',
+        }
+      : {
+          entity: '',
+          entityId: '',
+          message: '',
+          remindAt: '',
+          repeatType: ReminderRepeatType.NONE,
+          repeatUntil: '',
+        },
   });
-
-  useEffect(() => {
-    if (reminder) {
-      // Convert ISO date strings to datetime-local format
-      const remindAtLocal = reminder.remindAt
-        ? new Date(reminder.remindAt).toISOString().slice(0, 16)
-        : '';
-      const repeatUntilLocal = reminder.repeatUntil
-        ? new Date(reminder.repeatUntil).toISOString().slice(0, 16)
-        : '';
-
-      form.reset({
-        entity: reminder.entity || '',
-        entityId: reminder.entityId || '',
-        message: reminder.message,
-        remindAt: remindAtLocal,
-        repeatType: reminder.repeatType || ReminderRepeatType.NONE,
-        repeatUntil: repeatUntilLocal,
-      });
-    }
-  }, [reminder, form]);
 
   const onSubmit = async (data: FormValues) => {
     try {

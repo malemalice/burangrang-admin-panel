@@ -736,8 +736,8 @@ export class WorkPermitsService {
             employees: createDto.employees
               ? {
                 create: createDto.employees.map((e) => ({
-                  userId: e.userId,
-                  employeeName: e.employeeName,
+                  userId: e.userId?.trim() || undefined,
+                  employeeName: e.employeeName?.trim() || undefined,
                   order: e.order,
                 })),
               }
@@ -1684,8 +1684,8 @@ export class WorkPermitsService {
       });
       updateData.employees = {
         create: updateDto.employees.map((e) => ({
-          userId: e.userId,
-          employeeName: e.employeeName,
+          userId: e.userId?.trim() || undefined,
+          employeeName: e.employeeName?.trim() || undefined,
           order: e.order,
         })),
       };

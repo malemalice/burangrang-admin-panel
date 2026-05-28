@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class GenerateWorkPermitPublicLinkDto {
   @ApiProperty({
@@ -8,7 +8,7 @@ export class GenerateWorkPermitPublicLinkDto {
       'Work permit id to generate an anonymous applicant link for (preferred when known)',
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   workPermitId?: string;
 
   @ApiProperty({
@@ -17,7 +17,7 @@ export class GenerateWorkPermitPublicLinkDto {
       'Applicant (contractor) user id — resolves the latest work permit for that applicant when workPermitId is omitted',
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   userId?: string;
 }
 

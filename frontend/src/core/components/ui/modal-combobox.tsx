@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/core/lib/utils";
 
@@ -52,8 +52,10 @@ export function ModalCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -99,15 +101,29 @@ export function ModalCombobox({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inContainer = containerRef.current?.contains(target);
+      const inDropdown = dropdownRef.current?.contains(target);
+      if (!inContainer && !inDropdown) {
         setOpen(false);
         setSearchQuery("");
       }
     };
 
+    const handleScrollOrResize = () => {
+      setOpen(false);
+      setSearchQuery("");
+    };
+
     if (open) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
     }
   }, [open]);
 
@@ -185,14 +201,37 @@ export function ModalCombobox({
   };
 
   const handleToggle = () => {
-    setOpen(!open);
-    if (!open) {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const DROPDOWN_MAX_HEIGHT = 300;
+      const GAP = 4;
+      const spaceBelow = window.innerHeight - rect.bottom - GAP;
+      const spaceAbove = rect.top - GAP;
+
+      if (spaceBelow >= DROPDOWN_MAX_HEIGHT || spaceBelow >= spaceAbove) {
+        setDropdownStyle({
+          position: 'fixed',
+          top: rect.bottom + GAP,
+          left: rect.left,
+          width: rect.width,
+          maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceBelow),
+        });
+      } else {
+        setDropdownStyle({
+          position: 'fixed',
+          bottom: window.innerHeight - rect.top + GAP,
+          left: rect.left,
+          width: rect.width,
+          maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceAbove),
+        });
+      }
       setSearchQuery("");
     }
+    setOpen((prev) => !prev);
   };
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="w-full">
       <button
         ref={buttonRef}
         id={id}
@@ -212,11 +251,10 @@ export function ModalCombobox({
       </button>
       
       {open && (
-        <div 
-          className="absolute z-[100] w-full mt-1 rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
-          style={{
-            maxHeight: '300px',
-          }}
+        <div
+          ref={dropdownRef}
+          className="z-[9999] flex flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+          style={dropdownStyle}
         >
           {/* Search input */}
           <div className="flex items-center border-b px-3 py-2">
@@ -236,7 +274,7 @@ export function ModalCombobox({
           </div>
 
           {/* Options list */}
-          <div className="max-h-[250px] overflow-y-auto p-1">
+          <div className="flex-1 overflow-y-auto p-1">
             {isLoading && filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />

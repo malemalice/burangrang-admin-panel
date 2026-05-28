@@ -201,6 +201,25 @@ export const seedMenus = async () => {
       },
     });
 
+    await prisma.menu.create({
+      data: {
+        name: 'Water Quality Lab',
+        path: '/dashboard/water-quality-lab',
+        icon: 'FlaskConical',
+        parentId: dashboardMenu.id,
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Risk Assessment menu group (risk-related modules except Risk Register)
     const riskAssessmentMenu = await prisma.menu.create({
       data: {
