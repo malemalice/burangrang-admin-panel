@@ -909,7 +909,7 @@ const IncidentSecuritiesPage = () => {
   return (
     <>
       <PageHeader
-        title="Incident Securities"
+        title="Incident Security Reports"
         subtitle="Manage security incident reports and tracking"
         actions={
           <div className="flex items-center gap-2">
@@ -932,7 +932,7 @@ const IncidentSecuritiesPage = () => {
             <PermissionGuard permission="incident-security:create">
               <Button onClick={() => navigate('/incident-securities/new')}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Security Incident
+                Create Security Incident Report
               </Button>
             </PermissionGuard>
           </div>
@@ -972,7 +972,7 @@ const IncidentSecuritiesPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Security Incident"
+        title="Delete Security Incident Report"
         description={`Are you sure you want to delete security incident "${incidentToDelete?.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"

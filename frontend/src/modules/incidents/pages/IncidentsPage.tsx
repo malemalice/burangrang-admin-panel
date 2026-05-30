@@ -948,7 +948,7 @@ const IncidentsPage = () => {
   return (
     <>
       <PageHeader
-        title="Incidents"
+        title="Incident Reports"
         subtitle="Manage incident reports and tracking"
         actions={
           <div className="flex items-center gap-2">
@@ -971,7 +971,7 @@ const IncidentsPage = () => {
             <PermissionGuard permission="incident:create">
               <Button onClick={() => navigate('/incidents/new')}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Incident
+                Create Incident Report
               </Button>
             </PermissionGuard>
           </div>
@@ -1012,7 +1012,7 @@ const IncidentsPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Incident"
+        title="Delete Incident Report"
         description={`Are you sure you want to delete incident "${incidentToDelete?.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"

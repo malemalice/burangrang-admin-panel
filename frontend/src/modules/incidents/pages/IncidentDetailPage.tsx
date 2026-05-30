@@ -172,7 +172,7 @@ const IncidentDetailPage = () => {
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incidents
+              Back to Incident Reports
             </Button>
           </div>
         </div>
@@ -183,7 +183,7 @@ const IncidentDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={`Incident: ${incident.code}`}
+        title={`Incident Report: ${incident.code}`}
         subtitle="View and manage incident information"
         actions={
           <div className="flex gap-2">
@@ -193,7 +193,7 @@ const IncidentDetailPage = () => {
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incidents
+              Back to Incident Reports
             </Button>
             {investigationReport ? (
               <Button
@@ -221,7 +221,7 @@ const IncidentDetailPage = () => {
                   disabled={isLoading || isDeleting}
                 >
                   <Edit className="mr-2 h-4 w-4" />
-                  Edit Incident
+                  Edit Incident Report
                 </Button>
                 <Button
                   variant="destructive"
@@ -229,7 +229,7 @@ const IncidentDetailPage = () => {
                   disabled={isLoading || isDeleting}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Incident
+                  Delete Incident Report
                 </Button>
               </>
             )}
@@ -643,7 +643,7 @@ const IncidentDetailPage = () => {
               </div>
               {incident.controlMeasure && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Control Measure</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Action Taken Following The Incident</h3>
                   <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
                 </div>
               )}
@@ -741,7 +741,7 @@ const IncidentDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Incident"
+        title="Delete Incident Report"
         description={`Are you sure you want to delete incident "${incident.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"

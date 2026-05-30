@@ -156,7 +156,7 @@ const IncidentSecurityDetailPage = () => {
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incident Securities
+              Back to Incident Security Reports
             </Button>
           </div>
         </div>
@@ -167,7 +167,7 @@ const IncidentSecurityDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={`Security Incident: ${incident.code}`}
+        title={`Security Incident Report: ${incident.code}`}
         subtitle="View and manage security incident information"
         actions={
           <div className="flex gap-2">
@@ -177,7 +177,7 @@ const IncidentSecurityDetailPage = () => {
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incident Securities
+              Back to Incident Security Reports
             </Button>
             {(incident.status !== GeneralStatusEnum.WAITING_APPROVAL && incident.status !== GeneralStatusEnum.CLOSE) && (
               <>
@@ -186,7 +186,7 @@ const IncidentSecurityDetailPage = () => {
                   disabled={isLoading || isDeleting}
                 >
                   <Edit className="mr-2 h-4 w-4" />
-                  Edit Security Incident
+                  Edit Security Incident Report
                 </Button>
                 <Button
                   variant="destructive"
@@ -194,7 +194,7 @@ const IncidentSecurityDetailPage = () => {
                   disabled={isLoading || isDeleting}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Security Incident
+                  Delete Security Incident Report
                 </Button>
               </>
             )}
@@ -695,7 +695,7 @@ const IncidentSecurityDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Security Incident"
+        title="Delete Security Incident Report"
         description={`Are you sure you want to delete security incident "${incident.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"

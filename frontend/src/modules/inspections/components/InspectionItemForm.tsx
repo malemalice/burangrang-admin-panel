@@ -1039,7 +1039,14 @@ const InspectionItemForm = ({
 
     try {
       setIsSubmittingApproval(true);
-      
+
+      // Upload and save any images the verifier added before submitting approval
+      const hasNewImages = [...beforeImages, ...afterImages].some(img => img.isNew);
+      if (hasNewImages) {
+        const uploadedImages = await uploadImages();
+        await inspectionItemsService.update(initialItem.id, { images: uploadedImages });
+      }
+
       // Submit approval - backend handles status update based on approval workflow
       // If there's a next approver, status stays WAITING_APPROVAL
       // If all approvals are complete, status changes to CLOSE

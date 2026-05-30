@@ -943,10 +943,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
       if (status === ApprovalStatus.APPROVED) {
         await incidentsService.approve(incident.id, notes, activities);
-        toast.success('Incident approved successfully');
+        toast.success('Incident Report approved successfully');
       } else {
         await incidentsService.reject(incident.id, notes);
-        toast.success('Incident rejected successfully');
+        toast.success('Incident Report rejected successfully');
       }
 
       navigate('/incidents');
@@ -1073,14 +1073,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
       if (mode === 'create') {
         await incidentsService.create(dto as CreateIncidentDTO);
-        toast.success('Incident created successfully');
+        toast.success('Incident Report created successfully');
       } else if (incident) {
         await incidentsService.update(incident.id, dto as UpdateIncidentDTO);
         if (resolvedMode === 'investigator') {
           await incidentsService.submit(incident.id);
-          toast.success('Incident submitted for approval');
+          toast.success('Incident Report submitted for approval');
         } else {
-          toast.success('Incident updated successfully');
+          toast.success('Incident Report updated successfully');
         }
       }
       navigate('/incidents');
@@ -2417,10 +2417,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   name="controlMeasure"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Control Measure</FormLabel>
+                      <FormLabel>Action Taken Following The Incident</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter control measures"
+                          placeholder="Enter action taken following the incident"
                           className="min-h-[100px]"
                           {...field}
                           disabled={isFieldDisabled('controlMeasure')}
@@ -2711,8 +2711,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     : resolvedMode === 'investigator'
                     ? 'Submit'
                     : mode === 'create' 
-                    ? 'Create Incident' 
-                    : 'Update Incident'}
+                    ? 'Create Incident Report'
+                    : 'Update Incident Report'}
                 </Button>
               )}
             </div>

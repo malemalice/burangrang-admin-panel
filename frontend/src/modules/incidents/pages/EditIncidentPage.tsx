@@ -63,7 +63,7 @@ const EditIncidentPage = () => {
         </p>
         <Button onClick={() => navigate('/incidents')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Incidents
+          Back to Incident Reports
         </Button>
       </div>
     );
@@ -72,11 +72,11 @@ const EditIncidentPage = () => {
   return (
     <>
       <PageHeader
-        title="Edit Incident"
+        title="Edit Incident Report"
         subtitle={`Modify the details of "${incident.code}"`}
         actions={
           <Button variant="outline" onClick={() => navigate('/incidents')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incidents
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incident Reports
           </Button>
         }
       />
