@@ -1475,9 +1475,9 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/40">
-                      <th className="text-left p-2 font-medium">Investigator Team / Tim Penyidik</th>
-                      <th className="text-left p-2 font-medium">Name / Nama</th>
-                      <th className="text-left p-2 font-medium">Date / Tanggal</th>
+                      <th className="text-left p-2 font-medium whitespace-nowrap">Investigator Team / Tim Penyidik</th>
+                      <th className="text-left p-2 font-medium whitespace-nowrap">Name / Nama</th>
+                      <th className="text-left p-2 font-medium whitespace-nowrap">Date / Tanggal</th>
                       <th className="w-10 p-2" />
                     </tr>
                   </thead>
@@ -1487,7 +1487,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                       const label = role ? SIGNATORY_ROLE_LABELS[role] : null;
                       return (
                         <tr key={field.id} className="border-b last:border-0">
-                          <td className="p-2">
+                          <td className="p-2 align-top">
                             {label && (
                               <p className="text-xs font-medium text-muted-foreground mb-1">
                                 {label.en} / {label.id}
@@ -1506,7 +1506,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                               )}
                             />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 align-top">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.name`}
@@ -1520,7 +1520,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                               )}
                             />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 align-top">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.signedAt`}

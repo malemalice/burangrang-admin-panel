@@ -263,7 +263,6 @@ export class InvestigationReportsService {
       select: {
         id: true,
         needFurtherInvestigation: true,
-        investigationReport: { select: { id: true } },
       },
     });
     this.errorHandler.throwIfNotFoundById('Incident', dto.incidentId, incident);
@@ -272,7 +271,11 @@ export class InvestigationReportsService {
         'Cannot create investigation report — incident is not flagged for further investigation',
       );
     }
-    if (incident!.investigationReport) {
+    const existingReport = await this.prisma.investigationReport.findFirst({
+      where: { incidentId: dto.incidentId, isActive: true },
+      select: { id: true },
+    });
+    if (existingReport) {
       this.errorHandler.throwConflictCustom(
         'An investigation report already exists for this incident',
       );
