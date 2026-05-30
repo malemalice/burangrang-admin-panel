@@ -24,6 +24,7 @@ import { APPROVAL_CHAIN_STATUS } from '../../../shared/constants/approval-status
 import { ROLE_CODES } from '../../../shared/constants/role-codes';
 import { IncidentInjuredPersonDto } from '../dto/incident-injured-person.dto';
 import { IncidentWitnessDto } from '../dto/incident-witness.dto';
+import { IncidentThirdPartyDto } from '../dto/incident-third-party.dto';
 import { IncidentAssetDto } from '../dto/incident-asset.dto';
 import { IncidentImageDto } from '../dto/incident-image.dto';
 import { IncidentAttachmentDto } from '../dto/incident-attachment.dto';
@@ -57,6 +58,7 @@ export class IncidentsService {
   private incidentMapper: (entity: any) => IncidentDto;
   private injuredPersonMapper: (entity: any) => IncidentInjuredPersonDto;
   private witnessMapper: (entity: any) => IncidentWitnessDto;
+  private thirdPartyMapper: (entity: any) => IncidentThirdPartyDto;
   private assetMapper: (entity: any) => IncidentAssetDto;
   private imageMapper: (entity: any) => IncidentImageDto;
   private attachmentMapper: (entity: any) => IncidentAttachmentDto;
@@ -88,6 +90,8 @@ export class IncidentsService {
         },
       },
     );
+
+    this.thirdPartyMapper = this.dtoMapper.createSimpleMapper(IncidentThirdPartyDto);
 
     this.assetMapper = this.dtoMapper.createSimpleMapper(IncidentAssetDto);
     this.imageMapper = this.dtoMapper.createSimpleMapper(IncidentImageDto);
@@ -139,6 +143,10 @@ export class IncidentsService {
         mapper: (witness: any) => this.witnessMapper(witness),
         isArray: true,
       },
+      thirdParties: {
+        mapper: (thirdParty: any) => this.thirdPartyMapper(thirdParty),
+        isArray: true,
+      },
       assets: {
         mapper: (asset: any) => this.assetMapper(asset),
         isArray: true,
@@ -187,6 +195,7 @@ export class IncidentsService {
     const {
       injuredPersons,
       witnesses,
+      thirdParties,
       assets,
       images,
       attachments,
@@ -211,6 +220,12 @@ export class IncidentsService {
               witnesses.length > 0 && {
                 witnesses: {
                   create: witnesses,
+                },
+              }),
+            ...(thirdParties &&
+              thirdParties.length > 0 && {
+                thirdParties: {
+                  create: thirdParties,
                 },
               }),
             ...(assets &&
@@ -251,6 +266,9 @@ export class IncidentsService {
               include: {
                 department: true,
               },
+              orderBy: { order: 'asc' },
+            },
+            thirdParties: {
               orderBy: { order: 'asc' },
             },
             assets: {
@@ -406,6 +424,9 @@ export class IncidentsService {
                 },
                 orderBy: { order: 'asc' },
               },
+              thirdParties: {
+                orderBy: { order: 'asc' },
+              },
               assets: {
                 orderBy: { order: 'asc' },
               },
@@ -512,6 +533,9 @@ export class IncidentsService {
           },
           orderBy: { order: 'asc' },
         },
+        thirdParties: {
+          orderBy: { order: 'asc' },
+        },
         assets: {
           orderBy: { order: 'asc' },
         },
@@ -579,6 +603,7 @@ export class IncidentsService {
     const {
       injuredPersons,
       witnesses,
+      thirdParties,
       assets,
       images,
       attachments,
@@ -614,6 +639,12 @@ export class IncidentsService {
               witnesses: {
                 deleteMany: {},
                 create: witnesses,
+              },
+            }),
+            ...(thirdParties !== undefined && {
+              thirdParties: {
+                deleteMany: {},
+                create: thirdParties,
               },
             }),
             ...(assets !== undefined && {
@@ -655,6 +686,9 @@ export class IncidentsService {
               include: {
                 department: true,
               },
+              orderBy: { order: 'asc' },
+            },
+            thirdParties: {
               orderBy: { order: 'asc' },
             },
             assets: {
@@ -700,6 +734,9 @@ export class IncidentsService {
               include: {
                 department: true,
               },
+              orderBy: { order: 'asc' },
+            },
+            thirdParties: {
               orderBy: { order: 'asc' },
             },
             assets: {
@@ -838,6 +875,9 @@ export class IncidentsService {
             },
             orderBy: { order: 'asc' },
           },
+          thirdParties: {
+            orderBy: { order: 'asc' },
+          },
           assets: {
             orderBy: { order: 'asc' },
           },
@@ -942,6 +982,9 @@ export class IncidentsService {
             },
             orderBy: { order: 'asc' },
           },
+          thirdParties: {
+            orderBy: { order: 'asc' },
+          },
           assets: {
             orderBy: { order: 'asc' },
           },
@@ -1024,6 +1067,9 @@ export class IncidentsService {
             include: {
               department: true,
             },
+            orderBy: { order: 'asc' },
+          },
+          thirdParties: {
             orderBy: { order: 'asc' },
           },
           assets: {

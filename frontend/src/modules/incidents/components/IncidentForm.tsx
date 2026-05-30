@@ -57,6 +57,7 @@ import {
   MechanismOfInjuryEnum,
   CreateIncidentInjuredPersonDTO,
   CreateIncidentWitnessDTO,
+  CreateIncidentThirdPartyDTO,
   CreateIncidentAssetDTO,
   CreateIncidentImageDTO,
   CreateIncidentAttachmentDTO,
@@ -105,12 +106,21 @@ const witnessSchema = z.object({
   departmentId: z.string().optional(),
 });
 
+// Schema for third party (external persons: contractors, visitors)
+const thirdPartySchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
+  company: z.string().optional(),
+  position: z.string().optional(),
+});
+
 // Schema for asset - quantity allows blank (empty string) to match create behavior
 const assetSchema = z.object({
   entity: z.nativeEnum(EquipmentEntityEnum),
   entityId: z.string().min(1, 'Asset selection is required'),
   assetName: z.string().min(1, 'Asset name is required'),
   assetCode: z.string().optional(),
+  brand: z.string().optional(),
   quantity: z.union([
     z.number().int().positive(),
     z.string(),
@@ -156,6 +166,7 @@ const formSchema = z.object({
   isActive: z.boolean().default(true),
   injuredPersons: z.array(injuredPersonSchema).optional(),
   witnesses: z.array(witnessSchema).optional(),
+  thirdParties: z.array(thirdPartySchema).optional(),
   assets: z.array(assetSchema).optional(),
 });
 
@@ -202,7 +213,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     defaultValues: {
       code: mode === 'create' ? generateIncidentCode() : '',
       subject: '',
-      incidentDate: new Date().toISOString().split('T')[0],
+      incidentDate: new Date().toISOString(),
       roomId: '',
       areaId: '',
       incidentType: IncidentTypeEnum.NEAR_MISS,
@@ -231,6 +242,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       isActive: true,
       injuredPersons: [],
       witnesses: [],
+      thirdParties: [],
       assets: [],
     },
   });
@@ -308,6 +320,15 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   } = useFieldArray({
     control: form.control,
     name: 'witnesses',
+  });
+
+  const {
+    fields: thirdPartyFields,
+    append: appendThirdParty,
+    remove: removeThirdParty,
+  } = useFieldArray({
+    control: form.control,
+    name: 'thirdParties',
   });
 
   const {
@@ -390,7 +411,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           form.reset({
             code: incident.code,
             subject: incident.subject,
-            incidentDate: new Date(incident.incidentDate).toISOString().split('T')[0],
+            incidentDate: new Date(incident.incidentDate).toISOString(),
             roomId: incident.roomId || '',
             areaId: incident.areaId,
             incidentType: incident.incidentType,
@@ -437,6 +458,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 position: w.position || '',
                 departmentId: w.departmentId || '',
               })) || [],
+            thirdParties:
+              incident.thirdParties?.map((tp) => ({
+                name: tp.name || '',
+                gender: tp.gender ?? undefined,
+                company: tp.company || '',
+                position: tp.position || '',
+              })) || [],
             assets:
               incident.assets?.map((a, index) => {
                 // Derive entityId from relation when present; otherwise use placeholder so dropdown can show prefilled label (API may return entity/entityId null for old data)
@@ -451,6 +479,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   entityId,
                   assetName: a.assetName,
                   assetCode: a.assetCode || '',
+                  brand: a.brand || '',
                   quantity: a.quantity ?? undefined,
                 };
               }) || [],
@@ -782,42 +811,35 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   // Determine if field should be disabled based on mode
   const isFieldDisabled = (fieldName: string): boolean => {
     if (isLoading || isApproving) return true;
-    
+
     if (resolvedMode === 'creator') {
-      // Creator: cannot fill 'Control Measures & Outcomes' section
-      const controlMeasureFields = [
-        'controlMeasure',
+      // Creator: cannot fill investigation-outcome fields (Section B sub-fields filled by investigator)
+      // needToStopActivity, stopLocally, stopWholeSchool, controlMeasure are filled by creator (BSJ Section B1/B3)
+      const investigatorOnlyFields = [
         'dueDate',
         'expectedOutcome',
-        'needToStopActivity',
-        'stopLocally',
-        'stopWholeSchool',
         'treatment',
         'treatmentDescription',
         'absence',
         'resolution',
       ];
-      return controlMeasureFields.includes(fieldName);
+      return investigatorOnlyFields.includes(fieldName);
     }
-    
+
     if (resolvedMode === 'investigator') {
-      // Investigator: only can update 'Control Measures & Outcomes' sections
-      const controlMeasureFields = [
-        'controlMeasure',
+      // Investigator: can only update investigation-outcome fields
+      const investigatorOnlyFields = [
         'dueDate',
         'expectedOutcome',
-        'needToStopActivity',
-        'stopLocally',
-        'stopWholeSchool',
         'treatment',
         'treatmentDescription',
         'absence',
         'resolution',
       ];
-      return !controlMeasureFields.includes(fieldName);
+      return !investigatorOnlyFields.includes(fieldName);
     }
-    
-    // Approver: can edit all fields (including Control Measures & Outcomes); save before approve/reject
+
+    // Approver: can edit all fields; save before approve/reject
     return false;
   };
 
@@ -882,6 +904,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           departmentId: w.departmentId || undefined,
           order: index,
         })) || undefined,
+      thirdParties:
+        data.thirdParties?.map((tp, index) => ({
+          name: tp.name,
+          gender: tp.gender,
+          company: tp.company || undefined,
+          position: tp.position || undefined,
+          order: index,
+        })) || undefined,
       assets:
         data.assets?.map((a, index) => {
           let entityId = a.entityId || undefined;
@@ -907,6 +937,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             entityId: entityId || undefined,
             assetName: a.assetName,
             assetCode: a.assetCode || undefined,
+            brand: (a as any).brand || undefined,
             quantity: a.quantity || undefined,
             order: index,
           };
@@ -1037,6 +1068,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             departmentId: w.departmentId || undefined,
             order: index,
           })) || undefined,
+        thirdParties:
+          data.thirdParties?.map((tp, index) => ({
+            name: tp.name,
+            gender: tp.gender,
+            company: tp.company || undefined,
+            position: tp.position || undefined,
+            order: index,
+          })) || undefined,
         assets:
           data.assets?.map((a, index) => {
             // Resolve placeholder entityId (__prefilled_N) by looking up assetCode in master lists (for old incident data where API returned null)
@@ -1063,6 +1102,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               entityId: entityId || undefined,
               assetName: a.assetName,
               assetCode: a.assetCode || undefined,
+              brand: (a as any).brand || undefined,
               quantity: a.quantity || undefined,
               order: index,
             };
@@ -1102,19 +1142,18 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
+    <>
+      <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* Basic Information */}
+            {/* A. INCIDENT/NEARMISS DETAILS */}
             <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  Basic Information
+                  <span>
+                    <span className="font-bold">A. INCIDENT/NEARMISS DETAILS</span>
+                    <span className="block text-xs font-normal text-muted-foreground italic">Detail Insiden/Nearmiss</span>
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1164,7 +1203,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem>
                       <FormLabel>Incident Date <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <DateTimePicker mode="date" {...field} />
+                        <DateTimePicker mode="datetime" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1370,28 +1409,125 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* People Involved */}
-            <Card className="border-l-4 border-l-purple-500 bg-purple-50/30 dark:bg-purple-950/10">
+            {/* B. ACTION */}
+            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  People Involved
+                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <span>
+                    <span className="font-bold">B. ACTION</span>
+                    <span className="block text-xs font-normal text-muted-foreground italic">Tindakan</span>
+                  </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="requesterId"
+                  name="dueDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Requester <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>Due Date</FormLabel>
                       <FormControl>
-                        <SearchableSelect
-                          options={userOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select requester"
+                        <DateTimePicker mode="date" {...field} disabled={isFieldDisabled('dueDate')} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="needToStopActivity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Need to Stop Activity</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('needToStopActivity')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={StopActivityEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={StopActivityEnum.YES}>Yes</SelectItem>
+                          <SelectItem value={StopActivityEnum.NO}>No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="treatment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Treatment</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('treatment')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select treatment" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={TreatmentEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={TreatmentEnum.FIRST_AID}>First Aid</SelectItem>
+                          <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
+                          <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.SELF}>Self</SelectItem>
+                          <SelectItem value={TreatmentEnum.HEALTH_SERVICES}>Health Services (Outpatient)</SelectItem>
+                          <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="absence"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Absence</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('absence')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select absence" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={AbsenceEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={AbsenceEnum.NOT_YET_KNOWN}>Not Yet Known</SelectItem>
+                          <SelectItem value={AbsenceEnum.RETURNED_AFTER_TREATMENT}>
+                            Returned After Treatment
+                          </SelectItem>
+                          <SelectItem value={AbsenceEnum.MORE_THAN_THREE_DAYS}>
+                            More Than Three Days
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="controlMeasure"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Action Taken Following The Incident</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter action taken following the incident"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('controlMeasure')}
+                          readOnly={isFieldDisabled('controlMeasure')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1401,16 +1537,85 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="reportedBy"
+                  name="expectedOutcome"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reported By <span className="text-red-500">*</span></FormLabel>
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Expected Outcome</FormLabel>
                       <FormControl>
-                        <SearchableSelect
-                          options={userOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select reporter"
+                        <Textarea
+                          placeholder="Enter expected outcome"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('expectedOutcome')}
+                          readOnly={isFieldDisabled('expectedOutcome')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
+                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
+                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
+                    <FormField
+                      control={form.control}
+                      name="stopLocally"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopLocally')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop activity locally related to the accident/incident/nearmiss
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stopWholeSchool"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopWholeSchool')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop the whole school activities
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan seluruh kegiatan sekolah
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="treatmentDescription"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Treatment Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter treatment description"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('treatmentDescription')}
+                          readOnly={isFieldDisabled('treatmentDescription')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1420,16 +1625,17 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="technicianId"
+                  name="resolution"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Technician</FormLabel>
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Resolution</FormLabel>
                       <FormControl>
-                        <SearchableSelect
-                          options={technicianOptions}
-                          value={field.value || ''}
-                          onValueChange={field.onChange}
-                          placeholder="Select technician"
+                        <Textarea
+                          placeholder="Enter resolution"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('resolution')}
+                          readOnly={isFieldDisabled('resolution')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1439,37 +1645,25 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="assignedDepartmentId"
+                  name="needFurtherInvestigation"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assigned Department <span className="text-red-500">*</span></FormLabel>
+                    <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-4">
                       <FormControl>
-                        <SearchableSelect
-                          options={departmentOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select department"
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isLoading || isApproving}
+                          className="mt-0.5"
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="assigneeId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assignee</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={userOptions}
-                          value={field.value || ''}
-                          onValueChange={field.onChange}
-                          placeholder="Select assignee"
-                        />
-                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-medium cursor-pointer">
+                          Need further investigation
+                        </FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Tick to allow HSE to create a formal Investigation Report (BSJ/F/H-3-3.5C) for this incident.
+                        </p>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1478,14 +1672,17 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* Injured Persons */}
+            {/* C. PERSON INVOLVED */}
             <Card className="border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                      Injured Persons
+                      <span>
+                        <span className="font-bold">C. PERSON INVOLVED AT THE INCIDENT</span>
+                        <span className="block text-xs font-normal text-muted-foreground italic">Orang yang terlibat dalam kejadian</span>
+                      </span>
                     </CardTitle>
                     {injuredPersonFields.length > 0 && (
                       <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
@@ -1512,7 +1709,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     }
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Injured Person
+                    Add Person Involved
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
@@ -1523,8 +1720,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               {injuredPersonFields.length === 0 ? (
                 <div className="text-center py-8 border-2 border-dashed border-red-200 dark:border-red-800 rounded-lg bg-red-50/50 dark:bg-red-950/20">
                   <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No injured persons added yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "Add Injured Person" above to get started</p>
+                  <p className="text-sm text-muted-foreground font-medium">No persons involved added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Person Involved" above to get started</p>
                 </div>
               ) : (
                 <>
@@ -1791,14 +1988,395 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* Witnesses */}
+            {/* D. THIRD PARTIES */}
+            <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                      <span>
+                        <span className="font-bold">D. THIRD PARTIES INVOLVED AT THE INCIDENT</span>
+                        <span className="block text-xs font-normal text-muted-foreground italic">Pihak ketiga yang terlibat dalam kejadian</span>
+                      </span>
+                    </CardTitle>
+                    {thirdPartyFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                        {thirdPartyFields.length} {thirdPartyFields.length === 1 ? 'person' : 'persons'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-violet-600 hover:bg-violet-700 text-white"
+                    onClick={() =>
+                      appendThirdParty({
+                        name: '',
+                        gender: undefined,
+                        company: '',
+                        position: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Third Party
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  External persons involved (contractors, visitors). Click the button above to add.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {thirdPartyFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-lg bg-violet-50/50 dark:bg-violet-950/20">
+                  <Users className="h-8 w-8 text-violet-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No third parties added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Third Party" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {thirdPartyFields.map((field, index) => (
+                <Card key={field.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Third Party {index + 1}</CardTitle>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeThirdParty(index)}
+                        className="h-8"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter full name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.gender`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value || ''}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value={GenderEnum.MALE}>Male</SelectItem>
+                                <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.company`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company / Organization</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. PT. OCS, Contractor Name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Cleaner SPV, Project Engineer" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
+
+            {/* E. ASSETS/EQUIPMENT */}
+            <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                      <span>
+                        <span className="font-bold">E. ASSETS/EQUIPMENT INVOLVED</span>
+                        <span className="block text-xs font-normal text-muted-foreground italic">Aset/Peralatan yang terlibat</span>
+                      </span>
+                    </CardTitle>
+                    {assetFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                        {assetFields.length} {assetFields.length === 1 ? 'asset' : 'assets'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() =>
+                      appendAsset({
+                        entity: EquipmentEntityEnum.ASSET, // Default, will be overwritten when asset is selected
+                        entityId: '',
+                        assetName: '',
+                        assetCode: '',
+                        brand: '',
+                        quantity: undefined,
+                      } as any)
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Asset
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple assets. Click the button above to add your first or additional asset.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {assetFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20">
+                  <Package className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No assets added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Asset" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {assetFields.map((field, index) => (
+                <Card key={field.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Asset {index + 1}</CardTitle>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeAsset(index)}
+                        className="h-8"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`assets.${index}.entityId`}
+                        render={({ field }) => {
+                          // Combined asset options with entity type information
+                          const currentEntity = form.watch(`assets.${index}.entity`) || EquipmentEntityEnum.ASSET;
+                          const currentEntityId = field.value || '';
+                          const currentAssetName = form.watch(`assets.${index}.assetName`) || '';
+                          const currentAssetCode = form.watch(`assets.${index}.assetCode`) || '';
+
+                          // Build combined options from master lists
+                          const combinedAssetOptions: Array<{
+                            value: string;
+                            label: string;
+                            entity: EquipmentEntityEnum;
+                            entityId: string;
+                            name: string;
+                            code: string;
+                          }> = [
+                            ...assets.map(asset => ({
+                              value: `${EquipmentEntityEnum.ASSET}:${asset.id}`,
+                              label: `${asset.name} (${asset.code})${asset.brand ? ` - ${asset.brand}` : ''}`,
+                              entity: EquipmentEntityEnum.ASSET,
+                              entityId: asset.id,
+                              name: asset.name,
+                              code: asset.code,
+                            })),
+                            ...heavyEquipments.map(eq => ({
+                              value: `${EquipmentEntityEnum.HEAVY_EQUIPMENT}:${eq.id}`,
+                              label: `${eq.name} (${eq.code})`,
+                              entity: EquipmentEntityEnum.HEAVY_EQUIPMENT,
+                              entityId: eq.id,
+                              name: eq.name,
+                              code: eq.code,
+                            })),
+                            ...safetyEquipments.map(eq => ({
+                              value: `${EquipmentEntityEnum.SAFETY_EQUIPMENT}:${eq.id}`,
+                              label: `${eq.name} (${eq.code})`,
+                              entity: EquipmentEntityEnum.SAFETY_EQUIPMENT,
+                              entityId: eq.id,
+                              name: eq.name,
+                              code: eq.code,
+                            })),
+                          ];
+
+                          // Include prefilled row in options so edit mode shows the selected asset (placeholder __prefilled_N, deactivated, or not in first page)
+                          if (currentEntityId && currentAssetName) {
+                            const existingOption = combinedAssetOptions.find(opt => opt.entityId === currentEntityId && opt.entity === currentEntity);
+                            if (!existingOption) {
+                              combinedAssetOptions.unshift({
+                                value: `${currentEntity}:${currentEntityId}`,
+                                label: `${currentAssetName}${currentAssetCode ? ` (${currentAssetCode})` : ''}`,
+                                entity: currentEntity,
+                                entityId: currentEntityId,
+                                name: currentAssetName,
+                                code: currentAssetCode,
+                              });
+                            }
+                          }
+
+                          // Get current value and find the matching option
+                          const currentOption = combinedAssetOptions.find(opt =>
+                            opt.entityId === currentEntityId && opt.entity === currentEntity
+                          );
+                          const selectValue = currentOption ? currentOption.value : '';
+
+                          return (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Select Asset <span className="text-red-500">*</span></FormLabel>
+                              <FormControl>
+                                <SearchableSelect
+                                  options={combinedAssetOptions.map(opt => ({
+                                    value: opt.value,
+                                    label: opt.label,
+                                  }))}
+                                  value={selectValue}
+                                  onValueChange={(value) => {
+                                    const selectedOption = combinedAssetOptions.find(opt => opt.value === value);
+                                    if (selectedOption) {
+                                      // Auto-fill all fields from selected asset
+                                      form.setValue(`assets.${index}.entity`, selectedOption.entity);
+                                      form.setValue(`assets.${index}.entityId`, selectedOption.entityId);
+                                      form.setValue(`assets.${index}.assetName`, selectedOption.name);
+                                      form.setValue(`assets.${index}.assetCode`, selectedOption.code);
+                                      field.onChange(selectedOption.entityId);
+                                    }
+                                  }}
+                                  placeholder="Search and select asset by name"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`assets.${index}.brand` as any}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Brand (Merek)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter brand name" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`assets.${index}.quantity`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Quantity</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                placeholder="Enter quantity"
+                                {...field}
+                                value={field.value || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  field.onChange(value === '' ? undefined : parseInt(value, 10));
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Hidden fields for entity, assetName, and assetCode - auto-filled when asset is selected */}
+                    <FormField
+                      control={form.control}
+                      name={`assets.${index}.entity`}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`assets.${index}.assetName`}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`assets.${index}.assetCode`}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
+                  </CardContent>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
+
+            {/* F. WITNESS */}
             <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Eye className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                      Witnesses
+                      <span>
+                        <span className="font-bold">F. WITNESS</span>
+                        <span className="block text-xs font-normal text-muted-foreground italic">Saksi</span>
+                      </span>
                     </CardTitle>
                     {witnessFields.length > 0 && (
                       <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
@@ -1936,220 +2514,114 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* Assets */}
-            <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/10">
+            {/* G. REPORTER */}
+            <Card className="border-l-4 border-l-purple-500 bg-purple-50/30 dark:bg-purple-950/10">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                      Assets
-                    </CardTitle>
-                    {assetFields.length > 0 && (
-                      <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
-                        {assetFields.length} {assetFields.length === 1 ? 'asset' : 'assets'}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                    onClick={() =>
-                      appendAsset({
-                        entity: EquipmentEntityEnum.ASSET, // Default, will be overwritten when asset is selected
-                        entityId: '',
-                        assetName: '',
-                        assetCode: '',
-                        quantity: undefined,
-                      })
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Asset
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  You can add multiple assets. Click the button above to add your first or additional asset.
-                </p>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <span>
+                    <span className="font-bold">G. REPORTER</span>
+                    <span className="block text-xs font-normal text-muted-foreground italic">Pelapor</span>
+                  </span>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-              {assetFields.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20">
-                  <Package className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No assets added yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "Add Asset" above to get started</p>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="requesterId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Requester <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select requester"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="reportedBy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reported By <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select reporter"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="technicianId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Technician</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={technicianOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select technician"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="assignedDepartmentId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assigned Department <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={departmentOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select department"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="assigneeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assignee</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select assignee"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 </div>
-              ) : (
-                <>
-                  {assetFields.map((field, index) => (
-                <Card key={field.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Asset {index + 1}</CardTitle>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeAsset(index)}
-                        className="h-8"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`assets.${index}.entityId`}
-                        render={({ field }) => {
-                          // Combined asset options with entity type information
-                          const currentEntity = form.watch(`assets.${index}.entity`) || EquipmentEntityEnum.ASSET;
-                          const currentEntityId = field.value || '';
-                          const currentAssetName = form.watch(`assets.${index}.assetName`) || '';
-                          const currentAssetCode = form.watch(`assets.${index}.assetCode`) || '';
-
-                          // Build combined options from master lists
-                          const combinedAssetOptions: Array<{
-                            value: string;
-                            label: string;
-                            entity: EquipmentEntityEnum;
-                            entityId: string;
-                            name: string;
-                            code: string;
-                          }> = [
-                            ...assets.map(asset => ({
-                              value: `${EquipmentEntityEnum.ASSET}:${asset.id}`,
-                              label: `${asset.name} (${asset.code})${asset.brand ? ` - ${asset.brand}` : ''}`,
-                              entity: EquipmentEntityEnum.ASSET,
-                              entityId: asset.id,
-                              name: asset.name,
-                              code: asset.code,
-                            })),
-                            ...heavyEquipments.map(eq => ({
-                              value: `${EquipmentEntityEnum.HEAVY_EQUIPMENT}:${eq.id}`,
-                              label: `${eq.name} (${eq.code})`,
-                              entity: EquipmentEntityEnum.HEAVY_EQUIPMENT,
-                              entityId: eq.id,
-                              name: eq.name,
-                              code: eq.code,
-                            })),
-                            ...safetyEquipments.map(eq => ({
-                              value: `${EquipmentEntityEnum.SAFETY_EQUIPMENT}:${eq.id}`,
-                              label: `${eq.name} (${eq.code})`,
-                              entity: EquipmentEntityEnum.SAFETY_EQUIPMENT,
-                              entityId: eq.id,
-                              name: eq.name,
-                              code: eq.code,
-                            })),
-                          ];
-
-                          // Include prefilled row in options so edit mode shows the selected asset (placeholder __prefilled_N, deactivated, or not in first page)
-                          if (currentEntityId && currentAssetName) {
-                            const existingOption = combinedAssetOptions.find(opt => opt.entityId === currentEntityId && opt.entity === currentEntity);
-                            if (!existingOption) {
-                              combinedAssetOptions.unshift({
-                                value: `${currentEntity}:${currentEntityId}`,
-                                label: `${currentAssetName}${currentAssetCode ? ` (${currentAssetCode})` : ''}`,
-                                entity: currentEntity,
-                                entityId: currentEntityId,
-                                name: currentAssetName,
-                                code: currentAssetCode,
-                              });
-                            }
-                          }
-
-                          // Get current value and find the matching option
-                          const currentOption = combinedAssetOptions.find(opt =>
-                            opt.entityId === currentEntityId && opt.entity === currentEntity
-                          );
-                          const selectValue = currentOption ? currentOption.value : '';
-
-                          return (
-                            <FormItem className="md:col-span-2">
-                              <FormLabel>Select Asset <span className="text-red-500">*</span></FormLabel>
-                              <FormControl>
-                                <SearchableSelect
-                                  options={combinedAssetOptions.map(opt => ({
-                                    value: opt.value,
-                                    label: opt.label,
-                                  }))}
-                                  value={selectValue}
-                                  onValueChange={(value) => {
-                                    const selectedOption = combinedAssetOptions.find(opt => opt.value === value);
-                                    if (selectedOption) {
-                                      // Auto-fill all fields from selected asset
-                                      form.setValue(`assets.${index}.entity`, selectedOption.entity);
-                                      form.setValue(`assets.${index}.entityId`, selectedOption.entityId);
-                                      form.setValue(`assets.${index}.assetName`, selectedOption.name);
-                                      form.setValue(`assets.${index}.assetCode`, selectedOption.code);
-                                      field.onChange(selectedOption.entityId);
-                                    }
-                                  }}
-                                  placeholder="Search and select asset by name"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          );
-                        }}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`assets.${index}.quantity`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Quantity</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                min="1"
-                                placeholder="Enter quantity" 
-                                {...field}
-                                value={field.value || ''}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  field.onChange(value === '' ? undefined : parseInt(value, 10));
-                                }}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Hidden fields for entity, assetName, and assetCode - auto-filled when asset is selected */}
-                    <FormField
-                      control={form.control}
-                      name={`assets.${index}.entity`}
-                      render={({ field }) => (
-                        <input type="hidden" {...field} />
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`assets.${index}.assetName`}
-                      render={({ field }) => (
-                        <input type="hidden" {...field} />
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`assets.${index}.assetCode`}
-                      render={({ field }) => (
-                        <input type="hidden" {...field} />
-                      )}
-                    />
-                  </CardContent>
-                    </Card>
-                  ))}
-                </>
-              )}
               </CardContent>
             </Card>
 
@@ -2309,266 +2781,6 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* Control Measures & Outcomes */}
-            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  Control Measures & Outcomes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <DateTimePicker mode="date" {...field} disabled={isFieldDisabled('dueDate')} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="needToStopActivity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Need to Stop Activity</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('needToStopActivity')}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select option" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={StopActivityEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={StopActivityEnum.YES}>Yes</SelectItem>
-                          <SelectItem value={StopActivityEnum.NO}>No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="treatment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Treatment</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('treatment')}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select treatment" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={TreatmentEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={TreatmentEnum.FIRST_AID}>First Aid</SelectItem>
-                          <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
-                          <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
-                          <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
-                          <SelectItem value={TreatmentEnum.SELF}>Self</SelectItem>
-                          <SelectItem value={TreatmentEnum.HEALTH_SERVICES}>Health Services (Outpatient)</SelectItem>
-                          <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="absence"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Absence</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('absence')}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select absence" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={AbsenceEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={AbsenceEnum.NOT_YET_KNOWN}>Not Yet Known</SelectItem>
-                          <SelectItem value={AbsenceEnum.RETURNED_AFTER_TREATMENT}>
-                            Returned After Treatment
-                          </SelectItem>
-                          <SelectItem value={AbsenceEnum.MORE_THAN_THREE_DAYS}>
-                            More Than Three Days
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="controlMeasure"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Action Taken Following The Incident</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter action taken following the incident"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('controlMeasure')}
-                          readOnly={isFieldDisabled('controlMeasure')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="expectedOutcome"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Expected Outcome</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter expected outcome"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('expectedOutcome')}
-                          readOnly={isFieldDisabled('expectedOutcome')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
-                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
-                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
-                    <FormField
-                      control={form.control}
-                      name="stopLocally"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={isFieldDisabled('stopLocally')}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer">
-                            Stop activity locally related to the accident/incident/nearmiss
-                            <span className="block text-xs text-muted-foreground">
-                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
-                            </span>
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="stopWholeSchool"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={isFieldDisabled('stopWholeSchool')}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer">
-                            Stop the whole school activities
-                            <span className="block text-xs text-muted-foreground">
-                              Hentikan seluruh kegiatan sekolah
-                            </span>
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="treatmentDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Treatment Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter treatment description"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('treatmentDescription')}
-                          readOnly={isFieldDisabled('treatmentDescription')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="resolution"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Resolution</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter resolution"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('resolution')}
-                          readOnly={isFieldDisabled('resolution')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="needFurtherInvestigation"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={isFieldDisabled('resolution')}
-                          className="mt-0.5"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="font-medium cursor-pointer">
-                          Need further investigation
-                        </FormLabel>
-                        <p className="text-xs text-muted-foreground">
-                          Tick to allow HSE to create a formal Investigation Report (BSJ/F/H-3-3.5C) for this incident.
-                        </p>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Activities (only in approver mode) - work related vs study related */}
             {resolvedMode === 'approver' && (
               <Card className="border-l-4 border-l-slate-500 bg-slate-50/30 dark:bg-slate-950/10">
@@ -2718,8 +2930,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             </div>
           </form>
         </Form>
-      </CardContent>
-    </Card>
+    </>
   );
 };
 

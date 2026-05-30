@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Eye, Trash2, Pencil } from 'lucide-react';
+import { Eye, Trash2, Pencil, FileDown, Loader2 } from 'lucide-react';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
+import { Checkbox } from '@/core/components/ui/checkbox';
+import InvestigationReportPDFTemplate from '../components/InvestigationReportPDFTemplate';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -39,6 +42,9 @@ const InvestigationReportsPage = () => {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<InvestigationReport | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
+  const bulkPdfRef = useRef<HTMLDivElement>(null);
 
   const page = parseInt(searchParams.get('page') || '1', 10);
   const limit = parseInt(searchParams.get('limit') || '10', 10);
@@ -63,6 +69,7 @@ const InvestigationReportsPage = () => {
       const response = await investigationReportsService.getAll(params);
       setReports(response.data);
       setTotal(response.meta?.total ?? 0);
+      setSelectedIds(new Set());
     } catch (error) {
       console.error('Failed to fetch investigation reports', error);
       toast.error('Failed to load investigation reports');
@@ -84,6 +91,38 @@ const InvestigationReportsPage = () => {
     setSearchParams(next);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === reports.length && reports.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(reports.map((r) => r.id)));
+    }
+  };
+
+  const handleBulkExportPDF = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setIsBulkExporting(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        bulkPdfRef,
+        buildPdfOptions({ filename: `investigation-reports-export-${new Date().toISOString().slice(0, 10)}.pdf` }),
+      );
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+    } finally {
+      setIsBulkExporting(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -97,8 +136,30 @@ const InvestigationReportsPage = () => {
     }
   };
 
+  const selectedReports = reports.filter((r) => selectedIds.has(r.id));
+
   const columns = useMemo(
     () => [
+      {
+        id: 'select',
+        header: () => (
+          <Checkbox
+            checked={reports.length > 0 && selectedIds.size === reports.length}
+            onCheckedChange={toggleSelectAll}
+            aria-label="Select all"
+          />
+        ),
+        headerClassName: 'w-10',
+        cellClassName: 'w-10',
+        cell: (row: InvestigationReport) => (
+          <Checkbox
+            checked={selectedIds.has(row.id)}
+            onCheckedChange={() => toggleSelect(row.id)}
+            aria-label={`Select ${row.reportNumber}`}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
       {
         id: 'reportNumber',
         header: 'Report Number',
@@ -187,7 +248,8 @@ const InvestigationReportsPage = () => {
         ),
       },
     ],
-    [navigate, canEdit, canDelete],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigate, canEdit, canDelete, selectedIds, reports],
   );
 
   return (
@@ -231,6 +293,23 @@ const InvestigationReportsPage = () => {
             sortOrder: s?.desc ? 'desc' : 'asc',
           })
         }
+        toolbarExtra={
+          selectedIds.size > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkExportPDF}
+              disabled={isBulkExporting}
+            >
+              {isBulkExporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="mr-2 h-4 w-4" />
+              )}
+              {isBulkExporting ? 'Exporting...' : `Export PDF (${selectedIds.size})`}
+            </Button>
+          ) : undefined
+        }
       />
 
       <ConfirmDialog
@@ -242,6 +321,24 @@ const InvestigationReportsPage = () => {
         confirmText="Delete"
         variant="destructive"
       />
+
+      {/* Hidden bulk PDF render target */}
+      {selectedReports.length > 0 && (
+        <div
+          ref={bulkPdfRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          {selectedReports.map((report, i) => (
+            <div
+              key={report.id}
+              style={i < selectedReports.length - 1 ? { pageBreakAfter: 'always' } : undefined}
+            >
+              <InvestigationReportPDFTemplate report={report} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

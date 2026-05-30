@@ -169,6 +169,18 @@ export interface IncidentWitness {
   updatedAt: Date;
 }
 
+export interface IncidentThirdParty {
+  id: string;
+  incidentId: string;
+  name: string;
+  gender?: GenderEnum;
+  company?: string;
+  position?: string;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export enum EquipmentEntityEnum {
   ASSET = 'ASSET',
   HEAVY_EQUIPMENT = 'HEAVY_EQUIPMENT',
@@ -182,6 +194,7 @@ export interface IncidentAsset {
   entityId?: string;
   assetName: string;
   assetCode?: string;
+  brand?: string;
   quantity?: number;
   order: number;
   createdAt: Date;
@@ -275,6 +288,7 @@ export interface Incident {
   creator?: User;
   injuredPersons?: IncidentInjuredPerson[];
   witnesses?: IncidentWitness[];
+  thirdParties?: IncidentThirdParty[];
   assets?: IncidentAsset[];
   images?: IncidentImage[];
   attachments?: IncidentAttachment[];
@@ -301,11 +315,20 @@ export interface CreateIncidentWitnessDTO {
   order: number;
 }
 
+export interface CreateIncidentThirdPartyDTO {
+  name: string;
+  gender?: GenderEnum;
+  company?: string;
+  position?: string;
+  order: number;
+}
+
 export interface CreateIncidentAssetDTO {
   entity?: EquipmentEntityEnum;
   entityId?: string;
   assetName: string;
   assetCode?: string;
+  brand?: string;
   quantity?: number;
   order: number;
 }
@@ -356,6 +379,7 @@ export interface CreateIncidentDTO {
   isActive?: boolean;
   injuredPersons?: CreateIncidentInjuredPersonDTO[];
   witnesses?: CreateIncidentWitnessDTO[];
+  thirdParties?: CreateIncidentThirdPartyDTO[];
   assets?: CreateIncidentAssetDTO[];
   images?: CreateIncidentImageDTO[];
   attachments?: CreateIncidentAttachmentDTO[];

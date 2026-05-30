@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck, ClipboardCheck, ArrowUpDown } from 'lucide-react';
+import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck, ClipboardCheck, ArrowUpDown, FileDown, Loader2 } from 'lucide-react';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { useAuth } from '@/core/lib/auth';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -34,6 +36,7 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
 
 import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incident.types';
+import IncidentPDFTemplate from '../components/IncidentPDFTemplate';
 import investigationReportsService from '@/modules/investigation-reports/services/investigationReportsService';
 import { InvestigationStatusEnum } from '@/modules/investigation-reports/types/investigation-report.types';
 import incidentsService from '../services/incidentsService';
@@ -90,6 +93,9 @@ const IncidentsPage = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
   const [investigationMap, setInvestigationMap] = useState<Record<string, { id: string; status: InvestigationStatusEnum }>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
+  const bulkPdfRef = useRef<HTMLDivElement>(null);
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -439,6 +445,7 @@ const IncidentsPage = () => {
       const response = await incidentsService.getAll(params);
       setIncidents(response.data);
       setTotalIncidents(response.meta.total);
+      setSelectedIds(new Set());
     } catch (error) {
       console.error('Failed to fetch incidents:', error);
       toast.error('Failed to load incidents');
@@ -620,6 +627,39 @@ const IncidentsPage = () => {
     return actions;
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === incidents.length && incidents.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(incidents.map((i) => i.id)));
+    }
+  };
+
+  const handleBulkExportPDF = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setIsBulkExporting(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        bulkPdfRef,
+        buildPdfOptions({ filename: `incidents-export-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` }),
+      );
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsBulkExporting(false);
+    }
+  };
+
   const handleSearch = (term: string) => {
     updateSearchParams(next => {
       const trimmed = term.trim();
@@ -725,7 +765,29 @@ const IncidentsPage = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
+  const selectedIncidents = incidents.filter((i) => selectedIds.has(i.id));
+
   const columns = [
+    {
+      id: 'select',
+      header: () => (
+        <Checkbox
+          checked={incidents.length > 0 && selectedIds.size === incidents.length}
+          onCheckedChange={toggleSelectAll}
+          aria-label="Select all"
+        />
+      ),
+      headerClassName: 'w-10',
+      cellClassName: 'w-10',
+      cell: (row: Incident) => (
+        <Checkbox
+          checked={selectedIds.has(row.id)}
+          onCheckedChange={() => toggleSelect(row.id)}
+          aria-label={`Select ${row.code}`}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     {
       id: 'code',
       header: 'Code',
@@ -931,18 +993,35 @@ const IncidentsPage = () => {
   };
 
   const sortDropdown = (
-    <Select value={sortValue} onValueChange={handleSortSelect}>
-      <SelectTrigger className="h-9 w-[175px] text-sm">
-        <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="updatedAt_desc">Updated At (Newest)</SelectItem>
-        <SelectItem value="updatedAt_asc">Updated At (Oldest)</SelectItem>
-        <SelectItem value="createdAt_desc">Created At (Newest)</SelectItem>
-        <SelectItem value="createdAt_asc">Created At (Oldest)</SelectItem>
-      </SelectContent>
-    </Select>
+    <div className="flex items-center gap-2">
+      <Select value={sortValue} onValueChange={handleSortSelect}>
+        <SelectTrigger className="h-9 w-[175px] text-sm">
+          <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="updatedAt_desc">Updated At (Newest)</SelectItem>
+          <SelectItem value="updatedAt_asc">Updated At (Oldest)</SelectItem>
+          <SelectItem value="createdAt_desc">Created At (Newest)</SelectItem>
+          <SelectItem value="createdAt_asc">Created At (Oldest)</SelectItem>
+        </SelectContent>
+      </Select>
+      {selectedIds.size > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBulkExportPDF}
+          disabled={isBulkExporting}
+        >
+          {isBulkExporting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileDown className="mr-2 h-4 w-4" />
+          )}
+          {isBulkExporting ? 'Exporting...' : `Export PDF (${selectedIds.size})`}
+        </Button>
+      )}
+    </div>
   );
 
   return (
@@ -1018,6 +1097,24 @@ const IncidentsPage = () => {
         confirmText="Delete"
         variant="destructive"
       />
+
+      {/* Hidden bulk PDF render target */}
+      {selectedIncidents.length > 0 && (
+        <div
+          ref={bulkPdfRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          {selectedIncidents.map((incident, i) => (
+            <div
+              key={incident.id}
+              style={i < selectedIncidents.length - 1 ? { pageBreakAfter: 'always' } : undefined}
+            >
+              <IncidentPDFTemplate incident={incident} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Workflow Information Dialog — incident workflow per docs/prd-incidents.md and TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>

@@ -2641,6 +2641,7 @@ model Incident {
   creator             User                    @relation("IncidentCreator", fields: [createdBy], references: [id])
   injuredPersons      IncidentInjuredPerson[]
   witnesses           IncidentWitness[]
+  thirdParties        IncidentThirdParty[]
   assets              IncidentAsset[]
   images              IncidentImage[]
   attachments         IncidentAttachment[]
@@ -2720,6 +2721,7 @@ model IncidentAsset {
   // Free-text fields (used when entity is null or as fallback)
   assetName  String
   assetCode  String?
+  brand      String?
   quantity   Int? // Quantity of the asset
   order      Int
   createdAt  DateTime             @default(now())
@@ -2766,6 +2768,25 @@ model IncidentAttachment {
   @@index([incidentId])
   @@index([order])
   @@map("t_incident_attachments")
+}
+
+// Incident Third Party - Transactional Data (external persons: contractors, visitors)
+model IncidentThirdParty {
+  id         String      @id @default(uuid())
+  incidentId String
+  name       String
+  gender     GenderEnum?
+  company    String?
+  position   String?     @db.VarChar(255)
+  order      Int
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relations
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("t_incident_third_parties")
 }
 
 // ============================================================
@@ -3443,7 +3464,7 @@ enum InvestigationSignatoryRoleEnum {
 
 model InvestigationReport {
   id                 String                  @id @default(uuid())
-  incidentId         String
+  incidentId         String                  @unique
   reportNumber       String                  @unique
   taskBeingPerformed String?                 @db.Text
   equipmentUsed      String?                 @db.Text
