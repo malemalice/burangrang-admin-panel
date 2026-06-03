@@ -1063,6 +1063,7 @@ export const seedIncidents = async () => {
               injuredBodyPart: InjuredBodyPartEnum.HAND,
               typeOfInjury: TypeOfInjuryEnum.LACERATION,
               mechanismOfInjury: MechanismOfInjuryEnum.HAND_TOOLS,
+              position: 'Staff Member',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1075,6 +1076,7 @@ export const seedIncidents = async () => {
             {
               witnessName: 'Jane Smith',
               gender: GenderEnum.FEMALE,
+              position: 'Supervisor',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1083,6 +1085,7 @@ export const seedIncidents = async () => {
                   {
                     witnessName: 'Bob Johnson',
                     gender: GenderEnum.MALE,
+                    position: 'Staff Member',
                     departmentId: randomItem(departments).id,
                     order: 2,
                   },
@@ -1097,6 +1100,7 @@ export const seedIncidents = async () => {
             {
               assetName: 'Safety Equipment',
               assetCode: 'SAFE-001',
+              brand: '3M',
               quantity: 1,
               order: 1,
             },
@@ -1105,6 +1109,7 @@ export const seedIncidents = async () => {
                   {
                     assetName: 'Tool Set',
                     assetCode: 'TOOL-001',
+                    brand: 'Bosch',
                     quantity: 1,
                     order: 2,
                   },
@@ -1112,6 +1117,31 @@ export const seedIncidents = async () => {
               : []),
           ]
         : [];
+
+      // Create third parties (external persons: contractors, visitors) if applicable
+      const thirdParties =
+        Math.random() > 0.7
+          ? [
+              {
+                name: 'External Contractor',
+                gender: GenderEnum.MALE,
+                company: 'PT Mitra Kerja',
+                position: 'Contractor',
+                order: 1,
+              },
+              ...(Math.random() > 0.5
+                ? [
+                    {
+                      name: 'Site Visitor',
+                      gender: GenderEnum.FEMALE,
+                      company: 'PT Tamu Sejahtera',
+                      position: 'Visitor',
+                      order: 2,
+                    },
+                  ]
+                : []),
+            ]
+          : [];
 
       const incident = await prisma.incident.create({
         data: {
@@ -1148,6 +1178,7 @@ export const seedIncidents = async () => {
           createdBy: creator.id,
           injuredPersons: injuredPersons.length > 0 ? { create: injuredPersons } : undefined,
           witnesses: witnesses.length > 0 ? { create: witnesses } : undefined,
+          thirdParties: thirdParties.length > 0 ? { create: thirdParties } : undefined,
           assets: assets.length > 0 ? { create: assets } : undefined,
         },
       });
@@ -1191,6 +1222,7 @@ export const seedIncidents = async () => {
               injuredBodyPart: InjuredBodyPartEnum.HAND,
               typeOfInjury: TypeOfInjuryEnum.LACERATION,
               mechanismOfInjury: MechanismOfInjuryEnum.HAND_TOOLS,
+              position: 'Staff Member',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1202,6 +1234,7 @@ export const seedIncidents = async () => {
             {
               witnessName: 'Jane Smith',
               gender: GenderEnum.FEMALE,
+              position: 'Supervisor',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1210,6 +1243,7 @@ export const seedIncidents = async () => {
                   {
                     witnessName: 'Bob Johnson',
                     gender: GenderEnum.MALE,
+                    position: 'Staff Member',
                     departmentId: randomItem(departments).id,
                     order: 2,
                   },
@@ -1223,6 +1257,7 @@ export const seedIncidents = async () => {
             {
               assetName: 'Security Equipment',
               assetCode: 'SEC-001',
+              brand: 'Hikvision',
               quantity: 1,
               order: 1,
             },
@@ -1231,6 +1266,7 @@ export const seedIncidents = async () => {
                   {
                     assetName: 'CCTV Unit',
                     assetCode: 'CCTV-001',
+                    brand: 'Dahua',
                     quantity: 1,
                     order: 2,
                   },
@@ -1238,6 +1274,31 @@ export const seedIncidents = async () => {
               : []),
           ]
         : [];
+
+      // Create third parties (external persons: contractors, visitors) if applicable
+      const thirdParties =
+        Math.random() > 0.7
+          ? [
+              {
+                name: 'External Contractor',
+                gender: GenderEnum.MALE,
+                company: 'PT Mitra Kerja',
+                position: 'Contractor',
+                order: 1,
+              },
+              ...(Math.random() > 0.5
+                ? [
+                    {
+                      name: 'Site Visitor',
+                      gender: GenderEnum.FEMALE,
+                      company: 'PT Tamu Sejahtera',
+                      position: 'Visitor',
+                      order: 2,
+                    },
+                  ]
+                : []),
+            ]
+          : [];
 
       const incident = await prisma.incident.create({
         data: {
@@ -1274,6 +1335,7 @@ export const seedIncidents = async () => {
           createdBy: creator.id,
           injuredPersons: injuredPersons.length > 0 ? { create: injuredPersons } : undefined,
           witnesses: witnesses.length > 0 ? { create: witnesses } : undefined,
+          thirdParties: thirdParties.length > 0 ? { create: thirdParties } : undefined,
           assets: assets.length > 0 ? { create: assets } : undefined,
         },
       });

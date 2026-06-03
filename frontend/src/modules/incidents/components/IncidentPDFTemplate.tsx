@@ -42,7 +42,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     </div>
 
     {/* A. Incident Details */}
-    <PdfSectionTitle>A. Incident / Nearmiss Details &mdash; Detail Insiden / Nearmiss</PdfSectionTitle>
+    <PdfSectionTitle>Incident / Nearmiss Details &mdash; Detail Insiden / Nearmiss</PdfSectionTitle>
     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
       <tbody>
         <PdfRow label="Code" value={incident.code} />
@@ -65,7 +65,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     </table>
 
     {/* B. Action */}
-    <PdfSectionTitle>B. Action &mdash; Tindakan</PdfSectionTitle>
+    <PdfSectionTitle>Action &mdash; Tindakan</PdfSectionTitle>
     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
       <tbody>
         {incident.dueDate && (
@@ -123,7 +123,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     {incident.injuredPersons && incident.injuredPersons.length > 0 && (
       <>
         <PdfSectionTitle>
-          C. Person Involved at the Incident &mdash; Orang yang Terlibat dalam Kejadian
+          Person Involved at the Incident &mdash; Orang yang Terlibat dalam Kejadian
         </PdfSectionTitle>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
           <thead>
@@ -172,7 +172,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     {incident.thirdParties && incident.thirdParties.length > 0 && (
       <>
         <PdfSectionTitle>
-          D. Third Parties Involved &mdash; Pihak Ketiga yang Terlibat
+          Third Parties Involved &mdash; Pihak Ketiga yang Terlibat
         </PdfSectionTitle>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
           <thead>
@@ -203,7 +203,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     {incident.assets && incident.assets.length > 0 && (
       <>
         <PdfSectionTitle>
-          E. Assets / Equipment Involved &mdash; Aset / Peralatan yang Terlibat
+          Assets / Equipment Involved &mdash; Aset / Peralatan yang Terlibat
         </PdfSectionTitle>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
           <thead>
@@ -233,7 +233,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     {/* F. Witness */}
     {incident.witnesses && incident.witnesses.length > 0 && (
       <>
-        <PdfSectionTitle>F. Witness &mdash; Saksi</PdfSectionTitle>
+        <PdfSectionTitle>Witness &mdash; Saksi</PdfSectionTitle>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
           <thead>
             <tr>
@@ -260,7 +260,7 @@ const IncidentPDFTemplate = ({ incident }: { incident: Incident }) => (
     )}
 
     {/* G. Reporter */}
-    <PdfSectionTitle>G. Reporter &mdash; Pelapor</PdfSectionTitle>
+    <PdfSectionTitle>Reporter &mdash; Pelapor</PdfSectionTitle>
     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
       <tbody>
         <PdfRow label="Requester (Pemohon)" value={userName(incident.requester)} />
