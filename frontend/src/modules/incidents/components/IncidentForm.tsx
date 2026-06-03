@@ -106,7 +106,7 @@ const witnessSchema = z.object({
   departmentId: z.string().optional(),
 });
 
-// Schema for third party (external persons: contractors, visitors)
+// Schema for third party - external persons involved (contractors, visitors)
 const thirdPartySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
@@ -213,7 +213,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     defaultValues: {
       code: mode === 'create' ? generateIncidentCode() : '',
       subject: '',
-      incidentDate: new Date().toISOString(),
+      incidentDate: new Date().toISOString().split('T')[0],
       roomId: '',
       areaId: '',
       incidentType: IncidentTypeEnum.NEAR_MISS,
@@ -411,7 +411,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           form.reset({
             code: incident.code,
             subject: incident.subject,
-            incidentDate: new Date(incident.incidentDate).toISOString(),
+            incidentDate: new Date(incident.incidentDate).toISOString().split('T')[0],
             roomId: incident.roomId || '',
             areaId: incident.areaId,
             incidentType: incident.incidentType,
@@ -811,7 +811,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   // Determine if field should be disabled based on mode
   const isFieldDisabled = (fieldName: string): boolean => {
     if (isLoading || isApproving) return true;
-
+    
     if (resolvedMode === 'creator') {
       // Creator: cannot fill investigation-outcome fields (Section B sub-fields filled by investigator)
       // needToStopActivity, stopLocally, stopWholeSchool, controlMeasure are filled by creator (BSJ Section B1/B3)
@@ -974,10 +974,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
       if (status === ApprovalStatus.APPROVED) {
         await incidentsService.approve(incident.id, notes, activities);
-        toast.success('Incident Report approved successfully');
+        toast.success('Incident approved successfully');
       } else {
         await incidentsService.reject(incident.id, notes);
-        toast.success('Incident Report rejected successfully');
+        toast.success('Incident rejected successfully');
       }
 
       navigate('/incidents');
@@ -1102,7 +1102,6 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               entityId: entityId || undefined,
               assetName: a.assetName,
               assetCode: a.assetCode || undefined,
-              brand: (a as any).brand || undefined,
               quantity: a.quantity || undefined,
               order: index,
             };
@@ -1113,14 +1112,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
       if (mode === 'create') {
         await incidentsService.create(dto as CreateIncidentDTO);
-        toast.success('Incident Report created successfully');
+        toast.success('Incident created successfully');
       } else if (incident) {
         await incidentsService.update(incident.id, dto as UpdateIncidentDTO);
         if (resolvedMode === 'investigator') {
           await incidentsService.submit(incident.id);
-          toast.success('Incident Report submitted for approval');
+          toast.success('Incident submitted for approval');
         } else {
-          toast.success('Incident Report updated successfully');
+          toast.success('Incident updated successfully');
         }
       }
       navigate('/incidents');
@@ -1142,18 +1141,19 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   }
 
   return (
-    <>
-      <Form {...form}>
+    <Card>
+      <CardHeader>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident Report</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* A. INCIDENT/NEARMISS DETAILS */}
+            {/* Basic Information */}
             <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <span>
-                    <span className="font-bold">A. INCIDENT/NEARMISS DETAILS</span>
-                    <span className="block text-xs font-normal text-muted-foreground italic">Detail Insiden/Nearmiss</span>
-                  </span>
+                  Basic Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1203,7 +1203,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem>
                       <FormLabel>Incident Date <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <DateTimePicker mode="datetime" {...field} />
+                        <DateTimePicker mode="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1409,27 +1409,29 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* B. ACTION */}
-            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
+            {/* People Involved */}
+            <Card className="border-l-4 border-l-purple-500 bg-purple-50/30 dark:bg-purple-950/10">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <span>
-                    <span className="font-bold">B. ACTION</span>
-                    <span className="block text-xs font-normal text-muted-foreground italic">Tindakan</span>
-                  </span>
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  People Involved
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="dueDate"
+                  name="requesterId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Due Date</FormLabel>
+                      <FormLabel>Requester <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <DateTimePicker mode="date" {...field} disabled={isFieldDisabled('dueDate')} />
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select requester"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1438,22 +1440,18 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="needToStopActivity"
+                  name="reportedBy"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Need to Stop Activity</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('needToStopActivity')}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select option" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={StopActivityEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={StopActivityEnum.YES}>Yes</SelectItem>
-                          <SelectItem value={StopActivityEnum.NO}>No</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Reported By <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select reporter"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1461,27 +1459,18 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="treatment"
+                  name="technicianId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Treatment</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('treatment')}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select treatment" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={TreatmentEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={TreatmentEnum.FIRST_AID}>First Aid</SelectItem>
-                          <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
-                          <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
-                          <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
-                          <SelectItem value={TreatmentEnum.SELF}>Self</SelectItem>
-                          <SelectItem value={TreatmentEnum.HEALTH_SERVICES}>Health Services (Outpatient)</SelectItem>
-                          <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Technician</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={technicianOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select technician"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1489,45 +1478,16 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="absence"
+                  name="assignedDepartmentId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Absence</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('absence')}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select absence" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={AbsenceEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={AbsenceEnum.NOT_YET_KNOWN}>Not Yet Known</SelectItem>
-                          <SelectItem value={AbsenceEnum.RETURNED_AFTER_TREATMENT}>
-                            Returned After Treatment
-                          </SelectItem>
-                          <SelectItem value={AbsenceEnum.MORE_THAN_THREE_DAYS}>
-                            More Than Three Days
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="controlMeasure"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Action Taken Following The Incident</FormLabel>
+                      <FormLabel>Assigned Department <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter action taken following the incident"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('controlMeasure')}
-                          readOnly={isFieldDisabled('controlMeasure')}
+                        <SearchableSelect
+                          options={departmentOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select department"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1537,133 +1497,18 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="expectedOutcome"
+                  name="assigneeId"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Expected Outcome</FormLabel>
+                    <FormItem>
+                      <FormLabel>Assignee</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter expected outcome"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('expectedOutcome')}
-                          readOnly={isFieldDisabled('expectedOutcome')}
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select assignee"
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
-                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
-                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
-                    <FormField
-                      control={form.control}
-                      name="stopLocally"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={isFieldDisabled('stopLocally')}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer">
-                            Stop activity locally related to the accident/incident/nearmiss
-                            <span className="block text-xs text-muted-foreground">
-                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
-                            </span>
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="stopWholeSchool"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={isFieldDisabled('stopWholeSchool')}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer">
-                            Stop the whole school activities
-                            <span className="block text-xs text-muted-foreground">
-                              Hentikan seluruh kegiatan sekolah
-                            </span>
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="treatmentDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Treatment Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter treatment description"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('treatmentDescription')}
-                          readOnly={isFieldDisabled('treatmentDescription')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="resolution"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Resolution</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter resolution"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('resolution')}
-                          readOnly={isFieldDisabled('resolution')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="needFurtherInvestigation"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={isLoading || isApproving}
-                          className="mt-0.5"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="font-medium cursor-pointer">
-                          Need further investigation
-                        </FormLabel>
-                        <p className="text-xs text-muted-foreground">
-                          Tick to allow HSE to create a formal Investigation Report (BSJ/F/H-3-3.5C) for this incident.
-                        </p>
-                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1672,17 +1517,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* C. PERSON INVOLVED */}
+            {/* Injured Persons */}
             <Card className="border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                      <span>
-                        <span className="font-bold">C. PERSON INVOLVED AT THE INCIDENT</span>
-                        <span className="block text-xs font-normal text-muted-foreground italic">Orang yang terlibat dalam kejadian</span>
-                      </span>
+                      Injured Persons
                     </CardTitle>
                     {injuredPersonFields.length > 0 && (
                       <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
@@ -1709,7 +1551,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     }
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Person Involved
+                    Add Injured Person
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
@@ -1720,8 +1562,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               {injuredPersonFields.length === 0 ? (
                 <div className="text-center py-8 border-2 border-dashed border-red-200 dark:border-red-800 rounded-lg bg-red-50/50 dark:bg-red-950/20">
                   <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No persons involved added yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "Add Person Involved" above to get started</p>
+                  <p className="text-sm text-muted-foreground font-medium">No injured persons added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Injured Person" above to get started</p>
                 </div>
               ) : (
                 <>
@@ -1988,17 +1830,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* D. THIRD PARTIES */}
+            {/* Third Parties */}
             <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/10">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                      <span>
-                        <span className="font-bold">D. THIRD PARTIES INVOLVED AT THE INCIDENT</span>
-                        <span className="block text-xs font-normal text-muted-foreground italic">Pihak ketiga yang terlibat dalam kejadian</span>
-                      </span>
+                      Third Parties
                     </CardTitle>
                     {thirdPartyFields.length > 0 && (
                       <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
@@ -2131,17 +1970,159 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
-            {/* E. ASSETS/EQUIPMENT */}
+            {/* Witnesses */}
+            <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Eye className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                      Witnesses
+                    </CardTitle>
+                    {witnessFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                        {witnessFields.length} {witnessFields.length === 1 ? 'witness' : 'witnesses'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    onClick={() =>
+                      appendWitness({
+                        witnessName: '',
+                        gender: undefined,
+                        position: '',
+                        departmentId: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Witness
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple witnesses. Click the button above to add your first or additional witness.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {witnessFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50/50 dark:bg-orange-950/20">
+                  <Eye className="h-8 w-8 text-orange-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No witnesses added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Witness" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {witnessFields.map((field, index) => (
+                <Card key={field.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Witness {index + 1}</CardTitle>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeWitness(index)}
+                        className="h-8"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.witnessName`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter witness name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.gender`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value || ''}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value={GenderEnum.MALE}>Male</SelectItem>
+                                <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Engineer, Operator" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`witnesses.${index}.departmentId`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Department</FormLabel>
+                            <FormControl>
+                              <SearchableSelect
+                                options={departmentOptions}
+                                value={field.value || ''}
+                                onValueChange={field.onChange}
+                                placeholder="Select department"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
+
+            {/* Assets */}
             <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/10">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                      <span>
-                        <span className="font-bold">E. ASSETS/EQUIPMENT INVOLVED</span>
-                        <span className="block text-xs font-normal text-muted-foreground italic">Aset/Peralatan yang terlibat</span>
-                      </span>
+                      Assets
                     </CardTitle>
                     {assetFields.length > 0 && (
                       <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
@@ -2162,7 +2143,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         assetCode: '',
                         brand: '',
                         quantity: undefined,
-                      } as any)
+                      })
                     }
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -2302,7 +2283,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         name={`assets.${index}.brand` as any}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Brand (Merek)</FormLabel>
+                            <FormLabel>Brand</FormLabel>
                             <FormControl>
                               <Input placeholder="Enter brand name" {...field} value={field.value || ''} />
                             </FormControl>
@@ -2318,10 +2299,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                           <FormItem>
                             <FormLabel>Quantity</FormLabel>
                             <FormControl>
-                              <Input
+                              <Input 
                                 type="number"
                                 min="1"
-                                placeholder="Enter quantity"
+                                placeholder="Enter quantity" 
                                 {...field}
                                 value={field.value || ''}
                                 onChange={(e) => {
@@ -2363,265 +2344,6 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   ))}
                 </>
               )}
-              </CardContent>
-            </Card>
-
-            {/* F. WITNESS */}
-            <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Eye className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                      <span>
-                        <span className="font-bold">F. WITNESS</span>
-                        <span className="block text-xs font-normal text-muted-foreground italic">Saksi</span>
-                      </span>
-                    </CardTitle>
-                    {witnessFields.length > 0 && (
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
-                        {witnessFields.length} {witnessFields.length === 1 ? 'witness' : 'witnesses'}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                    onClick={() =>
-                      appendWitness({
-                        witnessName: '',
-                        gender: undefined,
-                        position: '',
-                        departmentId: '',
-                      })
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Witness
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  You can add multiple witnesses. Click the button above to add your first or additional witness.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-              {witnessFields.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50/50 dark:bg-orange-950/20">
-                  <Eye className="h-8 w-8 text-orange-400 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No witnesses added yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "Add Witness" above to get started</p>
-                </div>
-              ) : (
-                <>
-                  {witnessFields.map((field, index) => (
-                <Card key={field.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Witness {index + 1}</CardTitle>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeWitness(index)}
-                        className="h-8"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`witnesses.${index}.witnessName`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter witness name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`witnesses.${index}.gender`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gender</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value || ''}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value={GenderEnum.MALE}>Male</SelectItem>
-                                <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`witnesses.${index}.position`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Position / Job Title</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. Engineer, Operator" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`witnesses.${index}.departmentId`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Department</FormLabel>
-                            <FormControl>
-                              <SearchableSelect
-                                options={departmentOptions}
-                                value={field.value || ''}
-                                onValueChange={field.onChange}
-                                placeholder="Select department"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </CardContent>
-                    </Card>
-                  ))}
-                </>
-              )}
-              </CardContent>
-            </Card>
-
-            {/* G. REPORTER */}
-            <Card className="border-l-4 border-l-purple-500 bg-purple-50/30 dark:bg-purple-950/10">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  <span>
-                    <span className="font-bold">G. REPORTER</span>
-                    <span className="block text-xs font-normal text-muted-foreground italic">Pelapor</span>
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="requesterId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Requester <span className="text-red-500">*</span></FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={userOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select requester"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="reportedBy"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reported By <span className="text-red-500">*</span></FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={userOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select reporter"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="technicianId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Technician</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={technicianOptions}
-                          value={field.value || ''}
-                          onValueChange={field.onChange}
-                          placeholder="Select technician"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="assignedDepartmentId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assigned Department <span className="text-red-500">*</span></FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={departmentOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select department"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="assigneeId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assignee</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={userOptions}
-                          value={field.value || ''}
-                          onValueChange={field.onChange}
-                          placeholder="Select assignee"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                </div>
               </CardContent>
             </Card>
 
@@ -2781,6 +2503,266 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
+            {/* Control Measures & Outcomes */}
+            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Control Measures & Outcomes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date</FormLabel>
+                      <FormControl>
+                        <DateTimePicker mode="date" {...field} disabled={isFieldDisabled('dueDate')} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="needToStopActivity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Need to Stop Activity</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('needToStopActivity')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={StopActivityEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={StopActivityEnum.YES}>Yes</SelectItem>
+                          <SelectItem value={StopActivityEnum.NO}>No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="treatment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Treatment</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('treatment')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select treatment" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={TreatmentEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={TreatmentEnum.FIRST_AID}>First Aid</SelectItem>
+                          <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
+                          <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.SELF}>Self</SelectItem>
+                          <SelectItem value={TreatmentEnum.HEALTH_SERVICES}>Health Services (Outpatient)</SelectItem>
+                          <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="absence"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Absence</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('absence')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select absence" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={AbsenceEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={AbsenceEnum.NOT_YET_KNOWN}>Not Yet Known</SelectItem>
+                          <SelectItem value={AbsenceEnum.RETURNED_AFTER_TREATMENT}>
+                            Returned After Treatment
+                          </SelectItem>
+                          <SelectItem value={AbsenceEnum.MORE_THAN_THREE_DAYS}>
+                            More Than Three Days
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="controlMeasure"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Control Measure</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter control measures"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('controlMeasure')}
+                          readOnly={isFieldDisabled('controlMeasure')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="expectedOutcome"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Expected Outcome</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter expected outcome"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('expectedOutcome')}
+                          readOnly={isFieldDisabled('expectedOutcome')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
+                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
+                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
+                    <FormField
+                      control={form.control}
+                      name="stopLocally"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopLocally')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop activity locally related to the accident/incident/nearmiss
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stopWholeSchool"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopWholeSchool')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop the whole school activities
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan seluruh kegiatan sekolah
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="treatmentDescription"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Treatment Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter treatment description"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('treatmentDescription')}
+                          readOnly={isFieldDisabled('treatmentDescription')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="resolution"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Resolution</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter resolution"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('resolution')}
+                          readOnly={isFieldDisabled('resolution')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="needFurtherInvestigation"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isFieldDisabled('resolution')}
+                          className="mt-0.5"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-medium cursor-pointer">
+                          Need further investigation
+                        </FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Tick to allow HSE to create a formal Investigation Report (BSJ/F/H-3-3.5C) for this incident.
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Activities (only in approver mode) - work related vs study related */}
             {resolvedMode === 'approver' && (
               <Card className="border-l-4 border-l-slate-500 bg-slate-50/30 dark:bg-slate-950/10">
@@ -2930,7 +2912,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             </div>
           </form>
         </Form>
-    </>
+      </CardContent>
+    </Card>
   );
 };
 

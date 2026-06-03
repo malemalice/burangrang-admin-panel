@@ -738,11 +738,11 @@ const IncidentsPage = () => {
     setIsLoading(true);
     try {
       await incidentsService.delete(incidentToDelete.id);
-      toast.success('Incident has been deleted');
+      toast.success('Incident report has been deleted');
       fetchIncidents();
     } catch (error) {
       console.error('Failed to delete incident:', error);
-      toast.error('Failed to delete incident');
+      toast.error('Failed to delete incident report');
     } finally {
       setIsLoading(false);
       setDeleteDialogOpen(false);
@@ -1044,7 +1044,7 @@ const IncidentsPage = () => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>View Incident Workflow</p>
+                <p>View Incident Report Workflow</p>
               </TooltipContent>
             </Tooltip>
             <PermissionGuard permission="incident:create">
@@ -1092,7 +1092,7 @@ const IncidentsPage = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Incident Report"
-        description={`Are you sure you want to delete incident "${incidentToDelete?.code}"? This action will mark it as inactive.`}
+        description={`Are you sure you want to delete incident report "${incidentToDelete?.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"
         variant="destructive"
@@ -1120,9 +1120,9 @@ const IncidentsPage = () => {
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
         <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden" hideCloseButton>
           <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle>Incident Workflow</DialogTitle>
+            <DialogTitle>Incident Report Workflow</DialogTitle>
             <DialogDescription>
-              Incidents move from creation, to HSE follow-up and submit, then to approval by the configured approver(s).
+              Incident Reports move from creation, to HSE follow-up and submit, then to approval by the configured approver(s).
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-6">
@@ -1145,15 +1145,15 @@ const IncidentsPage = () => {
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
-                    <dd className="mt-0.5 font-medium text-foreground">Incident creator</dd>
+                    <dd className="mt-0.5 font-medium text-foreground">Incident Report creator</dd>
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
-                    <dd className="mt-0.5 text-muted-foreground">User who created the incident (any department); creator or same department can edit</dd>
+                    <dd className="mt-0.5 text-muted-foreground">User who created the incident report (any department); creator or same department can edit</dd>
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
-                  Create incident and fill all sections except Control Measures & Outcomes. Editable until submitted for verification.
+                  Create incident report and fill all sections except Control Measures & Outcomes. Editable until submitted for verification.
                 </p>
               </div>
 
@@ -1217,7 +1217,7 @@ const IncidentsPage = () => {
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
-                    <dd className="mt-0.5 text-muted-foreground">HSE Department Head (per Master Approval for incidents; default one line)</dd>
+                    <dd className="mt-0.5 text-muted-foreground">HSE Department Head (per Master Approval for incident reports; default one line)</dd>
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">

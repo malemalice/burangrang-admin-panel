@@ -988,7 +988,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident Security Report</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
