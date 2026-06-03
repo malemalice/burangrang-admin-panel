@@ -146,7 +146,7 @@ export function ModalCombobox({
   // Focus search input when dropdown opens
   useEffect(() => {
     if (open && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 0);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
       // Load initial data if async search is enabled
       if (onSearch && searchQuery === "") {
         handleSearch("");
