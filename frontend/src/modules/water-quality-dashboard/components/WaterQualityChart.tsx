@@ -119,7 +119,7 @@ export function WaterQualityChart({ data }: WaterQualityChartProps) {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="monthLabel" tick={{ fontSize: 12 }} />
                 <YAxis
-                  domain={['auto', 'auto']}
+                  domain={[0, 'auto']}
                   tick={{ fontSize: 12 }}
                   label={{
                     value: unit,

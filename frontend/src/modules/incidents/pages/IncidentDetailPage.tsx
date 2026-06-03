@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, ClipboardCheck, Check, X } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, ClipboardCheck, Check, X, FileDown, Loader2 } from 'lucide-react';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
+import IncidentPDFTemplate from '../components/IncidentPDFTemplate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
@@ -36,6 +38,8 @@ const IncidentDetailPage = () => {
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [investigationReport, setInvestigationReport] = useState<InvestigationReport | null>(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const pdfTargetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -111,6 +115,23 @@ const IncidentDetailPage = () => {
     fetchApprovalStatus();
   }, [id]);
 
+  const handleExportPDF = async () => {
+    if (!incident) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        pdfTargetRef,
+        buildPdfOptions({ filename: `${incident.code}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` }),
+      );
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
   };
@@ -153,7 +174,7 @@ const IncidentDetailPage = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-            <p className="mt-2 text-muted-foreground">Loading incident details...</p>
+            <p className="mt-2 text-muted-foreground">Loading incident report details...</p>
           </div>
         </div>
       </div>
@@ -165,14 +186,14 @@ const IncidentDetailPage = () => {
       <div className="container mx-auto py-10">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <p className="text-muted-foreground">Incident not found</p>
+            <p className="text-muted-foreground">Incident report not found</p>
             <Button
               variant="outline"
               onClick={() => navigate(-1)}
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incidents
+              Back to Incident Reports
             </Button>
           </div>
         </div>
@@ -183,8 +204,8 @@ const IncidentDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={`Incident: ${incident.code}`}
-        subtitle="View and manage incident information"
+        title={`Incident Report: ${incident.code}`}
+        subtitle="View and manage incident report information"
         actions={
           <div className="flex gap-2">
             <Button
@@ -193,7 +214,19 @@ const IncidentDetailPage = () => {
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incidents
+              Back to Incident Reports
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF || isLoading}
+            >
+              {isExportingPDF ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="mr-2 h-4 w-4" />
+              )}
+              {isExportingPDF ? 'Exporting...' : 'Export PDF'}
             </Button>
             {investigationReport ? (
               <Button
@@ -439,6 +472,58 @@ const IncidentDetailPage = () => {
           </Card>
         )}
 
+        {/* Third Parties */}
+        {incident.thirdParties && incident.thirdParties.length > 0 && (
+          <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  Third Parties
+                </CardTitle>
+                <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                  {incident.thirdParties.length} {incident.thirdParties.length === 1 ? 'person' : 'persons'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.thirdParties.map((tp, index) => (
+                <Card key={tp.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Third Party {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
+                        <p className="mt-1 text-sm">{tp.name}</p>
+                      </div>
+                      {tp.gender && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Gender</h3>
+                          <p className="mt-1 text-sm">{tp.gender}</p>
+                        </div>
+                      )}
+                      {tp.company && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Company</h3>
+                          <p className="mt-1 text-sm">{tp.company}</p>
+                        </div>
+                      )}
+                      {tp.position && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Position</h3>
+                          <p className="mt-1 text-sm">{tp.position}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Witnesses */}
         {incident.witnesses && incident.witnesses.length > 0 && (
           <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
@@ -517,6 +602,12 @@ const IncidentDetailPage = () => {
                         <div>
                           <h3 className="text-sm font-medium text-muted-foreground">Asset Code</h3>
                           <p className="mt-1 text-sm">{asset.assetCode}</p>
+                        </div>
+                      )}
+                      {asset.brand && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Brand</h3>
+                          <p className="mt-1 text-sm">{asset.brand}</p>
                         </div>
                       )}
                     </div>
@@ -741,12 +832,21 @@ const IncidentDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Incident"
-        description={`Are you sure you want to delete incident "${incident.code}"? This action will mark it as inactive.`}
+        title="Delete Incident Report"
+        description={`Are you sure you want to delete incident report "${incident.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"
         variant="destructive"
       />
+
+      {/* Hidden PDF render target */}
+      <div
+        ref={pdfTargetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        <IncidentPDFTemplate incident={incident} />
+      </div>
     </>
   );
 };

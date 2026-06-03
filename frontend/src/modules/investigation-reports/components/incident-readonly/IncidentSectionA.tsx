@@ -50,7 +50,11 @@ const IncidentSectionA = ({ incident, reportNumber, variant = 'card' }: Props) =
             />
             <PdfRow
               label="Description / Deskripsi Kejadian"
-              value={incident.description ?? '—'}
+              value={
+                incident.description
+                  ? <span dangerouslySetInnerHTML={{ __html: incident.description }} />
+                  : '—'
+              }
             />
           </tbody>
         </table>

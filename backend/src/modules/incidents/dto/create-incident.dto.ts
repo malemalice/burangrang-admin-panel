@@ -25,6 +25,7 @@ import {
 } from '@prisma/client';
 import { CreateIncidentInjuredPersonDto } from './create-incident-injured-person.dto';
 import { CreateIncidentWitnessDto } from './create-incident-witness.dto';
+import { CreateIncidentThirdPartyDto } from './create-incident-third-party.dto';
 import { CreateIncidentAssetDto } from './create-incident-asset.dto';
 import { CreateIncidentImageDto } from './create-incident-image.dto';
 import { CreateIncidentAttachmentDto } from './create-incident-attachment.dto';
@@ -206,6 +207,13 @@ export class CreateIncidentDto {
   @IsOptional()
   @ApiProperty({ type: [CreateIncidentWitnessDto], required: false })
   witnesses?: CreateIncidentWitnessDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateIncidentThirdPartyDto)
+  @IsOptional()
+  @ApiProperty({ type: [CreateIncidentThirdPartyDto], required: false })
+  thirdParties?: CreateIncidentThirdPartyDto[];
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -31,7 +31,7 @@ const EditIncidentPage = () => {
         setIncident(data);
       } catch (error) {
         console.error('Failed to fetch incident:', error);
-        toast.error('Failed to load incident');
+        toast.error('Failed to load incident report');
         navigate('/incidents');
       } finally {
         setIsLoading(false);
@@ -46,7 +46,7 @@ const EditIncidentPage = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading incident details...</span>
+          <span>Loading incident report details...</span>
         </div>
       </div>
     );
@@ -56,14 +56,14 @@ const EditIncidentPage = () => {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          Incident not found
+          Incident report not found
         </h2>
         <p className="text-muted-foreground mb-4">
-          The incident you&apos;re looking for doesn&apos;t exist or has been deleted.
+          The incident report you&apos;re looking for doesn&apos;t exist or has been deleted.
         </p>
         <Button onClick={() => navigate('/incidents')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Incidents
+          Back to Incident Reports
         </Button>
       </div>
     );
@@ -72,11 +72,11 @@ const EditIncidentPage = () => {
   return (
     <>
       <PageHeader
-        title="Edit Incident"
+        title="Edit Incident Report"
         subtitle={`Modify the details of "${incident.code}"`}
         actions={
           <Button variant="outline" onClick={() => navigate('/incidents')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incidents
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incident Reports
           </Button>
         }
       />

@@ -148,14 +148,35 @@ const InvestigationReportPDFTemplate = ({ report }: { report: InvestigationRepor
       </PdfSectionTitle>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
-          <PdfRow label="A1. Task Performed" value={report.taskBeingPerformed ?? '—'} />
-          <PdfRow label="A2. Equipment Used" value={report.equipmentUsed ?? '—'} />
+          <PdfRow
+            label="A1. Task Performed"
+            value={
+              report.taskBeingPerformed
+                ? <span dangerouslySetInnerHTML={{ __html: report.taskBeingPerformed }} />
+                : '—'
+            }
+          />
+          <PdfRow
+            label="A2. Equipment Used"
+            value={
+              report.equipmentUsed
+                ? <span dangerouslySetInnerHTML={{ __html: report.equipmentUsed }} />
+                : '—'
+            }
+          />
         </tbody>
       </table>
 
       {incident && (
         <>
-          <IncidentSectionB incident={incident} variant="pdf" bodyDiagramUrl={report.bodyDiagramUrl} />
+          <IncidentSectionB
+            incident={incident}
+            variant="pdf"
+            bodyDiagramUrl={report.bodyDiagramUrl}
+            bodyPartsSummary={report.bodyPartsSummary}
+            injuryTypesSummary={report.injuryTypesSummary}
+            mechanismsSummary={report.mechanismsSummary}
+          />
           <IncidentSectionC incident={incident} variant="pdf" />
           <IncidentSectionD incident={incident} variant="pdf" />
           <IncidentSectionE incident={incident} variant="pdf" />

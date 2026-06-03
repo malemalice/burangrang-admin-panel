@@ -141,6 +141,34 @@ export const baseColors = {
     950: '#030712',
   },
   
+  teal: {
+    50: '#f0fdfa',
+    100: '#ccfbf1',
+    200: '#99f6e4',
+    300: '#5eead4',
+    400: '#2dd4bf',
+    500: '#14b8a6',
+    600: '#0d9488',
+    700: '#0f766e',
+    800: '#115e59',
+    900: '#134e4a',
+    950: '#042f2e',
+  },
+
+  stone: {
+    50: '#fafaf9',
+    100: '#f5f4f2',
+    200: '#e7e5e4',
+    300: '#d6d3d1',
+    400: '#a8a29e',
+    500: '#78716c',
+    600: '#57534e',
+    700: '#44403c',
+    800: '#292524',
+    900: '#1c1917',
+    950: '#0c0a09',
+  },
+
   white: '#ffffff',
   black: '#000000',
 };
@@ -346,6 +374,26 @@ export const themeColorsHSL = {
     secondary: hexToHsl(baseColors.indigo[800]),
     accent: hexToHsl(baseColors.indigo[400]),
   },
+  slate: {
+    primary: hexToHsl(baseColors.slate[600]),
+    secondary: hexToHsl(baseColors.slate[800]),
+    accent: hexToHsl(baseColors.slate[400]),
+  },
+  teal: {
+    primary: hexToHsl(baseColors.teal[700]),
+    secondary: hexToHsl(baseColors.teal[900]),
+    accent: hexToHsl(baseColors.teal[500]),
+  },
+  navy: {
+    primary: hexToHsl(baseColors.blue[800]),
+    secondary: hexToHsl(baseColors.blue[950]),
+    accent: hexToHsl(baseColors.blue[600]),
+  },
+  sage: {
+    primary: hexToHsl('#4d7c0f'),
+    secondary: hexToHsl('#3f6212'),
+    accent: hexToHsl('#84cc16'),
+  },
 };
 
 /**
@@ -381,6 +429,26 @@ export const themeColors = {
     primary: baseColors.indigo[600],
     secondary: baseColors.indigo[800],
     accent: baseColors.indigo[400],
+  },
+  slate: {
+    primary: baseColors.slate[600],
+    secondary: baseColors.slate[800],
+    accent: baseColors.slate[400],
+  },
+  teal: {
+    primary: baseColors.teal[700],
+    secondary: baseColors.teal[900],
+    accent: baseColors.teal[500],
+  },
+  navy: {
+    primary: baseColors.blue[800],
+    secondary: baseColors.blue[950],
+    accent: baseColors.blue[600],
+  },
+  sage: {
+    primary: '#4d7c0f',
+    secondary: '#3f6212',
+    accent: '#84cc16',
   },
 };
 

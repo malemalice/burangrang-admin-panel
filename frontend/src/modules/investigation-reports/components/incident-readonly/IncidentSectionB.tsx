@@ -14,6 +14,9 @@ interface Props {
   incident: Incident;
   variant?: SectionVariant;
   bodyDiagramUrl?: string | null;
+  bodyPartsSummary?: string[];
+  injuryTypesSummary?: string[];
+  mechanismsSummary?: string[];
 }
 
 // PRD §B1 — HEAD and NECK collapse into a single "Head / Neck" choice.
@@ -79,19 +82,34 @@ const LEVEL_OF_INJURY_ROWS: Array<{
   { value: IncidentClassificationEnum.FATALITY, en: 'Fatality (loss of life)', id: 'Kehilangan nyawa' },
 ];
 
-const IncidentSectionB = ({ incident, variant = 'card', bodyDiagramUrl }: Props) => {
+const IncidentSectionB = ({
+  incident,
+  variant = 'card',
+  bodyDiagramUrl,
+  bodyPartsSummary,
+  injuryTypesSummary,
+  mechanismsSummary,
+}: Props) => {
   const persons = incident.injuredPersons ?? [];
   const hasPersons = persons.length > 0;
 
-  const bodyParts = new Set<string>(persons.map((p) => p.injuredBodyPart));
-  const typesOfInjury = new Set<string>(persons.map((p) => p.typeOfInjury));
-  const mechanisms = new Set<string>(persons.map((p) => p.mechanismOfInjury));
+  const bodyParts = bodyPartsSummary
+    ? new Set<string>(bodyPartsSummary)
+    : new Set<string>(persons.map((p) => p.injuredBodyPart));
+  const typesOfInjury = injuryTypesSummary
+    ? new Set<string>(injuryTypesSummary)
+    : new Set<string>(persons.map((p) => p.typeOfInjury));
+  const mechanisms = mechanismsSummary
+    ? new Set<string>(mechanismsSummary)
+    : new Set<string>(persons.map((p) => p.mechanismOfInjury));
+
+  const hasData = bodyPartsSummary ? bodyPartsSummary.length > 0 || (injuryTypesSummary?.length ?? 0) > 0 || (mechanismsSummary?.length ?? 0) > 0 : hasPersons;
 
   const isBodyPartChecked = (row: typeof BODY_PART_ROWS[number]) =>
     row.values.some((v) => bodyParts.has(v));
 
   if (variant === 'pdf') {
-    if (!hasPersons) {
+    if (!hasData) {
       return (
         <SectionShell variant="pdf" title="B. Injury Details / Rincian Cidera">
           <p style={{ marginBottom: 12 }}>No injured person during this incident.</p>
@@ -155,7 +173,7 @@ const IncidentSectionB = ({ incident, variant = 'card', bodyDiagramUrl }: Props)
 
   return (
     <SectionShell variant={variant} title="B. Injury Details / Rincian Cidera">
-      {!hasPersons ? (
+      {!hasData ? (
         <p className="text-sm text-muted-foreground">
           No injured person during this incident.
         </p>

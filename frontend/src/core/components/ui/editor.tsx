@@ -32,7 +32,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
   }
 
   return (
-    <div className={cn('border rounded-md', className)}>
+    <div className={cn('border rounded-md', className)} onClick={() => editor?.commands.focus()}>
       <div className="border-b p-2 flex gap-2">
         <Button
           type="button"

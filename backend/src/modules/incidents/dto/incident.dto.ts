@@ -19,6 +19,7 @@ import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
 import { RoomDto } from 'src/modules/rooms/dto/room.dto';
 import { IncidentInjuredPersonDto } from './incident-injured-person.dto';
 import { IncidentWitnessDto } from './incident-witness.dto';
+import { IncidentThirdPartyDto } from './incident-third-party.dto';
 import { IncidentAssetDto } from './incident-asset.dto';
 import { IncidentImageDto } from './incident-image.dto';
 import { IncidentAttachmentDto } from './incident-attachment.dto';
@@ -212,6 +213,10 @@ export class IncidentDto {
   @ApiProperty({ type: () => IncidentWitnessDto, isArray: true })
   @Expose()
   witnesses: IncidentWitnessDto[];
+
+  @ApiProperty({ type: () => IncidentThirdPartyDto, isArray: true })
+  @Expose()
+  thirdParties: IncidentThirdPartyDto[];
 
   @ApiProperty({ type: () => IncidentAssetDto, isArray: true })
   @Expose()

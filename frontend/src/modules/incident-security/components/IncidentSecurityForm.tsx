@@ -826,10 +826,10 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
 
       if (status === ApprovalStatus.APPROVED) {
         await incidentSecurityService.approve(incident.id, notes, activities);
-        toast.success('Incident Securities approved successfully');
+        toast.success('Security Incident Report approved successfully');
       } else {
         await incidentSecurityService.reject(incident.id, notes);
-        toast.success('Incident Securities rejected successfully');
+        toast.success('Security Incident Report rejected successfully');
       }
 
       navigate('/incident-securities');
@@ -957,14 +957,14 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
 
       if (mode === 'create') {
         await incidentSecurityService.create(dto as CreateIncidentDTO);
-        toast.success('Incident created successfully');
+        toast.success('Security Incident Report created successfully');
       } else if (incident) {
         await incidentSecurityService.update(incident.id, dto as UpdateIncidentDTO);
         if (resolvedMode === 'investigator') {
           await incidentSecurityService.submit(incident.id);
-          toast.success('Incident submitted for approval');
+          toast.success('Security Incident Report submitted for approval');
         } else {
-          toast.success('Incident updated successfully');
+          toast.success('Security Incident Report updated successfully');
         }
       }
       navigate('/incident-securities');
@@ -988,7 +988,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident Security Report</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -2527,8 +2527,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
                     : resolvedMode === 'investigator'
                     ? 'Submit'
                     : mode === 'create' 
-                    ? 'Create Security Incident' 
-                    : 'Update Security Incident'}
+                    ? 'Create Security Incident Report'
+                    : 'Update Security Incident Report'}
                 </Button>
               )}
             </div>

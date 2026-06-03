@@ -57,6 +57,7 @@ import {
   MechanismOfInjuryEnum,
   CreateIncidentInjuredPersonDTO,
   CreateIncidentWitnessDTO,
+  CreateIncidentThirdPartyDTO,
   CreateIncidentAssetDTO,
   CreateIncidentImageDTO,
   CreateIncidentAttachmentDTO,
@@ -105,12 +106,21 @@ const witnessSchema = z.object({
   departmentId: z.string().optional(),
 });
 
+// Schema for third party - external persons involved (contractors, visitors)
+const thirdPartySchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
+  company: z.string().optional(),
+  position: z.string().optional(),
+});
+
 // Schema for asset - quantity allows blank (empty string) to match create behavior
 const assetSchema = z.object({
   entity: z.nativeEnum(EquipmentEntityEnum),
   entityId: z.string().min(1, 'Asset selection is required'),
   assetName: z.string().min(1, 'Asset name is required'),
   assetCode: z.string().optional(),
+  brand: z.string().optional(),
   quantity: z.union([
     z.number().int().positive(),
     z.string(),
@@ -156,6 +166,7 @@ const formSchema = z.object({
   isActive: z.boolean().default(true),
   injuredPersons: z.array(injuredPersonSchema).optional(),
   witnesses: z.array(witnessSchema).optional(),
+  thirdParties: z.array(thirdPartySchema).optional(),
   assets: z.array(assetSchema).optional(),
 });
 
@@ -231,6 +242,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       isActive: true,
       injuredPersons: [],
       witnesses: [],
+      thirdParties: [],
       assets: [],
     },
   });
@@ -308,6 +320,15 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   } = useFieldArray({
     control: form.control,
     name: 'witnesses',
+  });
+
+  const {
+    fields: thirdPartyFields,
+    append: appendThirdParty,
+    remove: removeThirdParty,
+  } = useFieldArray({
+    control: form.control,
+    name: 'thirdParties',
   });
 
   const {
@@ -437,6 +458,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 position: w.position || '',
                 departmentId: w.departmentId || '',
               })) || [],
+            thirdParties:
+              incident.thirdParties?.map((tp) => ({
+                name: tp.name || '',
+                gender: tp.gender ?? undefined,
+                company: tp.company || '',
+                position: tp.position || '',
+              })) || [],
             assets:
               incident.assets?.map((a, index) => {
                 // Derive entityId from relation when present; otherwise use placeholder so dropdown can show prefilled label (API may return entity/entityId null for old data)
@@ -451,6 +479,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   entityId,
                   assetName: a.assetName,
                   assetCode: a.assetCode || '',
+                  brand: a.brand || '',
                   quantity: a.quantity ?? undefined,
                 };
               }) || [],
@@ -784,40 +813,33 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     if (isLoading || isApproving) return true;
     
     if (resolvedMode === 'creator') {
-      // Creator: cannot fill 'Control Measures & Outcomes' section
-      const controlMeasureFields = [
-        'controlMeasure',
+      // Creator: cannot fill investigation-outcome fields (Section B sub-fields filled by investigator)
+      // needToStopActivity, stopLocally, stopWholeSchool, controlMeasure are filled by creator (BSJ Section B1/B3)
+      const investigatorOnlyFields = [
         'dueDate',
         'expectedOutcome',
-        'needToStopActivity',
-        'stopLocally',
-        'stopWholeSchool',
         'treatment',
         'treatmentDescription',
         'absence',
         'resolution',
       ];
-      return controlMeasureFields.includes(fieldName);
+      return investigatorOnlyFields.includes(fieldName);
     }
-    
+
     if (resolvedMode === 'investigator') {
-      // Investigator: only can update 'Control Measures & Outcomes' sections
-      const controlMeasureFields = [
-        'controlMeasure',
+      // Investigator: can only update investigation-outcome fields
+      const investigatorOnlyFields = [
         'dueDate',
         'expectedOutcome',
-        'needToStopActivity',
-        'stopLocally',
-        'stopWholeSchool',
         'treatment',
         'treatmentDescription',
         'absence',
         'resolution',
       ];
-      return !controlMeasureFields.includes(fieldName);
+      return !investigatorOnlyFields.includes(fieldName);
     }
-    
-    // Approver: can edit all fields (including Control Measures & Outcomes); save before approve/reject
+
+    // Approver: can edit all fields; save before approve/reject
     return false;
   };
 
@@ -882,6 +904,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           departmentId: w.departmentId || undefined,
           order: index,
         })) || undefined,
+      thirdParties:
+        data.thirdParties?.map((tp, index) => ({
+          name: tp.name,
+          gender: tp.gender,
+          company: tp.company || undefined,
+          position: tp.position || undefined,
+          order: index,
+        })) || undefined,
       assets:
         data.assets?.map((a, index) => {
           let entityId = a.entityId || undefined;
@@ -907,6 +937,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             entityId: entityId || undefined,
             assetName: a.assetName,
             assetCode: a.assetCode || undefined,
+            brand: (a as any).brand || undefined,
             quantity: a.quantity || undefined,
             order: index,
           };
@@ -1037,6 +1068,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             departmentId: w.departmentId || undefined,
             order: index,
           })) || undefined,
+        thirdParties:
+          data.thirdParties?.map((tp, index) => ({
+            name: tp.name,
+            gender: tp.gender,
+            company: tp.company || undefined,
+            position: tp.position || undefined,
+            order: index,
+          })) || undefined,
         assets:
           data.assets?.map((a, index) => {
             // Resolve placeholder entityId (__prefilled_N) by looking up assetCode in master lists (for old incident data where API returned null)
@@ -1104,7 +1143,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident Report</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -1791,6 +1830,146 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
+            {/* Third Parties */}
+            <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                      Third Parties
+                    </CardTitle>
+                    {thirdPartyFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                        {thirdPartyFields.length} {thirdPartyFields.length === 1 ? 'person' : 'persons'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-violet-600 hover:bg-violet-700 text-white"
+                    onClick={() =>
+                      appendThirdParty({
+                        name: '',
+                        gender: undefined,
+                        company: '',
+                        position: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Third Party
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  External persons involved (contractors, visitors). Click the button above to add.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {thirdPartyFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-lg bg-violet-50/50 dark:bg-violet-950/20">
+                  <Users className="h-8 w-8 text-violet-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No third parties added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Third Party" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {thirdPartyFields.map((field, index) => (
+                <Card key={field.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Third Party {index + 1}</CardTitle>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeThirdParty(index)}
+                        className="h-8"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter full name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.gender`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value || ''}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value={GenderEnum.MALE}>Male</SelectItem>
+                                <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.company`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company / Organization</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. PT. OCS, Contractor Name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Cleaner SPV, Project Engineer" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
+
             {/* Witnesses */}
             <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
               <CardHeader className="pb-4">
@@ -1962,6 +2141,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         entityId: '',
                         assetName: '',
                         assetCode: '',
+                        brand: '',
                         quantity: undefined,
                       })
                     }
@@ -2096,6 +2276,20 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                             </FormItem>
                           );
                         }}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`assets.${index}.brand` as any}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Brand</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter brand name" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
 
                       <FormField
@@ -2711,8 +2905,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     : resolvedMode === 'investigator'
                     ? 'Submit'
                     : mode === 'create' 
-                    ? 'Create Incident' 
-                    : 'Update Incident'}
+                    ? 'Create Incident Report'
+                    : 'Update Incident Report'}
                 </Button>
               )}
             </div>

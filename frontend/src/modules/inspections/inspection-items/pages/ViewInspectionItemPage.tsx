@@ -195,7 +195,7 @@ const ViewInspectionItemPage = () => {
               <FileDown className="mr-2 h-4 w-4" />
               {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
-            {(!item || item.status !== GeneralStatusEnum.WAITING_APPROVAL || isSuperUser) && (
+            {(!item || (item.status !== GeneralStatusEnum.WAITING_APPROVAL && item.status !== GeneralStatusEnum.CLOSE) || isSuperUser) && (
               <Button onClick={() => navigate(`/inspections/items/${id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
