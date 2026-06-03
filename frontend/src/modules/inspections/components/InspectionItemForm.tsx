@@ -452,7 +452,7 @@ const InspectionItemForm = ({
         }
         
         // Load file category for inspection images
-        const category = await uploadService.getCategoryByName('course-materials');
+        const category = await uploadService.getCategoryByName('inspection-images');
         if (category) {
           setFileCategory(category);
         }

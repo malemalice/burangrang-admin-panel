@@ -117,6 +117,11 @@ export async function seedFileCategories() {
       maxSize: 10 * 1024 * 1024, // 10MB
     },
     {
+      name: 'inspection-images',
+      allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+      maxSize: 10 * 1024 * 1024, // 10MB
+    },
+    {
       name: 'dispatch-order-attachments',
       allowedTypes: [
         'application/pdf',
