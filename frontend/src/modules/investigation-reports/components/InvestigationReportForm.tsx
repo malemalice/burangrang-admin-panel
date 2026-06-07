@@ -1487,7 +1487,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                       const label = role ? SIGNATORY_ROLE_LABELS[role] : null;
                       return (
                         <tr key={field.id} className="border-b last:border-0">
-                          <td className="p-2 align-top">
+                          <td className="p-2 align-bottom">
                             {label && (
                               <p className="text-xs font-medium text-muted-foreground mb-1">
                                 {label.en} / {label.id}
@@ -1506,7 +1506,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                               )}
                             />
                           </td>
-                          <td className="p-2 align-top">
+                          <td className="p-2 align-bottom">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.name`}
@@ -1520,7 +1520,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                               )}
                             />
                           </td>
-                          <td className="p-2 align-top">
+                          <td className="p-2 align-bottom">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.signedAt`}

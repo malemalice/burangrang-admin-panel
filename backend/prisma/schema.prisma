@@ -2645,7 +2645,7 @@ model Incident {
   assets              IncidentAsset[]
   images              IncidentImage[]
   attachments         IncidentAttachment[]
-  investigationReport InvestigationReport?
+  investigationReports InvestigationReport[]
 
   @@index([code])
   @@index([roomId])
@@ -3464,7 +3464,7 @@ enum InvestigationSignatoryRoleEnum {
 
 model InvestigationReport {
   id                 String                  @id @default(uuid())
-  incidentId         String                  @unique
+  incidentId         String
   reportNumber       String                  @unique
   taskBeingPerformed String?                 @db.Text
   equipmentUsed      String?                 @db.Text

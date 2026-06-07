@@ -112,12 +112,20 @@ const InvestigationReportsPage = () => {
     try {
       setIsBulkExporting(true);
       await new Promise((resolve) => setTimeout(resolve, 200));
-      await generateTableAwarePdf(
-        bulkPdfRef,
-        buildPdfOptions({ filename: `investigation-reports-export-${new Date().toISOString().slice(0, 10)}.pdf` }),
-      );
+      const children = Array.from(bulkPdfRef.current?.children ?? []);
+      for (let i = 0; i < children.length; i++) {
+        const fakeRef = { current: children[i] as HTMLElement };
+        await generateTableAwarePdf(
+          fakeRef,
+          buildPdfOptions({
+            method: 'save',
+            filename: `${selectedReports[i]?.reportNumber ?? `report-${i + 1}`}.pdf`,
+          }),
+        );
+      }
     } catch (error) {
       console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDFs');
     } finally {
       setIsBulkExporting(false);
     }

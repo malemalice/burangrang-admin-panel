@@ -37,6 +37,7 @@ const BodyDiagramCanvas = ({
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const isDrawingRef = useRef(false);
   const hasUnsavedStrokeRef = useRef(false);
+  const skipNextValueReloadRef = useRef(false);
 
   const [strokeColor, setStrokeColor] = useState(STROKE_COLORS[0].hex);
   const [strokeWidth, setStrokeWidth] = useState(3);
@@ -86,6 +87,10 @@ const BodyDiagramCanvas = ({
 
   // Reload annotation when value changes externally
   useEffect(() => {
+    if (skipNextValueReloadRef.current) {
+      skipNextValueReloadRef.current = false;
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas || readOnly || !bgImgRef.current) return;
     const ctx = canvas.getContext('2d')!;
@@ -169,6 +174,7 @@ const BodyDiagramCanvas = ({
       const file = new File([blob], `body-diagram-${Date.now()}.png`, { type: 'image/png' });
       const res = await uploadService.uploadFile(file, uploadCategoryId, true);
       const url = uploadService.getPublicFileUrl(res.id);
+      skipNextValueReloadRef.current = true;
       onChange?.(url);
     } catch {
       toast.error('Failed to save body diagram. Please try again.');

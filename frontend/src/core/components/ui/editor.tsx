@@ -71,7 +71,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
           <ListOrdered className="h-4 w-4" />
         </Button>
       </div>
-      <EditorContent editor={editor} className="p-4 min-h-[150px] prose prose-sm max-w-none" />
+      <EditorContent editor={editor} className="p-4 min-h-[150px] prose prose-sm max-w-none [&_.ProseMirror]:min-h-[130px] [&_.ProseMirror]:cursor-text" />
     </div>
   );
 } 
