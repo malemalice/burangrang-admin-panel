@@ -93,7 +93,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             : "bg-admin-background text-admin-foreground"
         )}>
           <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
-            <div className="animate-fade-in min-w-0 overflow-hidden">
+            <div className="animate-fade-in min-w-0">
               {children}
             </div>
           </main>
@@ -121,7 +121,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         )}>
           <TopNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
           <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
-            <div className="animate-fade-in min-w-0 overflow-hidden">
+            <div className="animate-fade-in min-w-0">
               {children}
             </div>
           </main>

@@ -34,7 +34,7 @@ export default function InspectionChecklistsPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await inspectionChecklistService.getTree();
+      const data = await inspectionChecklistService.getTree(true);
       setTree(data);
     } catch {
       toast.error('Failed to load inspection checklists');

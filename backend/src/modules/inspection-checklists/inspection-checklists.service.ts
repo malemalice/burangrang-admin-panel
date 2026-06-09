@@ -155,16 +155,17 @@ export class InspectionChecklistsService {
     });
   }
 
-  async findTree(): Promise<InspectionChecklistDto[]> {
+  async findTree(includeInactive = false): Promise<InspectionChecklistDto[]> {
+    const activeFilter = includeInactive ? {} : { isActive: true };
     const roots = await this.prisma.inspectionChecklist.findMany({
-      where: { parentId: null, deletedAt: null, isActive: true },
+      where: { parentId: null, deletedAt: null, ...activeFilter },
       include: {
         children: {
-          where: { deletedAt: null, isActive: true },
+          where: { deletedAt: null, ...activeFilter },
           orderBy: { order: 'asc' },
           include: {
             children: {
-              where: { deletedAt: null, isActive: true },
+              where: { deletedAt: null, ...activeFilter },
               orderBy: { order: 'asc' },
             },
           },

@@ -110,7 +110,10 @@ export function ModalCombobox({
       }
     };
 
-    const handleScrollOrResize = () => {
+    const handleScrollOrResize = (e: Event) => {
+      if (e.type === 'scroll' && dropdownRef.current?.contains(e.target as Node)) {
+        return;
+      }
       setOpen(false);
       setSearchQuery("");
     };
@@ -246,7 +249,7 @@ export function ModalCombobox({
           className
         )}
       >
-        <span className="line-clamp-1">{displayValue}</span>
+        <span className="flex-1 truncate min-w-0">{displayValue}</span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
       </button>
       

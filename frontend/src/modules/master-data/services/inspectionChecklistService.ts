@@ -23,8 +23,10 @@ const inspectionChecklistService = {
     return response.data;
   },
 
-  async getTree(): Promise<InspectionChecklistDTO[]> {
-    const response = await api.get('/inspection-checklists/tree?options=true');
+  async getTree(includeInactive = false): Promise<InspectionChecklistDTO[]> {
+    const query = new URLSearchParams({ options: 'true' });
+    if (includeInactive) query.append('includeInactive', 'true');
+    const response = await api.get(`/inspection-checklists/tree?${query.toString()}`);
     return response.data;
   },
 

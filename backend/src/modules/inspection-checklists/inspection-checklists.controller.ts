@@ -53,10 +53,11 @@ export class InspectionChecklistsController {
   @Get('tree')
   @AllowOptionsBypass()
   @Permissions('inspection-checklist:list')
-  @ApiOperation({ summary: 'Get full active checklist tree (template → categories → leaf items)' })
+  @ApiOperation({ summary: 'Get checklist tree (active only by default; pass includeInactive=true to include inactive items)' })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
   @ApiResponse({ status: 200, type: [InspectionChecklistDto] })
-  findTree(): Promise<InspectionChecklistDto[]> {
-    return this.service.findTree();
+  findTree(@Query('includeInactive') includeInactive?: string): Promise<InspectionChecklistDto[]> {
+    return this.service.findTree(includeInactive === 'true');
   }
 
   @Get()
