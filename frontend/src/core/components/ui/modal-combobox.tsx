@@ -249,7 +249,7 @@ export function ModalCombobox({
           className
         )}
       >
-        <span className="flex-1 truncate min-w-0">{displayValue}</span>
+        <span className="flex-1 truncate min-w-0" title={displayValue}>{displayValue}</span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
       </button>
       
@@ -277,7 +277,7 @@ export function ModalCombobox({
           </div>
 
           {/* Options list */}
-          <div className="flex-1 overflow-y-auto p-1">
+          <div className="flex-1 overflow-y-auto p-1" onWheel={(e) => e.stopPropagation()}>
             {isLoading && filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
@@ -320,7 +320,7 @@ export function ModalCombobox({
                       <Check className="h-4 w-4" />
                     )}
                   </span>
-                  <span>{option.label}</span>
+                  <span className="truncate">{option.label}</span>
                 </div>
               ))
             )}

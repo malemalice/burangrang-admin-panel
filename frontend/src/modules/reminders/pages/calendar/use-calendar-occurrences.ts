@@ -74,6 +74,12 @@ export function useCalendarOccurrences() {
   const visibleItems = useMemo(() => {
     return items.filter((o) => {
       if (
+        filters.states.length === 0 &&
+        o.state === ReminderOccurrenceState.DISMISSED
+      ) {
+        return false;
+      }
+      if (
         filters.entities.length > 0 &&
         (!o.entity || !filters.entities.includes(o.entity))
       ) {
