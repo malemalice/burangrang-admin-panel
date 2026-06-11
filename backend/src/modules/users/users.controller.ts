@@ -164,6 +164,18 @@ export class UsersController {
     description: 'Search term for name or email',
   })
   @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Filter by name (firstName or lastName contains)',
+  })
+  @ApiQuery({
+    name: 'email',
+    required: false,
+    type: String,
+    description: 'Filter by email (contains)',
+  })
+  @ApiQuery({
     name: 'officeId',
     required: false,
     type: String,
@@ -234,6 +246,8 @@ export class UsersController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('email') email?: string,
     @Query('officeId') officeId?: string,
     @Query('roleId') roleId?: string,
     @Query('departmentId') departmentId?: string,
@@ -252,6 +266,12 @@ export class UsersController {
     const trimmedSearch = search?.trim();
     const finalSearch = trimmedSearch && trimmedSearch.length > 0 ? trimmedSearch : undefined;
 
+    const trimmedName = name?.trim();
+    const finalName = trimmedName && trimmedName.length > 0 ? trimmedName : undefined;
+
+    const trimmedEmail = email?.trim();
+    const finalEmail = trimmedEmail && trimmedEmail.length > 0 ? trimmedEmail : undefined;
+
     return this.usersService.findAll(
       {
         page: pageNumber,
@@ -260,6 +280,8 @@ export class UsersController {
         sortOrder,
         isActive: isActiveBoolean,
         search: finalSearch,
+        name: finalName,
+        email: finalEmail,
         officeId,
         roleId,
         departmentId,

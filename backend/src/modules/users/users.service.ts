@@ -294,6 +294,8 @@ export class UsersService {
       sortOrder = 'desc',
       isActive,
       search,
+      name,
+      email,
       roleId,
       roleCode,
       officeId,
@@ -330,6 +332,31 @@ export class UsersService {
           { email: { contains: searchTerm, mode: 'insensitive' } },
         ];
       }
+    }
+
+    const andConditions: Prisma.UserWhereInput[] = [];
+
+    if (name) {
+      const nameTerm = name.trim();
+      if (nameTerm.length > 0) {
+        andConditions.push({
+          OR: [
+            { firstName: { contains: nameTerm, mode: 'insensitive' } },
+            { lastName: { contains: nameTerm, mode: 'insensitive' } },
+          ],
+        });
+      }
+    }
+
+    if (email) {
+      const emailTerm = email.trim();
+      if (emailTerm.length > 0) {
+        andConditions.push({ email: { contains: emailTerm, mode: 'insensitive' } });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     if (isActive !== undefined) {
