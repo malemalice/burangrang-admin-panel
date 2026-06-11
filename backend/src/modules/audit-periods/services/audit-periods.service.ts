@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
+import { AuditSchedulesService } from '../../audit-schedules/services/audit-schedules.service';
 import { GeneralStatusEnum } from '@prisma/client';
 import { CreateAuditPeriodDto } from '../dto/create-audit-period.dto';
 import { AuditPeriodDto } from '../dto/audit-period.dto';
@@ -19,6 +20,7 @@ export class AuditPeriodsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly errorHandlingService: ErrorHandlingService,
+    private readonly auditSchedulesService: AuditSchedulesService,
   ) {}
 
   private autoDetermineStatus(auditDate: Date): GeneralStatusEnum {
@@ -190,18 +192,15 @@ export class AuditPeriodsService {
         );
       }
 
-      const now = new Date();
-      await this.prisma.$transaction(async (tx) => {
-        // Soft-delete all child audits (no items filled, safe)
-        await tx.audit.updateMany({
-          where: { periodId: id, isActive: true },
-          data: { isActive: false },
-        });
+      // Hard-delete all connected audit schedules (reuses full cleanup: reminders, junction tables, audit row)
+      for (const audit of period.audits) {
+        await this.auditSchedulesService.remove(audit.id);
+      }
 
-        await tx.auditPeriod.update({
-          where: { id },
-          data: { deletedAt: now, deletedBy: userId, isActive: false },
-        });
+      const now = new Date();
+      await this.prisma.auditPeriod.update({
+        where: { id },
+        data: { deletedAt: now, deletedBy: userId, isActive: false },
       });
     }, 'Deleting audit period');
   }
