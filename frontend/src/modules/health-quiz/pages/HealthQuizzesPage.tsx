@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Eye, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
@@ -22,6 +22,8 @@ import { usePermissions } from '@/core/hooks/usePermissions';
 
 const HealthQuizzesPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchTerm = searchParams.get('search') ?? '';
   const { hasPermission } = usePermissions();
   const { quizzes, totalQuizzes, isLoading, fetchQuizzes, deleteQuiz } = useHealthQuizzes();
   const [pageIndex, setPageIndex] = useState(0);
@@ -36,15 +38,28 @@ const HealthQuizzesPage = () => {
       limit,
       sortBy: 'createdAt',
       sortOrder: 'desc',
+      ...(searchTerm ? { search: searchTerm } : {}),
     });
-  }, [fetchQuizzes, pageIndex, limit]);
+  }, [fetchQuizzes, pageIndex, limit, searchTerm]);
 
   useEffect(() => {
     loadQuizzes();
   }, [loadQuizzes]);
 
+  const handleSearch = (term: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (term.trim()) next.set('search', term.trim());
+      else next.delete('search');
+      next.delete('page');
+      return next;
+    });
+    setPageIndex(0);
+  };
+
   const handleDeleteClick = (quiz: Quiz, e: React.MouseEvent) => {
     e.stopPropagation();
+    setOpenDropdownId(null);
     setQuizToDelete(quiz);
     setDeleteDialogOpen(true);
   };
@@ -182,6 +197,9 @@ const HealthQuizzesPage = () => {
         columns={columns}
         data={quizzes}
         isLoading={isLoading}
+        searchValue={searchTerm}
+        onSearch={handleSearch}
+        searchPlaceholder="Search questionnaires..."
         pagination={{
           pageIndex,
           limit,
