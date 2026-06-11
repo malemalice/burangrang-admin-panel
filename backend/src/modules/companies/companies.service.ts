@@ -15,6 +15,9 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
+  contactPerson?: string;
 }
 
 @Injectable()
@@ -32,6 +35,11 @@ export class CompaniesService {
   }
 
   async create(createCompanyDto: CreateCompanyDto): Promise<CompanyDto> {
+    const existing = await this.prisma.company.findFirst({
+      where: { code: createCompanyDto.code, deletedAt: null },
+    });
+    if (existing) this.errorHandler.throwConflict('code', createCompanyDto.code);
+
     const company = await this.prisma.company.create({
       data: createCompanyDto,
     });
@@ -46,30 +54,41 @@ export class CompaniesService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       isActive,
       search,
+      name,
+      code,
+      contactPerson,
     } = options || {};
 
     const where: Prisma.CompanyWhereInput = {
       deletedAt: null,
     };
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-        { contactPerson: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
+
+    const andConditions: Prisma.CompanyWhereInput[] = [];
+
+    if (name) andConditions.push({ name: { contains: name, mode: 'insensitive' } });
+    if (code) andConditions.push({ code: { contains: code, mode: 'insensitive' } });
+    if (contactPerson) andConditions.push({ contactPerson: { contains: contactPerson, mode: 'insensitive' } });
+    if (search) {
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { address: { contains: search, mode: 'insensitive' } },
+          { contactPerson: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+    if (andConditions.length > 0) where.AND = andConditions;
 
     const [companies, total] = await Promise.all([
       this.prisma.company.findMany({
@@ -105,6 +124,13 @@ export class CompaniesService {
     });
 
     this.errorHandler.throwIfNotFoundById('Company', id, existingCompany);
+
+    if (updateCompanyDto.code) {
+      const duplicate = await this.prisma.company.findFirst({
+        where: { code: updateCompanyDto.code, id: { not: id }, deletedAt: null },
+      });
+      if (duplicate) this.errorHandler.throwConflict('code', updateCompanyDto.code);
+    }
 
     const company = await this.prisma.company.update({
       where: { id },

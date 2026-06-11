@@ -25,7 +25,10 @@ const formSchema = z.object({
   code: z.string().min(1, 'Company code is required'),
   address: z.string().optional(),
   contactPerson: z.string().optional(),
-  phone: z.string().trim().min(1, 'Phone is required'),
+  phone: z.string().trim().regex(
+    /^\+?[0-9]{7,15}$/,
+    'Phone must contain only numbers (optionally starting with +), minimum 7 digits',
+  ),
   email: z.union([z.string().email('Invalid email address'), z.literal('')]).optional(),
   isActive: z.boolean().default(true),
 });

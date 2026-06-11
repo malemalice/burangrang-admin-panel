@@ -70,8 +70,8 @@ export default function CompaniesPage() {
         page: pageIndex + 1,
         limit,
         search: searchTerm || undefined,
-        sortBy: 'name',
-        sortOrder: 'asc',
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
         filters: {
           isActive:
             activeFilters.status?.value === 'active'
