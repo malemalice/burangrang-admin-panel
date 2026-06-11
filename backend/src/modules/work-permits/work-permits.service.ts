@@ -688,7 +688,6 @@ export class WorkPermitsService {
       }
 
       await this.validateWorkersForPermit(createDto.workers);
-      await this.validateWorkerHealthDeclarations(createDto.workers);
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
@@ -1696,7 +1695,6 @@ export class WorkPermitsService {
         this.errorHandler.throwBadRequest('At least one worker is required');
       }
       await this.validateWorkersForPermit(updateDto.workers);
-      await this.validateWorkerHealthDeclarations(updateDto.workers);
       await this.prisma.$transaction(async (tx) => {
         await tx.workPermitWorker.deleteMany({
           where: { workPermitId: id },

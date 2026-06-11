@@ -696,7 +696,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workStagesDescription: '',
       workClassificationOtherDetail: '',
       requireCourseVerification: false,
-      classifications: [{ workClassificationId: '', order: 0 }],
+      classifications: [],
       employees: [],
       workers: [
         {
