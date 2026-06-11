@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -40,6 +41,16 @@ type FormValues = z.infer<typeof formSchema>;
 interface RoomFormProps {
   room?: RoomDTO;
   mode: 'create' | 'edit';
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const msg = (error.response?.data as { message?: string | string[] } | undefined)?.message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+    if (Array.isArray(msg) && msg.length > 0) return msg.join(', ');
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
 }
 
 const RoomForm = ({ room, mode }: RoomFormProps) => {
@@ -128,8 +139,7 @@ const RoomForm = ({ room, mode }: RoomFormProps) => {
       navigate('/master/rooms');
     } catch (error: unknown) {
       console.error('Error saving room:', error);
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} room`;
-      toast.error(errorMessage);
+      toast.error(getApiErrorMessage(error, `Failed to ${mode} room`));
     } finally {
       setIsLoading(false);
     }

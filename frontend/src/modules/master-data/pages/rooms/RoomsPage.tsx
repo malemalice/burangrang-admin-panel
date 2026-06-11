@@ -36,8 +36,8 @@ export default function RoomsPage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({
-    id: 'name',
-    desc: false,
+    id: 'createdAt',
+    desc: true,
   });
 
   // Define filter fields
@@ -285,7 +285,7 @@ export default function RoomsPage() {
         isLoading={isLoading}
         sorting={sorting}
         onSortingChange={(nextSorting) => {
-          setSorting(nextSorting);
+          setSorting(nextSorting ?? { id: 'createdAt', desc: true });
           setPageIndex(0);
         }}
         pagination={{
