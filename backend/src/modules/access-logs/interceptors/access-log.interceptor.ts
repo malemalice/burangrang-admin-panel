@@ -53,7 +53,8 @@ export class AccessLogInterceptor implements NestInterceptor {
     const userId = (req as any).user?.id;
     const method = req.method;
     const endpoint = req.originalUrl?.split('?')[0] ?? req.path;
-    const ipAddress = req.ip ?? req.socket?.remoteAddress ?? undefined;
+    const rawIp = req.ip ?? req.socket?.remoteAddress ?? undefined;
+    const ipAddress = rawIp?.startsWith('::ffff:') ? rawIp.slice(7) : rawIp;
     const userAgent = req.get('User-Agent') ?? undefined;
     const payload = getPayload(req);
 

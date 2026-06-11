@@ -50,6 +50,12 @@ const AccessLogsPage = () => {
   const filterFields: FilterField[] = [
     { id: 'dateRange', label: 'DateTime range', type: 'dateRange' },
     { id: 'userId', label: 'User', type: 'searchableSelect', options: userOptions },
+    {
+      id: 'method',
+      label: 'Method',
+      type: 'select',
+      options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => ({ label: m, value: m })),
+    },
     { id: 'endpoint', label: 'Endpoint', type: 'text', placeholder: 'Filter by path' },
     { id: 'payloadSearch', label: 'Payload', type: 'text', placeholder: 'Search in payload' },
   ];
@@ -69,6 +75,7 @@ const AccessLogsPage = () => {
         sortBy: sorting?.id ?? 'createdAt',
         sortOrder: (sorting?.desc ? 'desc' : 'asc') as 'asc' | 'desc',
         userId: activeFilters.userId?.value as string | undefined,
+        method: activeFilters.method?.value as string | undefined,
         endpoint: activeFilters.endpoint?.value as string | undefined,
         dateFrom: dateFrom?.toISOString(),
         dateTo: dateToParam,
@@ -135,7 +142,12 @@ const AccessLogsPage = () => {
       }
     > = {};
     filters.forEach((filter) => {
-      if (filter.id === 'dateRange' && typeof filter.value === 'object' && filter.value !== null && 'from' in filter.value) {
+      if (
+      filter.id === 'dateRange' &&
+      typeof filter.value === 'object' &&
+      filter.value !== null &&
+      ('from' in (filter.value as object) || 'to' in (filter.value as object))
+    ) {
         const range = filter.value as {
           from?: Date | string | number;
           to?: Date | string | number;
