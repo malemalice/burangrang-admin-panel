@@ -26,6 +26,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    delete: jest.fn(),
     count: jest.fn(),
   },
   reminderLog: {
@@ -38,6 +39,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    deleteMany: jest.fn(),
   },
   notificationType: {
     findFirst: jest.fn(),
@@ -438,6 +440,76 @@ describe('RemindersService', () => {
       expect(result).toEqual(updated);
     });
 
+    it('should rebuild the occurrence chain when the schedule changes', async () => {
+      const newRemindAt = futureDate(120);
+      const existing = {
+        id: reminderId,
+        createdBy: userId,
+        targetType: ReminderTargetTypeEnum.USER,
+        targetId: 'user-1',
+        message: 'Old',
+        remindAt: futureDate(60),
+        status: ReminderStatusEnum.PENDING,
+        repeatType: null,
+        repeatUntil: null,
+        entity: null,
+        entityId: null,
+        lastSentAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const updated = { ...existing, remindAt: newRemindAt };
+      (mockPrisma.reminder.findUnique as jest.Mock)
+        .mockResolvedValueOnce(existing) // update() pre-check
+        .mockResolvedValue(updated); // materializeOccurrences re-read
+      (mockPrisma.reminder.update as jest.Mock).mockResolvedValue(updated);
+
+      await service.update(reminderId, userId, {
+        remindAt: newRemindAt.toISOString(),
+      });
+
+      // Stale SCHEDULED occurrences are dropped and the chain is rebuilt,
+      // otherwise the old and new schedules both fire (doubled notifications).
+      expect(mockPrisma.reminderOccurrence.deleteMany).toHaveBeenCalledWith({
+        where: { reminderId, state: 'SCHEDULED' },
+      });
+      expect(mockPrisma.reminderOccurrence.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          reminderId,
+          scheduledAt: newRemindAt,
+          state: 'SCHEDULED',
+        }),
+      });
+    });
+
+    it('should not touch occurrences when only the message changes', async () => {
+      const existing = {
+        id: reminderId,
+        createdBy: userId,
+        targetType: ReminderTargetTypeEnum.USER,
+        targetId: 'user-1',
+        message: 'Old',
+        remindAt: futureDate(60),
+        status: ReminderStatusEnum.PENDING,
+        repeatType: null,
+        repeatUntil: null,
+        entity: null,
+        entityId: null,
+        lastSentAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.reminder.update as jest.Mock).mockResolvedValue({
+        ...existing,
+        message: 'New',
+      });
+
+      await service.update(reminderId, userId, { message: 'New' });
+
+      expect(mockPrisma.reminderOccurrence.deleteMany).not.toHaveBeenCalled();
+    });
+
     it('should throw when remindAt in update is not in future', async () => {
       const existing = {
         id: reminderId,
@@ -482,19 +554,18 @@ describe('RemindersService', () => {
     const reminderId = 'rem-1';
     const userId = 'creator-1';
 
-    it('should set status to CANCELLED when user is creator', async () => {
+    it('should hard-delete the reminder when user is creator', async () => {
       (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
         id: reminderId,
         createdBy: userId,
         targetType: ReminderTargetTypeEnum.USER,
       });
-      (mockPrisma.reminder.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.reminder.delete as jest.Mock).mockResolvedValue({});
 
       await service.remove(reminderId, userId);
 
-      expect(mockPrisma.reminder.update).toHaveBeenCalledWith({
+      expect(mockPrisma.reminder.delete).toHaveBeenCalledWith({
         where: { id: reminderId },
-        data: { status: 'CANCELLED' },
       });
     });
 

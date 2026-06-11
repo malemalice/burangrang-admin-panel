@@ -111,15 +111,14 @@ export class RemindersScheduler {
         );
       }
 
-      const roleIds = [
-        ...new Set(recipients.map((r: any) => r.roleId).filter(Boolean)),
-      ] as string[];
-      const userIds: string[] =
-        roleIds.length === 0
-          ? [...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[])]
-          : [];
+      // Target the resolved users directly. Broadcasting by role would deliver
+      // the reminder to every user sharing a recipient's role (duplicate-looking
+      // notifications) and produce no email recipients (emails need userId).
+      const userIds: string[] = [
+        ...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[]),
+      ];
 
-      if (roleIds.length > 0 || userIds.length > 0) {
+      if (userIds.length > 0) {
         try {
           const notification =
             await this.notificationsService.createNotificationForRoles(
@@ -129,8 +128,8 @@ export class RemindersScheduler {
                 context: reminder.entity ?? undefined,
                 contextId: reminder.entityId ?? undefined,
                 typeId: await this.remindersService.getOrCreateReminderNotificationType(),
-                roleIds,
-                userIds: userIds.length > 0 ? userIds : undefined,
+                roleIds: [],
+                userIds,
               },
               reminder.createdBy,
             );

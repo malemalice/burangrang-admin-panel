@@ -189,17 +189,13 @@ export class NotificationsService {
     const actionUrl = this.resolveActionUrl(context, contextId);
 
     // Send email to each address using the notification template
+    // (falls back to inline HTML when the template is missing/inactive)
     const emailPromises = emailAddresses.map((email) =>
       this.mailService
-        .sendTemplatedMail({
-          email,
-          template: 'notification',
-          subject: title,
-          context: {
-            title,
-            message,
-            ...(actionUrl ? { actionUrl } : {}),
-          },
+        .sendNotificationEmail(email, title, {
+          title,
+          message,
+          ...(actionUrl ? { actionUrl } : {}),
         })
         .catch((error) => {
           this.logger.error(

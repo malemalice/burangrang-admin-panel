@@ -20,6 +20,7 @@ import {
   GeneralStatusEnum,
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
+import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
 import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
 import { RemindersService } from '../../reminders/reminders.service';
@@ -55,6 +56,7 @@ export class RiskAssessmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalsService: ApprovalsService,
+    private readonly masterApprovalsService: MasterApprovalsService,
     private readonly remindersService: RemindersService,
     private readonly riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService,
   ) { }
@@ -344,6 +346,9 @@ export class RiskAssessmentService {
       oldStatus === GeneralStatusEnum.SCHEDULED &&
       newStatus !== GeneralStatusEnum.SCHEDULED &&
       newStatus !== undefined;
+    const statusChangedToWaitingApproval =
+      oldStatus !== GeneralStatusEnum.WAITING_APPROVAL &&
+      newStatus === GeneralStatusEnum.WAITING_APPROVAL;
     const assessmentDateChanged =
       data.assessmentDate &&
       data.assessmentDate.getTime() !==
@@ -419,6 +424,15 @@ export class RiskAssessmentService {
     // Note: Approval records (t_approvals) should only be created when an approver
     // actually submits their approval/rejection action, not when status changes to WAITING_APPROVAL.
     // The approval workflow is defined in m_approvals and shown in allApprovalLines.
+
+    // Notify requester + first approval line when submitted for approval
+    if (statusChangedToWaitingApproval) {
+      await this.masterApprovalsService.sendApprovalRequestNotifications(
+        assessment.id,
+        APPROVAL_ENTITIES.RISK_ASSESSMENT,
+        assessment.createdBy,
+      );
+    }
 
     // Handle reminder creation/deletion based on status changes
     if (statusChangedFromScheduled) {
@@ -570,6 +584,11 @@ export class RiskAssessmentService {
     code: string,
   ): Promise<void> {
     try {
+      // Idempotency: cancel any reminder still pending for this assessment so a
+      // double submit / concurrent status change can never leave two active
+      // reminders firing duplicate notifications.
+      await this.deleteRemindersForRiskAssessment(assessmentId);
+
       const now = new Date();
       const assessmentReminderTime =
         this.convertAssessmentDateToReminderTime(assessmentDate);

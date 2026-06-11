@@ -29,6 +29,7 @@ const mockNotificationsService = {
 
 const mockPrisma = {
   user: { findUnique: jest.fn(), findMany: jest.fn() },
+  reminderOccurrence: { updateMany: jest.fn() },
 } as unknown as PrismaService;
 
 function makeOccurrence(overrides: Partial<any> = {}) {
@@ -64,6 +65,9 @@ describe('RemindersScheduler', () => {
       mockPrisma,
     );
     mockGetOrCreateReminderNotificationType.mockResolvedValue('type-reminder');
+    (mockPrisma.reminderOccurrence.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
     mockMaterializeOccurrences.mockResolvedValue(0);
     mockUpdateAfterExecution.mockResolvedValue(undefined);
     mockMarkOccurrenceFired.mockResolvedValue(undefined);
@@ -96,7 +100,8 @@ describe('RemindersScheduler', () => {
           title: 'Reminder',
           message: 'M',
           typeId: 'type-reminder',
-          roleIds: ['role-1'],
+          roleIds: [],
+          userIds: ['user-1'],
         }),
         'creator-1',
       );

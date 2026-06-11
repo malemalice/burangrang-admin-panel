@@ -36,6 +36,7 @@ describe('RemindersModule (integration)', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
       count: jest.fn(),
     },
     reminderLog: { findMany: jest.fn(), create: jest.fn() },
@@ -45,6 +46,7 @@ describe('RemindersModule (integration)', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     notificationType: { findFirst: jest.fn(), create: jest.fn() },
   } as unknown as PrismaService;
@@ -286,19 +288,18 @@ describe('RemindersModule (integration)', () => {
   });
 
   describe('Delete', () => {
-    it('should set status to CANCELLED when creator removes', async () => {
+    it('should hard-delete the reminder when creator removes', async () => {
       (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
         id: 'rem-1',
         createdBy: userA.id,
         targetType: ReminderTargetTypeEnum.USER,
       });
-      (mockPrisma.reminder.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.reminder.delete as jest.Mock).mockResolvedValue({});
 
       await service.remove('rem-1', userA.id);
 
-      expect(mockPrisma.reminder.update).toHaveBeenCalledWith({
+      expect(mockPrisma.reminder.delete).toHaveBeenCalledWith({
         where: { id: 'rem-1' },
-        data: { status: 'CANCELLED' },
       });
     });
 

@@ -286,6 +286,62 @@ export class MailService {
   }
 
   /**
+   * Send an in-app notification email. Uses the 'notification' DB template when
+   * present and active; otherwise falls back to a minimal inline HTML so the
+   * email is still delivered (the template lookup must not silently drop mail).
+   */
+  async sendNotificationEmail(
+    to: string,
+    subject: string,
+    context: { title: string; message: string; actionUrl?: string },
+  ): Promise<void> {
+    try {
+      const tpl = await this.prisma.emailTemplate.findFirst({
+        where: { code: 'notification', ...isNotDeleted },
+      });
+
+      let html: string;
+      let resolvedSubject = subject;
+
+      if (tpl && tpl.isActive) {
+        const compiledSubject = Handlebars.compile(tpl.subjectTemplate, {
+          noEscape: true,
+        });
+        const compiledBody = Handlebars.compile(tpl.bodyTemplate, {
+          noEscape: true,
+        });
+        resolvedSubject = subject ?? compiledSubject(context);
+        html = compiledBody(context);
+      } else {
+        this.logger.warn(
+          `Email template "notification" not found or inactive - using inline fallback`,
+        );
+        const escape = (value: string) =>
+          value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        html = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>${escape(context.title)}</h2>
+            <p>${escape(context.message)}</p>
+            ${context.actionUrl ? `<p><a href="${context.actionUrl}">View details</a></p>` : ''}
+            <hr />
+            <p style="color: #6b7280; font-size: 12px;">This is an automated notification from HSE Dashboard. Please do not reply to this email.</p>
+          </div>`;
+      }
+
+      const { transporter, from } = await this.buildTransporter();
+      await transporter.sendMail({ from, to, subject: resolvedSubject, html });
+    } catch (error) {
+      // Do not throw to avoid blocking critical flows
+      this.logger.error(
+        `Failed sending notification email to ${to}: ${String(error)}`,
+      );
+    }
+  }
+
+  /**
    * Send a simple HTML email without using a template
    */
   async sendSimpleEmail(

@@ -1255,6 +1255,71 @@ export class MasterApprovalsService {
   }
 
   /**
+   * Notify the requester and the first pending approval line that an entity
+   * has been submitted for approval (status → WAITING_APPROVAL).
+   * Safe to call from entity services; never throws.
+   */
+  async sendApprovalRequestNotifications(
+    entityId: string,
+    entityName: string,
+    requesterId: string,
+  ): Promise<void> {
+    try {
+      const entityLabel = formatEntityLabel(entityName);
+      const entitySlug = entityName.toLowerCase().replace(/_/g, '-');
+
+      let approvalRequestType = await this.prisma.notificationType.findFirst({
+        where: { name: 'APPROVAL_REQUEST' },
+      });
+      if (!approvalRequestType) {
+        approvalRequestType = await this.prisma.notificationType.create({
+          data: {
+            name: 'APPROVAL_REQUEST',
+            description: 'Approval request pending',
+          },
+        });
+      }
+
+      // Notify the first pending approval line (in-app + email)
+      const approvalStatus = await this.checkApprovalStatus(
+        entityId,
+        entityName,
+      );
+      if (approvalStatus.nextApprover) {
+        await this.notificationsService.createNotificationByDepartmentAndJobPosition(
+          {
+            title: `${entityLabel} Approval Request`,
+            message: `A ${entityLabel} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
+            context: entitySlug,
+            contextId: entityId,
+            typeId: approvalRequestType.id,
+            departmentId: approvalStatus.nextApprover.department.id,
+            jobPositionId: approvalStatus.nextApprover.jobPosition.id,
+          },
+          requesterId,
+        );
+      }
+
+      // Confirm submission to the requester (in-app + email)
+      await this.notificationsService.createNotificationForRoles(
+        {
+          title: `${entityLabel} Submitted for Approval`,
+          message: `Your ${entityLabel} request has been submitted and is waiting for approval.`,
+          context: entitySlug,
+          contextId: entityId,
+          typeId: approvalRequestType.id,
+          roleIds: [],
+          userIds: [requesterId],
+        },
+        requesterId,
+      );
+    } catch (error) {
+      console.error('Failed to send approval request notifications:', error);
+      // Don't throw — notifications are not critical for the submit flow
+    }
+  }
+
+  /**
    * Send approval notifications to requester and next approver
    */
   private async sendApprovalNotifications(
@@ -1331,6 +1396,24 @@ export class MasterApprovalsService {
             departmentIds: requesterUser?.departmentId
               ? [requesterUser.departmentId]
               : undefined,
+          },
+          approver.id,
+        );
+      }
+
+      // Send confirmation notification to the acting approver (in-app + email)
+      {
+        const statusText =
+          status === ApprovalStatus.APPROVED ? 'approved' : 'rejected';
+        await this.notificationsService.createNotificationForRoles(
+          {
+            title: `${entityLabel} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
+            message: `You have ${statusText} the ${entityLabel} request.`,
+            context: entitySlug,
+            contextId: entityId,
+            typeId: notificationType.id,
+            roleIds: [],
+            userIds: [approver.id],
           },
           approver.id,
         );

@@ -279,6 +279,28 @@ export class RemindersService {
         data: updateData,
       });
 
+      // Reconcile the occurrence chain when the schedule changes: drop the
+      // not-yet-fired occurrences from the old schedule and rebuild from the
+      // new one, otherwise both chains fire (doubled notifications).
+      const scheduleChanged =
+        updateDto.remindAt !== undefined ||
+        updateDto.repeatType !== undefined ||
+        updateDto.repeatUntil !== undefined ||
+        updateDto.dayOfMonth !== undefined ||
+        updateDto.dayOfWeek !== undefined ||
+        updateDto.status !== undefined;
+
+      if (scheduleChanged) {
+        // @ts-ignore - prisma regen pending
+        await this.prisma.reminderOccurrence.deleteMany({
+          where: { reminderId: id, state: 'SCHEDULED' },
+        });
+        await this.materializeOccurrences(
+          id,
+          new Date(Date.now() + MATERIALIZE_WINDOW_DAYS * 24 * 60 * 60 * 1000),
+        );
+      }
+
       return this.reminderMapper(reminder);
     }, 'Updating reminder');
   }
@@ -813,18 +835,14 @@ export class RemindersService {
       }
 
       const typeId = await this.getOrCreateReminderNotificationType();
-      const roleIds: string[] = [
-        ...new Set(
-          recipients.map((r: any) => r.roleId).filter(Boolean) as string[],
-        ),
+      // Target the resolved users directly (role broadcast would over-deliver
+      // and produce no email recipients — see scheduler for details).
+      const userIds: string[] = [
+        ...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[]),
       ];
-      const userIds: string[] =
-        roleIds.length === 0
-          ? [...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[])]
-          : [];
 
       let notificationId: string | undefined;
-      if (roleIds.length > 0 || userIds.length > 0) {
+      if (userIds.length > 0) {
         const notification =
           await this.notificationsService.createNotificationForRoles(
             {
@@ -833,8 +851,8 @@ export class RemindersService {
               context: reminder.entity ?? undefined,
               contextId: reminder.entityId ?? undefined,
               typeId,
-              roleIds,
-              userIds: userIds.length > 0 ? userIds : undefined,
+              roleIds: [],
+              userIds,
             },
             userId,
           );

@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { GeneralStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ApprovalsService } from '../../approvals/approvals.service';
+import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { RemindersService } from '../../reminders/reminders.service';
 import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
 import { RiskAssessmentService } from './risk-assessment.service';
@@ -10,6 +11,7 @@ describe('RiskAssessmentService', () => {
     let service: RiskAssessmentService;
     let prismaService: PrismaService;
     let approvalsService: ApprovalsService;
+    let masterApprovalsService: MasterApprovalsService;
     let remindersService: RemindersService;
     let riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService;
 
@@ -103,6 +105,9 @@ describe('RiskAssessmentService', () => {
         } as unknown as PrismaService;
 
         approvalsService = {} as ApprovalsService;
+        masterApprovalsService = {
+            sendApprovalRequestNotifications: jest.fn(),
+        } as unknown as MasterApprovalsService;
         remindersService = {
             create: jest.fn(),
         } as unknown as RemindersService;
@@ -114,6 +119,7 @@ describe('RiskAssessmentService', () => {
         service = new RiskAssessmentService(
             prismaService,
             approvalsService,
+            masterApprovalsService,
             remindersService,
             riskAssessmentZohoSyncService,
         );
