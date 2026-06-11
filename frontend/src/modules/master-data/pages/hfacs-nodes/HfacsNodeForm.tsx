@@ -15,6 +15,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -215,15 +216,11 @@ export default function HfacsNodeForm({
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Code {labels.codeRequired && '*'}{' '}
-                      <span className="text-muted-foreground font-normal text-xs">
-                        ({labels.codeHint})
-                      </span>
-                    </FormLabel>
+                    <FormLabel>Code {labels.codeRequired && '*'}</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. OC_001" {...field} />
                     </FormControl>
+                    <FormDescription>{labels.codeHint}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
