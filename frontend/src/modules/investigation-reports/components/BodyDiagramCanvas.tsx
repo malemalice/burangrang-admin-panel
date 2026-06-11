@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 interface BodyDiagramCanvasProps {
   value?: string | null;
   onChange?: (url: string | null) => void;
+  onUploadingChange?: (uploading: boolean) => void;
   readOnly?: boolean;
   uploadCategoryId?: string | null;
 }
@@ -29,6 +30,7 @@ const BG_IMAGE_SRC = '/images/placeholder_body_injuries.png';
 const BodyDiagramCanvas = ({
   value,
   onChange,
+  onUploadingChange,
   readOnly = false,
   uploadCategoryId,
 }: BodyDiagramCanvasProps) => {
@@ -165,8 +167,13 @@ const BodyDiagramCanvas = ({
 
   const handleUpload = async () => {
     const canvas = canvasRef.current;
-    if (!canvas || !uploadCategoryId) return;
+    if (!canvas) return;
+    if (!uploadCategoryId) {
+      toast.error('Upload not ready. Please try again in a moment.');
+      return;
+    }
     setIsUploading(true);
+    onUploadingChange?.(true);
     try {
       const blob = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'),
@@ -180,6 +187,7 @@ const BodyDiagramCanvas = ({
       toast.error('Failed to save body diagram. Please try again.');
     } finally {
       setIsUploading(false);
+      onUploadingChange?.(false);
     }
   };
 

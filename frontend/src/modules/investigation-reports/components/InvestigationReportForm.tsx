@@ -280,6 +280,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
   const [hfacsLoading, setHfacsLoading] = useState(true);
   const [departments, setDepartments] = useState<SearchableSelectOption[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [isDiagramUploading, setIsDiagramUploading] = useState(false);
 
   const latentTier1s = useMemo(
     () => hfacsTree.filter((n) => n.section === 'LATENT_FAILURE'),
@@ -816,7 +817,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
         </Card>
 
         {/* Section B — Injury Details (reactive from Section C + editable B4) */}
-        <SectionBEditable form={form} uploadCategoryId={uploadCategoryId} />
+        <SectionBEditable form={form} uploadCategoryId={uploadCategoryId} onDiagramUploadingChange={setIsDiagramUploading} />
 
         {/* Section C — Injured Persons (editable) */}
         <Card>
@@ -1475,10 +1476,10 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/40">
+                      <th className="text-left p-2 font-medium whitespace-nowrap">Role / Peran</th>
                       <th className="text-left p-2 font-medium whitespace-nowrap">Investigator Team / Tim Penyidik</th>
                       <th className="text-left p-2 font-medium whitespace-nowrap">Name / Nama</th>
                       <th className="text-left p-2 font-medium whitespace-nowrap">Date / Tanggal</th>
-                      <th className="w-10 p-2" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1487,12 +1488,16 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                       const label = role ? SIGNATORY_ROLE_LABELS[role] : null;
                       return (
                         <tr key={field.id} className="border-b last:border-0">
-                          <td className="p-2 align-bottom">
-                            {label && (
-                              <p className="text-xs font-medium text-muted-foreground mb-1">
-                                {label.en} / {label.id}
-                              </p>
+                          <td className="p-2 align-middle whitespace-nowrap">
+                            {label ? (
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {label.en}<br /><span className="text-muted-foreground/70">{label.id}</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
+                          </td>
+                          <td className="p-2 align-middle">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.roleName`}
@@ -1506,7 +1511,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                               )}
                             />
                           </td>
-                          <td className="p-2 align-bottom">
+                          <td className="p-2 align-middle">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.name`}
@@ -1520,7 +1525,7 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
                               )}
                             />
                           </td>
-                          <td className="p-2 align-bottom">
+                          <td className="p-2 align-middle">
                             <FormField
                               control={form.control}
                               name={`signatories.${index}.signedAt`}
@@ -1572,21 +1577,21 @@ const InvestigationReportForm = ({ incident, report, mode }: Props) => {
             type="button"
             variant="outline"
             onClick={() => navigate(-1)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDiagramUploading}
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDiagramUploading}
             onClick={form.handleSubmit((d) => onSubmit(d))}
           >
             <Save className="mr-1 h-4 w-4" />
-            Save as Draft
+            {isDiagramUploading ? 'Saving diagram…' : 'Save as Draft'}
           </Button>
           <Button
             type="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDiagramUploading}
             onClick={form.handleSubmit((d) => onSubmit(d, InvestigationStatusEnum.COMPLETE))}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
@@ -1658,12 +1663,13 @@ const INCIDENT_CLASSIFICATION_OPTIONS: { value: IncidentClassificationEnum; en: 
 interface SectionBEditableProps {
   form: ReturnType<typeof useForm<FormValues>>;
   uploadCategoryId: string | null;
+  onDiagramUploadingChange: (uploading: boolean) => void;
 }
 
 const toggleArrayValue = (arr: string[], value: string): string[] =>
   arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 
-const SectionBEditable = ({ form, uploadCategoryId }: SectionBEditableProps) => {
+const SectionBEditable = ({ form, uploadCategoryId, onDiagramUploadingChange }: SectionBEditableProps) => {
   const bodyPartsSummary = form.watch('bodyPartsSummary');
   const injuryTypesSummary = form.watch('injuryTypesSummary');
   const mechanismsSummary = form.watch('mechanismsSummary');
@@ -1700,6 +1706,7 @@ const SectionBEditable = ({ form, uploadCategoryId }: SectionBEditableProps) => 
           <BodyDiagramCanvas
             value={form.watch('bodyDiagramUrl')}
             onChange={(url) => form.setValue('bodyDiagramUrl', url, { shouldDirty: true })}
+            onUploadingChange={onDiagramUploadingChange}
             uploadCategoryId={uploadCategoryId}
           />
         </div>

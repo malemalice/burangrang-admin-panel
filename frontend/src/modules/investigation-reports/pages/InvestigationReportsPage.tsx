@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -111,18 +111,15 @@ const InvestigationReportsPage = () => {
     if (selectedIds.size === 0) return;
     try {
       setIsBulkExporting(true);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      const children = Array.from(bulkPdfRef.current?.children ?? []);
-      for (let i = 0; i < children.length; i++) {
-        const fakeRef = { current: children[i] as HTMLElement };
-        await generateTableAwarePdf(
-          fakeRef,
-          buildPdfOptions({
-            method: 'save',
-            filename: `${selectedReports[i]?.reportNumber ?? `report-${i + 1}`}.pdf`,
-          }),
-        );
-      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const filename =
+        selectedReports.length === 1
+          ? `${selectedReports[0].reportNumber}.pdf`
+          : `investigation-reports-export-${selectedReports.length}.pdf`;
+      await generateTableAwarePdf(
+        bulkPdfRef as React.MutableRefObject<HTMLElement | null>,
+        buildPdfOptions({ method: 'save', filename }),
+      );
     } catch (error) {
       console.error('Failed to export PDF:', error);
       toast.error('Failed to export PDFs');

@@ -32,7 +32,7 @@ export function Editor({ value, onChange, className }: EditorProps) {
   }
 
   return (
-    <div className={cn('border rounded-md', className)} onClick={() => editor?.commands.focus()}>
+    <div className={cn('border rounded-md', className)}>
       <div className="border-b p-2 flex gap-2">
         <Button
           type="button"
@@ -71,7 +71,12 @@ export function Editor({ value, onChange, className }: EditorProps) {
           <ListOrdered className="h-4 w-4" />
         </Button>
       </div>
-      <EditorContent editor={editor} className="p-4 min-h-[150px] prose prose-sm max-w-none [&_.ProseMirror]:min-h-[130px] [&_.ProseMirror]:cursor-text" />
+      <div
+        className="cursor-text p-4 min-h-[150px]"
+        onClick={() => editor.commands.focus()}
+      >
+        <EditorContent editor={editor} className="prose prose-sm max-w-none [&_.ProseMirror]:min-h-[130px] [&_.ProseMirror]:outline-none" />
+      </div>
     </div>
   );
 } 
