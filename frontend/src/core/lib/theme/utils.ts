@@ -125,7 +125,7 @@ interface UseThemeReturn {
 // Initialize theme immediately on module load to prevent flash of wrong theme
 // This runs before React renders anything
 (() => {
-  const savedTheme = (localStorage.getItem('theme-color') as ThemeColor) || 'blue';
+  const savedTheme = (localStorage.getItem('theme-color') as ThemeColor) || 'navy';
   const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
   const initialMode: ThemeMode = 
     (savedMode === 'dark' || savedMode === 'light') 
@@ -153,10 +153,10 @@ export const useTheme = (): UseThemeReturn => {
   // Flag to track if this is the initial mount
   const [isInitialMount, setIsInitialMount] = useState(true);
 
-  // Get initial theme from localStorage or use default 'blue'
+  // Get initial theme from localStorage or use default 'navy'
   const [theme, setThemeState] = useState<ThemeColor>(() => {
     const savedTheme = localStorage.getItem('theme-color');
-    return (savedTheme as ThemeColor) || 'blue';
+    return (savedTheme as ThemeColor) || 'navy';
   });
 
   // Get initial mode from localStorage or system preference
