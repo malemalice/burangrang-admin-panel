@@ -27,7 +27,7 @@ export const useNotifications = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch notifications';
       setError(errorMessage);
-      toast.error(errorMessage);
+      console.error('Failed to fetch notifications:', err);
     } finally {
       setIsLoading(false);
     }

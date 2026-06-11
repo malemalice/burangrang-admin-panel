@@ -43,24 +43,39 @@ const MenusPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [menuToDelete, setMenuToDelete] = useState<Menu | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
+  // Debounce search term — fixes UMM-022 (page refresh on every keystroke)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Handle search
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setPageIndex(0); // Reset to first page when searching
+    setPageIndex(0);
   };
+
+  // Spaces-only search: raw term is non-empty but trimmed is empty → show no results (UMM-005)
+  const isSpacesOnlySearch = searchTerm.length > 0 && searchTerm.trim().length === 0;
 
   // Load menus when dependencies change - using the hook's fetchMenus
   useEffect(() => {
+    // Skip fetch when search is whitespace-only; empty display is handled in render
+    if (debouncedSearch.length > 0 && debouncedSearch.trim().length === 0) return;
+
     fetchMenus({
-      page: pageIndex + 1, // API expects 1-based pagination
+      page: pageIndex + 1,
       limit,
-      search: searchTerm?.trim() || undefined, // Only include search if it has a non-empty trimmed value
+      search: debouncedSearch.trim() || undefined,
     });
-  }, [fetchMenus, pageIndex, limit, searchTerm]);
+  }, [fetchMenus, pageIndex, limit, debouncedSearch]);
 
   const handleDeleteClick = (menu: Menu, event?: React.MouseEvent) => {
     event?.stopPropagation();
@@ -313,14 +328,14 @@ const MenusPage = () => {
 
       <DataTable
         columns={columns}
-        data={menus || []}
+        data={isSpacesOnlySearch ? [] : (menus || [])}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalMenus / limit),
+          pageCount: isSpacesOnlySearch ? 0 : Math.ceil(totalMenus / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalMenus
+          total: isSpacesOnlySearch ? 0 : totalMenus
         }}
         isLoading={isLoading}
         onSearch={handleSearch}
