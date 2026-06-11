@@ -114,8 +114,12 @@ export class RemindersScheduler {
       const roleIds = [
         ...new Set(recipients.map((r: any) => r.roleId).filter(Boolean)),
       ] as string[];
+      const userIds: string[] =
+        roleIds.length === 0
+          ? [...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[])]
+          : [];
 
-      if (roleIds.length > 0) {
+      if (roleIds.length > 0 || userIds.length > 0) {
         try {
           const notification =
             await this.notificationsService.createNotificationForRoles(
@@ -126,6 +130,7 @@ export class RemindersScheduler {
                 contextId: reminder.entityId ?? undefined,
                 typeId: await this.remindersService.getOrCreateReminderNotificationType(),
                 roleIds,
+                userIds: userIds.length > 0 ? userIds : undefined,
               },
               reminder.createdBy,
             );

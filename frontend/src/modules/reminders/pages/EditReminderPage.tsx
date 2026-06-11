@@ -63,7 +63,7 @@ const EditReminderPage = () => {
     <>
       <PageHeader
         title="Edit Reminder"
-        subtitle={`Modify the details of "${reminder.title || reminder.id}"`}
+        subtitle={`Modify the details of "${reminder.message || reminder.id}"`}
         actions={
           <Button variant="outline" onClick={() => navigate('/reminders')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Reminders

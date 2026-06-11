@@ -176,7 +176,10 @@ export class RemindersService {
       if (fromDate || toDate) {
         where.remindAt = {};
         if (fromDate) where.remindAt.gte = new Date(fromDate);
-        if (toDate) where.remindAt.lte = new Date(toDate);
+        if (toDate) {
+          const normalized = toDate.includes('T') ? toDate : `${toDate}T23:59:59.999Z`;
+          where.remindAt.lte = new Date(normalized);
+        }
       }
 
       if (search) {
@@ -254,9 +257,13 @@ export class RemindersService {
       if (updateDto.remindAt !== undefined) {
         updateData.remindAt = new Date(updateDto.remindAt);
         if (!updateDto.allowPast) {
-          const bufferTime = new Date(Date.now() + 1000);
-          if (updateData.remindAt <= bufferTime) {
-            throw new Error('Remind at date must be in the future');
+          const existingMs = new Date(existing.remindAt as any).getTime();
+          const isUnchanged = Math.abs(updateData.remindAt.getTime() - existingMs) <= 60_000;
+          if (!isUnchanged) {
+            const bufferTime = new Date(Date.now() + 1000);
+            if (updateData.remindAt <= bufferTime) {
+              throw new Error('Remind at date must be in the future');
+            }
           }
         }
       }
@@ -282,17 +289,7 @@ export class RemindersService {
       this.errorHandler.throwIfNotFoundById('Reminder', id, existing);
       await this.assertCanManage(existing, userId);
 
-      await this.prisma.$transaction([
-        // @ts-ignore
-        this.prisma.reminderOccurrence.updateMany({
-          where: { reminderId: id, state: 'SCHEDULED' },
-          data: { state: 'DISMISSED' },
-        }),
-        this.prisma.reminder.update({
-          where: { id },
-          data: { status: 'CANCELLED' as any },
-        }),
-      ]);
+      await this.prisma.reminder.delete({ where: { id } });
     }, 'Deleting reminder');
   }
 
@@ -821,9 +818,13 @@ export class RemindersService {
           recipients.map((r: any) => r.roleId).filter(Boolean) as string[],
         ),
       ];
+      const userIds: string[] =
+        roleIds.length === 0
+          ? [...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[])]
+          : [];
 
       let notificationId: string | undefined;
-      if (roleIds.length > 0) {
+      if (roleIds.length > 0 || userIds.length > 0) {
         const notification =
           await this.notificationsService.createNotificationForRoles(
             {
@@ -833,6 +834,7 @@ export class RemindersService {
               contextId: reminder.entityId ?? undefined,
               typeId,
               roleIds,
+              userIds: userIds.length > 0 ? userIds : undefined,
             },
             userId,
           );
