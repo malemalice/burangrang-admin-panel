@@ -857,14 +857,13 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
       // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
       let statusToSet = data.status;
       if (isSuperUser) {
-        if (resolvedMode === 'creator') {
-          statusToSet = GeneralStatusEnum.OPEN;
-        } else if (resolvedMode === 'investigator') {
-          // Investigator: keep OPEN in update; submit API will move to WAITING_APPROVAL after save
+        if (resolvedMode === 'investigator') {
+          // Investigator: keep OPEN so submit API can transition to WAITING_APPROVAL
           statusToSet = GeneralStatusEnum.OPEN;
         } else if (resolvedMode === 'approver') {
           return;
         }
+        // creator mode: use data.status — super-admin may set any status
       } else if (resolvedMode === 'investigator') {
         // Investigator (non-super_admin): allow OPEN or CLOSE from form; otherwise keep current
         statusToSet =
