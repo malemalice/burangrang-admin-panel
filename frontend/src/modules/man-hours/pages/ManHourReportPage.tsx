@@ -102,7 +102,7 @@ export default function ManHourReportPage() {
       const excelData: any[] = [];
 
       // Add header row
-      const headerRow = ['Classes', 'Group', 'Study Hour'];
+      const headerRow = ['Classes', 'Group', 'Work / Study Hour'];
       columnHeaders.forEach(({ label }) => headerRow.push(label));
       headerRow.push('Total');
       excelData.push(headerRow);
@@ -145,7 +145,7 @@ export default function ManHourReportPage() {
       const colWidths = [
         { wch: 20 }, // Classes
         { wch: 12 }, // Group
-        { wch: 12 }, // Study Hour
+        { wch: 18 }, // Work / Study Hour
         ...columnHeaders.map(() => ({ wch: 10 })),
         { wch: 12 }, // Total
       ];
@@ -267,7 +267,7 @@ export default function ManHourReportPage() {
                       Classes
                     </th>
                     <th className="sticky left-[180px] top-0 z-30 bg-blue-600 px-4 py-3 text-right font-semibold w-[100px] border-r shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                      Study Hour
+                      Work / Study Hour
                     </th>
                     {columnHeaders.map(({ key, label }) => (
                       <th
