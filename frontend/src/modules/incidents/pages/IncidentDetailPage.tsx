@@ -734,7 +734,7 @@ const IncidentDetailPage = () => {
               </div>
               {incident.controlMeasure && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Control Measure</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Action Taken Following The Incident</h3>
                   <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
                 </div>
               )}

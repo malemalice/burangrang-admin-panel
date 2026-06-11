@@ -69,7 +69,7 @@ export default function HfacsNodesPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await hfacsNodeService.getTree();
+      const data = await hfacsNodeService.getTree({ includeInactive: true });
       setTree(data);
     } catch {
       toast.error('Failed to load HFACS catalogue');
@@ -388,7 +388,7 @@ export default function HfacsNodesPage() {
         </TabsContent>
       </Tabs>
 
-      <div className="mb-4">
+      <div className="mb-4 py-1">
         <Input
           placeholder="Search labels or codes..."
           value={searchTerm}

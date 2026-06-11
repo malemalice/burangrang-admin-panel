@@ -2611,10 +2611,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   name="controlMeasure"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Control Measure</FormLabel>
+                      <FormLabel>Action Taken Following The Incident</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter control measures"
+                          placeholder="Enter action taken following the incident"
                           className="min-h-[100px]"
                           {...field}
                           disabled={isFieldDisabled('controlMeasure')}

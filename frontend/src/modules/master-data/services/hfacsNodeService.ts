@@ -29,8 +29,10 @@ const hfacsNodeService = {
     return response.data;
   },
 
-  async getTree(): Promise<HfacsNodeDTO[]> {
-    const response = await api.get('/hfacs-nodes/tree?options=true');
+  async getTree(opts: { includeInactive?: boolean } = {}): Promise<HfacsNodeDTO[]> {
+    const params = new URLSearchParams({ options: 'true' });
+    if (opts.includeInactive) params.append('includeInactive', 'true');
+    const response = await api.get(`/hfacs-nodes/tree?${params.toString()}`);
     return response.data;
   },
 

@@ -138,16 +138,17 @@ export class HfacsNodesService {
     });
   }
 
-  async findTree(): Promise<HfacsNodeDto[]> {
+  async findTree(includeInactive = false): Promise<HfacsNodeDto[]> {
+    const activeFilter = includeInactive ? {} : { isActive: true };
     const roots = await this.prisma.hfacsNode.findMany({
-      where: { parentId: null, deletedAt: null, isActive: true },
+      where: { parentId: null, deletedAt: null, ...activeFilter },
       include: {
         children: {
-          where: { deletedAt: null, isActive: true },
+          where: { deletedAt: null, ...activeFilter },
           orderBy: { order: 'asc' },
           include: {
             children: {
-              where: { deletedAt: null, isActive: true },
+              where: { deletedAt: null, ...activeFilter },
               orderBy: { order: 'asc' },
             },
           },

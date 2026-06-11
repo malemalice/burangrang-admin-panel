@@ -56,11 +56,12 @@ export class HfacsNodesController {
   @Permissions('hfacs-node:list')
   @ApiOperation({
     summary:
-      'Get full active HFACS tree, grouped by section (used by Investigation Report Section H & I)',
+      'Get full HFACS tree, grouped by section. Pass includeInactive=true (admin only) to include inactive nodes.',
   })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
   @ApiResponse({ status: 200, type: [HfacsNodeDto] })
-  findTree(): Promise<HfacsNodeDto[]> {
-    return this.service.findTree();
+  findTree(@Query('includeInactive') includeInactive?: string): Promise<HfacsNodeDto[]> {
+    return this.service.findTree(includeInactive === 'true');
   }
 
   @Get()
