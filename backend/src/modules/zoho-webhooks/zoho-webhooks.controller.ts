@@ -39,6 +39,61 @@ export class ZohoWebhooksController {
     private readonly prisma: PrismaService,
   ) { }
 
+  @Get('integrations/zoho/test-inbound')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Validate inbound webhook configuration (no DB writes)' })
+  @ApiResponse({ status: 200, description: 'Inbound config validation result' })
+  async testInboundConfig() {
+    const [webhookEnabled, authMode, secret, jwtToken, deptId, userId] = await Promise.all([
+      this.zohoConfigService.getBoolean(SETTINGS_KEYS.ZOHO_WEBHOOK_ENABLED, false),
+      this.zohoConfigService.getWebhookAuthMode(),
+      this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_WEBHOOK_SECRET, ''),
+      this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_WEBHOOK_JWT, ''),
+      this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_DEFAULT_DEPARTMENT_ID, ''),
+      this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_INTEGRATION_USER_ID, ''),
+    ]);
+
+    const validModes = ['secret', 'signature', 'jwt'];
+    const hasAuthMode = validModes.includes(authMode);
+    const usesSecret = authMode === 'secret' || authMode === 'signature';
+    const hasSecret = usesSecret ? secret.length > 0 : null;
+    const hasJwt = authMode === 'jwt' ? jwtToken.length > 0 : null;
+    const hasDefaultDepartmentId = deptId.length > 0;
+    const hasIntegrationUserId = userId.length > 0;
+
+    const issues: string[] = [];
+    if (!webhookEnabled) issues.push('Inbound webhook is disabled');
+    if (!hasAuthMode) issues.push(`Unknown auth mode "${authMode}"`);
+    if (hasSecret === false) issues.push('Webhook secret is not configured');
+    if (hasJwt === false) issues.push('Webhook JWT token is not configured');
+    if (!hasDefaultDepartmentId) issues.push('Default Department ID is missing');
+    if (!hasIntegrationUserId) issues.push('Integration User ID is missing');
+
+    return {
+      ok: issues.length === 0,
+      authMode,
+      checks: {
+        webhookEnabled,
+        hasAuthMode,
+        hasSecret,
+        hasJwt,
+        hasDefaultDepartmentId,
+        hasIntegrationUserId,
+      },
+      issues,
+    };
+  }
+
+  @Get('integrations/zoho/test-outbound')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test live connection to Zoho SDP API' })
+  @ApiResponse({ status: 200, description: 'Outbound connection test result' })
+  async testOutboundConnection() {
+    return this.zohoDeskApiClient.testConnection();
+  }
+
   @Get('integrations/zoho/health')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

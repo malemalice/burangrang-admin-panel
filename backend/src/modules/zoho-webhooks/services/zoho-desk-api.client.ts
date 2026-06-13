@@ -59,7 +59,8 @@ export class ZohoDeskApiClient {
       };
     }
 
-    const url = `${baseUrl}/api/${version}/requests?page_size=1`;
+    const inputData = encodeURIComponent(JSON.stringify({ list_info: { row_count: 1, start_index: 1 } }));
+    const url = `${baseUrl}/api/${version}/requests?input_data=${inputData}`;
 
     try {
       const response = await this.sendHttpsGetRequest({ url, authToken, allowSelfSigned });

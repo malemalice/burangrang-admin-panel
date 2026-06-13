@@ -113,6 +113,8 @@ const SettingsPage = () => {
   const [retryMaxMs, setRetryMaxMs] = useState('60000');
   const [workerBatchSize, setWorkerBatchSize] = useState('5');
   const [isSavingWorker, setIsSavingWorker] = useState(false);
+  const [isTestingInbound, setIsTestingInbound] = useState(false);
+  const [isTestingOutbound, setIsTestingOutbound] = useState(false);
 
   // App branding states (logos)
   const [logoCacheBust, setLogoCacheBust] = useState<number>(() => Date.now());
@@ -341,6 +343,40 @@ const SettingsPage = () => {
       toast.error('Failed to load Zoho integration status');
     } finally {
       setIsLoadingZohoHealth(false);
+    }
+  };
+
+  const handleTestInbound = async () => {
+    setIsTestingInbound(true);
+    try {
+      const res = await api.get('/integrations/zoho/test-inbound');
+      const data = res.data as { ok: boolean; issues: string[] };
+      if (data.ok) {
+        toast.success('Inbound config looks good — all checks passed');
+      } else {
+        toast.error(`Inbound config issues: ${data.issues.join(', ')}`);
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Test failed');
+    } finally {
+      setIsTestingInbound(false);
+    }
+  };
+
+  const handleTestOutbound = async () => {
+    setIsTestingOutbound(true);
+    try {
+      const res = await api.get('/integrations/zoho/test-outbound');
+      const data = res.data as { ok: boolean; statusCode?: number; latencyMs: number; error?: string };
+      if (data.ok) {
+        toast.success(`Connected to Zoho SDP — HTTP ${data.statusCode ?? '2xx'} in ${data.latencyMs}ms`);
+      } else {
+        toast.error(`Zoho SDP unreachable: ${data.error ?? 'Unknown error'} (${data.latencyMs}ms)`);
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Test failed');
+    } finally {
+      setIsTestingOutbound(false);
     }
   };
 
@@ -1211,7 +1247,10 @@ const SettingsPage = () => {
                 <p className="text-xs text-muted-foreground mt-1">Maps Zoho ticket status strings to HSE GeneralStatusEnum values.</p>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={handleTestInbound} disabled={isTestingInbound || isLoadingZoho}>
+                  {isTestingInbound ? 'Testing...' : 'Test Inbound'}
+                </Button>
                 <ThemeButton onClick={handleSaveInbound} disabled={isSavingInbound || isLoadingZoho}>
                   {isSavingInbound ? 'Saving...' : 'Save Inbound Settings'}
                 </ThemeButton>
@@ -1282,7 +1321,10 @@ const SettingsPage = () => {
                 <p className="text-xs text-muted-foreground mt-1">Maps HSE GeneralStatusEnum values to Zoho SDP status strings.</p>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={handleTestOutbound} disabled={isTestingOutbound || isLoadingZoho}>
+                  {isTestingOutbound ? 'Testing...' : 'Test Outbound'}
+                </Button>
                 <ThemeButton onClick={handleSaveOutbound} disabled={isSavingOutbound || isLoadingZoho}>
                   {isSavingOutbound ? 'Saving...' : 'Save Outbound Settings'}
                 </ThemeButton>
