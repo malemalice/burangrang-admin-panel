@@ -130,6 +130,7 @@ export class SettingsController {
 
   // Theme-specific endpoints (must come before generic routes)
   @Get('theme')
+  @Public()
   @ApiOperation({ summary: 'Get theme settings' })
   
   @ApiResponse({

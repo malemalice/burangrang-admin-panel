@@ -38,10 +38,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   // Initialize CSS variables when the component mounts
   useEffect(() => {
     const loadBackendTheme = async () => {
-      const accessToken = localStorage.getItem('access_token');
       const hasLoadedTheme = sessionStorage.getItem('theme-loaded');
 
-      if (!accessToken || hasLoadedTheme) return;
+      if (hasLoadedTheme) return;
 
       try {
         sessionStorage.setItem('theme-loaded', 'true');

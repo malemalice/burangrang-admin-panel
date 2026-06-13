@@ -179,12 +179,6 @@ export const useTheme = (): UseThemeReturn => {
     try {
       setIsLoading(true);
 
-      // Check if user is authenticated before making API calls
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        return { color: theme, mode };
-      }
-
       // Dynamically import settings service to avoid circular dependencies
       const { default: settingsService } = await import('@/modules/settings/services/settingsService');
 
