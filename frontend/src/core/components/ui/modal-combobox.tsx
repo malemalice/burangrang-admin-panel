@@ -216,7 +216,8 @@ export function ModalCombobox({
           position: 'fixed',
           top: rect.bottom + GAP,
           left: rect.left,
-          width: rect.width,
+          minWidth: rect.width,
+          maxWidth: Math.min(window.innerWidth - rect.left - 16, 600),
           maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceBelow),
         });
       } else {
@@ -224,7 +225,8 @@ export function ModalCombobox({
           position: 'fixed',
           bottom: window.innerHeight - rect.top + GAP,
           left: rect.left,
-          width: rect.width,
+          minWidth: rect.width,
+          maxWidth: Math.min(window.innerWidth - rect.left - 16, 600),
           maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceAbove),
         });
       }
@@ -320,7 +322,7 @@ export function ModalCombobox({
                       <Check className="h-4 w-4" />
                     )}
                   </span>
-                  <span className="truncate">{option.label}</span>
+                  <span className="break-words">{option.label}</span>
                 </div>
               ))
             )}
