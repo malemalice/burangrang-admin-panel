@@ -19,6 +19,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { Editor } from '@/core/components/ui/editor';
 import {
   Select,
   SelectContent,
@@ -1393,12 +1394,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter incident description"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('description')}
-                          readOnly={isFieldDisabled('description')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2613,12 +2612,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Action Taken Following The Incident</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter action taken following the incident"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('controlMeasure')}
-                          readOnly={isFieldDisabled('controlMeasure')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2633,12 +2630,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Expected Outcome</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter expected outcome"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('expectedOutcome')}
-                          readOnly={isFieldDisabled('expectedOutcome')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2701,12 +2696,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Treatment Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter treatment description"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('treatmentDescription')}
-                          readOnly={isFieldDisabled('treatmentDescription')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2721,12 +2714,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Resolution</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter resolution"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('resolution')}
-                          readOnly={isFieldDisabled('resolution')}
                         />
                       </FormControl>
                       <FormMessage />

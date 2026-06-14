@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2, Copy, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Copy, Eye, EyeOff, Info, RefreshCw } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
@@ -17,6 +17,7 @@ import { useTheme, ThemeColor } from '@/core/lib/theme';
 import { themeColors } from '@/core/lib/theme/colors';
 import { useAppName } from '../hooks/useSettings';
 import settingsService from '../services/settingsService';
+import { FieldMappingEditor, MappingRow, jsonToRows, rowsToJson } from '../components/FieldMappingEditor';
 import areaService from '@/modules/master-data/services/areaService';
 import riskCategoryService from '@/modules/master-data/services/riskCategoryService';
 import departmentService from '@/modules/master-data/services/departmentService';
@@ -24,6 +25,7 @@ import userService from '@/modules/users/services/userService';
 import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import { RiskCategory } from '@/core/lib/types';
 import api from '@/core/lib/api';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/core/components/ui/dialog';
 import ImageUpload from '@/modules/uploads/components/ImageUpload';
 
@@ -119,15 +121,12 @@ const SettingsPage = () => {
   const [isSavingInbound, setIsSavingInbound] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   // Incident field maps (Zoho value -> HSE value); shared by inbound/outbound
-  const [areaMap, setAreaMap] = useState('');
-  const [areaMapError, setAreaMapError] = useState('');
-  const [riskCategoryMap, setRiskCategoryMap] = useState('');
-  const [riskCategoryMapError, setRiskCategoryMapError] = useState('');
-  const [incidentTypeMap, setIncidentTypeMap] = useState('');
-  const [incidentTypeMapError, setIncidentTypeMapError] = useState('');
-  const [incidentClassificationMap, setIncidentClassificationMap] = useState('');
-  const [incidentClassificationMapError, setIncidentClassificationMapError] = useState('');
+  const [areaRows, setAreaRows] = useState<MappingRow[]>([]);
+  const [riskCategoryRows, setRiskCategoryRows] = useState<MappingRow[]>([]);
+  const [incidentTypeRows, setIncidentTypeRows] = useState<MappingRow[]>([]);
+  const [incidentClassificationRows, setIncidentClassificationRows] = useState<MappingRow[]>([]);
   const [isSavingIncidentMap, setIsSavingIncidentMap] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState(false);
   const [sdpBaseUrl, setSdpBaseUrl] = useState('');
   const [sdpAuthtoken, setSdpAuthtoken] = useState('');
   const [sdpApiVersion, setSdpApiVersion] = useState('v3');
@@ -460,10 +459,10 @@ const SettingsPage = () => {
         setDefaultIncidentType(values[16] || 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE');
         setDefaultIncidentClassification(values[17] || 'MINOR');
         setDefaultRiskCategoryId(values[18] || '');
-        setAreaMap(values[19] || '');
-        setRiskCategoryMap(values[20] || '');
-        setIncidentTypeMap(values[21] || '');
-        setIncidentClassificationMap(values[22] || '');
+        setAreaRows(jsonToRows(values[19] || ''));
+        setRiskCategoryRows(jsonToRows(values[20] || ''));
+        setIncidentTypeRows(jsonToRows(values[21] || ''));
+        setIncidentClassificationRows(jsonToRows(values[22] || ''));
         setSdpAuthtoken('');
       } catch {
         toast.error('Failed to load Zoho settings');
@@ -573,38 +572,59 @@ const SettingsPage = () => {
   };
 
   const handleSaveIncidentMap = async () => {
-    const maps: Array<{ value: string; setError: (msg: string) => void }> = [
-      { value: areaMap, setError: setAreaMapError },
-      { value: riskCategoryMap, setError: setRiskCategoryMapError },
-      { value: incidentTypeMap, setError: setIncidentTypeMapError },
-      { value: incidentClassificationMap, setError: setIncidentClassificationMapError },
-    ];
-    for (const m of maps) {
-      if (m.value.trim()) {
-        try {
-          JSON.parse(m.value);
-          m.setError('');
-        } catch {
-          m.setError('Invalid JSON — please check the format');
-          return;
-        }
-      } else {
-        m.setError('');
-      }
+    const hasIncomplete = [areaRows, riskCategoryRows, incidentTypeRows, incidentClassificationRows]
+      .some(rows => rows.some(r => r.zohoValue.trim() && !r.hseValue.trim()));
+    if (hasIncomplete) {
+      toast.error('Some rows are missing an HSE value — fill it in or remove the row');
+      return;
     }
     setIsSavingIncidentMap(true);
     try {
       await Promise.all([
-        settingsService.setSettingValue('zoho.incident.area_map', areaMap),
-        settingsService.setSettingValue('zoho.incident.risk_category_map', riskCategoryMap),
-        settingsService.setSettingValue('zoho.incident.incident_type_map', incidentTypeMap),
-        settingsService.setSettingValue('zoho.incident.incident_classification_map', incidentClassificationMap),
+        settingsService.setSettingValue('zoho.incident.area_map', rowsToJson(areaRows)),
+        settingsService.setSettingValue('zoho.incident.risk_category_map', rowsToJson(riskCategoryRows)),
+        settingsService.setSettingValue('zoho.incident.incident_type_map', rowsToJson(incidentTypeRows)),
+        settingsService.setSettingValue('zoho.incident.incident_classification_map', rowsToJson(incidentClassificationRows)),
       ]);
       toast.success('Incident field mapping saved');
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save incident field mapping');
     } finally {
       setIsSavingIncidentMap(false);
+    }
+  };
+
+  const handleDiscover = async () => {
+    setIsDiscovering(true);
+    try {
+      const res = await api.get('/integrations/zoho/field-values');
+      const discovered = res.data as {
+        area: string[];
+        riskCategory: string[];
+        incidentType: string[];
+        incidentClassification: string[];
+      };
+      const merge = (existing: MappingRow[], newValues: string[]): MappingRow[] => {
+        const seen = new Set(existing.map(r => r.zohoValue.trim()).filter(Boolean));
+        const toAdd = newValues
+          .filter(v => v && !seen.has(v))
+          .map(v => ({ id: crypto.randomUUID(), zohoValue: v, hseValue: '' }));
+        return [...existing, ...toAdd];
+      };
+      setAreaRows(prev => merge(prev, discovered.area));
+      setRiskCategoryRows(prev => merge(prev, discovered.riskCategory));
+      setIncidentTypeRows(prev => merge(prev, discovered.incidentType));
+      setIncidentClassificationRows(prev => merge(prev, discovered.incidentClassification));
+      const total = (Object.values(discovered) as string[][]).flat().length;
+      if (total === 0) {
+        toast.info('No new Zoho values found in recent webhook logs');
+      } else {
+        toast.success('Discovered Zoho values merged — select HSE values and save');
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Discovery failed');
+    } finally {
+      setIsDiscovering(false);
     }
   };
 
@@ -1481,75 +1501,107 @@ const SettingsPage = () => {
           {/* Card — Incident Field Mapping (shared by inbound/outbound) */}
           <Card>
             <CardHeader>
-              <CardTitle>Incident Field Mapping</CardTitle>
-              <CardDescription>
-                Maps Zoho values to HSE Incident fields (Zoho value → HSE value). Used to translate ticket fields between Zoho and HSE. When a Zoho value has no match here, the inbound default is used instead.
-              </CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Incident Field Mapping</CardTitle>
+                  <CardDescription className="mt-1">
+                    Maps Zoho values to HSE Incident fields (Zoho value → HSE value). When a Zoho value has no match here, the inbound default is used instead.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDiscover}
+                  disabled={isDiscovering || isLoadingZoho}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
+                  {isDiscovering ? 'Discovering…' : 'Discover from webhooks'}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="area-map">Area Map (JSON)</Label>
-                <Textarea
-                  id="area-map"
-                  value={areaMap}
-                  onChange={(e) => { setAreaMap(e.target.value); setAreaMapError(''); }}
-                  className="font-mono min-h-[120px] mt-1"
-                  placeholder='{"Warehouse":"<hse-area-uuid>","Office":"<hse-area-uuid>"}'
-                />
-                {areaMapError && (
-                  <p className="text-sm text-destructive mt-1">{areaMapError}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">Maps Zoho area values to HSE Area UUIDs.</p>
-              </div>
+            <CardContent className="space-y-6">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  Zoho SDP must be configured to send these exact field names in the webhook <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">data</code> object:{' '}
+                  <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">area</code>,{' '}
+                  <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">riskCategory</code>,{' '}
+                  <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">incidentType</code>,{' '}
+                  <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">incidentClassification</code>.{' '}
+                  The value mappings below only apply if Zoho sends those field names.
+                </AlertDescription>
+              </Alert>
 
-              <div>
-                <Label htmlFor="risk-category-map">Risk Category Map (JSON)</Label>
-                <Textarea
-                  id="risk-category-map"
-                  value={riskCategoryMap}
-                  onChange={(e) => { setRiskCategoryMap(e.target.value); setRiskCategoryMapError(''); }}
-                  className="font-mono min-h-[120px] mt-1"
-                  placeholder='{"Safety":"<hse-risk-category-uuid>","Health":"<hse-risk-category-uuid>"}'
-                />
-                {riskCategoryMapError && (
-                  <p className="text-sm text-destructive mt-1">{riskCategoryMapError}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">Maps Zoho risk category values to HSE Risk Category UUIDs.</p>
-              </div>
+              <FieldMappingEditor
+                label="Area Map"
+                description="Maps Zoho area values to HSE Area UUIDs."
+                rows={areaRows}
+                onChange={setAreaRows}
+                hseFieldConfig={{
+                  type: 'searchable',
+                  options: areaOptions.map(a => ({ value: a.id, label: a.name })),
+                  placeholder: 'Select HSE Area…',
+                }}
+                disabled={isLoadingZoho}
+              />
 
-              <div>
-                <Label htmlFor="incident-type-map">Incident Type Map (JSON)</Label>
-                <Textarea
-                  id="incident-type-map"
-                  value={incidentTypeMap}
-                  onChange={(e) => { setIncidentTypeMap(e.target.value); setIncidentTypeMapError(''); }}
-                  className="font-mono min-h-[120px] mt-1"
-                  placeholder='{"Accident":"ACCIDENT","Near Miss":"NEAR_MISS","Hazard":"DANGEROUS_OR_HAZARDOUS_OCCURRENCE"}'
-                />
-                {incidentTypeMapError && (
-                  <p className="text-sm text-destructive mt-1">{incidentTypeMapError}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">Maps Zoho incident type values to HSE IncidentTypeEnum (NEAR_MISS, ACCIDENT, DANGEROUS_OR_HAZARDOUS_OCCURRENCE).</p>
-              </div>
+              <Separator />
 
-              <div>
-                <Label htmlFor="incident-classification-map">Incident Classification Map (JSON)</Label>
-                <Textarea
-                  id="incident-classification-map"
-                  value={incidentClassificationMap}
-                  onChange={(e) => { setIncidentClassificationMap(e.target.value); setIncidentClassificationMapError(''); }}
-                  className="font-mono min-h-[120px] mt-1"
-                  placeholder='{"Major":"MAJOR","Minor":"MINOR","Fatality":"FATALITY"}'
-                />
-                {incidentClassificationMapError && (
-                  <p className="text-sm text-destructive mt-1">{incidentClassificationMapError}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">Maps Zoho incident classification values to HSE IncidentClassificationEnum (MAJOR, MINOR, FATALITY).</p>
-              </div>
+              <FieldMappingEditor
+                label="Risk Category Map"
+                description="Maps Zoho risk category values to HSE Risk Category UUIDs."
+                rows={riskCategoryRows}
+                onChange={setRiskCategoryRows}
+                hseFieldConfig={{
+                  type: 'searchable',
+                  options: riskCategoryOptions.map(r => ({ value: r.id, label: r.name })),
+                  placeholder: 'Select HSE Risk Category…',
+                }}
+                disabled={isLoadingZoho}
+              />
 
-              <div className="flex justify-end">
+              <Separator />
+
+              <FieldMappingEditor
+                label="Incident Type Map"
+                description="Maps Zoho incident type values to HSE IncidentTypeEnum."
+                rows={incidentTypeRows}
+                onChange={setIncidentTypeRows}
+                hseFieldConfig={{
+                  type: 'select',
+                  options: [
+                    { value: 'NEAR_MISS', label: 'Near Miss' },
+                    { value: 'ACCIDENT', label: 'Accident' },
+                    { value: 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE', label: 'Dangerous / Hazardous Occurrence' },
+                  ],
+                  placeholder: 'Select incident type…',
+                }}
+                disabled={isLoadingZoho}
+              />
+
+              <Separator />
+
+              <FieldMappingEditor
+                label="Incident Classification Map"
+                description="Maps Zoho incident classification values to HSE IncidentClassificationEnum."
+                rows={incidentClassificationRows}
+                onChange={setIncidentClassificationRows}
+                hseFieldConfig={{
+                  type: 'select',
+                  options: [
+                    { value: 'MAJOR', label: 'Major' },
+                    { value: 'MINOR', label: 'Minor' },
+                    { value: 'FATALITY', label: 'Fatality' },
+                  ],
+                  placeholder: 'Select classification…',
+                }}
+                disabled={isLoadingZoho}
+              />
+
+              <div className="flex justify-end pt-2">
                 <ThemeButton onClick={handleSaveIncidentMap} disabled={isSavingIncidentMap || isLoadingZoho}>
-                  {isSavingIncidentMap ? 'Saving...' : 'Save Mapping'}
+                  {isSavingIncidentMap ? 'Saving…' : 'Save Mapping'}
                 </ThemeButton>
               </div>
             </CardContent>

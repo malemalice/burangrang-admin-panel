@@ -355,6 +355,26 @@ export class IncidentZohoSyncService {
       6,
     );
 
+    const existing = await this.prisma.zohoOutboundJob.findFirst({
+      where: {
+        mappingId: params.mappingId,
+        status: { in: ['PENDING', 'PROCESSING'] },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await this.prisma.zohoOutboundJob.update({
+        where: { id: existing.id },
+        data: {
+          targetStatus: params.targetStatus,
+          requestPayload: params.payload as Prisma.InputJsonValue,
+          correlationId: params.correlationId || `corr-${randomUUID()}`,
+        },
+      });
+      return;
+    }
+
     await this.prisma.zohoOutboundJob.create({
       data: {
         mappingId: params.mappingId,

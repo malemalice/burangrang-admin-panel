@@ -338,7 +338,7 @@ const IncidentDetailPage = () => {
             {incident.description && (
               <div className="mt-6">
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-                <p className="text-sm whitespace-pre-wrap">{incident.description}</p>
+                <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.description }} />
               </div>
             )}
           </CardContent>
@@ -735,13 +735,13 @@ const IncidentDetailPage = () => {
               {incident.controlMeasure && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Action Taken Following The Incident</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.controlMeasure }} />
                 </div>
               )}
               {incident.expectedOutcome && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Expected Outcome</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.expectedOutcome }} />
                 </div>
               )}
               {incident.needToStopActivity === StopActivityEnum.YES && (
@@ -785,13 +785,13 @@ const IncidentDetailPage = () => {
               {incident.treatmentDescription && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Treatment Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.treatmentDescription}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.treatmentDescription }} />
                 </div>
               )}
               {incident.resolution && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Resolution</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.resolution}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.resolution }} />
                 </div>
               )}
             </CardContent>

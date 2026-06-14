@@ -145,6 +145,15 @@ export class ZohoWebhooksController {
     };
   }
 
+  @Get('integrations/zoho/field-values')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Discover distinct Zoho field values from recent webhook logs' })
+  @ApiResponse({ status: 200, description: 'Distinct Zoho field values seen in recent processed Ticket_Add logs' })
+  async discoverFieldValues() {
+    return this.webhookService.discoverFieldValues();
+  }
+
   @Post('integrations/zoho/webhook')
   @Public()
   @HttpCode(HttpStatus.OK)

@@ -334,16 +334,26 @@ export class ZohoWebhookService {
       params.ticketData,
     );
 
+    const currentIncident = await this.prisma.incident.findUnique({
+      where: { id: updateContext.hseTaskId },
+      select: { status: true },
+    });
+
+    const shouldUpdateStatus =
+      updateContext.mappedStatus !== null &&
+      currentIncident !== null &&
+      this.getStatusRank(updateContext.mappedStatus) > this.getStatusRank(currentIncident.status);
+
     const updatedIncident = await this.updateMappedIncidentFromZoho(
-      params.ticketData,
       updateContext,
+      shouldUpdateStatus,
     );
 
     await this.prisma.zohoTicketIncidentMap.update({
       where: { id: updateContext.mappingId },
       data: {
         lastZohoStatus: updateContext.zohoStatus,
-        lastHseStatus: updateContext.mappedStatus ?? updatedIncident.status,
+        lastHseStatus: updateContext.mappedStatus ?? (updatedIncident?.status ?? currentIncident?.status ?? undefined),
         rawPayload: params.payload as unknown as Prisma.InputJsonValue,
       },
     });
@@ -394,18 +404,33 @@ export class ZohoWebhookService {
   }
 
   private async updateMappedIncidentFromZoho(
-    ticketData: ZohoTicketAddDataDto,
     updateContext: InboundUpdateContext,
-  ) {
-    const mappedDescription = this.composeDescription(ticketData);
+    shouldUpdateStatus: boolean,
+  ): Promise<{ status: GeneralStatusEnum } | null> {
+    if (!shouldUpdateStatus) {
+      return null;
+    }
 
     return this.prisma.incident.update({
       where: { id: updateContext.hseTaskId },
       data: {
-        description: mappedDescription,
-        status: updateContext.mappedStatus ?? undefined,
+        status: updateContext.mappedStatus!,
       },
+      select: { status: true },
     });
+  }
+
+  private getStatusRank(status: GeneralStatusEnum): number {
+    const ranks: Record<GeneralStatusEnum, number> = {
+      [GeneralStatusEnum.SCHEDULED]: 0,
+      [GeneralStatusEnum.DRAFT]: 1,
+      [GeneralStatusEnum.OPEN]: 2,
+      [GeneralStatusEnum.WAITING_APPROVAL]: 3,
+      [GeneralStatusEnum.DONE]: 4,
+      [GeneralStatusEnum.CLOSE]: 4,
+      [GeneralStatusEnum.REJECTED]: 4,
+    };
+    return ranks[status] ?? 0;
   }
 
   private extractTicketData(payload: ZohoWebhookDto): ZohoTicketAddDataDto {
@@ -758,11 +783,7 @@ export class ZohoWebhookService {
   }
 
   private composeDescription(ticket: ZohoTicketAddDataDto): string {
-    const subject = ticket.subject?.trim() || 'No subject';
-    const description = ticket.description?.trim() || 'No description';
-    const priority = ticket.priority?.trim() || 'Unspecified';
-
-    return `[Zoho Subject] ${subject}\n[Zoho Priority] ${priority}\n[Zoho Description] ${description}`;
+    return ticket.description?.trim() || '';
   }
 
   private mapPriorityToIncidentPriority(
@@ -939,5 +960,46 @@ export class ZohoWebhookService {
 
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  async discoverFieldValues(): Promise<{
+    area: string[];
+    riskCategory: string[];
+    incidentType: string[];
+    incidentClassification: string[];
+  }> {
+    const logs = await this.prisma.tZohoWebhookLogs.findMany({
+      where: {
+        status: 'PROCESSED',
+        eventType: ZOHO_EVENT_TYPES.TICKET_ADD,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: { payload: true },
+    });
+
+    const area = new Set<string>();
+    const riskCategory = new Set<string>();
+    const incidentType = new Set<string>();
+    const incidentClassification = new Set<string>();
+
+    for (const log of logs) {
+      const normalized = this.normalizeInboundPayload(
+        log.payload as unknown as ZohoWebhookDto,
+      );
+      const ticket = this.extractTicketData(normalized);
+      if (ticket.area) area.add(ticket.area);
+      if (ticket.riskCategory) riskCategory.add(ticket.riskCategory);
+      if (ticket.incidentType) incidentType.add(ticket.incidentType);
+      if (ticket.incidentClassification)
+        incidentClassification.add(ticket.incidentClassification);
+    }
+
+    return {
+      area: [...area].sort(),
+      riskCategory: [...riskCategory].sort(),
+      incidentType: [...incidentType].sort(),
+      incidentClassification: [...incidentClassification].sort(),
+    };
   }
 }

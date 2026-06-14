@@ -343,9 +343,6 @@ export class IncidentsService {
     return {
       subject,
       description,
-      requester: {
-        id: '5',
-      },
       status: targetStatus ? { name: targetStatus } : { name: 'Open' },
     };
   }
