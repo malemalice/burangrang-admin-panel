@@ -31,6 +31,8 @@ import { IncidentAttachmentDto } from '../dto/incident-attachment.dto';
 import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
+import { IncidentZohoSyncService } from '../../zoho-webhooks/services/incident-zoho-sync.service';
+import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
 
 interface FindAllOptions {
   page?: number;
@@ -69,6 +71,7 @@ export class IncidentsService {
     private readonly dtoMapper: DtoMapperService,
     private readonly masterApprovalsService: MasterApprovalsService,
     private readonly notificationsService: NotificationsService,
+    private readonly incidentZohoSyncService: IncidentZohoSyncService,
   ) {
     // Initialize related entity mappers
     this.injuredPersonMapper = this.dtoMapper.createRelationMapper(
@@ -285,7 +288,89 @@ export class IncidentsService {
       'creating incident',
     );
 
+    // Outbound Zoho sync: create a Zoho ticket for HSE-originated incidents.
+    // Skip ZOHO-sourced incidents — they already have a ticket + mapping.
+    if (incident.source !== SourceEnum.ZOHO) {
+      try {
+        await this.syncCreatedIncidentToZoho(incident);
+      } catch (error) {
+        console.error(
+          `[Incident] Zoho sync failed for incident ${incident.id}, but incident was created successfully:`,
+          error,
+        );
+      }
+    }
+
     return this.incidentMapper(incident);
+  }
+
+  private async syncCreatedIncidentToZoho(incident: {
+    id: string;
+    code: string;
+    subject: string;
+    description: string | null;
+    status: GeneralStatusEnum;
+  }): Promise<void> {
+    const payload = await this.buildZohoCreatePayload(incident);
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    await this.incidentZohoSyncService.createTicketForIncident({
+      incidentId: incident.id,
+      payload,
+      lastHseStatus: incident.status,
+    });
+  }
+
+  private async buildZohoCreatePayload(incident: {
+    code: string;
+    subject: string;
+    description: string | null;
+    status: GeneralStatusEnum;
+  }): Promise<SdpRequestPayload> {
+    const targetStatus =
+      await this.incidentZohoSyncService.resolveZohoStatusForHseStatus(
+        incident.status,
+      );
+
+    const subject = incident.subject?.trim() || incident.code;
+    const description =
+      incident.description?.trim() ||
+      `Incident ${incident.code} created from HSE Dashboard`;
+
+    return {
+      subject,
+      description,
+      requester: {
+        id: '5',
+      },
+      status: targetStatus ? { name: targetStatus } : { name: 'Open' },
+    };
+  }
+
+  private async enqueueIncidentStatusSync(
+    incidentId: string,
+    oldStatus: GeneralStatusEnum,
+    newStatus: GeneralStatusEnum,
+  ): Promise<void> {
+    if (oldStatus === newStatus) {
+      return;
+    }
+
+    try {
+      await this.incidentZohoSyncService.enqueueStatusSyncIfNeeded({
+        incidentId,
+        oldStatus,
+        newStatus,
+      });
+    } catch (error) {
+      console.error(
+        `[Incident] Zoho status sync failed for incident ${incidentId}:`,
+        error,
+      );
+    }
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -705,6 +790,14 @@ export class IncidentsService {
       'updating incident',
     );
 
+    if (existingIncident) {
+      await this.enqueueIncidentStatusSync(
+        id,
+        existingIncident.status,
+        incident.status,
+      );
+    }
+
     return this.incidentMapper(incident);
   }
 
@@ -893,6 +986,8 @@ export class IncidentsService {
       // Send notification to approvers
       await this.sendSubmissionNotification(id, updated);
 
+      await this.enqueueIncidentStatusSync(id, incident.status, updated.status);
+
       return this.incidentMapper(updated);
     }, 'Submitting incident for approval');
   }
@@ -999,6 +1094,8 @@ export class IncidentsService {
 
       // Notifications are sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
+      await this.enqueueIncidentStatusSync(id, incident.status, updated.status);
+
       return this.incidentMapper(updated);
     }, 'Approving incident');
   }
@@ -1085,6 +1182,8 @@ export class IncidentsService {
       });
 
       // Rejection notification is sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
+
+      await this.enqueueIncidentStatusSync(id, incident.status, updated.status);
 
       return this.incidentMapper(updated);
     }, 'Rejecting incident');

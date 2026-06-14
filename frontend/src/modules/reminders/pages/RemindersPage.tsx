@@ -121,7 +121,7 @@ const RemindersPage = () => {
       await reminderService.deleteReminder(reminderToDelete.id);
       toast.success('Reminder deleted successfully');
       setOpenDropdownId(null); // Ensure dropdown is closed
-      fetchReminders();
+      await fetchReminders();
     } catch (error) {
       console.error('Error deleting reminder:', error);
       toast.error('Failed to delete reminder');

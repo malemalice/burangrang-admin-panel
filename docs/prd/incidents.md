@@ -3,7 +3,7 @@
 **Document type:** PRD
 **Status:** Draft
 **Audience:** Product, Backend, Frontend
-**Last updated:** 2026-05-30
+**Last updated:** 2026-06-13
 
 ## Overview
 
@@ -17,6 +17,7 @@ The Incident Management module supports reporting, tracking, and approving safet
 - Nested create/update: injured persons (name, gender, position, level of injury, body part, type of injury, mechanism of injury, department), witnesses (name, gender, position, department), third parties (name, gender, company, position — external persons such as contractors/visitors), assets (polymorphic: ASSET/HEAVY_EQUIPMENT/SAFETY_EQUIPMENT or free-text; includes brand), images (URL, caption, order), attachments (URL, order).
 - Workflow: submit for approval, approve (with optional notes), reject (with reason); check approval rights; get approval timeline.
 - List supports `options=true` for permission bypass (e.g. selects).
+- **Zoho SDP sync (bidirectional):** Inbound Zoho ServiceDesk tickets auto-create/update Incidents (tagged `source=ZOHO`, with configured defaults for required fields); outbound Incident status changes push back to the linked Zoho ticket. See [Zoho SDP Integration PRD](zoho-integration.md).
 
 ## User Roles & Permissions
 

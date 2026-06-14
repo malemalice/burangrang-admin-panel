@@ -29,6 +29,7 @@
 | Reminder Module | [modules/reminder.md](./modules/reminder.md) |
 | Approval Module | [modules/approval.md](./modules/approval.md) |
 | Mail Services | [modules/mail.md](./modules/mail.md) |
+| Zoho Integration | [modules/zoho-integration.md](./modules/zoho-integration.md) |
 
 See [modules/index.md](./modules/index.md) for a quick description of each.
 

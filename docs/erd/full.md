@@ -1509,18 +1509,18 @@ Table t_zoho_webhook_logs {
   }
 }
 
-Table t_zoho_ticket_risk_assessment_map {
+Table t_zoho_ticket_incident_map {
   id varchar [pk, default: `uuid()`]
   zohoTicketId varchar [unique, not null]
   zohoTicketNumber varchar [null]
-  hseTaskId varchar [unique, not null, ref: > t_risk_assessment.id]
+  hseTaskId varchar [unique, not null, ref: > t_incidents.id]
   lastZohoStatus varchar [null, note: 'Raw Zoho status string']
   lastHseStatus GeneralStatusEnum [null]
   rawPayload json [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Mapping table between Zoho tickets and HSE risk assessments'
+  Note: 'Mapping table between Zoho SDP tickets and HSE incidents. Target schema (replaces t_zoho_ticket_risk_assessment_map); the rename + FK repoint lands with the code migration — see docs/prd/zoho-integration.md §11.'
   indexes {
     hseTaskId
   }
@@ -1528,7 +1528,7 @@ Table t_zoho_ticket_risk_assessment_map {
 
 Table t_zoho_outbound_jobs {
   id varchar [pk, default: `uuid()`]
-  mappingId varchar [not null, ref: > t_zoho_ticket_risk_assessment_map.id, note: 'onDelete: Cascade']
+  mappingId varchar [not null, ref: > t_zoho_ticket_incident_map.id, note: 'onDelete: Cascade']
   ticketId varchar [not null]
   targetStatus varchar [not null]
   requestPayload json [not null]
@@ -3005,7 +3005,7 @@ TableGroup file_upload_system {
 TableGroup system_configuration {
   m_settings
   t_zoho_webhook_logs
-  t_zoho_ticket_risk_assessment_map
+  t_zoho_ticket_incident_map
   t_zoho_outbound_jobs
   t_access_logs
 }

@@ -100,7 +100,7 @@ export class ZohoWebhooksController {
   @ApiOperation({ summary: 'Get Zoho integration health and config status' })
   @ApiResponse({ status: 200, description: 'Zoho integration health data' })
   async getZohoHealth() {
-    const [syncEnabled, webhookEnabled, authMode, secret, authtoken, baseUrl, deptId, userId] =
+    const [syncEnabled, webhookEnabled, authMode, secret, authtoken, baseUrl, deptId, userId, areaId, riskCategoryId] =
       await Promise.all([
         this.zohoConfigService.getBoolean(SETTINGS_KEYS.ZOHO_SYNC_ENABLED, false),
         this.zohoConfigService.getBoolean(SETTINGS_KEYS.ZOHO_WEBHOOK_ENABLED, false),
@@ -110,6 +110,8 @@ export class ZohoWebhooksController {
         this.zohoConfigService.getString(SETTINGS_KEYS.SDP_BASE_URL, ''),
         this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_DEFAULT_DEPARTMENT_ID, ''),
         this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_INTEGRATION_USER_ID, ''),
+        this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_DEFAULT_AREA_ID, ''),
+        this.zohoConfigService.getString(SETTINGS_KEYS.ZOHO_DEFAULT_RISK_CATEGORY_ID, ''),
       ]);
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -133,6 +135,8 @@ export class ZohoWebhooksController {
         hasSdpBaseUrl: baseUrl.length > 0,
         hasDefaultDepartmentId: deptId.length > 0,
         hasIntegrationUserId: userId.length > 0,
+        hasDefaultAreaId: areaId.length > 0,
+        hasDefaultRiskCategoryId: riskCategoryId.length > 0,
       },
       connectionTest,
       recentWebhookLogCount,

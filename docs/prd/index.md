@@ -49,4 +49,4 @@
 | Waste Management | [./waste-management.md](./waste-management.md) |
 | Work Permit | [./work-permit.md](./work-permit.md) |
 | Work Permit — Health Declaration | [./work-permit-health-declaration.md](./work-permit-health-declaration.md) |
-| Zoho SDP Integration (unified) | [./zoho-integration.md](./zoho-integration.md) |
+| Zoho SDP Integration (Incident sync) | [./zoho-integration.md](./zoho-integration.md) |

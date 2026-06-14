@@ -10,7 +10,7 @@ import { ZohoConfigService } from './zoho-config.service';
 import { ZohoDeskApiClient } from './zoho-desk-api.client';
 
 @Injectable()
-export class RiskAssessmentZohoSyncService {
+export class IncidentZohoSyncService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly zohoConfigService: ZohoConfigService,
@@ -19,12 +19,12 @@ export class RiskAssessmentZohoSyncService {
   ) { }
 
   async enqueueStatusSyncIfNeeded(params: {
-    riskAssessmentId: string;
+    incidentId: string;
     oldStatus: GeneralStatusEnum;
     newStatus: GeneralStatusEnum;
     correlationId?: string;
   }): Promise<void> {
-    const { riskAssessmentId, oldStatus, newStatus } = params;
+    const { incidentId, oldStatus, newStatus } = params;
 
     const syncEnabled = await this.zohoConfigService.getBoolean(
       SETTINGS_KEYS.ZOHO_SYNC_ENABLED,
@@ -34,7 +34,7 @@ export class RiskAssessmentZohoSyncService {
       return;
     }
 
-    const mapping = await this.findMapping(riskAssessmentId);
+    const mapping = await this.findMapping(incidentId);
     if (!mapping) {
       return;
     }
@@ -59,7 +59,7 @@ export class RiskAssessmentZohoSyncService {
   }
 
   async enqueueFullPayloadSync(params: {
-    riskAssessmentId: string;
+    incidentId: string;
     payload: SdpRequestPayload;
     targetStatus?: string;
     correlationId?: string;
@@ -73,7 +73,7 @@ export class RiskAssessmentZohoSyncService {
       return;
     }
 
-    const mapping = await this.findMapping(params.riskAssessmentId);
+    const mapping = await this.findMapping(params.incidentId);
     if (!mapping) {
       return;
     }
@@ -111,8 +111,8 @@ export class RiskAssessmentZohoSyncService {
     });
   }
 
-  async createTicketForRiskAssessment(params: {
-    riskAssessmentId: string;
+  async createTicketForIncident(params: {
+    incidentId: string;
     payload: SdpRequestPayload;
     lastHseStatus?: GeneralStatusEnum;
     correlationId?: string;
@@ -140,20 +140,20 @@ export class RiskAssessmentZohoSyncService {
         endpoint: '/api/v3/requests',
         statusCode: 200,
         payload: {
-          source: 'risk_assessment_zoho_create_skip',
+          source: 'incident_zoho_create_skip',
           correlationId,
-          riskAssessmentId: params.riskAssessmentId,
+          incidentId: params.incidentId,
           result: 'skipped_missing_sdp_authtoken',
           errorMessage: 'Zoho create skipped: SDP_AUTHTOKEN not configured',
           requestFieldKeys: Object.keys(params.payload ?? {}),
         },
-        userAgent: 'RiskAssessmentZohoSyncService',
+        userAgent: 'IncidentZohoSyncService',
         executionTime: 0,
       });
       return null;
     }
 
-    const existingMapping = await this.findMapping(params.riskAssessmentId);
+    const existingMapping = await this.findMapping(params.incidentId);
     if (existingMapping) {
       return {
         mappingId: existingMapping.id,
@@ -183,11 +183,11 @@ export class RiskAssessmentZohoSyncService {
       }
 
       try {
-        const mapping = await this.prisma.zohoTicketRiskAssessmentMap.create({
+        const mapping = await this.prisma.zohoTicketIncidentMap.create({
           data: {
             zohoTicketId: createdTicket.id,
             zohoTicketNumber: createdTicket.ticketNumber ?? null,
-            hseTaskId: params.riskAssessmentId,
+            hseTaskId: params.incidentId,
             lastZohoStatus:
               this.resolveTargetStatus(undefined, payload.status) ?? null,
             lastHseStatus: params.lastHseStatus ?? null,
@@ -201,7 +201,7 @@ export class RiskAssessmentZohoSyncService {
         await this.logCreateAccess({
           endpoint,
           correlationId,
-          riskAssessmentId: params.riskAssessmentId,
+          incidentId: params.incidentId,
           statusCode: 200,
           result: 'success',
           startedAt,
@@ -218,12 +218,12 @@ export class RiskAssessmentZohoSyncService {
         };
       } catch (error) {
         if (this.isUniqueViolation(error)) {
-          const mapping = await this.findMapping(params.riskAssessmentId);
+          const mapping = await this.findMapping(params.incidentId);
           if (mapping) {
             await this.logCreateAccess({
               endpoint,
               correlationId,
-              riskAssessmentId: params.riskAssessmentId,
+              incidentId: params.incidentId,
               statusCode: 200,
               result: 'success_existing_mapping',
               startedAt,
@@ -247,7 +247,7 @@ export class RiskAssessmentZohoSyncService {
       await this.logCreateAccess({
         endpoint,
         correlationId,
-        riskAssessmentId: params.riskAssessmentId,
+        incidentId: params.incidentId,
         statusCode: this.readStatusCode(error) ?? 500,
         result: 'failed',
         startedAt,
@@ -267,13 +267,13 @@ export class RiskAssessmentZohoSyncService {
     return statusMap[status];
   }
 
-  private async findMapping(riskAssessmentId: string): Promise<{
+  private async findMapping(incidentId: string): Promise<{
     id: string;
     zohoTicketId: string;
     lastZohoStatus: string | null;
   } | null> {
-    return this.prisma.zohoTicketRiskAssessmentMap.findUnique({
-      where: { hseTaskId: riskAssessmentId },
+    return this.prisma.zohoTicketIncidentMap.findUnique({
+      where: { hseTaskId: incidentId },
       select: {
         id: true,
         zohoTicketId: true,
@@ -412,7 +412,7 @@ export class RiskAssessmentZohoSyncService {
   private async logCreateAccess(params: {
     endpoint: string;
     correlationId: string;
-    riskAssessmentId: string;
+    incidentId: string;
     statusCode: number;
     result: 'success' | 'success_existing_mapping' | 'failed';
     startedAt: number;
@@ -427,9 +427,9 @@ export class RiskAssessmentZohoSyncService {
       endpoint: params.endpoint,
       statusCode: params.statusCode,
       payload: {
-        source: 'risk_assessment_zoho_create',
+        source: 'incident_zoho_create',
         correlationId: params.correlationId,
-        riskAssessmentId: params.riskAssessmentId,
+        incidentId: params.incidentId,
         mappingId: params.mappingId,
         ticketId: params.ticketId,
         result: params.result,
@@ -441,7 +441,7 @@ export class RiskAssessmentZohoSyncService {
         responsePayload: this.toAccessLogRecord(params.responsePayload),
         errorMessage: params.errorMessage,
       },
-      userAgent: 'RiskAssessmentZohoSyncService',
+      userAgent: 'IncidentZohoSyncService',
       executionTime: Date.now() - params.startedAt,
     });
   }

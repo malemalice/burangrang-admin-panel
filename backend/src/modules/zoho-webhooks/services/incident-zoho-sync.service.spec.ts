@@ -4,13 +4,13 @@ import { AccessLogsService } from '../../access-logs/services/access-logs.servic
 import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
 import { ZohoConfigService } from './zoho-config.service';
 import { ZohoDeskApiClient } from './zoho-desk-api.client';
-import { RiskAssessmentZohoSyncService } from './risk-assessment-zoho-sync.service';
+import { IncidentZohoSyncService } from './incident-zoho-sync.service';
 
-describe('RiskAssessmentZohoSyncService', () => {
+describe('IncidentZohoSyncService', () => {
     let prismaService: PrismaService;
     let zohoConfigService: ZohoConfigService;
     let zohoDeskApiClient: ZohoDeskApiClient;
-    let service: RiskAssessmentZohoSyncService;
+    let service: IncidentZohoSyncService;
 
     let mappingFindUniqueMock: jest.Mock;
     let mappingCreateMock: jest.Mock;
@@ -38,7 +38,7 @@ describe('RiskAssessmentZohoSyncService', () => {
         createAccessLogMock = jest.fn().mockResolvedValue(undefined);
 
         prismaService = {
-            zohoTicketRiskAssessmentMap: {
+            zohoTicketIncidentMap: {
                 findUnique: mappingFindUniqueMock,
                 create: mappingCreateMock,
             },
@@ -85,7 +85,7 @@ describe('RiskAssessmentZohoSyncService', () => {
             createAccessLog: createAccessLogMock,
         } as unknown as AccessLogsService;
 
-        service = new RiskAssessmentZohoSyncService(
+        service = new IncidentZohoSyncService(
             prismaService,
             zohoConfigService,
             zohoDeskApiClient,
@@ -98,8 +98,8 @@ describe('RiskAssessmentZohoSyncService', () => {
     });
 
     it('creates zoho ticket and mapping for risk assessment', async () => {
-        const result = await service.createTicketForRiskAssessment({
-            riskAssessmentId: 'ra-1',
+        const result = await service.createTicketForIncident({
+            incidentId: 'ra-1',
             payload: {
                 subject: 'Risk Assessment RA-001',
                 description: '<div>Risk Assessment Code: RA-001</div>',
@@ -148,11 +148,11 @@ describe('RiskAssessmentZohoSyncService', () => {
                 method: 'POST',
                 endpoint: '/api/v3/requests',
                 statusCode: 200,
-                userAgent: 'RiskAssessmentZohoSyncService',
+                userAgent: 'IncidentZohoSyncService',
                 payload: expect.objectContaining({
-                    source: 'risk_assessment_zoho_create',
+                    source: 'incident_zoho_create',
                     correlationId: 'corr-create-1',
-                    riskAssessmentId: 'ra-1',
+                    incidentId: 'ra-1',
                     result: 'success',
                     ticketId: '2001',
                 }),
@@ -167,8 +167,8 @@ describe('RiskAssessmentZohoSyncService', () => {
             lastZohoStatus: 'Open',
         });
 
-        const result = await service.createTicketForRiskAssessment({
-            riskAssessmentId: 'ra-1',
+        const result = await service.createTicketForIncident({
+            incidentId: 'ra-1',
             payload: {
                 subject: 'Ignored',
             },
@@ -186,8 +186,8 @@ describe('RiskAssessmentZohoSyncService', () => {
     it('returns null when sync is disabled', async () => {
         (zohoConfigService.getBoolean as jest.Mock).mockResolvedValueOnce(false);
 
-        const result = await service.createTicketForRiskAssessment({
-            riskAssessmentId: 'ra-1',
+        const result = await service.createTicketForIncident({
+            incidentId: 'ra-1',
             payload: {
                 subject: 'Risk Assessment RA-001',
             },
@@ -202,8 +202,8 @@ describe('RiskAssessmentZohoSyncService', () => {
     it('returns null and logs skip when SDP_AUTHTOKEN is not configured', async () => {
         (zohoConfigService.getString as jest.Mock).mockResolvedValueOnce('');
 
-        const result = await service.createTicketForRiskAssessment({
-            riskAssessmentId: 'ra-1',
+        const result = await service.createTicketForIncident({
+            incidentId: 'ra-1',
             payload: {
                 subject: 'Risk Assessment RA-001',
             },
@@ -218,11 +218,11 @@ describe('RiskAssessmentZohoSyncService', () => {
                 method: 'POST',
                 endpoint: '/api/v3/requests',
                 statusCode: 200,
-                userAgent: 'RiskAssessmentZohoSyncService',
+                userAgent: 'IncidentZohoSyncService',
                 payload: expect.objectContaining({
-                    source: 'risk_assessment_zoho_create_skip',
+                    source: 'incident_zoho_create_skip',
                     correlationId: 'corr-missing-token-1',
-                    riskAssessmentId: 'ra-1',
+                    incidentId: 'ra-1',
                     result: 'skipped_missing_sdp_authtoken',
                     errorMessage: 'Zoho create skipped: SDP_AUTHTOKEN not configured',
                 }),
@@ -241,8 +241,8 @@ describe('RiskAssessmentZohoSyncService', () => {
         });
 
         await expect(
-            service.createTicketForRiskAssessment({
-                riskAssessmentId: 'ra-timeout',
+            service.createTicketForIncident({
+                incidentId: 'ra-timeout',
                 payload: {
                     subject: 'Risk Assessment Timeout',
                     status: { name: 'Open' },
@@ -258,11 +258,11 @@ describe('RiskAssessmentZohoSyncService', () => {
                 method: 'POST',
                 endpoint: '/api/v3/requests',
                 statusCode: 504,
-                userAgent: 'RiskAssessmentZohoSyncService',
+                userAgent: 'IncidentZohoSyncService',
                 payload: expect.objectContaining({
-                    source: 'risk_assessment_zoho_create',
+                    source: 'incident_zoho_create',
                     correlationId: 'corr-timeout-1',
-                    riskAssessmentId: 'ra-timeout',
+                    incidentId: 'ra-timeout',
                     result: 'failed',
                     errorMessage: 'Unknown error',
                     responsePayload: expect.objectContaining({
@@ -282,8 +282,8 @@ describe('RiskAssessmentZohoSyncService', () => {
         });
 
         await expect(
-            service.createTicketForRiskAssessment({
-                riskAssessmentId: 'ra-1',
+            service.createTicketForIncident({
+                incidentId: 'ra-1',
                 payload: {
                     subject: 'Risk Assessment RA-001',
                 },
@@ -305,8 +305,8 @@ describe('RiskAssessmentZohoSyncService', () => {
                 lastZohoStatus: 'Open',
             });
 
-        const result = await service.createTicketForRiskAssessment({
-            riskAssessmentId: 'ra-1',
+        const result = await service.createTicketForIncident({
+            incidentId: 'ra-1',
             payload: {
                 subject: 'Risk Assessment RA-001',
                 status: { name: 'Open' },

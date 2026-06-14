@@ -6,9 +6,10 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
 import { SharedModule } from '../../shared/shared.module';
 import { MasterApprovalsModule } from '../approvals/master-approvals.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ZohoWebhooksModule } from '../zoho-webhooks/zoho-webhooks.module';
 
 @Module({
-  imports: [PrismaModule, SharedModule, MasterApprovalsModule, NotificationsModule],
+  imports: [PrismaModule, SharedModule, MasterApprovalsModule, NotificationsModule, ZohoWebhooksModule],
   controllers: [IncidentsController, IncidentSecuritiesController],
   providers: [IncidentsService],
   exports: [IncidentsService],

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2, Copy, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Copy, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
@@ -17,6 +17,12 @@ import { useTheme, ThemeColor } from '@/core/lib/theme';
 import { themeColors } from '@/core/lib/theme/colors';
 import { useAppName } from '../hooks/useSettings';
 import settingsService from '../services/settingsService';
+import areaService from '@/modules/master-data/services/areaService';
+import riskCategoryService from '@/modules/master-data/services/riskCategoryService';
+import departmentService from '@/modules/master-data/services/departmentService';
+import userService from '@/modules/users/services/userService';
+import { AreaDTO } from '@/modules/master-data/types/master-data.types';
+import { RiskCategory } from '@/core/lib/types';
 import api from '@/core/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/core/components/ui/dialog';
 import ImageUpload from '@/modules/uploads/components/ImageUpload';
@@ -31,6 +37,8 @@ interface ZohoHealthData {
     hasSdpBaseUrl: boolean;
     hasDefaultDepartmentId: boolean;
     hasIntegrationUserId: boolean;
+    hasDefaultAreaId?: boolean;
+    hasDefaultRiskCategoryId?: boolean;
   };
   connectionTest: {
     ok: boolean;
@@ -98,9 +106,28 @@ const SettingsPage = () => {
   const [defaultDepartmentId, setDefaultDepartmentId] = useState('');
   const [integrationUserId, setIntegrationUserId] = useState('');
   const [inboundDefaultStatus, setInboundDefaultStatus] = useState('OPEN');
+  const [defaultAreaId, setDefaultAreaId] = useState('');
+  const [defaultRiskCategoryId, setDefaultRiskCategoryId] = useState('');
+  const [defaultIncidentType, setDefaultIncidentType] = useState('DANGEROUS_OR_HAZARDOUS_OCCURRENCE');
+  const [defaultIncidentClassification, setDefaultIncidentClassification] = useState('MINOR');
+  const [areaOptions, setAreaOptions] = useState<AreaDTO[]>([]);
+  const [riskCategoryOptions, setRiskCategoryOptions] = useState<RiskCategory[]>([]);
+  const [departmentOptions, setDepartmentOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [userOptions, setUserOptions] = useState<Array<{ id: string; name: string; email?: string }>>([]);
   const [inboundStatusMap, setInboundStatusMap] = useState('');
   const [inboundStatusMapError, setInboundStatusMapError] = useState('');
   const [isSavingInbound, setIsSavingInbound] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  // Incident field maps (Zoho value -> HSE value); shared by inbound/outbound
+  const [areaMap, setAreaMap] = useState('');
+  const [areaMapError, setAreaMapError] = useState('');
+  const [riskCategoryMap, setRiskCategoryMap] = useState('');
+  const [riskCategoryMapError, setRiskCategoryMapError] = useState('');
+  const [incidentTypeMap, setIncidentTypeMap] = useState('');
+  const [incidentTypeMapError, setIncidentTypeMapError] = useState('');
+  const [incidentClassificationMap, setIncidentClassificationMap] = useState('');
+  const [incidentClassificationMapError, setIncidentClassificationMapError] = useState('');
+  const [isSavingIncidentMap, setIsSavingIncidentMap] = useState(false);
   const [sdpBaseUrl, setSdpBaseUrl] = useState('');
   const [sdpAuthtoken, setSdpAuthtoken] = useState('');
   const [sdpApiVersion, setSdpApiVersion] = useState('v3');
@@ -401,6 +428,14 @@ const SettingsPage = () => {
           'zoho.retry.base_ms',
           'zoho.retry.max_ms',
           'zoho.worker.batch_size',
+          'zoho.inbound.default_area_id',
+          'zoho.inbound.default_incident_type',
+          'zoho.inbound.default_incident_classification',
+          'zoho.inbound.default_risk_category_id',
+          'zoho.incident.area_map',
+          'zoho.incident.risk_category_map',
+          'zoho.incident.incident_type_map',
+          'zoho.incident.incident_classification_map',
         ];
         const values = await Promise.all(keys.map(k => settingsService.getSettingValue(k)));
         setZohoSyncEnabled(values[0] === 'true');
@@ -421,6 +456,14 @@ const SettingsPage = () => {
         setRetryBaseMs(values[12] || '2000');
         setRetryMaxMs(values[13] || '60000');
         setWorkerBatchSize(values[14] || '5');
+        setDefaultAreaId(values[15] || '');
+        setDefaultIncidentType(values[16] || 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE');
+        setDefaultIncidentClassification(values[17] || 'MINOR');
+        setDefaultRiskCategoryId(values[18] || '');
+        setAreaMap(values[19] || '');
+        setRiskCategoryMap(values[20] || '');
+        setIncidentTypeMap(values[21] || '');
+        setIncidentClassificationMap(values[22] || '');
         setSdpAuthtoken('');
       } catch {
         toast.error('Failed to load Zoho settings');
@@ -429,8 +472,26 @@ const SettingsPage = () => {
       }
     };
     load();
+    loadInboundOptions();
     fetchZohoHealth();
   }, [activeTab]);
+
+  const loadInboundOptions = async () => {
+    try {
+      const [areasRes, riskCategoriesRes, departmentsRes, usersRes] = await Promise.all([
+        areaService.getAreas({ page: 1, limit: 100, options: true }),
+        riskCategoryService.getAll({ page: 1, limit: 100, options: true }),
+        departmentService.getDepartments({ page: 1, limit: 200, options: true }),
+        userService.getUsers({ page: 1, limit: 200, options: true }),
+      ]);
+      setAreaOptions(areasRes.data || []);
+      setRiskCategoryOptions(riskCategoriesRes.data || []);
+      setDepartmentOptions(departmentsRes.data || []);
+      setUserOptions(usersRes.data || []);
+    } catch {
+      // Non-fatal: selects fall back to empty; saved UUIDs still persist.
+    }
+  };
 
   const handleToggleSync = async (checked: boolean) => {
     setZohoSyncEnabled(checked);
@@ -472,6 +533,10 @@ const SettingsPage = () => {
         settingsService.setSettingValue('zoho.inbound.integration_user_id', integrationUserId),
         settingsService.setSettingValue('zoho.inbound.default_status', inboundDefaultStatus),
         settingsService.setSettingValue('zoho.inbound.status_map', inboundStatusMap),
+        settingsService.setSettingValue('zoho.inbound.default_area_id', defaultAreaId),
+        settingsService.setSettingValue('zoho.inbound.default_risk_category_id', defaultRiskCategoryId),
+        settingsService.setSettingValue('zoho.inbound.default_incident_type', defaultIncidentType),
+        settingsService.setSettingValue('zoho.inbound.default_incident_classification', defaultIncidentClassification),
       ];
       if (webhookSecret.trim()) {
         saves.push(settingsService.setSettingValue('zoho.webhook.secret', webhookSecret));
@@ -485,6 +550,61 @@ const SettingsPage = () => {
       toast.error(e?.message || 'Failed to save inbound settings');
     } finally {
       setIsSavingInbound(false);
+    }
+  };
+
+  const generateWebhookSecret = () => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    setWebhookSecret(secret);
+    setShowWebhookSecret(true);
+    toast.success('Webhook secret generated — copy it into Zoho, then Save');
+  };
+
+  const copyWebhookSecret = async () => {
+    if (!webhookSecret.trim()) return;
+    try {
+      await navigator.clipboard.writeText(webhookSecret);
+      toast.success('Webhook secret copied');
+    } catch {
+      toast.error('Failed to copy secret');
+    }
+  };
+
+  const handleSaveIncidentMap = async () => {
+    const maps: Array<{ value: string; setError: (msg: string) => void }> = [
+      { value: areaMap, setError: setAreaMapError },
+      { value: riskCategoryMap, setError: setRiskCategoryMapError },
+      { value: incidentTypeMap, setError: setIncidentTypeMapError },
+      { value: incidentClassificationMap, setError: setIncidentClassificationMapError },
+    ];
+    for (const m of maps) {
+      if (m.value.trim()) {
+        try {
+          JSON.parse(m.value);
+          m.setError('');
+        } catch {
+          m.setError('Invalid JSON — please check the format');
+          return;
+        }
+      } else {
+        m.setError('');
+      }
+    }
+    setIsSavingIncidentMap(true);
+    try {
+      await Promise.all([
+        settingsService.setSettingValue('zoho.incident.area_map', areaMap),
+        settingsService.setSettingValue('zoho.incident.risk_category_map', riskCategoryMap),
+        settingsService.setSettingValue('zoho.incident.incident_type_map', incidentTypeMap),
+        settingsService.setSettingValue('zoho.incident.incident_classification_map', incidentClassificationMap),
+      ]);
+      toast.success('Incident field mapping saved');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save incident field mapping');
+    } finally {
+      setIsSavingIncidentMap(false);
     }
   };
 
@@ -1079,6 +1199,8 @@ const SettingsPage = () => {
                     <StatusIndicator label="SDP Base URL" ok={zohoHealth.configStatus.hasSdpBaseUrl} />
                     <StatusIndicator label="Default Department" ok={zohoHealth.configStatus.hasDefaultDepartmentId} />
                     <StatusIndicator label="Integration User" ok={zohoHealth.configStatus.hasIntegrationUserId} />
+                    <StatusIndicator label="Default Area" ok={!!zohoHealth.configStatus.hasDefaultAreaId} />
+                    <StatusIndicator label="Default Risk Category" ok={!!zohoHealth.configStatus.hasDefaultRiskCategoryId} />
                     <div className="flex items-center gap-2 text-sm">
                       <Badge variant="outline">{zohoHealth.configStatus.authMode}</Badge>
                       <span className="text-muted-foreground">Auth Mode</span>
@@ -1169,14 +1291,42 @@ const SettingsPage = () => {
               {(webhookAuthMode === 'secret' || webhookAuthMode === 'signature') && (
                 <div>
                   <Label htmlFor="webhook-secret">Webhook Secret</Label>
-                  <Input
-                    id="webhook-secret"
-                    type="password"
-                    value={webhookSecret}
-                    onChange={(e) => setWebhookSecret(e.target.value)}
-                    placeholder="Enter new value to replace (leave blank to keep current)"
-                    className="mt-1"
-                  />
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      id="webhook-secret"
+                      type={showWebhookSecret ? 'text' : 'password'}
+                      value={webhookSecret}
+                      onChange={(e) => setWebhookSecret(e.target.value)}
+                      placeholder="Enter new value to replace (leave blank to keep current)"
+                      className="font-mono"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowWebhookSecret((v) => !v)}
+                      title={showWebhookSecret ? 'Hide secret' : 'Show secret'}
+                    >
+                      {showWebhookSecret ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={copyWebhookSecret}
+                      disabled={!webhookSecret.trim()}
+                      title="Copy secret"
+                    >
+                      <Copy className="h-5 w-5" />
+                    </Button>
+                    <Button type="button" variant="outline" onClick={generateWebhookSecret}>
+                      <RefreshCw className="h-5 w-5 mr-2" />
+                      Generate
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Generate a strong random secret, copy it into the Zoho SDP webhook config, then Save. Leave blank to keep the current secret.
+                  </p>
                 </div>
               )}
 
@@ -1196,24 +1346,34 @@ const SettingsPage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="default-dept">Default Department ID</Label>
-                  <Input
-                    id="default-dept"
-                    value={defaultDepartmentId}
-                    onChange={(e) => setDefaultDepartmentId(e.target.value)}
-                    placeholder="Internal department UUID fallback"
-                    className="mt-1"
-                  />
+                  <Label htmlFor="default-dept">Default Department</Label>
+                  <Select value={defaultDepartmentId} onValueChange={setDefaultDepartmentId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departmentOptions.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Fallback department when the Zoho ticket's department doesn't match an internal one.</p>
                 </div>
                 <div>
-                  <Label htmlFor="integration-user">Integration User ID</Label>
-                  <Input
-                    id="integration-user"
-                    value={integrationUserId}
-                    onChange={(e) => setIntegrationUserId(e.target.value)}
-                    placeholder="HSE user UUID for inbound record creator"
-                    className="mt-1"
-                  />
+                  <Label htmlFor="integration-user">Integration User</Label>
+                  <Select value={integrationUserId} onValueChange={setIntegrationUserId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select user" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userOptions.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.email ? `${u.name} (${u.email})` : u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Used as requester / reporter / creator for inbound incidents.</p>
                 </div>
               </div>
 
@@ -1229,7 +1389,67 @@ const SettingsPage = () => {
                     <SelectItem value="WAITING_APPROVAL">WAITING_APPROVAL</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">HSE status assigned to newly created Risk Assessments from Zoho tickets.</p>
+                <p className="text-xs text-muted-foreground mt-1">HSE status assigned to newly created Incidents from Zoho tickets.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="default-area">Default Area</Label>
+                  <Select value={defaultAreaId} onValueChange={setDefaultAreaId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select area" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {areaOptions.map((area) => (
+                        <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Required for inbound incidents — Zoho does not send an area.</p>
+                </div>
+                <div>
+                  <Label htmlFor="default-risk-category">Default Risk Category</Label>
+                  <Select value={defaultRiskCategoryId} onValueChange={setDefaultRiskCategoryId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select risk category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {riskCategoryOptions.map((rc) => (
+                        <SelectItem key={rc.id} value={rc.id}>{rc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Required for inbound incidents — Zoho does not send a risk category.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="default-incident-type">Default Incident Type</Label>
+                  <Select value={defaultIncidentType} onValueChange={setDefaultIncidentType}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NEAR_MISS">Near Miss</SelectItem>
+                      <SelectItem value="ACCIDENT">Accident</SelectItem>
+                      <SelectItem value="DANGEROUS_OR_HAZARDOUS_OCCURRENCE">Dangerous / Hazardous Occurrence</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="default-incident-classification">Default Incident Classification</Label>
+                  <Select value={defaultIncidentClassification} onValueChange={setDefaultIncidentClassification}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MAJOR">Major</SelectItem>
+                      <SelectItem value="MINOR">Minor</SelectItem>
+                      <SelectItem value="FATALITY">Fatality</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
@@ -1253,6 +1473,83 @@ const SettingsPage = () => {
                 </Button>
                 <ThemeButton onClick={handleSaveInbound} disabled={isSavingInbound || isLoadingZoho}>
                   {isSavingInbound ? 'Saving...' : 'Save Inbound Settings'}
+                </ThemeButton>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card — Incident Field Mapping (shared by inbound/outbound) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Incident Field Mapping</CardTitle>
+              <CardDescription>
+                Maps Zoho values to HSE Incident fields (Zoho value → HSE value). Used to translate ticket fields between Zoho and HSE. When a Zoho value has no match here, the inbound default is used instead.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="area-map">Area Map (JSON)</Label>
+                <Textarea
+                  id="area-map"
+                  value={areaMap}
+                  onChange={(e) => { setAreaMap(e.target.value); setAreaMapError(''); }}
+                  className="font-mono min-h-[120px] mt-1"
+                  placeholder='{"Warehouse":"<hse-area-uuid>","Office":"<hse-area-uuid>"}'
+                />
+                {areaMapError && (
+                  <p className="text-sm text-destructive mt-1">{areaMapError}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Maps Zoho area values to HSE Area UUIDs.</p>
+              </div>
+
+              <div>
+                <Label htmlFor="risk-category-map">Risk Category Map (JSON)</Label>
+                <Textarea
+                  id="risk-category-map"
+                  value={riskCategoryMap}
+                  onChange={(e) => { setRiskCategoryMap(e.target.value); setRiskCategoryMapError(''); }}
+                  className="font-mono min-h-[120px] mt-1"
+                  placeholder='{"Safety":"<hse-risk-category-uuid>","Health":"<hse-risk-category-uuid>"}'
+                />
+                {riskCategoryMapError && (
+                  <p className="text-sm text-destructive mt-1">{riskCategoryMapError}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Maps Zoho risk category values to HSE Risk Category UUIDs.</p>
+              </div>
+
+              <div>
+                <Label htmlFor="incident-type-map">Incident Type Map (JSON)</Label>
+                <Textarea
+                  id="incident-type-map"
+                  value={incidentTypeMap}
+                  onChange={(e) => { setIncidentTypeMap(e.target.value); setIncidentTypeMapError(''); }}
+                  className="font-mono min-h-[120px] mt-1"
+                  placeholder='{"Accident":"ACCIDENT","Near Miss":"NEAR_MISS","Hazard":"DANGEROUS_OR_HAZARDOUS_OCCURRENCE"}'
+                />
+                {incidentTypeMapError && (
+                  <p className="text-sm text-destructive mt-1">{incidentTypeMapError}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Maps Zoho incident type values to HSE IncidentTypeEnum (NEAR_MISS, ACCIDENT, DANGEROUS_OR_HAZARDOUS_OCCURRENCE).</p>
+              </div>
+
+              <div>
+                <Label htmlFor="incident-classification-map">Incident Classification Map (JSON)</Label>
+                <Textarea
+                  id="incident-classification-map"
+                  value={incidentClassificationMap}
+                  onChange={(e) => { setIncidentClassificationMap(e.target.value); setIncidentClassificationMapError(''); }}
+                  className="font-mono min-h-[120px] mt-1"
+                  placeholder='{"Major":"MAJOR","Minor":"MINOR","Fatality":"FATALITY"}'
+                />
+                {incidentClassificationMapError && (
+                  <p className="text-sm text-destructive mt-1">{incidentClassificationMapError}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Maps Zoho incident classification values to HSE IncidentClassificationEnum (MAJOR, MINOR, FATALITY).</p>
+              </div>
+
+              <div className="flex justify-end">
+                <ThemeButton onClick={handleSaveIncidentMap} disabled={isSavingIncidentMap || isLoadingZoho}>
+                  {isSavingIncidentMap ? 'Saving...' : 'Save Mapping'}
                 </ThemeButton>
               </div>
             </CardContent>

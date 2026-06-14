@@ -19,7 +19,17 @@ export const SETTINGS_KEYS = {
   ZOHO_INTEGRATION_USER_ID: 'zoho.inbound.integration_user_id',
   ZOHO_INBOUND_DEFAULT_STATUS: 'zoho.inbound.default_status',
   ZOHO_INBOUND_STATUS_MAP: 'zoho.inbound.status_map',
+  ZOHO_DEFAULT_AREA_ID: 'zoho.inbound.default_area_id',
+  ZOHO_DEFAULT_INCIDENT_TYPE: 'zoho.inbound.default_incident_type',
+  ZOHO_DEFAULT_INCIDENT_CLASSIFICATION: 'zoho.inbound.default_incident_classification',
+  ZOHO_DEFAULT_RISK_CATEGORY_ID: 'zoho.inbound.default_risk_category_id',
   ZOHO_STATUS_MAP: 'zoho.outbound.status_map',
+  // Incident field maps (Zoho value -> HSE value); shared by inbound/outbound flows
+  ZOHO_INCIDENT_AREA_MAP: 'zoho.incident.area_map',
+  ZOHO_INCIDENT_RISK_CATEGORY_MAP: 'zoho.incident.risk_category_map',
+  ZOHO_INCIDENT_INCIDENT_TYPE_MAP: 'zoho.incident.incident_type_map',
+  ZOHO_INCIDENT_INCIDENT_CLASSIFICATION_MAP:
+    'zoho.incident.incident_classification_map',
   ZOHO_MAX_RETRIES: 'zoho.retry.max_retries',
   ZOHO_RETRY_BASE_MS: 'zoho.retry.base_ms',
   ZOHO_RETRY_MAX_MS: 'zoho.retry.max_ms',

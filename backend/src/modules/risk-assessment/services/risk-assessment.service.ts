@@ -21,8 +21,6 @@ import {
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
 import { MasterApprovalsService } from '../../approvals/master-approvals.service';
-import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
-import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -58,7 +56,6 @@ export class RiskAssessmentService {
     private readonly approvalsService: ApprovalsService,
     private readonly masterApprovalsService: MasterApprovalsService,
     private readonly remindersService: RemindersService,
-    private readonly riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService,
   ) { }
 
   async create(
@@ -163,21 +160,6 @@ export class RiskAssessmentService {
             error,
           );
         }
-      }
-
-      console.log(
-        `[RiskAssessment] create before zoho sync assessmentId=${assessmentWithRelations.id} code=${assessmentWithRelations.code}`,
-      );
-      try {
-        await this.syncCreatedRiskAssessmentToZoho(assessmentWithRelations);
-        console.log(
-          `[RiskAssessment] create zoho sync success assessmentId=${assessmentWithRelations.id}`,
-        );
-      } catch (error) {
-        console.error(
-          `[RiskAssessment] Zoho sync failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
-          error,
-        );
       }
 
       return this.mapToDtoWithMitigations(assessmentWithRelations);
@@ -488,14 +470,6 @@ export class RiskAssessmentService {
           error,
         );
       }
-    }
-
-    if (newStatus && oldStatus !== newStatus) {
-      await this.riskAssessmentZohoSyncService.enqueueStatusSyncIfNeeded({
-        riskAssessmentId: assessment.id,
-        oldStatus,
-        newStatus,
-      });
     }
 
     return this.mapToDtoWithMitigations(assessment as any);
@@ -1253,44 +1227,6 @@ export class RiskAssessmentService {
     };
   }
 
-  private async syncCreatedRiskAssessmentToZoho(
-    assessment: RiskAssessment & {
-      department: { id: string; name: string };
-      creator: {
-        id: string;
-        email?: string | null;
-        firstName: string;
-        lastName: string;
-      };
-      assignee: {
-        id: string;
-        firstName: string;
-        lastName: string;
-      } | null;
-    },
-  ): Promise<void> {
-    const payload = await this.buildZohoCreatePayload(assessment);
-
-    console.log('[RiskAssessment] zoho create payload prepared', {
-      assessmentId: assessment.id,
-      payloadKeys: Object.keys(payload),
-      payload,
-    });
-
-    if (Object.keys(payload).length === 0) {
-      console.log(
-        `[RiskAssessment] zoho create skipped because payload empty assessmentId=${assessment.id}`,
-      );
-      return;
-    }
-
-    await this.riskAssessmentZohoSyncService.createTicketForRiskAssessment({
-      riskAssessmentId: assessment.id,
-      payload,
-      lastHseStatus: assessment.status,
-    });
-  }
-
   private async cleanupFailedRiskAssessmentCreation(
     riskAssessmentId: string,
   ): Promise<void> {
@@ -1340,39 +1276,4 @@ export class RiskAssessmentService {
     }
   }
 
-  private async buildZohoCreatePayload(
-    assessment: RiskAssessment & {
-      department: { id: string; name: string };
-      creator: {
-        id: string;
-        email?: string | null;
-        firstName: string;
-        lastName: string;
-      };
-      assignee: {
-        id: string;
-        firstName: string;
-        lastName: string;
-      } | null;
-    },
-  ): Promise<SdpRequestPayload> {
-    const targetStatus =
-      await this.riskAssessmentZohoSyncService.resolveZohoStatusForHseStatus(
-        assessment.status,
-      );
-
-    const subject = assessment.code;
-    const description =
-      assessment.description?.trim() ||
-      `Risk assessment ${assessment.code} created from HSE Dashboard`;
-
-    return {
-      subject,
-      description,
-      requester: {
-        id: '5',
-      },
-      status: targetStatus ? { name: targetStatus } : { name: 'Open' },
-    };
-  }
 }

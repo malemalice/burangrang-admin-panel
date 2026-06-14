@@ -33,7 +33,7 @@ describe('ZohoOutboundWorkerService', () => {
       zohoOutboundJob: {
         update: outboundUpdateMock,
       },
-      zohoTicketRiskAssessmentMap: {
+      zohoTicketIncidentMap: {
         update: mappingUpdateMock,
       },
     } as unknown as PrismaService;

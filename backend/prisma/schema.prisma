@@ -453,7 +453,6 @@ model RiskAssessment {
   assigneeId        String?
   assignee          User?                        @relation(fields: [assigneeId], references: [id])
   actionPlan        String?                      @db.Text
-  zohoTicketMapping ZohoTicketRiskAssessmentMap?
   deletedAt         DateTime?
   deletedBy         String?
 
@@ -594,12 +593,12 @@ enum ZohoOutboundJobStatusEnum {
   FAILED_DEAD_LETTER
 }
 
-model ZohoTicketRiskAssessmentMap {
+model ZohoTicketIncidentMap {
   id               String             @id @default(uuid())
   zohoTicketId     String             @unique @map("zoho_ticket_id")
   zohoTicketNumber String?            @map("zoho_ticket_number")
   hseTaskId        String             @unique @map("hse_task_id")
-  hseTask          RiskAssessment     @relation(fields: [hseTaskId], references: [id], onDelete: Cascade)
+  hseTask          Incident           @relation(fields: [hseTaskId], references: [id], onDelete: Cascade)
   lastZohoStatus   String?            @map("last_zoho_status")
   lastHseStatus    GeneralStatusEnum? @map("last_hse_status")
   rawPayload       Json               @map("raw_payload")
@@ -608,13 +607,13 @@ model ZohoTicketRiskAssessmentMap {
   outboundJobs     ZohoOutboundJob[]
 
   @@index([hseTaskId])
-  @@map("t_zoho_ticket_risk_assessment_map")
+  @@map("t_zoho_ticket_incident_map")
 }
 
 model ZohoOutboundJob {
   id              String                      @id @default(uuid())
   mappingId       String                      @map("mapping_id")
-  mapping         ZohoTicketRiskAssessmentMap @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+  mapping         ZohoTicketIncidentMap       @relation(fields: [mappingId], references: [id], onDelete: Cascade)
   ticketId        String                      @map("ticket_id")
   targetStatus    String                      @map("target_status")
   requestPayload  Json                        @map("request_payload")
@@ -2646,6 +2645,7 @@ model Incident {
   images              IncidentImage[]
   attachments         IncidentAttachment[]
   investigationReports InvestigationReport[]
+  zohoTicketMapping   ZohoTicketIncidentMap?
 
   @@index([code])
   @@index([roomId])
