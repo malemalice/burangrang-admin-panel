@@ -267,6 +267,14 @@ export class IncidentZohoSyncService {
     return statusMap[status];
   }
 
+  async getOutboundRequesterId(): Promise<string | undefined> {
+    const id = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_OUTBOUND_REQUESTER_ID,
+      '',
+    );
+    return id?.trim() || undefined;
+  }
+
   private async findMapping(incidentId: string): Promise<{
     id: string;
     zohoTicketId: string;

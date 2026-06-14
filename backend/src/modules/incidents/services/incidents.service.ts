@@ -294,9 +294,9 @@ export class IncidentsService {
       try {
         await this.syncCreatedIncidentToZoho(incident);
       } catch (error) {
+        const body = (error as { responseBody?: unknown }).responseBody;
         console.error(
-          `[Incident] Zoho sync failed for incident ${incident.id}, but incident was created successfully:`,
-          error,
+          `[Incident] Zoho sync failed for incident ${incident.id}, but incident was created successfully: ${error instanceof Error ? error.message : String(error)} | zohoResponse: ${JSON.stringify(body)}`,
         );
       }
     }
@@ -330,10 +330,10 @@ export class IncidentsService {
     description: string | null;
     status: GeneralStatusEnum;
   }): Promise<SdpRequestPayload> {
-    const targetStatus =
-      await this.incidentZohoSyncService.resolveZohoStatusForHseStatus(
-        incident.status,
-      );
+    const [targetStatus, requesterId] = await Promise.all([
+      this.incidentZohoSyncService.resolveZohoStatusForHseStatus(incident.status),
+      this.incidentZohoSyncService.getOutboundRequesterId(),
+    ]);
 
     const subject = incident.subject?.trim() || incident.code;
     const description =
@@ -344,6 +344,7 @@ export class IncidentsService {
       subject,
       description,
       status: targetStatus ? { name: targetStatus } : { name: 'Open' },
+      ...(requesterId ? { requester: { id: requesterId } } : {}),
     };
   }
 
@@ -788,14 +789,45 @@ export class IncidentsService {
     );
 
     if (existingIncident) {
-      await this.enqueueIncidentStatusSync(
-        id,
-        existingIncident.status,
-        incident.status,
-      );
+      await this.enqueueIncidentFieldSync(id, existingIncident, incident);
     }
 
     return this.incidentMapper(incident);
+  }
+
+  private async enqueueIncidentFieldSync(
+    id: string,
+    existingIncident: { subject: string; description: string | null; status: GeneralStatusEnum },
+    updated: { subject: string; description: string | null; status: GeneralStatusEnum },
+  ): Promise<void> {
+    const payload: SdpRequestPayload = {};
+
+    if (updated.subject !== existingIncident.subject) {
+      payload.subject = updated.subject?.trim() || undefined;
+    }
+    if (updated.description !== existingIncident.description) {
+      payload.description = updated.description?.trim() || undefined;
+    }
+
+    const statusChanged = updated.status !== existingIncident.status;
+    if (statusChanged) {
+      const targetStatus = await this.incidentZohoSyncService.resolveZohoStatusForHseStatus(updated.status);
+      if (targetStatus) {
+        payload.status = { name: targetStatus };
+      }
+    }
+
+    if (Object.keys(payload).length === 0) return;
+
+    try {
+      await this.incidentZohoSyncService.enqueueFullPayloadSync({
+        incidentId: id,
+        payload,
+        skipIfSameStatus: !statusChanged,
+      });
+    } catch (error) {
+      console.error(`[Incident] Zoho field sync failed for incident ${id}:`, error);
+    }
   }
 
   async remove(id: string): Promise<IncidentDto> {

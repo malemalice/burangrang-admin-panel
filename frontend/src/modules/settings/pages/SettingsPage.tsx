@@ -13,11 +13,14 @@ import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import PageHeader from '@/core/components/ui/PageHeader';
+import DataTable from '@/core/components/ui/data-table/DataTable';
 import { useTheme, ThemeColor } from '@/core/lib/theme';
 import { themeColors } from '@/core/lib/theme/colors';
 import { useAppName } from '../hooks/useSettings';
 import settingsService from '../services/settingsService';
 import { FieldMappingEditor, MappingRow, jsonToRows, rowsToJson } from '../components/FieldMappingEditor';
+import zohoMonitorService, { OutboundJob, WebhookLog } from '../services/zohoMonitorService';
+import { formatDateTime } from '@/core/utils/date';
 import areaService from '@/modules/master-data/services/areaService';
 import riskCategoryService from '@/modules/master-data/services/riskCategoryService';
 import departmentService from '@/modules/master-data/services/departmentService';
@@ -133,6 +136,7 @@ const SettingsPage = () => {
   const [sdpAllowSelfSigned, setSdpAllowSelfSigned] = useState(false);
   const [outboundStatusMap, setOutboundStatusMap] = useState('');
   const [outboundStatusMapError, setOutboundStatusMapError] = useState('');
+  const [outboundRequesterId, setOutboundRequesterId] = useState('');
   const [isSavingOutbound, setIsSavingOutbound] = useState(false);
   const [maxRetries, setMaxRetries] = useState('6');
   const [retryBaseMs, setRetryBaseMs] = useState('2000');
@@ -141,6 +145,20 @@ const SettingsPage = () => {
   const [isSavingWorker, setIsSavingWorker] = useState(false);
   const [isTestingInbound, setIsTestingInbound] = useState(false);
   const [isTestingOutbound, setIsTestingOutbound] = useState(false);
+
+  // Job monitor state
+  const [jobs, setJobs] = useState<OutboundJob[]>([]);
+  const [jobsTotal, setJobsTotal] = useState(0);
+  const [jobsPage, setJobsPage] = useState(1);
+  const [jobsStatusFilter, setJobsStatusFilter] = useState('');
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
+
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsStatusFilter, setLogsStatusFilter] = useState('');
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // App branding states (logos)
   const [logoCacheBust, setLogoCacheBust] = useState<number>(() => Date.now());
@@ -423,6 +441,7 @@ const SettingsPage = () => {
           'zoho.inbound.default_status',
           'zoho.inbound.status_map',
           'zoho.outbound.status_map',
+          'zoho.outbound.requester_id',
           'zoho.retry.max_retries',
           'zoho.retry.base_ms',
           'zoho.retry.max_ms',
@@ -451,18 +470,19 @@ const SettingsPage = () => {
         setInboundDefaultStatus(values[8] || 'OPEN');
         setInboundStatusMap(values[9] || '');
         setOutboundStatusMap(values[10] || '');
-        setMaxRetries(values[11] || '6');
-        setRetryBaseMs(values[12] || '2000');
-        setRetryMaxMs(values[13] || '60000');
-        setWorkerBatchSize(values[14] || '5');
-        setDefaultAreaId(values[15] || '');
-        setDefaultIncidentType(values[16] || 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE');
-        setDefaultIncidentClassification(values[17] || 'MINOR');
-        setDefaultRiskCategoryId(values[18] || '');
-        setAreaRows(jsonToRows(values[19] || ''));
-        setRiskCategoryRows(jsonToRows(values[20] || ''));
-        setIncidentTypeRows(jsonToRows(values[21] || ''));
-        setIncidentClassificationRows(jsonToRows(values[22] || ''));
+        setOutboundRequesterId(values[11] || '');
+        setMaxRetries(values[12] || '6');
+        setRetryBaseMs(values[13] || '2000');
+        setRetryMaxMs(values[14] || '60000');
+        setWorkerBatchSize(values[15] || '5');
+        setDefaultAreaId(values[16] || '');
+        setDefaultIncidentType(values[17] || 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE');
+        setDefaultIncidentClassification(values[18] || 'MINOR');
+        setDefaultRiskCategoryId(values[19] || '');
+        setAreaRows(jsonToRows(values[20] || ''));
+        setRiskCategoryRows(jsonToRows(values[21] || ''));
+        setIncidentTypeRows(jsonToRows(values[22] || ''));
+        setIncidentClassificationRows(jsonToRows(values[23] || ''));
         setSdpAuthtoken('');
       } catch {
         toast.error('Failed to load Zoho settings');
@@ -473,6 +493,8 @@ const SettingsPage = () => {
     load();
     loadInboundOptions();
     fetchZohoHealth();
+    fetchJobs(1, undefined);
+    fetchWebhookLogs(1, undefined);
   }, [activeTab]);
 
   const loadInboundOptions = async () => {
@@ -645,6 +667,7 @@ const SettingsPage = () => {
         settingsService.setSettingValue('zoho.sdp.api_version', sdpApiVersion),
         settingsService.setSettingValue('zoho.sdp.allow_self_signed', sdpAllowSelfSigned ? 'true' : 'false'),
         settingsService.setSettingValue('zoho.outbound.status_map', outboundStatusMap),
+        settingsService.setSettingValue('zoho.outbound.requester_id', outboundRequesterId),
       ];
       if (sdpAuthtoken.trim()) {
         saves.push(settingsService.setSettingValue('zoho.sdp.authtoken', sdpAuthtoken));
@@ -673,6 +696,68 @@ const SettingsPage = () => {
     } finally {
       setIsSavingWorker(false);
     }
+  };
+
+  const fetchJobs = async (page = jobsPage, status = jobsStatusFilter) => {
+    setIsLoadingJobs(true);
+    try {
+      const res = await zohoMonitorService.getJobs({ page, limit: 20, status: status || undefined });
+      setJobs(res.data);
+      setJobsTotal(res.meta.total);
+      setJobsPage(res.meta.page);
+    } catch {
+      toast.error('Failed to load outbound jobs');
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  };
+
+  const fetchWebhookLogs = async (page = logsPage, status = logsStatusFilter) => {
+    setIsLoadingLogs(true);
+    try {
+      const res = await zohoMonitorService.getWebhookLogs({ page, limit: 20, status: status || undefined });
+      setWebhookLogs(res.data);
+      setLogsTotal(res.meta.total);
+      setLogsPage(res.meta.page);
+    } catch {
+      toast.error('Failed to load webhook logs');
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  const handleRetryJob = async (id: string) => {
+    setRetryingJobId(id);
+    try {
+      await zohoMonitorService.retryJob(id);
+      toast.success('Job reset to PENDING — will be picked up on next worker tick');
+      await fetchJobs(jobsPage, jobsStatusFilter);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Retry failed');
+    } finally {
+      setRetryingJobId(null);
+    }
+  };
+
+  const jobStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      PENDING: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+      PROCESSING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+      SUCCESS: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+      FAILED_RETRY: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+      FAILED_DEAD_LETTER: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    };
+    return <Badge variant="outline" className={`${map[status] ?? 'bg-gray-100 text-gray-700'} text-xs`}>{status.replace(/_/g, ' ')}</Badge>;
+  };
+
+  const logStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      PROCESSED: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+      RECEIVED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+      IGNORED_DUPLICATE: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+      FAILED: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    };
+    return <Badge variant="outline" className={`${map[status] ?? 'bg-gray-100 text-gray-700'} text-xs`}>{status.replace(/_/g, ' ')}</Badge>;
   };
 
   return (
@@ -1650,6 +1735,18 @@ const SettingsPage = () => {
                 <p className="text-xs text-muted-foreground mt-1">API auth token issued by Zoho SDP. Required for outbound status updates.</p>
               </div>
 
+              <div>
+                <Label htmlFor="outbound-requester-id">Default Requester ID</Label>
+                <Input
+                  id="outbound-requester-id"
+                  value={outboundRequesterId}
+                  onChange={(e) => setOutboundRequesterId(e.target.value)}
+                  placeholder="Zoho SDP requester ID (e.g. 5)"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Zoho SDP user ID to set as the requester when creating tickets from HSE incidents. Required by most SDP instances.</p>
+              </div>
+
               <div className="flex items-center space-x-2">
                 <Switch id="sdp-self-signed" checked={sdpAllowSelfSigned} onCheckedChange={setSdpAllowSelfSigned} />
                 <Label htmlFor="sdp-self-signed">Allow Self-Signed SSL Certificates</Label>
@@ -1742,6 +1839,250 @@ const SettingsPage = () => {
                   {isSavingWorker ? 'Saving...' : 'Save Worker Settings'}
                 </ThemeButton>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 6 — Outbound Job Queue */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Outbound Job Queue</CardTitle>
+                  <CardDescription>Status sync jobs sent (or queued to send) to Zoho SDP</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Select
+                    value={jobsStatusFilter || '__ALL__'}
+                    onValueChange={(v) => {
+                      const next = v === '__ALL__' ? '' : v;
+                      setJobsStatusFilter(next);
+                      setJobsPage(1);
+                      fetchJobs(1, next);
+                    }}
+                  >
+                    <SelectTrigger className="w-44 h-8 text-xs">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__ALL__">All statuses</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="PROCESSING">Processing</SelectItem>
+                      <SelectItem value="SUCCESS">Success</SelectItem>
+                      <SelectItem value="FAILED_RETRY">Failed (retry)</SelectItem>
+                      <SelectItem value="FAILED_DEAD_LETTER">Dead Letter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchJobs(1, jobsStatusFilter)}
+                    disabled={isLoadingJobs}
+                    className="gap-1"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isLoadingJobs ? 'animate-spin' : ''}`} />
+                    {jobs.length === 0 && !isLoadingJobs ? 'Load' : 'Refresh'}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  {
+                    id: 'ticketId',
+                    header: 'Zoho Ticket',
+                    cell: (job: OutboundJob) => (
+                      <span className="font-mono text-xs">{job.ticketId}</span>
+                    ),
+                  },
+                  {
+                    id: 'hseTaskId',
+                    header: 'Incident ID',
+                    cell: (job: OutboundJob) => job.mapping ? (
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-xs truncate max-w-[120px]" title={job.mapping.hseTaskId}>
+                          {job.mapping.hseTaskId.slice(0, 8)}…
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={() => { navigator.clipboard.writeText(job.mapping!.hseTaskId); toast.success('Incident ID copied'); }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : <span className="text-muted-foreground text-xs">—</span>,
+                  },
+                  {
+                    id: 'targetStatus',
+                    header: 'Target',
+                    cell: (job: OutboundJob) => <span className="text-xs">{job.targetStatus}</span>,
+                  },
+                  {
+                    id: 'status',
+                    header: 'Status',
+                    cell: (job: OutboundJob) => jobStatusBadge(job.status),
+                  },
+                  {
+                    id: 'attempts',
+                    header: 'Attempts',
+                    cell: (job: OutboundJob) => (
+                      <span className="text-xs text-muted-foreground">{job.attemptCount}/{job.maxAttempts}</span>
+                    ),
+                  },
+                  {
+                    id: 'lastError',
+                    header: 'Last Error',
+                    cell: (job: OutboundJob) => job.lastError ? (
+                      <span className="text-xs text-destructive" title={job.lastError}>
+                        {job.lastError.slice(0, 60)}{job.lastError.length > 60 ? '…' : ''}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>,
+                  },
+                  {
+                    id: 'nextRetryAt',
+                    header: 'Next Retry',
+                    cell: (job: OutboundJob) => job.status === 'FAILED_RETRY' && job.nextRetryAt
+                      ? <span className="text-xs">{formatDateTime(job.nextRetryAt)}</span>
+                      : <span className="text-muted-foreground text-xs">—</span>,
+                  },
+                  {
+                    id: 'createdAt',
+                    header: 'Created',
+                    cell: (job: OutboundJob) => <span className="text-xs">{formatDateTime(job.createdAt)}</span>,
+                  },
+                  {
+                    id: 'actions',
+                    header: '',
+                    cell: (job: OutboundJob) => job.status === 'FAILED_DEAD_LETTER' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={retryingJobId === job.id}
+                        onClick={() => handleRetryJob(job.id)}
+                      >
+                        {retryingJobId === job.id ? 'Retrying…' : 'Retry'}
+                      </Button>
+                    ) : null,
+                  },
+                ]}
+                data={jobs}
+                isLoading={isLoadingJobs}
+                pagination={{
+                  pageIndex: jobsPage - 1,
+                  limit: 20,
+                  pageCount: Math.ceil(jobsTotal / 20),
+                  total: jobsTotal,
+                  onPageChange: (page) => {
+                    setJobsPage(page + 1);
+                    fetchJobs(page + 1, jobsStatusFilter);
+                  },
+                  onPageSizeChange: () => {},
+                }}
+                hideSearch
+              />
+            </CardContent>
+          </Card>
+
+          {/* Card 7 — Webhook Logs */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Webhook Logs</CardTitle>
+                  <CardDescription>Inbound webhook events received from Zoho SDP</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Select
+                    value={logsStatusFilter || '__ALL__'}
+                    onValueChange={(v) => {
+                      const next = v === '__ALL__' ? '' : v;
+                      setLogsStatusFilter(next);
+                      setLogsPage(1);
+                      fetchWebhookLogs(1, next);
+                    }}
+                  >
+                    <SelectTrigger className="w-44 h-8 text-xs">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__ALL__">All statuses</SelectItem>
+                      <SelectItem value="RECEIVED">Received</SelectItem>
+                      <SelectItem value="PROCESSED">Processed</SelectItem>
+                      <SelectItem value="IGNORED_DUPLICATE">Ignored Duplicate</SelectItem>
+                      <SelectItem value="FAILED">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchWebhookLogs(1, logsStatusFilter)}
+                    disabled={isLoadingLogs}
+                    className="gap-1"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+                    {webhookLogs.length === 0 && !isLoadingLogs ? 'Load' : 'Refresh'}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  {
+                    id: 'eventType',
+                    header: 'Event',
+                    cell: (log: WebhookLog) => <span className="font-mono text-xs">{log.eventType}</span>,
+                  },
+                  {
+                    id: 'ticketId',
+                    header: 'Zoho Ticket',
+                    cell: (log: WebhookLog) => log.ticketId
+                      ? <span className="font-mono text-xs">{log.ticketId}</span>
+                      : <span className="text-muted-foreground text-xs">—</span>,
+                  },
+                  {
+                    id: 'status',
+                    header: 'Status',
+                    cell: (log: WebhookLog) => logStatusBadge(log.status),
+                  },
+                  {
+                    id: 'errorSummary',
+                    header: 'Error',
+                    cell: (log: WebhookLog) => log.errorSummary ? (
+                      <span className="text-xs text-destructive" title={log.errorSummary}>
+                        {log.errorSummary.slice(0, 80)}{log.errorSummary.length > 80 ? '…' : ''}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>,
+                  },
+                  {
+                    id: 'createdAt',
+                    header: 'Received',
+                    cell: (log: WebhookLog) => <span className="text-xs">{formatDateTime(log.createdAt)}</span>,
+                  },
+                  {
+                    id: 'processedAt',
+                    header: 'Processed',
+                    cell: (log: WebhookLog) => <span className="text-xs">{formatDateTime(log.processedAt)}</span>,
+                  },
+                ]}
+                data={webhookLogs}
+                isLoading={isLoadingLogs}
+                pagination={{
+                  pageIndex: logsPage - 1,
+                  limit: 20,
+                  pageCount: Math.ceil(logsTotal / 20),
+                  total: logsTotal,
+                  onPageChange: (page) => {
+                    setLogsPage(page + 1);
+                    fetchWebhookLogs(page + 1, logsStatusFilter);
+                  },
+                  onPageSizeChange: () => {},
+                }}
+                hideSearch
+              />
             </CardContent>
           </Card>
 

@@ -6,7 +6,9 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -152,6 +154,51 @@ export class ZohoWebhooksController {
   @ApiResponse({ status: 200, description: 'Distinct Zoho field values seen in recent processed Ticket_Add logs' })
   async discoverFieldValues() {
     return this.webhookService.discoverFieldValues();
+  }
+
+  @Get('integrations/zoho/jobs')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List outbound sync jobs (paginated)' })
+  @ApiResponse({ status: 200, description: 'Paginated outbound job list' })
+  async listJobs(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('status') status?: string,
+  ) {
+    return this.webhookService.listOutboundJobs({
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.min(100, Math.max(1, parseInt(limit, 10) || 20)),
+      status: status?.trim() || undefined,
+    });
+  }
+
+  @Post('integrations/zoho/jobs/:id/retry')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Retry a dead-letter outbound job' })
+  @ApiResponse({ status: 200, description: 'Job reset to PENDING' })
+  async retryJob(@Param('id') id: string) {
+    await this.webhookService.retryDeadLetterJob(id);
+    return { ok: true };
+  }
+
+  @Get('integrations/zoho/webhook-logs')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List inbound webhook logs (paginated)' })
+  @ApiResponse({ status: 200, description: 'Paginated webhook log list' })
+  async listWebhookLogs(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('status') status?: string,
+  ) {
+    return this.webhookService.listWebhookLogs({
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.min(100, Math.max(1, parseInt(limit, 10) || 20)),
+      status: status?.trim() || undefined,
+    });
   }
 
   @Post('integrations/zoho/webhook')

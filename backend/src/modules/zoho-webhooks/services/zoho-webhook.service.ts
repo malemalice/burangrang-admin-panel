@@ -6,7 +6,7 @@ import {
   PriorityEnum,
   SourceEnum,
 } from '@prisma/client';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
@@ -1001,5 +1001,88 @@ export class ZohoWebhookService {
       incidentType: [...incidentType].sort(),
       incidentClassification: [...incidentClassification].sort(),
     };
+  }
+
+  async listOutboundJobs(params: {
+    page: number;
+    limit: number;
+    status?: string;
+  }): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number } }> {
+    const { page, limit, status } = params;
+    const where: Prisma.ZohoOutboundJobWhereInput = status
+      ? { status: status as import('@prisma/client').ZohoOutboundJobStatusEnum }
+      : {};
+
+    const [jobs, total] = await Promise.all([
+      this.prisma.zohoOutboundJob.findMany({
+        where,
+        include: {
+          mapping: {
+            select: { hseTaskId: true, zohoTicketNumber: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.zohoOutboundJob.count({ where }),
+    ]);
+
+    return { data: jobs, meta: { total, page, limit } };
+  }
+
+  async retryDeadLetterJob(id: string): Promise<void> {
+    const job = await this.prisma.zohoOutboundJob.findUnique({ where: { id } });
+
+    if (!job) {
+      throw new NotFoundException(`Outbound job ${id} not found`);
+    }
+
+    if (job.status !== 'FAILED_DEAD_LETTER') {
+      throw new BadRequestException(
+        `Job ${id} has status "${job.status}" — only FAILED_DEAD_LETTER jobs can be retried`,
+      );
+    }
+
+    await this.prisma.zohoOutboundJob.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        nextRetryAt: new Date(),
+        attemptCount: 0,
+        lastError: null,
+      },
+    });
+  }
+
+  async listWebhookLogs(params: {
+    page: number;
+    limit: number;
+    status?: string;
+  }): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number } }> {
+    const { page, limit, status } = params;
+    const where = status ? { status } : {};
+
+    const [logs, total] = await Promise.all([
+      this.prisma.tZohoWebhookLogs.findMany({
+        where,
+        select: {
+          id: true,
+          eventType: true,
+          ticketId: true,
+          status: true,
+          errorSummary: true,
+          correlationId: true,
+          createdAt: true,
+          processedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.tZohoWebhookLogs.count({ where }),
+    ]);
+
+    return { data: logs, meta: { total, page, limit } };
   }
 }

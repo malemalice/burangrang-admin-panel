@@ -24,6 +24,7 @@ export const SETTINGS_KEYS = {
   ZOHO_DEFAULT_INCIDENT_CLASSIFICATION: 'zoho.inbound.default_incident_classification',
   ZOHO_DEFAULT_RISK_CATEGORY_ID: 'zoho.inbound.default_risk_category_id',
   ZOHO_STATUS_MAP: 'zoho.outbound.status_map',
+  ZOHO_OUTBOUND_REQUESTER_ID: 'zoho.outbound.requester_id',
   // Incident field maps (Zoho value -> HSE value); shared by inbound/outbound flows
   ZOHO_INCIDENT_AREA_MAP: 'zoho.incident.area_map',
   ZOHO_INCIDENT_RISK_CATEGORY_MAP: 'zoho.incident.risk_category_map',
