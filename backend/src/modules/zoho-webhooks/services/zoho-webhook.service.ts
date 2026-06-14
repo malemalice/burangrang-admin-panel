@@ -601,11 +601,17 @@ export class ZohoWebhookService {
   private extractZohoStatusValue(payload: ZohoWebhookDto): string | null {
     const payloadStatus = this.readStringField(payload.data?.status);
 
-    if (payloadStatus) {
-      return payloadStatus;
+    if (!payloadStatus) {
+      return null;
     }
 
-    return null;
+    const parsedStatus = this.tryParseJsonObject(payloadStatus);
+    if (parsedStatus) {
+      const name = this.readStringField(parsedStatus.name);
+      return name ?? payloadStatus;
+    }
+
+    return payloadStatus;
   }
 
   private generateIncidentCode(ticketNumber: string | undefined): string {

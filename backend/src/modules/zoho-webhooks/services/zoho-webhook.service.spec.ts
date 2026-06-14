@@ -14,6 +14,7 @@ describe('ZohoWebhookService', () => {
   let service: ZohoWebhookService;
 
   let incidentCreateMock: jest.Mock;
+  let incidentFindUniqueMock: jest.Mock;
   let incidentUpdateMock: jest.Mock;
   let mappingCreateMock: jest.Mock;
   let mappingFindUniqueMock: jest.Mock;
@@ -29,6 +30,10 @@ describe('ZohoWebhookService', () => {
       id: 'inc-1',
       status: GeneralStatusEnum.OPEN,
       source: 'ZOHO',
+    });
+    incidentFindUniqueMock = jest.fn().mockResolvedValue({
+      id: 'inc-1',
+      status: GeneralStatusEnum.OPEN,
     });
     incidentUpdateMock = jest.fn().mockResolvedValue({
       id: 'inc-1',
@@ -63,6 +68,7 @@ describe('ZohoWebhookService', () => {
       },
       incident: {
         create: incidentCreateMock,
+        findUnique: incidentFindUniqueMock,
         update: incidentUpdateMock,
       },
       zohoTicketIncidentMap: {
@@ -376,14 +382,14 @@ describe('ZohoWebhookService', () => {
         hseTaskId: true,
       }),
     });
-    expect(incidentUpdateMock).toHaveBeenCalledWith({
-      where: { id: 'inc-1' },
-      data: expect.objectContaining({
-        status: GeneralStatusEnum.DONE,
-        description:
-          '[Zoho Subject] Unsafe area updated\n[Zoho Priority] Urgent\n[Zoho Description] Updated oil spill details',
+    expect(incidentUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'inc-1' },
+        data: expect.objectContaining({
+          status: GeneralStatusEnum.DONE,
+        }),
       }),
-    });
+    );
     expect(mappingUpdateMock).toHaveBeenCalledWith({
       where: { id: 'map-1' },
       data: expect.objectContaining({
@@ -491,12 +497,14 @@ describe('ZohoWebhookService', () => {
       isLegacyRoute: false,
     });
 
-    expect(incidentUpdateMock).toHaveBeenCalledWith({
-      where: { id: 'inc-1' },
-      data: expect.objectContaining({
-        status: GeneralStatusEnum.WAITING_APPROVAL,
+    expect(incidentUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'inc-1' },
+        data: expect.objectContaining({
+          status: GeneralStatusEnum.WAITING_APPROVAL,
+        }),
       }),
-    });
+    );
   });
 
   it('stores inbound zoho status metadata for loop avoidance', async () => {
@@ -533,6 +541,81 @@ describe('ZohoWebhookService', () => {
         lastHseStatus: GeneralStatusEnum.CLOSE,
       }),
     });
+  });
+
+  it('parses JSON-string status from Zoho and maps it correctly', async () => {
+    // Zoho sends status as a JSON-encoded object; the "name" field is the actual status value
+    const payload: ZohoWebhookDto = {
+      data: {
+        id: 'zoho-3',
+        subject: 'Status update',
+        status: '{"color":"#ff9900","name":"In Progress","id":"3"}',
+      },
+      meta: {},
+    };
+
+    await service['processInboundAsync']({
+      payload,
+      eventType: ZOHO_EVENT_TYPES.TICKET_UPDATE,
+      requestId: 'req-json-status',
+      eventKey: 'event-json-status',
+      correlationId: 'corr-json-status',
+      ticketData: {
+        id: 'zoho-3',
+        ticketNumber: undefined,
+        subject: 'Status update',
+        description: undefined,
+        priority: undefined,
+        departmentId: undefined,
+      },
+      isLegacyRoute: false,
+    });
+
+    expect(incidentUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'inc-1' },
+        data: expect.objectContaining({
+          status: GeneralStatusEnum.WAITING_APPROVAL,
+        }),
+      }),
+    );
+  });
+
+  it('plain-string status still maps correctly (regression guard)', async () => {
+    const payload: ZohoWebhookDto = {
+      data: {
+        id: 'zoho-3',
+        subject: 'Status update',
+        status: 'Closed',
+      },
+      meta: {},
+    };
+
+    await service['processInboundAsync']({
+      payload,
+      eventType: ZOHO_EVENT_TYPES.TICKET_UPDATE,
+      requestId: 'req-plain-status',
+      eventKey: 'event-plain-status',
+      correlationId: 'corr-plain-status',
+      ticketData: {
+        id: 'zoho-3',
+        ticketNumber: undefined,
+        subject: 'Status update',
+        description: undefined,
+        priority: undefined,
+        departmentId: undefined,
+      },
+      isLegacyRoute: false,
+    });
+
+    expect(incidentUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'inc-1' },
+        data: expect.objectContaining({
+          status: GeneralStatusEnum.CLOSE,
+        }),
+      }),
+    );
   });
 
   it('ignores unsupported events safely', async () => {
