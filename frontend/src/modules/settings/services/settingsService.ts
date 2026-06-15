@@ -122,6 +122,17 @@ const settingsService = {
     }
   },
 
+  // Get multiple setting values in a single batch request
+  getSettingValues: async (keys: string[]): Promise<Record<string, string | null>> => {
+    try {
+      const response = await api.post('/settings/values/batch', { keys });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching settings batch:', error);
+      return Object.fromEntries(keys.map(k => [k, null]));
+    }
+  },
+
   // Set setting value by key
   setSettingValue: async (key: string, value: string): Promise<void> => {
     try {

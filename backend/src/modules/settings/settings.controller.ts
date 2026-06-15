@@ -239,6 +239,25 @@ export class SettingsController {
     return { value };
   }
 
+  @Post('values/batch')
+  @Permissions('setting:read')
+  @ApiOperation({ summary: 'Get multiple setting values by keys in one request' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { keys: { type: 'array', items: { type: 'string' } } },
+      required: ['keys'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Map of key → value (null if not found)',
+    schema: { type: 'object', additionalProperties: { type: 'string', nullable: true } },
+  })
+  async getValuesByKeys(@Body() body: { keys: string[] }): Promise<Record<string, string | null>> {
+    return this.settingsService.getValuesByKeys(body.keys);
+  }
+
   // Generic routes come LAST to prevent conflicts with specific routes above
   @Get(':id')
   @Permissions('setting:read')

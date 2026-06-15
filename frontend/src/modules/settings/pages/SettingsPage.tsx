@@ -455,7 +455,8 @@ const SettingsPage = () => {
           'zoho.incident.incident_type_map',
           'zoho.incident.incident_classification_map',
         ];
-        const values = await Promise.all(keys.map(k => settingsService.getSettingValue(k)));
+        const valuesMap = await settingsService.getSettingValues(keys);
+        const values = keys.map(k => valuesMap[k]);
         setZohoSyncEnabled(values[0] === 'true');
         setZohoWebhookEnabled(values[1] === 'true');
         setWebhookAuthMode((values[2] as 'secret' | 'signature' | 'jwt') || 'secret');
@@ -1350,7 +1351,7 @@ const SettingsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Enable Outbound Sync</Label>
-                  <p className="text-sm text-muted-foreground">Push HSE Risk Assessment status changes to Zoho SDP</p>
+                  <p className="text-sm text-muted-foreground">Push HSE Incident status changes to Zoho SDP</p>
                 </div>
                 <Switch checked={zohoSyncEnabled} onCheckedChange={handleToggleSync} disabled={isLoadingZoho} />
               </div>
