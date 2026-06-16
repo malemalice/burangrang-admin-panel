@@ -38,6 +38,7 @@ const HealthQuizzesPage = () => {
       limit,
       sortBy: 'createdAt',
       sortOrder: 'desc',
+      isActive: true,
       ...(searchTerm ? { search: searchTerm } : {}),
     });
   }, [fetchQuizzes, pageIndex, limit, searchTerm]);
