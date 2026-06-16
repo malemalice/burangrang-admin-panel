@@ -37,7 +37,7 @@ export default function KpiFrequencyRatePage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="KPI Frequency Rate Charts"
+        title="Incident Frequency Rate Charts"
         subtitle="HSE KPI metrics: TRIFR, TRSR, and Lost Time Incident Case Rate"
       />
 

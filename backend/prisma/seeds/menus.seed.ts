@@ -110,7 +110,7 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'KPI Frequency Rate',
+        name: 'Incident Frequency Rate',
         path: '/dashboard/kpi-frequency-rate',
         icon: 'BarChart3',
         parentId: dashboardMenu.id,
@@ -129,7 +129,7 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'KPI HSE Target',
+        name: 'HSE Target',
         path: '/dashboard/kpi-hse-target',
         icon: 'Target',
         parentId: dashboardMenu.id,

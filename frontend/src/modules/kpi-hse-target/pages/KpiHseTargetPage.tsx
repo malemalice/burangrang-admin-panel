@@ -324,7 +324,7 @@ export default function KpiHseTargetPage() {
   return (
     <>
       <PageHeader
-        title="KPI HSE Target"
+        title="HSE Target"
         subtitle="Manage HSE targets for actual vs target comparison"
         actions={
           <div className="flex items-center gap-2">
