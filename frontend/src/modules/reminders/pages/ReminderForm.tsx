@@ -32,6 +32,11 @@ import officeService from '@/modules/master-data/services/officeService';
 import roleService from '@/modules/roles/services/roleService';
 import userService from '@/modules/users/services/userService';
 
+const toLocalDatetimeString = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 async function resolveTargetOptions(type: ReminderTargetType): Promise<ModalComboboxOption[]> {
   const params = { page: 1, limit: 200, filters: { options: true } } as any;
   switch (type) {
@@ -89,11 +94,11 @@ const ReminderForm = ({ reminder, mode }: ReminderFormProps) => {
           entityId: reminder.entityId || '',
           message: reminder.message,
           remindAt: reminder.remindAt
-            ? new Date(reminder.remindAt).toISOString().slice(0, 16)
+            ? toLocalDatetimeString(new Date(reminder.remindAt))
             : '',
           repeatType: reminder.repeatType || ReminderRepeatType.NONE,
           repeatUntil: reminder.repeatUntil
-            ? new Date(reminder.repeatUntil).toISOString().slice(0, 16)
+            ? toLocalDatetimeString(new Date(reminder.repeatUntil))
             : '',
         }
       : {
