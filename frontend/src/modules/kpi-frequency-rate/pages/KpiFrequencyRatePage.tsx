@@ -38,7 +38,13 @@ export default function KpiFrequencyRatePage() {
     <div className="space-y-8">
       <PageHeader
         title="Incident Frequency Rate Charts"
-        subtitle="HSE KPI metrics: TRIFR, TRSR, and Lost Time Incident Case Rate"
+        subtitle={
+          <span className="text-muted-foreground text-sm">
+            <span>HSE metrics: TRIFR = Total Recordable Incident Frequency Rate; TRISR = Total Recordable Incident Severity Rate; LTICR = Loss Time Injury Case Rate</span>
+            <br />
+            <span>Loss Time Injury = A major incident that caused partial or complete disruption of school operations</span>
+          </span>
+        }
       />
 
       <PeriodRangeFilter
@@ -67,14 +73,14 @@ export default function KpiFrequencyRatePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <KpiDataTable
-              title="TRIFR Data Table"
+              title="TRIFR — Total Recordable Incident Frequency Rate"
               data={data.trifr}
               studyLabel="IFR study related activities"
               workLabel="IFR work related activities"
               totalLabel="Total IFR"
             />
             <KpiDataTable
-              title="TRSR Data Table"
+              title="TRISR — Total Recordable Incident Severity Rate"
               data={data.trsr}
               studyLabel="SR study related activities"
               workLabel="SR work related activities"
@@ -83,7 +89,7 @@ export default function KpiFrequencyRatePage() {
           </div>
 
           <KpiDataTable
-            title="LTICR Data Table"
+            title="LTICR — Loss Time Injury Case Rate"
             data={data.lticr}
             studyLabel="LTI CR Study Related Activities"
             workLabel="LTI CR Work Related Activities"

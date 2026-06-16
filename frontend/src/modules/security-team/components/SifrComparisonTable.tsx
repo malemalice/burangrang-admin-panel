@@ -17,7 +17,7 @@ export function SifrComparisonTable({ data }: SifrComparisonTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">SIFR Comparison</CardTitle>
+        <CardTitle className="text-lg">Security Incident Frequency Rate Comparison</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -26,7 +26,7 @@ export function SifrComparisonTable({ data }: SifrComparisonTableProps) {
               <TableRow>
                 <TableHead className="w-[100px]">YEAR</TableHead>
                 <TableHead className="text-right bg-green-100 dark:bg-green-900/30 min-w-[100px]">
-                  Total SIFR
+                  Total Security Incident Frequency Rate
                 </TableHead>
                 <TableHead className="text-right bg-red-100 dark:bg-red-900/30 min-w-[100px]">
                   Total Major Incident rate
