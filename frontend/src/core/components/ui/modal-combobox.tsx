@@ -211,22 +211,33 @@ export function ModalCombobox({
       const spaceBelow = window.innerHeight - rect.bottom - GAP;
       const spaceAbove = rect.top - GAP;
 
+      const DROPDOWN_PREFERRED_WIDTH = 300;
+      const spaceToRight = window.innerWidth - rect.left - 16;
+      const useRightAlign = spaceToRight < DROPDOWN_PREFERRED_WIDTH;
+      const horizontalStyle = useRightAlign
+        ? {
+            right: window.innerWidth - rect.right,
+            minWidth: rect.width,
+            maxWidth: Math.min(rect.right - 16, 600),
+          }
+        : {
+            left: rect.left,
+            minWidth: rect.width,
+            maxWidth: Math.min(spaceToRight, 600),
+          };
+
       if (spaceBelow >= DROPDOWN_MAX_HEIGHT || spaceBelow >= spaceAbove) {
         setDropdownStyle({
           position: 'fixed',
           top: rect.bottom + GAP,
-          left: rect.left,
-          minWidth: rect.width,
-          maxWidth: Math.min(window.innerWidth - rect.left - 16, 600),
+          ...horizontalStyle,
           maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceBelow),
         });
       } else {
         setDropdownStyle({
           position: 'fixed',
           bottom: window.innerHeight - rect.top + GAP,
-          left: rect.left,
-          minWidth: rect.width,
-          maxWidth: Math.min(window.innerWidth - rect.left - 16, 600),
+          ...horizontalStyle,
           maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceAbove),
         });
       }
