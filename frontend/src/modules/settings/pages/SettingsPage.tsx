@@ -504,7 +504,7 @@ const SettingsPage = () => {
         areaService.getAreas({ page: 1, limit: 100, options: true }),
         riskCategoryService.getAll({ page: 1, limit: 100, options: true }),
         departmentService.getDepartments({ page: 1, limit: 200, options: true }),
-        userService.getUsers({ page: 1, limit: 200, options: true }),
+        userService.getUsers({ page: 1, limit: 200, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
       ]);
       setAreaOptions(areasRes.data || []);
       setRiskCategoryOptions(riskCategoriesRes.data || []);

@@ -113,7 +113,7 @@ const IncidentsPage = () => {
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
           departmentService.getDepartments({ page: 1, limit: 100, options: true }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
         ]);
 
         setAreas(areasRes.data);

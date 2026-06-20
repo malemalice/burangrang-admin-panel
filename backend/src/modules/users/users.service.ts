@@ -298,6 +298,7 @@ export class UsersService {
       email,
       roleId,
       roleCode,
+      excludeRoleCode,
       officeId,
       departmentId,
       jobPositionId,
@@ -369,6 +370,10 @@ export class UsersService {
 
     if (roleCode) {
       where.role = { code: roleCode };
+    }
+
+    if (excludeRoleCode) {
+      where.role = { ...(where.role as object ?? {}), code: { not: excludeRoleCode } };
     }
 
     if (officeId) {

@@ -112,7 +112,7 @@ const AuditSchedulesPage = () => {
             filters: { isActive: true },
             options: true
           }),
-          userService.getAll({ page: 1, limit: 1000, options: true }),
+          userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           auditPeriodsService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
 

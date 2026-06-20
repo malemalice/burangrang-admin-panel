@@ -186,7 +186,7 @@ const ViewAuditCriteriaPage = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await userService.getAll({ page: 1, limit: 1000, options: true });
+        const response = await userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } });
         const map: Record<string, string> = {};
         response.data.forEach((user: any) => {
           const firstLast = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();

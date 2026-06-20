@@ -278,7 +278,7 @@ export const AuditItemForm = ({
       try {
         const [deptsResponse, usersResponse] = await Promise.all([
           departmentService.getDepartments({ page: 1, limit: 1000, options: true }),
-          userService.getAll({ page: 1, limit: 1000, options: true }),
+          userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
         ]);
         setDepartments(deptsResponse.data);
         setUsers(usersResponse.data);

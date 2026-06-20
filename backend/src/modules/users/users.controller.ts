@@ -213,6 +213,12 @@ export class UsersController {
     description: 'Filter by role code (e.g. CONTRACTOR)',
   })
   @ApiQuery({
+    name: 'excludeRoleCode',
+    required: false,
+    type: String,
+    description: 'Exclude users whose role code matches this value (e.g. CONTRACTOR to get employees only)',
+  })
+  @ApiQuery({
     name: 'options',
     required: false,
     type: Boolean,
@@ -254,6 +260,7 @@ export class UsersController {
     @Query('jobPositionId') jobPositionId?: string,
     @Query('companyId') companyId?: string,
     @Query('roleCode') roleCode?: string,
+    @Query('excludeRoleCode') excludeRoleCode?: string,
     @Query('options') optionsMode?: string,
   ): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
     // Convert string parameters to their proper types
@@ -288,6 +295,7 @@ export class UsersController {
         jobPositionId,
         companyId,
         roleCode,
+        excludeRoleCode,
       },
       req.user
         ? {

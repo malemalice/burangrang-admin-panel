@@ -326,7 +326,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
           departmentService.getDepartments({ page: 1, limit: 100, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           // Fetch technicians: users with TECHNICIAN role and job position
           technicianRole 
             ? userService.getUsers({ 

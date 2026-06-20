@@ -436,7 +436,7 @@ const InspectionItemForm = ({
         const assigneePermission = FIELD_PERMISSIONS[formMode]?.assigneeId;
         if (assigneePermission === 'editable' || assigneePermission === 'readonly' || createWithInspection) {
           try {
-            const usersResponse = await userService.getAll({ page: 1, limit: 1000, options: true });
+            const usersResponse = await userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } });
             setUsers(usersResponse.data);
           } catch (userError) {
             // Silently handle user fetch errors - assignee is optional anyway

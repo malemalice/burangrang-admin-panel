@@ -139,7 +139,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
             filters: { isActive: true },
             options: true
           }),
-          userService.getAll({ page: 1, limit: 1000, options: true }),
+          userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           api.get('/audit-elements', { params: { page: 1, limit: 1000, isActive: true, options: true } }),
           auditPeriodsService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
