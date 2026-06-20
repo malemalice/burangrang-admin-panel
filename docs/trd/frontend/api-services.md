@@ -104,6 +104,76 @@ const fetchRolesForDropdown = async () => {
 
 **Options Bypass for Select/Dropdown Data:** When fetching list data for form dropdowns (roles, departments, offices, etc.), add `options: true` to the query params. This allows users who have form access (e.g. `certificate:create`) but not the list permission (e.g. `department:list`) to still load options. The backend accepts `?options=true` and bypasses the permission check for authenticated users on endpoints that support it.
 
+### User Dropdown Filtering — Employee vs Contractor
+
+The system has two user types distinguished by role code:
+- **Employees** — all users whose `role.code !== 'CONTRACTOR'`
+- **Contractors** — users with `role.code === 'CONTRACTOR'`
+
+Use the appropriate filter when fetching users for dropdowns:
+
+**Employees only** — use `filters: { excludeRoleCode: 'CONTRACTOR' }`:
+```typescript
+userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } })
+```
+
+**Contractors only** — use `filters: { roleCode: 'CONTRACTOR' }` (or import `WORK_PERMIT_WORKER_ROLE_CODE` from `workPermitWorkerService`):
+```typescript
+userService.getUsers({ page: 1, limit: 500, options: true, filters: { roleCode: 'CONTRACTOR' } })
+```
+
+**Both** — no filter needed (default behavior).
+
+#### Reference: which fields use which filter
+
+**Employees only** — internal staff roles (assignees, instructors, auditors, HSE officers):
+
+| File | Field | Reason |
+|---|---|---|
+| `modules/courses/pages/CourseForm.tsx` | Instructor | Instructors are internal employees |
+| `modules/courses/pages/CoursesPage.tsx` | Filter: Instructor | Should match form |
+| `modules/incidents/pages/IncidentsPage.tsx` | Filter: Assignee | Incident handlers are internal staff |
+| `modules/incidents/components/IncidentForm.tsx` | Assignee (general users) | Same |
+| `modules/incident-security/pages/IncidentSecuritiesPage.tsx` | Filter: Assignee | Same |
+| `modules/incident-security/components/IncidentSecurityForm.tsx` | Assignee (general users) | Same |
+| `modules/inspections/components/InspectionForm.tsx` | Inspector IDs | Inspectors are internal |
+| `modules/inspections/components/InspectionItemForm.tsx` | Assignee | Inspection assignments go to employees |
+| `modules/inspections/inspection-items/pages/InspectionItemsPage.tsx` | Filter: Assigned user | Same |
+| `modules/audit-schedules/components/AuditScheduleForm.tsx` | Auditor IDs | Auditors are internal |
+| `modules/audit-schedules/components/AuditItemForm.tsx` | Assigned users | Same |
+| `modules/audit-schedules/pages/AuditSchedulesPage.tsx` | Filter: Auditor | Should match form |
+| `modules/audit-schedules/pages/ViewAuditCriteriaPage.tsx` | User lookup map | Auditors are internal |
+| `modules/risk-assessment/components/RiskAssessmentForm.tsx` | User options | Risk assessors are internal |
+| `modules/work-permits/components/WorkPermitForm.tsx` | HSE Officer field | HSE officers are employees |
+| `modules/settings/pages/SettingsPage.tsx` | Zoho sync config | Internal config, employees only |
+
+**Contractors only** — already filtered via `roleCode: 'CONTRACTOR'`:
+
+| File | Field |
+|---|---|
+| `modules/work-permits/components/WorkPermitForm.tsx` | Worker/contractor field |
+| `modules/work-permits/services/workPermitWorkerService.ts` | Worker fetch utility |
+
+**Both (no filter)** — records that apply to anyone on-site:
+
+| File | Field | Reason |
+|---|---|---|
+| `modules/enrollments/components/AssignCourseDialog.tsx` | Assign course to user | Contractors may need safety training |
+| `modules/enrollments/pages/EnrollmentsPage.tsx` | Filter: User | Enrollment applies to both |
+| `modules/certificates/pages/CertificateForm.tsx` | Personnel selection | Safety certs cover contractors too |
+| `modules/certificates/pages/CertificatesPage.tsx` | Filter: Personnel | Should match form |
+| `modules/ppe/pages/withdrawals/PPEWithdrawalForm.tsx` | Requested-for user | PPE issued to anyone on-site |
+| `modules/access-logs/pages/AccessLogsPage.tsx` | Filter: User | Both enter the facility |
+| `modules/reminders/pages/ReminderForm.tsx` | Reminder target | Reminders can target anyone |
+| `modules/reminders/components/reminders-section/RemindersSection.tsx` | Reminder target | Same |
+
+**Already role-filtered** — no additional type filter needed:
+
+| File | Field | Filter |
+|---|---|---|
+| `modules/incidents/components/IncidentForm.tsx` | Technician | `roleId: TECHNICIAN` |
+| `modules/incident-security/components/IncidentSecurityForm.tsx` | Technician | `roleId: TECHNICIAN` |
+
 ## Data Transformation Patterns
 
 ### 1. DTO to Model Mapping
