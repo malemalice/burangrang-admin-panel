@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from "@/core/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar";
 import {
-  Bell,
   Menu,
-  Search,
   User,
   Settings,
   LogOut,
@@ -26,6 +24,7 @@ import { useTheme } from '@/core/lib/theme';
 import { NotificationDropdown } from '@/modules/notifications';
 import routes from '@/core/routes';
 import { useEntityDisplayName, isUUID } from '@/core/hooks/useEntityDisplayName';
+import { useMenuContext } from '@/core/contexts/MenuContext';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -86,41 +85,29 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const location = useLocation();
   const { mode, toggleMode } = useTheme();
   const isDark = mode === 'dark';
+  const { pathNameMap } = useMenuContext();
 
-  // Format breadcrumb items from current path
-  const breadcrumbItems = () => {
+  // Format breadcrumb items from current path using dynamic menu names from the backend
+  const items = useMemo(() => {
     const paths = location.pathname.split('/').filter(Boolean);
 
     if (paths.length === 0) return [{ name: 'Home', path: '/', clickable: true }];
 
-    // Custom name mapping untuk breadcrumb yang lebih user-friendly
-    const nameMapping: Record<string, string> = {
-      'master': 'Master Data',
-      'ppe': 'PPE Management',
-      'safety-equipment-types': 'Safety Equipment Types',
-      'safety-equipments': 'Safety Equipments',
-      'stocks': 'Stocks',
-      'withdrawals': 'Withdrawals',
-    };
-
-    // Helper function untuk check jika route exists
-    const routeExists = (path: string): boolean => {
-      return routes.some(route => route.path === path);
-    };
+    const routeExists = (path: string): boolean =>
+      routes.some(route => route.path === path);
 
     return [
       { name: 'Home', path: '/', clickable: true },
       ...paths.map((path, index) => {
         const url = `/${paths.slice(0, index + 1).join('/')}`;
-        const formattedName = nameMapping[path] || path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
+        const name =
+          pathNameMap[url] ??
+          path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
         const clickable = routeExists(url);
-
-        return { name: formattedName, path: url, clickable, isUUID: isUUID(path), pathIndex: index };
-      })
+        return { name, path: url, clickable, isUUID: isUUID(path), pathIndex: index };
+      }),
     ];
-  };
-
-  const items = breadcrumbItems();
+  }, [location.pathname, pathNameMap]);
 
   // Get user's display name
   const getDisplayName = () => {
