@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 import type { EnvironmentalMeasurementRegulatoryLimits, MetricRegulatoryLimit } from '../services/environmentalMeasurementService';
 import type { RegulatoryMetricKey } from '../utils/regulatoryLimitComparison';
 import {
@@ -48,14 +49,19 @@ export function EnvironmentalMeasurementListPDFTemplate({
   regulatoryLimits,
 }: EnvironmentalMeasurementListPDFTemplateProps) {
   return (
-    <div className="bg-white p-8 space-y-6">
-      <div className="text-center border-b-2 border-foreground pb-4">
-        <h1 className="text-2xl font-bold uppercase tracking-wide mb-2">
-          Environmental Measurements
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Export date: {format(new Date(), 'dd MMMM yyyy HH:mm')} — {measurements.length} record(s)
-        </p>
+    <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Non Water Monitoring List</h1>
+            <p className="text-sm text-gray-600 mb-1">{measurements.length} record(s)</p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       <Table data-pdf-table-splittable="">

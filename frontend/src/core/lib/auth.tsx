@@ -195,9 +195,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Auth] Login error:', error);
-      toast.error('Login failed. Please check your credentials.');
+      const message =
+        error?.response?.data?.message ||
+        'Login failed. Please check your credentials.';
+      toast.error(message);
       return false;
     }
   };

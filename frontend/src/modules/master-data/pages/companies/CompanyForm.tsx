@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -25,12 +26,25 @@ const formSchema = z.object({
   code: z.string().min(1, 'Company code is required'),
   address: z.string().optional(),
   contactPerson: z.string().optional(),
-  phone: z.string().trim().min(1, 'Phone is required'),
+  phone: z.string().trim().regex(
+    /^\+?[0-9]{7,15}$/,
+    'Phone must contain only numbers (optionally starting with +), minimum 7 digits',
+  ),
   email: z.union([z.string().email('Invalid email address'), z.literal('')]).optional(),
   isActive: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const msg = (error.response?.data as { message?: string | string[] } | undefined)?.message;
+    if (typeof msg === 'string' && msg.trim() !== '') return msg;
+    if (Array.isArray(msg) && msg.length > 0) return msg.join(', ');
+  }
+  if (error instanceof Error && error.message.trim() !== '') return error.message;
+  return fallback;
+}
 
 interface CompanyFormProps {
   company?: CompanyDTO;
@@ -108,7 +122,7 @@ const CompanyForm = ({ company, mode }: CompanyFormProps) => {
       navigate('/master/companies');
     } catch (error: unknown) {
       console.error('Error saving company:', error);
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} company`;
+      const errorMessage = getApiErrorMessage(error, `Failed to ${mode} company`);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);

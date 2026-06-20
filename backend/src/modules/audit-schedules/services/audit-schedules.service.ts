@@ -9,9 +9,10 @@ import { AuditScheduleDto } from '../dto/audit-schedule.dto';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { AuditItemDto } from '../dto/audit-item.dto';
 import { AuditResultDto } from '../dto/audit-result.dto';
+import { AuditReportDto } from '../dto/audit-report.dto';
 import { ApproveAuditItemDto } from '../dto/approve-audit-item.dto';
 import { RejectAuditItemDto } from '../dto/reject-audit-item.dto';
-import { Prisma, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
+import { Prisma, GeneralStatusEnum, CompliantStatusEnum, TransitionTypeEnum } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
@@ -39,6 +40,7 @@ interface FindAllOptions {
   auditElementIds?: string[];
   auditorIds?: string[];
   status?: GeneralStatusEnum;
+  periodIds?: string[];
   createdAtFrom?: Date;
   createdAtTo?: Date;
   auditDateFrom?: Date;
@@ -90,6 +92,10 @@ export class AuditSchedulesService {
         auditors: {
           mapper: (auditor: any) => auditor.user || auditor,
           isArray: true,
+        },
+        period: {
+          mapper: (period: any) => period,
+          isArray: false,
         },
       },
     );
@@ -143,7 +149,7 @@ export class AuditSchedulesService {
     createAuditScheduleDto: CreateAuditScheduleDto,
     userId: string,
   ): Promise<AuditScheduleDto> {
-    const { areaIds, auditorIds, ...data } = createAuditScheduleDto;
+    const { areaIds, auditorIds, auditPeriodId, ...data } = createAuditScheduleDto;
 
     // Auto-determine status based on audit date
     // If status is provided, validate it first, then auto-determine (status always auto-changes)
@@ -160,6 +166,7 @@ export class AuditSchedulesService {
         ...data,
         status: finalStatus,
         createdBy: userId,
+        ...(auditPeriodId && { periodId: auditPeriodId }),
         ...(areaIds && areaIds.length > 0 && {
           areas: {
             create: areaIds.map((areaId) => ({
@@ -189,6 +196,7 @@ export class AuditSchedulesService {
           },
         },
         items: true,
+        period: true,
       },
     });
 
@@ -209,6 +217,8 @@ export class AuditSchedulesService {
       ...mapped,
       areaIds: audit.areas.map((aa: any) => aa.area.id),
       auditors: audit.auditors.map((au: any) => au.user),
+      auditPeriodId: audit.periodId ?? undefined,
+      period: audit.period ?? undefined,
     };
   }
 
@@ -227,6 +237,7 @@ export class AuditSchedulesService {
       auditElementIds,
       auditorIds,
       status,
+      periodIds,
       createdAtFrom,
       createdAtTo,
       auditDateFrom,
@@ -279,6 +290,9 @@ export class AuditSchedulesService {
     if (status) {
       where.status = status;
     }
+    if (periodIds && periodIds.length > 0) {
+      where.periodId = { in: periodIds };
+    }
     if (createdAtFrom || createdAtTo) {
       where.createdAt = {};
       if (createdAtFrom) {
@@ -326,6 +340,7 @@ export class AuditSchedulesService {
             orderBy: { createdAt: 'asc' },
           },
           items: true,
+          period: true,
         },
         orderBy: {
           [safeSortBy]: safeSortOrder,
@@ -343,6 +358,8 @@ export class AuditSchedulesService {
           ...mapped,
           areaIds: audit.areas.map((aa: any) => aa.area.id),
           auditors: audit.auditors.map((au: any) => au.user),
+          auditPeriodId: audit.periodId ?? undefined,
+          period: audit.period ?? undefined,
         };
       }),
       meta: { total, page, limit },
@@ -367,6 +384,7 @@ export class AuditSchedulesService {
           orderBy: { createdAt: 'asc' },
         },
         items: true,
+        period: true,
       },
     });
 
@@ -378,6 +396,8 @@ export class AuditSchedulesService {
       ...mapped,
       areaIds: audit.areas.map((aa: any) => aa.area.id),
       auditors: audit.auditors.map((au: any) => au.user),
+      auditPeriodId: audit.periodId ?? undefined,
+      period: audit.period ?? undefined,
     };
   }
 
@@ -385,7 +405,7 @@ export class AuditSchedulesService {
     id: string,
     updateAuditScheduleDto: UpdateAuditScheduleDto,
   ): Promise<AuditScheduleDto> {
-    const { areaIds, auditorIds, ...data } = updateAuditScheduleDto;
+    const { areaIds, auditorIds, auditPeriodId, ...data } = updateAuditScheduleDto;
 
     // First, find the audit to update
     const existingAudit = await this.prisma.audit.findUnique({
@@ -397,19 +417,14 @@ export class AuditSchedulesService {
     // Determine the audit date to use (from update or existing)
     const auditDate = data.auditDate || existingAudit.auditDate;
 
-    // Auto-determine status based on audit date
-    let finalStatus = data.status;
+    // Determine the final status
+    let finalStatus: GeneralStatusEnum;
     if (data.status !== undefined) {
-      // If status is explicitly provided, validate it first
+      // Validate explicitly provided status against audit date, then use it as-is
       this.validateStatusAgainstDate(data.status, auditDate);
-      // Then auto-update based on audit date (status is auto-changed)
-      finalStatus = this.autoDetermineStatus(auditDate);
-    } else if (data.auditDate) {
-      // If only audit date is changed, auto-update status
-      finalStatus = this.autoDetermineStatus(auditDate);
+      finalStatus = data.status;
     } else {
-      // No status or date change, keep existing status but re-validate based on current date
-      // This handles the case where the audit date might be in the past now
+      // No explicit status — auto-determine from audit date
       finalStatus = this.autoDetermineStatus(auditDate);
     }
 
@@ -432,6 +447,7 @@ export class AuditSchedulesService {
       data: {
         ...data,
         status: finalStatus,
+        ...(auditPeriodId !== undefined && { periodId: auditPeriodId }),
         ...(areaIds !== undefined && {
           areas: {
             deleteMany: {},
@@ -464,6 +480,7 @@ export class AuditSchedulesService {
           orderBy: { createdAt: 'asc' },
         },
         items: true,
+        period: true,
       },
     });
 
@@ -501,6 +518,8 @@ export class AuditSchedulesService {
       ...mapped,
       areaIds: audit.areas.map((aa: any) => aa.area.id),
       auditors: audit.auditors.map((au: any) => au.user),
+      auditPeriodId: audit.periodId ?? undefined,
+      period: audit.period ?? undefined,
     };
   }
 
@@ -1337,5 +1356,208 @@ export class AuditSchedulesService {
 
     // Return as any to satisfy MasterApprovalsService which expects specific User interface
     return user;
+  }
+
+  async getAuditReport(periodId?: string): Promise<AuditReportDto> {
+
+    // Resolve period
+    let period: { id: string; month: number; year: number } | null = null;
+    if (periodId) {
+      const found = await this.prisma.auditPeriod.findFirst({
+        where: { id: periodId, deletedAt: null },
+        select: { id: true, month: true, year: true },
+      });
+      if (found) period = found;
+    } else {
+      const latest = await this.prisma.auditPeriod.findFirst({
+        where: { deletedAt: null },
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        select: { id: true, month: true, year: true },
+      });
+      if (latest) period = latest;
+    }
+
+    // Fetch all active elements with their criteria hierarchy (include name/description/code for popover)
+    const elements = await this.prisma.auditElement.findMany({
+      where: { isActive: true, deletedAt: null },
+      orderBy: { code: 'asc' },
+      include: {
+        clauses: {
+          where: { deletedAt: null },
+          orderBy: { order: 'asc' },
+          include: {
+            criteria: {
+              where: { isActive: true, deletedAt: null },
+              orderBy: { order: 'asc' },
+              select: {
+                id: true,
+                transitionType: true,
+                code: true,
+                name: true,
+                description: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Fetch all audits for this period with items and their criteria info
+    const audits = period
+      ? await this.prisma.audit.findMany({
+          where: { periodId: period.id },
+          include: {
+            items: {
+              select: {
+                auditCriteriaId: true,
+                compliantStatus: true,
+                auditCriteria: {
+                  select: {
+                    transitionType: true,
+                    id: true,
+                    code: true,
+                    name: true,
+                    description: true,
+                    auditClause: { select: { code: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+        })
+      : [];
+
+    const auditByElementId = new Map(audits.map((a) => [a.auditElementId, a]));
+
+    type CriteriaInfo = {
+      criteriaId: string;
+      criteriaCode: string;
+      criteriaName: string;
+      criteriaDescription: string | null;
+      clauseCode: string;
+      clauseName: string;
+    };
+
+    const emptyGroup = () => ({
+      total: 0,
+      comply: 0,
+      notComplyMinor: 0,
+      notComplyMajor: 0,
+      notAssessed: 0,
+      complyItems: [] as CriteriaInfo[],
+      notComplyMinorItems: [] as CriteriaInfo[],
+      notComplyMajorItems: [] as CriteriaInfo[],
+      notAssessedItems: [] as CriteriaInfo[],
+    });
+
+    const addGroups = (
+      a: ReturnType<typeof emptyGroup>,
+      b: ReturnType<typeof emptyGroup>,
+    ) => ({
+      total: a.total + b.total,
+      comply: a.comply + b.comply,
+      notComplyMinor: a.notComplyMinor + b.notComplyMinor,
+      notComplyMajor: a.notComplyMajor + b.notComplyMajor,
+      notAssessed: a.notAssessed + b.notAssessed,
+      complyItems: [...a.complyItems, ...b.complyItems],
+      notComplyMinorItems: [...a.notComplyMinorItems, ...b.notComplyMinorItems],
+      notComplyMajorItems: [...a.notComplyMajorItems, ...b.notComplyMajorItems],
+      notAssessedItems: [...a.notAssessedItems, ...b.notAssessedItems],
+    });
+
+    const summaryInitial = emptyGroup();
+    const summaryTransition = emptyGroup();
+    const summaryAdvance = emptyGroup();
+
+    const reportElements = elements.map((el) => {
+      const audit = auditByElementId.get(el.id);
+      const hasAudit = !!audit;
+
+      // Build map of criteriaId → compliantStatus from audit items
+      const assessedMap = new Map<string, { compliantStatus: CompliantStatusEnum; info: CriteriaInfo }>();
+      if (audit) {
+        for (const item of audit.items) {
+          const c = item.auditCriteria;
+          assessedMap.set(item.auditCriteriaId, {
+            compliantStatus: item.compliantStatus,
+            info: {
+              criteriaId: c.id,
+              criteriaCode: c.code,
+              criteriaName: c.name,
+              criteriaDescription: c.description,
+              clauseCode: c.auditClause.code,
+              clauseName: c.auditClause.name,
+            },
+          });
+        }
+      }
+
+      const initial = emptyGroup();
+      const transitionLevel = emptyGroup();
+      const advanceLevel = emptyGroup();
+
+      // Walk all criteria and bucket them
+      for (const clause of el.clauses) {
+        for (const c of clause.criteria) {
+          const target =
+            c.transitionType === TransitionTypeEnum.INITIAL
+              ? initial
+              : c.transitionType === TransitionTypeEnum.TRANSITION_LEVEL
+                ? transitionLevel
+                : advanceLevel;
+
+          target.total++;
+
+          const assessed = assessedMap.get(c.id);
+          const info: CriteriaInfo = assessed?.info ?? {
+            criteriaId: c.id,
+            criteriaCode: c.code,
+            criteriaName: c.name,
+            criteriaDescription: c.description,
+            clauseCode: clause.code,
+            clauseName: clause.name,
+          };
+
+          if (!assessed) {
+            target.notAssessed++;
+            target.notAssessedItems.push(info);
+          } else if (assessed.compliantStatus === CompliantStatusEnum.COMPLY) {
+            target.comply++;
+            target.complyItems.push(info);
+          } else if (assessed.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR) {
+            target.notComplyMinor++;
+            target.notComplyMinorItems.push(info);
+          } else {
+            target.notComplyMajor++;
+            target.notComplyMajorItems.push(info);
+          }
+        }
+      }
+
+      // Accumulate summary
+      Object.assign(summaryInitial, addGroups(summaryInitial, initial));
+      Object.assign(summaryTransition, addGroups(summaryTransition, transitionLevel));
+      Object.assign(summaryAdvance, addGroups(summaryAdvance, advanceLevel));
+
+      return {
+        elementId: el.id,
+        elementCode: el.code,
+        elementName: el.name,
+        hasAudit,
+        initial,
+        transitionLevel,
+        advanceLevel,
+      };
+    });
+
+    return {
+      period,
+      elements: reportElements,
+      summary: {
+        initial: summaryInitial,
+        transitionLevel: summaryTransition,
+        advanceLevel: summaryAdvance,
+      },
+    };
   }
 }

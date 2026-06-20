@@ -40,7 +40,6 @@ const normalizeLikelihood = (value: string | number | undefined): string => {
 
 // Mitigation schema for validation
 const mitigationSchema = z.object({
-  eliminate: z.string().optional(),
   eliminationControl: z.string().optional(),
   substitutionControl: z.string().optional(),
   engineeringControl: z.string().optional(),
@@ -68,7 +67,6 @@ const formSchema = z.object({
   // If a risk is selected, at least one mitigation field must be filled
   if (data.mRiskId && data.mitigation) {
     const hasMitigation = !!(
-      (data.mitigation.eliminate && data.mitigation.eliminate.trim()) ||
       (data.mitigation.eliminationControl && data.mitigation.eliminationControl.trim()) ||
       (data.mitigation.substitutionControl && data.mitigation.substitutionControl.trim()) ||
       (data.mitigation.engineeringControl && data.mitigation.engineeringControl.trim()) ||
@@ -215,7 +213,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
       postRiskMatrixRating: initialItem?.postRiskMatrixRating || initialItem?.riskMatrixRating || '',
       postInterpretation: initialItem?.postInterpretation || initialItem?.interpretation || RiskRatingEnum.LOW,
       mitigation: {
-        eliminate: initialItem?.mitigation?.eliminate ?? '',
         eliminationControl: (initialItem as any)?.mitigation?.eliminationControl ?? '',
         substitutionControl: (initialItem as any)?.mitigation?.substitutionControl ?? '',
         engineeringControl: (initialItem as any)?.mitigation?.engineeringControl ?? '',
@@ -243,7 +240,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
         postRiskMatrixRating: initialItem.postRiskMatrixRating || initialItem.riskMatrixRating || '',
         postInterpretation: initialItem.postInterpretation || initialItem.interpretation || RiskRatingEnum.LOW,
         mitigation: {
-          eliminate: initialItem.mitigation?.eliminate ?? '',
           eliminationControl: (initialItem as any).mitigation?.eliminationControl ?? '',
           substitutionControl: (initialItem as any).mitigation?.substitutionControl ?? '',
           engineeringControl: (initialItem as any).mitigation?.engineeringControl ?? '',
@@ -538,7 +534,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
     try {
       // Only include mitigation if at least one field has content
       const hasMitigation = data.mitigation && (
-        data.mitigation.eliminate ||
         data.mitigation.eliminationControl ||
         data.mitigation.substitutionControl ||
         data.mitigation.engineeringControl ||
@@ -561,7 +556,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
         postRiskMatrixRating: data.postRiskMatrixRating,
         postInterpretation: data.postInterpretation,
         mitigation: hasMitigation ? {
-          eliminate: data.mitigation?.eliminate || undefined,
           eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
           substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
           engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
@@ -644,7 +638,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
         // When creating new items (no initialItem.mitigation), pre-populate form with default mitigations
         // Only do this if the risk has changed (not on initial load with existing data)
         const hasExistingMitigation = initialItem?.mitigation && (
-          initialItem.mitigation.eliminate ||
           (initialItem as any).mitigation.eliminationControl ||
           (initialItem as any).mitigation.substitutionControl ||
           (initialItem as any).mitigation.engineeringControl ||
@@ -657,7 +650,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
         if (!hasExistingMitigation && mitigations.length > 0 && !isInitialMount.current) {
           // Combine all mitigations into a single object (in case there are multiple)
           const combinedMitigation = {
-            eliminate: mitigations.map(m => m.eliminate).filter(Boolean).join('\n') || '',
             eliminationControl: mitigations.map(m => (m as any).eliminationControl).filter(Boolean).join('\n') || '',
             substitutionControl: mitigations.map(m => (m as any).substitutionControl).filter(Boolean).join('\n') || '',
             engineeringControl: mitigations.map(m => (m as any).engineeringControl).filter(Boolean).join('\n') || '',
@@ -920,26 +912,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
             </div>
           ) : selectedRiskId ? (
             <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="mitigation.eliminate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe elimination strategy..."
-                        className="min-h-[120px] resize-y"
-                        {...field}
-                        value={field.value || ''}
-                        disabled={!canEditMitigation}
-                        readOnly={!canEditMitigation}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 control={form.control}
                 name="mitigation.eliminationControl"

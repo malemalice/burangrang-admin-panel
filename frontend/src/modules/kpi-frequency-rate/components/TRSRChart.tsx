@@ -23,7 +23,7 @@ export function TRSRChart({ data }: TRSRChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">TRSR Chart</CardTitle>
+        <CardTitle className="text-lg">TRISR — Total Recordable Incident Severity Rate</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[320px] w-full">

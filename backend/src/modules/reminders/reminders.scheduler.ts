@@ -4,106 +4,102 @@ import { RemindersService } from './reminders.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ReminderTargetTypeEnum } from './dto/reminder.dto';
-import { HealthScreeningsService } from '../health-screenings/health-screenings.service';
 
 /**
- * ReminderScheduler handles automatic execution of due reminders
- * Runs every minute to check for reminders that need to be triggered
+ * Reminder scheduler.
+ *
+ *  - `handleReminderCron` (every minute): processes due ReminderOccurrence rows,
+ *    creates notifications via NotificationsService, stamps the occurrence as FIRED,
+ *    writes a ReminderLog, and keeps the materialised window full for recurring reminders.
+ *
+ *  - `handleMissedSweep` (every 15 minutes): flips FIRED occurrences past the grace
+ *    window without ack/dismiss to MISSED.
+ *
+ * The legacy `Reminder.remindAt` advance is kept via RemindersService.updateAfterExecution
+ * for back-compat with anything reading the parent row directly.
  */
 @Injectable()
 export class RemindersScheduler {
   private readonly logger = new Logger(RemindersScheduler.name);
-  private isProcessing = false; // Prevent duplicate execution
+  private isProcessing = false;
+
+  /** Keep this many days of occurrences materialised ahead for each recurring reminder. */
+  private static readonly MATERIALIZE_WINDOW_DAYS = 90;
 
   constructor(
     private readonly remindersService: RemindersService,
     private readonly notificationsService: NotificationsService,
     private readonly prisma: PrismaService,
-    private readonly healthScreeningsService: HealthScreeningsService,
   ) {}
 
-  /**
-   * Cron job that runs every minute to process due reminders
-   * As per requirements: executes every 1 minute
-   */
   @Cron(CronExpression.EVERY_MINUTE)
   async handleReminderCron() {
-    if (process.env.DISABLE_SCHEDULERS === 'true') {
-      return;
-    }
-    // Prevent concurrent execution
+    if (process.env.DISABLE_SCHEDULERS === 'true') return;
     if (this.isProcessing) {
-      this.logger.warn('Previous reminder processing is still running, skipping this cycle');
+      this.logger.warn(
+        'Previous reminder processing is still running, skipping this cycle',
+      );
       return;
     }
-
     this.isProcessing = true;
     const startTime = Date.now();
 
     try {
-      this.logger.debug('Starting reminder processing cycle');
+      const dueOccurrences = await this.remindersService.getDueOccurrences();
+      if (dueOccurrences.length === 0) return;
 
-      // Fetch due reminders (max 500 as per requirements)
-      const dueReminders = await this.remindersService.getDueReminders();
+      this.logger.log(`Processing ${dueOccurrences.length} due occurrence(s)`);
 
-      if (dueReminders.length === 0) {
-        this.logger.debug('No due reminders found');
-        return;
+      for (const occ of dueOccurrences) {
+        await this.processOccurrence(occ);
       }
 
-      this.logger.log(`Processing ${dueReminders.length} due reminder(s)`);
-
-      // Process each reminder
-      for (const reminder of dueReminders) {
-        await this.processReminder(reminder);
-      }
-
-      const duration = Date.now() - startTime;
-      this.logger.log(`Completed processing ${dueReminders.length} reminders in ${duration}ms`);
-    } catch (error) {
+      this.logger.log(
+        `Completed processing ${dueOccurrences.length} occurrences in ${Date.now() - startTime}ms`,
+      );
+    } catch (error: any) {
       this.logger.error('Error in reminder cron job', error.stack);
     } finally {
       this.isProcessing = false;
     }
   }
 
-  /**
-   * Marks health screenings DONE → EXPIRED when createdAt is outside the
-   * configured validity window (health_declaration_validity_days).
-   */
-  @Cron(CronExpression.EVERY_DAY_AT_1AM)
-  async expireHealthScreeningsCron() {
-    if (process.env.DISABLE_SCHEDULERS === 'true') {
-      return;
-    }
+  @Cron('*/15 * * * *')
+  async handleMissedSweep() {
+    if (process.env.DISABLE_SCHEDULERS === 'true') return;
     try {
-      const n = await this.healthScreeningsService.expireStaleHealthScreenings();
-      if (n > 0) {
-        this.logger.log(`Health screenings marked EXPIRED: ${n}`);
+      const flipped = await this.remindersService.sweepMissed();
+      if (flipped > 0) {
+        this.logger.log(`Marked ${flipped} occurrence(s) as MISSED`);
       }
-    } catch (e) {
-      this.logger.error('expireStaleHealthScreenings failed', e);
+    } catch (error: any) {
+      this.logger.error('Error in missed-sweep job', error.stack);
     }
   }
 
-  /**
-   * Process a single reminder
-   * Creates notifications for all recipients based on target type, sends emails, and updates reminder status
-   */
-  private async processReminder(reminder: any): Promise<void> {
+  private async processOccurrence(occ: any): Promise<void> {
+    // Atomically claim the occurrence. Two concurrent instances may both pick up the
+    // same SCHEDULED row from getDueOccurrences. Only the first UPDATE that finds
+    // state='SCHEDULED' will succeed; the other gets count=0 and skips.
+    // @ts-ignore - prisma client regen pending
+    const claimed = await this.prisma.reminderOccurrence.updateMany({
+      where: { id: occ.id, state: 'SCHEDULED' },
+      data: { state: 'FIRED', firedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      this.logger.warn(
+        `Occurrence ${occ.id} already claimed by another instance, skipping`,
+      );
+      return;
+    }
+
+    const reminder = occ.reminder;
     const startTime = Date.now();
     let notificationId: string | undefined;
     let emailSent = false;
-    let emailSentCount = 0;
-    let error: string | undefined;
+    let errorMsg: string | undefined;
 
     try {
-      this.logger.debug(
-        `Processing reminder ${reminder.id} with targetType=${reminder.targetType}, targetId=${reminder.targetId}`,
-      );
-
-      // Get recipients based on target type
-      // @ts-ignore - Prisma types will be updated after running npx prisma generate
       const recipients = await this.getRecipients(
         reminder.targetType as ReminderTargetTypeEnum,
         reminder.targetId,
@@ -111,21 +107,19 @@ export class RemindersScheduler {
 
       if (recipients.length === 0) {
         throw new Error(
-          `No recipients found for reminder ${reminder.id} with targetType=${reminder.targetType}, targetId=${reminder.targetId}`,
+          `No recipients found for reminder ${reminder.id} (targetType=${reminder.targetType}, targetId=${reminder.targetId})`,
         );
       }
 
-      this.logger.debug(
-        `Found ${recipients.length} recipient(s) for reminder ${reminder.id}`,
-      );
+      // Target the resolved users directly. Broadcasting by role would deliver
+      // the reminder to every user sharing a recipient's role (duplicate-looking
+      // notifications) and produce no email recipients (emails need userId).
+      const userIds: string[] = [
+        ...new Set(recipients.map((r: any) => r.id).filter(Boolean) as string[]),
+      ];
 
-      // Create notification for all recipients (group by role for efficiency)
-      try {
-        const roleIds = [
-          ...new Set(recipients.map((r: any) => r.roleId).filter(Boolean)),
-        ];
-
-        if (roleIds.length > 0) {
+      if (userIds.length > 0) {
+        try {
           const notification =
             await this.notificationsService.createNotificationForRoles(
               {
@@ -133,75 +127,82 @@ export class RemindersScheduler {
                 message: reminder.message,
                 context: reminder.entity ?? undefined,
                 contextId: reminder.entityId ?? undefined,
-                typeId: await this.getOrCreateReminderNotificationType(),
-                roleIds,
+                typeId: await this.remindersService.getOrCreateReminderNotificationType(),
+                roleIds: [],
+                userIds,
               },
-              reminder.createdBy, // Created by the reminder creator
+              reminder.createdBy,
             );
-
           notificationId = notification.id;
-          this.logger.debug(
-            `Created notification ${notificationId} for reminder ${reminder.id} with ${roleIds.length} role(s)`,
+          emailSent = true; // NotificationsService dispatches emails as part of create
+        } catch (notifErr: any) {
+          this.logger.error(
+            `Failed to create notification for occurrence ${occ.id}`,
+            notifErr.stack,
           );
+          errorMsg = `Notification creation failed: ${notifErr.message}`;
         }
-      } catch (notificationError) {
-        this.logger.error(
-          `Failed to create notification for reminder ${reminder.id}`,
-          notificationError.stack,
-        );
-        error = `Notification creation failed: ${notificationError.message}`;
       }
 
-      // Emails are sent by NotificationsService.createNotificationForRoles() — do not send again to avoid duplicate emails
-      if (notificationId && recipients.length > 0) {
-        emailSent = true;
-        emailSentCount = recipients.length;
-        this.logger.debug(
-          `Notification created for reminder ${reminder.id}; emails sent via NotificationsService to ${recipients.length} recipient(s)`,
+      if (notificationId) {
+        await this.remindersService.markOccurrenceFired(occ.id, notificationId);
+      } else {
+        await this.remindersService.markOccurrenceFailed(
+          occ.id,
+          errorMsg ?? 'No notification created',
         );
       }
 
-      // Update reminder status and create log
+      // Legacy: keep Reminder.remindAt advancing + write existing ReminderLog telemetry.
       await this.remindersService.updateAfterExecution(
         reminder.id,
-        !!notificationId, // Success if notification was created
+        !!notificationId,
         notificationId,
         emailSent,
-        error,
+        errorMsg,
       );
 
-      const duration = Date.now() - startTime;
+      // Keep the rolling window full for recurring reminders.
+      if (reminder.repeatType && reminder.repeatType !== 'NONE') {
+        await this.remindersService.materializeOccurrences(
+          reminder.id,
+          new Date(
+            Date.now() +
+              RemindersScheduler.MATERIALIZE_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+          ),
+        );
+      }
+
       this.logger.log(
-        `Successfully processed reminder ${reminder.id} in ${duration}ms (recipients: ${recipients.length}, notification: ${!!notificationId}, emails: ${emailSentCount}/${recipients.length})`,
+        `Processed occurrence ${occ.id} in ${Date.now() - startTime}ms ` +
+          `(recipients=${recipients.length}, notification=${!!notificationId})`,
       );
-    } catch (error) {
-      const duration = Date.now() - startTime;
+    } catch (error: any) {
       this.logger.error(
-        `Failed to process reminder ${reminder.id} after ${duration}ms`,
+        `Failed to process occurrence ${occ.id} after ${Date.now() - startTime}ms`,
         error.stack,
       );
-
-      // Update reminder with failure status
       try {
+        await this.remindersService.markOccurrenceFailed(
+          occ.id,
+          error.message ?? 'Unknown error',
+        );
         await this.remindersService.updateAfterExecution(
           reminder.id,
           false,
-          notificationId,
-          emailSent,
-          error.message || 'Unknown error',
+          undefined,
+          false,
+          error.message ?? 'Unknown error',
         );
-      } catch (updateError) {
+      } catch (innerErr: any) {
         this.logger.error(
-          `Failed to update reminder ${reminder.id} after failure`,
-          updateError.stack,
+          `Failed to record failure for occurrence ${occ.id}`,
+          innerErr.stack,
         );
       }
     }
   }
 
-  /**
-   * Get recipients based on target type and target ID
-   */
   private async getRecipients(
     targetType: ReminderTargetTypeEnum,
     targetId: string,
@@ -214,95 +215,24 @@ export class RemindersScheduler {
         });
         return user ? [user] : [];
       }
-
-      case ReminderTargetTypeEnum.ROLE: {
-        return await this.prisma.user.findMany({
-          where: {
-            roleId: targetId,
-            isActive: true,
-          },
+      case ReminderTargetTypeEnum.ROLE:
+        return this.prisma.user.findMany({
+          where: { roleId: targetId, isActive: true },
           include: { role: true },
         });
-      }
-
-      case ReminderTargetTypeEnum.DEPARTMENT: {
-        return await this.prisma.user.findMany({
-          where: {
-            departmentId: targetId,
-            isActive: true,
-          },
+      case ReminderTargetTypeEnum.DEPARTMENT:
+        return this.prisma.user.findMany({
+          where: { departmentId: targetId, isActive: true },
           include: { role: true },
         });
-      }
-
-      case ReminderTargetTypeEnum.OFFICE: {
-        return await this.prisma.user.findMany({
-          where: {
-            officeId: targetId,
-            isActive: true,
-          },
+      case ReminderTargetTypeEnum.OFFICE:
+        return this.prisma.user.findMany({
+          where: { officeId: targetId, isActive: true },
           include: { role: true },
         });
-      }
-
       default:
         this.logger.warn(`Unknown target type: ${targetType}`);
         return [];
     }
   }
-
-  /**
-   * Send reminder email to user
-   * TODO: Implement actual email sending logic using a mail service
-   */
-  private async sendReminderEmail(user: any, reminder: any): Promise<void> {
-    // Placeholder for email sending logic
-    // In production, integrate with Nodemailer, AWS SES, or SMTP
-    
-    this.logger.debug(`Would send email to ${user.email} with subject: "Reminder: ${reminder.entity || 'General'}"`);
-    
-    // Example email content:
-    // To: user.email
-    // Subject: Reminder: {context reference}
-    // Body: reminder.message
-    
-    // Uncomment and implement when mail service is available:
-    /*
-    await this.mailService.sendMail({
-      to: user.email,
-      subject: `Reminder: ${reminder.entity ? reminder.entity.replace('t_', '') : 'General'}`,
-      text: reminder.message,
-      html: `
-        <h2>Reminder</h2>
-        <p>${reminder.message}</p>
-        ${reminder.entity ? `<p><strong>Related to:</strong> ${reminder.entity}</p>` : ''}
-        ${reminder.entityId ? `<p><strong>Reference ID:</strong> ${reminder.entityId}</p>` : ''}
-      `,
-    });
-    */
-  }
-
-  /**
-   * Get or create the reminder notification type
-   */
-  private async getOrCreateReminderNotificationType(): Promise<string> {
-    const typeName = 'REMINDER';
-
-    let notificationType = await this.prisma.notificationType.findFirst({
-      where: { name: typeName },
-    });
-
-    if (!notificationType) {
-      notificationType = await this.prisma.notificationType.create({
-        data: {
-          name: typeName,
-          description: 'Scheduled reminder notifications',
-        },
-      });
-      this.logger.log(`Created notification type: ${typeName}`);
-    }
-
-    return notificationType.id;
-  }
 }
-

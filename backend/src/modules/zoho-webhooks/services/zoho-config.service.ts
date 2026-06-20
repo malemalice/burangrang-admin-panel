@@ -22,10 +22,27 @@ const ZOHO_DEFAULT_SETTINGS: Array<{ key: string; value: string }> = [
         value:
             '{"Open":"OPEN","Assigned":"OPEN","In Progress":"WAITING_APPROVAL","Onhold":"WAITING_APPROVAL","Resolved":"DONE","Closed":"CLOSE","Cancelled":"REJECTED"}',
     },
+    { key: SETTINGS_KEYS.ZOHO_DEFAULT_AREA_ID, value: '' },
+    {
+        key: SETTINGS_KEYS.ZOHO_DEFAULT_INCIDENT_TYPE,
+        value: 'DANGEROUS_OR_HAZARDOUS_OCCURRENCE',
+    },
+    {
+        key: SETTINGS_KEYS.ZOHO_DEFAULT_INCIDENT_CLASSIFICATION,
+        value: 'MINOR',
+    },
+    { key: SETTINGS_KEYS.ZOHO_DEFAULT_RISK_CATEGORY_ID, value: '' },
     {
         key: SETTINGS_KEYS.ZOHO_STATUS_MAP,
         value:
             '{"DRAFT":"Open","OPEN":"On Hold","WAITING_APPROVAL":"On Hold","DONE":"Closed","CLOSE":"Closed","REJECTED":"Open"}',
+    },
+    { key: SETTINGS_KEYS.ZOHO_INCIDENT_AREA_MAP, value: '{}' },
+    { key: SETTINGS_KEYS.ZOHO_INCIDENT_RISK_CATEGORY_MAP, value: '{}' },
+    { key: SETTINGS_KEYS.ZOHO_INCIDENT_INCIDENT_TYPE_MAP, value: '{}' },
+    {
+        key: SETTINGS_KEYS.ZOHO_INCIDENT_INCIDENT_CLASSIFICATION_MAP,
+        value: '{}',
     },
     { key: SETTINGS_KEYS.ZOHO_MAX_RETRIES, value: '6' },
     { key: SETTINGS_KEYS.ZOHO_RETRY_BASE_MS, value: '2000' },

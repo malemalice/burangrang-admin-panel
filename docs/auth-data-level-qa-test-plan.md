@@ -1,7 +1,11 @@
 # QA Manual Test Plan: Data-Level Access (SELF / DEPARTMENT / SUPER)
 
-**Scope:** Enrollments, Work permits, Certificates, PPE withdrawals only.  
-**Reference:** [auth.md](auth.md) section 5.
+**Document type:** QA Test Plan
+**Status:** Draft
+**Audience:** QA, Backend, Frontend
+**Scope:** Enrollments, Work permits, Certificates, PPE withdrawals only.
+**Reference:** [trd-authorization.md](trd-authorization.md) §6 (Data-Level Access).
+**Last updated:** 2026-05-12
 
 ---
 

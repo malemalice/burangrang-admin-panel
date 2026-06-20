@@ -6,6 +6,8 @@ export * from './incident-injured-person.dto';
 export * from './create-incident-injured-person.dto';
 export * from './incident-witness.dto';
 export * from './create-incident-witness.dto';
+export * from './incident-third-party.dto';
+export * from './create-incident-third-party.dto';
 export * from './incident-asset.dto';
 export * from './create-incident-asset.dto';
 export * from './incident-image.dto';

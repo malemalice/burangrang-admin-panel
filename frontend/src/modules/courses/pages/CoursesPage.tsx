@@ -77,7 +77,7 @@ const CoursesPage = () => {
     const loadInitialData = async () => {
       try {
         // Load instructors and stats for filters
-        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true });
+        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } });
 
         setInstructors(
           instructorsResponse.data.map(user => ({

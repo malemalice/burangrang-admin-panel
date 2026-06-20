@@ -10,11 +10,11 @@ const CreateIncidentPage = () => {
   return (
     <>
       <PageHeader
-        title="Create Incident"
+        title="Create Incident Report"
         subtitle="Report a new incident"
         actions={
           <Button variant="outline" onClick={() => navigate('/incidents')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incidents
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incident Reports
           </Button>
         }
       />

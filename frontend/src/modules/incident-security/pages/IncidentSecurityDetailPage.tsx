@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, Check, X } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -156,7 +156,7 @@ const IncidentSecurityDetailPage = () => {
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incident Securities
+              Back to Incident Security Reports
             </Button>
           </div>
         </div>
@@ -167,7 +167,7 @@ const IncidentSecurityDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={`Security Incident: ${incident.code}`}
+        title={`Security Incident Report: ${incident.code}`}
         subtitle="View and manage security incident information"
         actions={
           <div className="flex gap-2">
@@ -177,7 +177,7 @@ const IncidentSecurityDetailPage = () => {
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incident Securities
+              Back to Incident Security Reports
             </Button>
             {(incident.status !== GeneralStatusEnum.WAITING_APPROVAL && incident.status !== GeneralStatusEnum.CLOSE) && (
               <>
@@ -186,7 +186,7 @@ const IncidentSecurityDetailPage = () => {
                   disabled={isLoading || isDeleting}
                 >
                   <Edit className="mr-2 h-4 w-4" />
-                  Edit Security Incident
+                  Edit Security Incident Report
                 </Button>
                 <Button
                   variant="destructive"
@@ -194,7 +194,7 @@ const IncidentSecurityDetailPage = () => {
                   disabled={isLoading || isDeleting}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Security Incident
+                  Delete Security Incident Report
                 </Button>
               </>
             )}
@@ -558,7 +558,8 @@ const IncidentSecurityDetailPage = () => {
         )}
 
         {(incident.controlMeasure || incident.expectedOutcome || incident.resolution ||
-          incident.stopActivityDescription || incident.treatmentDescription || incident.dueDate ||
+          incident.stopActivityDescription || incident.stopLocally || incident.stopWholeSchool ||
+          incident.treatmentDescription || incident.dueDate ||
           incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED || incident.treatment !== TreatmentEnum.NOT_SPECIFIED ||
           incident.absence !== AbsenceEnum.NOT_SPECIFIED) && (
           <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
@@ -607,10 +608,42 @@ const IncidentSecurityDetailPage = () => {
                   <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
                 </div>
               )}
-              {incident.stopActivityDescription && (
+              {incident.needToStopActivity === StopActivityEnum.YES && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Stop Activity Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.stopActivityDescription}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">If Yes (Jika Ya)</h3>
+                  <div className="space-y-2 pl-4">
+                    <div className="flex items-start gap-2 text-sm">
+                      {incident.stopLocally ? (
+                        <Check className="h-4 w-4 text-primary mt-0.5" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <span>
+                        Stop activity locally related to the accident/incident/nearmiss
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 text-sm">
+                      {incident.stopWholeSchool ? (
+                        <Check className="h-4 w-4 text-primary mt-0.5" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <span>
+                        Stop the whole school activities
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan seluruh kegiatan sekolah
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  {incident.stopActivityDescription && !incident.stopLocally && !incident.stopWholeSchool && (
+                    <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                      {incident.stopActivityDescription}
+                    </p>
+                  )}
                 </div>
               )}
               {incident.treatmentDescription && (
@@ -662,7 +695,7 @@ const IncidentSecurityDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Security Incident"
+        title="Delete Security Incident Report"
         description={`Are you sure you want to delete security incident "${incident.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"

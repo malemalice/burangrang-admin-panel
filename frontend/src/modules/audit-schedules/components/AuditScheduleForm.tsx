@@ -34,6 +34,7 @@ import { userService } from '@/modules/users';
 import { User } from '@/core/lib/types';
 import { GENERAL_STATUS_OPTIONS, GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import api from '@/core/lib/api';
+import { auditPeriodsService, AuditPeriod, formatPeriodLabel } from '@/modules/audit-periods';
 
 // Generate audit code: AUD + YYMMDDHHmmss
 const generateAuditCode = (): string => {
@@ -53,6 +54,7 @@ const formSchema = z.object({
   areaIds: z.array(z.string()).min(1, 'At least one area is required'),
   auditDate: z.string().min(1, 'Audit date is required'),
   auditElementId: z.string().min(1, 'Audit element is required'),
+  auditPeriodId: z.string().min(1, 'Audit period is required'),
   status: z.nativeEnum(GeneralStatusEnum).optional(), // Optional - auto-determined by backend
   isActive: z.boolean().default(true),
   auditorIds: z.array(z.string()).optional(),
@@ -70,6 +72,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
   const [areas, setAreas] = useState<AreaDTO[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [auditElements, setAuditElements] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [auditPeriods, setAuditPeriods] = useState<AuditPeriod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataReady, setDataReady] = useState(false);
 
@@ -87,6 +90,11 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
   const auditElementOptions: SearchableSelectOption[] = auditElements.map(el => ({
     value: el.id,
     label: el.name
+  }));
+
+  const auditPeriodOptions: SearchableSelectOption[] = auditPeriods.map(p => ({
+    value: p.id,
+    label: formatPeriodLabel(p.month, p.year),
   }));
 
   // Filter status options to only show DONE and SCHEDULED (only valid statuses for audit schedules)
@@ -112,6 +120,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
       areaIds: [],
       auditDate: new Date().toISOString().split('T')[0],
       auditElementId: '',
+      auditPeriodId: '',
       status: getDefaultStatus(new Date().toISOString().split('T')[0]),
       isActive: true,
       auditorIds: [],
@@ -123,19 +132,21 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [areasResponse, usersResponse, auditElementsResponse] = await Promise.all([
-          areaService.getAreas({ 
-            page: 1, 
+        const [areasResponse, usersResponse, auditElementsResponse, auditPeriodsResponse] = await Promise.all([
+          areaService.getAreas({
+            page: 1,
             limit: 1000,
             filters: { isActive: true },
             options: true
           }),
-          userService.getAll({ page: 1, limit: 1000, options: true }),
+          userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           api.get('/audit-elements', { params: { page: 1, limit: 1000, isActive: true, options: true } }),
+          auditPeriodsService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
         setAreas(areasResponse.data);
         setUsers(usersResponse.data);
         setAuditElements(auditElementsResponse.data.data || []);
+        setAuditPeriods(auditPeriodsResponse.data || []);
       } catch (error) {
         toast.error('Failed to load reference data');
       } finally {
@@ -160,6 +171,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
         areaIds,
         auditDate: auditDateStr,
         auditElementId: auditSchedule.auditElementId,
+        auditPeriodId: auditSchedule.auditPeriodId || '',
         status: auditSchedule.status,
         isActive: auditSchedule.isActive,
         auditorIds,
@@ -180,11 +192,12 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      let auditScheduleData: CreateAuditScheduleDTO = {
+      const auditScheduleData: CreateAuditScheduleDTO = {
         code: data.code as string,
         areaIds: data.areaIds as string[],
         auditDate: new Date(data.auditDate),
         auditElementId: data.auditElementId,
+        auditPeriodId: data.auditPeriodId,
         status: data.status,
         isActive: true, // Always default to true (field is hidden)
         ...(data.auditorIds && data.auditorIds.length > 0 && {
@@ -239,7 +252,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Audit Schedule</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Audit</CardTitle>
         <CardDescription>
           Enter the details for the audit schedule.
         </CardDescription>
@@ -249,6 +262,28 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="auditPeriodId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Audit Period <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={auditPeriodOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select audit period"
+                          searchPlaceholder="Search audit periods..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="code"

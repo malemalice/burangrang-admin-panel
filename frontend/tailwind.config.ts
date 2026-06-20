@@ -3,6 +3,7 @@ import type { Config } from "tailwindcss";
 import { baseColors, semanticColors } from "./src/core/lib/theme/colors";
 // Import Tailwind animate plugin
 import tailwindcssAnimate from "tailwindcss-animate";
+import typography from "@tailwindcss/typography";
 
 export default {
 	darkMode: ["class"],
@@ -51,6 +52,9 @@ export default {
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
 				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
@@ -148,5 +152,5 @@ export default {
 			}
 		}
 	},
-	plugins: [tailwindcssAnimate],
+	plugins: [tailwindcssAnimate, typography],
 } satisfies Config;

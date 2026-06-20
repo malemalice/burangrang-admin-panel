@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { RiskAssessment, RiskAssessmentItem } from '@/core/lib/types';
 import { ApprovalStatusHistory } from '@/modules/master-data';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 interface RiskAssessmentPDFTemplateProps {
   assessment: RiskAssessment;
@@ -36,12 +37,20 @@ export const RiskAssessmentPDFTemplate = ({
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Risk Assessment: {assessment.code}
-        </h1>
-        <p className="text-sm text-gray-600">
-          Created on {format(new Date(assessment.createdAt), 'dd MMM yyyy')}
-        </p>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Risk Assessment: {assessment.code}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              Created on {format(new Date(assessment.createdAt), 'dd MMM yyyy')}
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* Assessment Details Section */}

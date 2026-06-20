@@ -108,7 +108,6 @@ const ViewRiskMitigationPage = () => {
                 )}
               </p>
             </div>
-            <Section label="Eliminate" value={mitigation.eliminate ?? undefined} />
             <Section label="Elimination Control" value={mitigation.eliminationControl ?? undefined} />
             <Section label="Substitution Control" value={mitigation.substitutionControl ?? undefined} />
             <Section label="Engineering Control" value={mitigation.engineeringControl ?? undefined} />

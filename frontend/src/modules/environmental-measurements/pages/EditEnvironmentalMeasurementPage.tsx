@@ -63,7 +63,7 @@ const EditEnvironmentalMeasurementPage = () => {
   return (
     <>
       <PageHeader
-        title="Edit Environmental Measurement"
+        title="Edit Non Water Monitoring"
         subtitle={`Editing measurement for ${measurement.room?.name || 'Unknown Room'}`}
         actions={
           <Button variant="outline" onClick={() => navigate('/environmental-measurements')}>

@@ -16,12 +16,15 @@ import { usePermissions } from '@/core/hooks/usePermissions';
 import uploadService from '@/modules/uploads/services/uploadService';
 import workPermitWorkerService from '../services/workPermitWorkerService';
 import type { WorkPermitWorkerProfileDTO } from '../types/work-permit-worker-profile.types';
+import healthScreeningService from '@/modules/health-screenings/services/healthScreeningService';
+import type { HealthScreeningListItem } from '@/modules/health-screenings/types/healthScreening.types';
 
 const WorkPermitWorkerDetailPage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const [data, setData] = useState<WorkPermitWorkerProfileDTO | null>(null);
+  const [healthScreenings, setHealthScreenings] = useState<HealthScreeningListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [isUploadingCert, setIsUploadingCert] = useState(false);
@@ -33,8 +36,12 @@ const WorkPermitWorkerDetailPage = () => {
 
   const loadProfile = useCallback(async () => {
     if (!userId || !canReadProfile) return;
-    const res = await workPermitWorkerService.getWorkPermitWorkerProfile(userId);
-    setData(res);
+    const [profile, screenings] = await Promise.all([
+      workPermitWorkerService.getWorkPermitWorkerProfile(userId),
+      healthScreeningService.list({ userId, page: 1, limit: 50 }),
+    ]);
+    setData(profile);
+    setHealthScreenings(screenings.data);
   }, [userId, canReadProfile]);
 
   useEffect(() => {
@@ -340,30 +347,56 @@ const WorkPermitWorkerDetailPage = () => {
         {!isLoading && data && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Health screening</CardTitle>
+              <CardTitle className="text-base">Health declaration history</CardTitle>
               <CardDescription>
-                Linked to the worker profile (not a specific permit)
+                All health declarations submitted by this worker
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-1">
-              {data.latestHealthScreening ? (
-                <>
-                  <p className="font-medium">
-                    <Link
-                      to={`/health-screenings/${data.latestHealthScreening.id}`}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      {data.latestHealthScreening.quiz?.title ?? 'Health screening'}
-                    </Link>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Status: {data.latestHealthScreening.status}
-                  </p>
-                </>
+            <CardContent>
+              {healthScreenings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No health declarations submitted yet.</p>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  No health screening submitted yet.
-                </p>
+                <div className="space-y-2">
+                  {healthScreenings.map((hs) => (
+                    <div
+                      key={hs.id}
+                      className="flex flex-col gap-1 rounded-md border p-3 text-sm sm:flex-row sm:items-start sm:justify-between"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="font-medium">
+                          <Link
+                            to={`/health-screenings/${hs.id}`}
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            {hs.quiz?.title ?? 'Health declaration'}
+                          </Link>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Submitted:{' '}
+                          {hs.declarationTermsAcceptedAt
+                            ? format(new Date(hs.declarationTermsAcceptedAt), 'PPp')
+                            : format(new Date(hs.createdAt), 'PPp')}
+                        </p>
+                        {hs.consumedByWorkPermitCode && (
+                          <p className="text-xs text-muted-foreground">
+                            Linked to permit: {hs.consumedByWorkPermitCode}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`shrink-0 self-start rounded px-2 py-0.5 text-xs font-medium ${
+                          hs.status === 'DONE'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : hs.status === 'IN_PROGRESS'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}
+                      >
+                        {hs.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

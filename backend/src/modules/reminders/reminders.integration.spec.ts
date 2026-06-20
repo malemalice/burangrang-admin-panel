@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RemindersModule } from './reminders.module';
 import { RemindersService } from './reminders.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
@@ -35,9 +36,18 @@ describe('RemindersModule (integration)', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
       count: jest.fn(),
     },
     reminderLog: { findMany: jest.fn(), create: jest.fn() },
+    reminderOccurrence: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     notificationType: { findFirst: jest.fn(), create: jest.fn() },
   } as unknown as PrismaService;
 
@@ -50,12 +60,14 @@ describe('RemindersModule (integration)', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      imports: [RemindersModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), RemindersModule],
     })
       .overrideProvider(PrismaService)
       .useValue(mockPrisma)
       .overrideProvider(NotificationsService)
       .useValue(mockNotificationsService)
+      .overrideProvider(ConfigService)
+      .useValue({ get: () => undefined })
       .compile();
 
     service = module.get<RemindersService>(RemindersService);
@@ -248,7 +260,7 @@ describe('RemindersModule (integration)', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(existing);
       const updated = { ...existing, message: 'New' };
       (mockPrisma.reminder.update as jest.Mock).mockResolvedValue(updated);
 
@@ -261,33 +273,38 @@ describe('RemindersModule (integration)', () => {
       });
     });
 
-    it('should throw when non-creator tries to update', async () => {
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(null);
+    it('should throw when non-creator tries to update USER-targeted reminder', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
+        id: 'rem-1',
+        createdBy: userA.id,
+        targetType: ReminderTargetTypeEnum.USER,
+        targetId: userA.id,
+      });
 
       await expect(
         service.update('rem-1', userB.id, { message: 'New' }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(/Only the creator/);
     });
   });
 
   describe('Delete', () => {
-    it('should set status to CANCELLED when creator removes', async () => {
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue({
+    it('should hard-delete the reminder when creator removes', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue({
         id: 'rem-1',
         createdBy: userA.id,
+        targetType: ReminderTargetTypeEnum.USER,
       });
-      (mockPrisma.reminder.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.reminder.delete as jest.Mock).mockResolvedValue({});
 
       await service.remove('rem-1', userA.id);
 
-      expect(mockPrisma.reminder.update).toHaveBeenCalledWith({
+      expect(mockPrisma.reminder.delete).toHaveBeenCalledWith({
         where: { id: 'rem-1' },
-        data: { status: 'CANCELLED' },
       });
     });
 
-    it('should throw when non-creator tries to remove', async () => {
-      (mockPrisma.reminder.findFirst as jest.Mock).mockResolvedValue(null);
+    it('should throw when reminder not found', async () => {
+      (mockPrisma.reminder.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(service.remove('rem-1', userB.id)).rejects.toThrow(
         NotFoundException,

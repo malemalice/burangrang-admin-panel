@@ -17,6 +17,8 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { monthlyFlowReportService, treatmentPlantService } from '../../services/wasteManagementService';
 import { MonthlyFlowReport, PaginatedResponse, TreatmentPlant } from '../../types/waste-management.types';
 import { formatDate } from '@/core/utils/date';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { treatmentPlantSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import { format } from 'date-fns';
 import { MonthlyFlowReportPDFTemplate } from '../../components/MonthlyFlowReportPDFTemplate';
 import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
@@ -123,6 +125,8 @@ export default function MonthlyFlowReportsPage() {
       id: 'reportDateRange',
       label: 'Report Date',
       type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
     },
   ];
 
@@ -387,6 +391,14 @@ export default function MonthlyFlowReportsPage() {
         onConfirm={handleDelete}
         variant="destructive"
       />
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="monthly-flow-reports"
+          entityLabel="Monthly Flow Report"
+          subjectPicker={treatmentPlantSubjectPicker}
+        />
+      </div>
     </>
   );
 }

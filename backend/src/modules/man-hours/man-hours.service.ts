@@ -134,11 +134,16 @@ export class ManHoursService {
       storedTotalWorkingDays = dayCount;
     }
 
-    if (lostHour !== undefined) {
-      return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour, total: capacity - lostHour };
-    }
+    // Prefer `total` over `lostHour`: the frontend always sends both, and when
+    // total > capacity the frontend clamps lostHour to 0. Checking lostHour first
+    // would cause the backend to discard the user's intended total and store
+    // capacity instead (the original bug). Swapping the priority is safe because
+    // the two values are always kept consistent by the frontend form.
     if (total !== undefined) {
-      return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour: capacity - total, total };
+      return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour: Math.max(0, capacity - total), total };
+    }
+    if (lostHour !== undefined) {
+      return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour, total: Math.max(0, capacity - lostHour) };
     }
     return { totalWorkingDays: storedTotalWorkingDays, manHourPerDay: resolvedMhpd, lostHour: 0, total: capacity };
   }

@@ -13,7 +13,7 @@ describe('ZohoWebhookValidatorService', () => {
                 create: jest.fn().mockResolvedValue({ id: 'log-1' }),
                 update: jest.fn().mockResolvedValue({ id: 'log-1' }),
             },
-            zohoTicketRiskAssessmentMap: {
+            zohoTicketIncidentMap: {
                 findUnique: jest.fn().mockResolvedValue(null),
             },
         } as unknown as PrismaService;

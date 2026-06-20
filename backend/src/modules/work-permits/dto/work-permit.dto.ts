@@ -257,7 +257,8 @@ export class WorkPermitDto {
     healthScreening?: {
       id: string;
       status: string;
-      validUntil?: string | null;
+      /** Permit that consumes this declaration; null = available for any permit. */
+      consumedByWorkPermitId?: string | null;
       quizId: string;
     };
     user?: {

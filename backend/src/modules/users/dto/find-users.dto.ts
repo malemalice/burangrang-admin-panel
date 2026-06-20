@@ -8,9 +8,13 @@ export interface FindUsersOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  email?: string;
   roleId?: string;
   /** Filter by role.code (e.g. CONTRACTOR for work-permit workers) */
   roleCode?: string;
+  /** Exclude users whose role.code matches this value (e.g. CONTRACTOR to get employees only) */
+  excludeRoleCode?: string;
   officeId?: string;
   departmentId?: string;
   jobPositionId?: string;
@@ -31,6 +35,14 @@ export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @IsOptional()
   @IsString()
@@ -72,4 +84,9 @@ export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsString()
   roleCode?: string;
+
+  /** Exclude users whose role.code matches this value (e.g. CONTRACTOR to get employees only) */
+  @IsOptional()
+  @IsString()
+  excludeRoleCode?: string;
 }

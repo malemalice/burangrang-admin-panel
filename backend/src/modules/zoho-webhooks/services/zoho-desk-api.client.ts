@@ -32,6 +32,56 @@ export class ZohoDeskApiClient {
     return response;
   }
 
+  async testConnection(): Promise<{
+    ok: boolean;
+    statusCode?: number;
+    latencyMs: number;
+    error?: string;
+  }> {
+    const startedAt = Date.now();
+
+    let baseUrl: string;
+    let version: string;
+    let authToken: string;
+    let allowSelfSigned: boolean;
+
+    try {
+      const config = await this.resolveSdpConfig();
+      baseUrl = config.baseUrl;
+      version = config.version;
+      authToken = config.authToken;
+      allowSelfSigned = config.allowSelfSigned;
+    } catch (error) {
+      return {
+        ok: false,
+        latencyMs: Date.now() - startedAt,
+        error: this.stringifyError(error),
+      };
+    }
+
+    const inputData = encodeURIComponent(JSON.stringify({ list_info: { row_count: 1, start_index: 1 } }));
+    const url = `${baseUrl}/api/${version}/requests?input_data=${inputData}`;
+
+    try {
+      const response = await this.sendHttpsGetRequest({ url, authToken, allowSelfSigned });
+      const latencyMs = Date.now() - startedAt;
+      const ok = response.statusCode >= 200 && response.statusCode < 300;
+
+      return {
+        ok,
+        statusCode: response.statusCode,
+        latencyMs,
+        error: ok ? undefined : `HTTP ${response.statusCode}`,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        latencyMs: Date.now() - startedAt,
+        error: this.stringifyError(error),
+      };
+    }
+  }
+
   async createRequest(
     payload: SdpRequestPayload,
     correlationId: string,
@@ -213,6 +263,40 @@ export class ZohoDeskApiClient {
       authToken,
       allowSelfSigned,
     };
+  }
+
+  private sendHttpsGetRequest(params: {
+    url: string;
+    authToken: string;
+    allowSelfSigned: boolean;
+  }): Promise<{ statusCode: number; body: string }> {
+    const { url, authToken, allowSelfSigned } = params;
+    const targetUrl = new URL(url);
+
+    return new Promise((resolve, reject) => {
+      const req = httpsRequest(
+        targetUrl,
+        {
+          method: 'GET',
+          headers: {
+            authtoken: authToken,
+            Accept: 'application/vnd.manageengine.sdp.v3+json',
+          },
+          rejectUnauthorized: !allowSelfSigned,
+        },
+        (response) => {
+          let responseBody = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk: string) => { responseBody += chunk; });
+          response.on('end', () => {
+            resolve({ statusCode: response.statusCode ?? 0, body: responseBody });
+          });
+        },
+      );
+
+      req.on('error', reject);
+      req.end();
+    });
   }
 
   private sendHttpsRequest(params: {

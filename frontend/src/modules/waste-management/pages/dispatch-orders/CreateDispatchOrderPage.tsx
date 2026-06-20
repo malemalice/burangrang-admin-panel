@@ -9,8 +9,8 @@ export default function CreateDispatchOrderPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Create Dispatch Order" 
-        description="Create a new dispatch job"
+        title="Create Vendor Collection Tracking"
+        description="Create a new vendor collection tracking record"
         actions={
           <Button variant="outline" onClick={() => navigate('/waste-management/dispatch-orders')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List

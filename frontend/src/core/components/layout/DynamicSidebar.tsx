@@ -417,14 +417,16 @@ const SidebarContent = ({
       )}>
         <div className={cn("w-full flex items-center justify-center", isOpen ? "gap-3" : "")}>
           {logoPortraitUrl ? (
-            <img
-              src={logoPortraitUrl}
-              alt={`${appName} logo`}
-              className="h-8 w-8 object-contain"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
-            />
+            <div className="flex-shrink-0 rounded-lg bg-white/15 p-1">
+              <img
+                src={logoPortraitUrl}
+                alt={`${appName} logo`}
+                className="h-7 w-7 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
           ) : null}
           <h1 className="text-xl font-bold" style={{ color: textColor }}>
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}

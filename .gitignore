@@ -61,5 +61,5 @@ backend/uploads
 .agent
 .kilocode
 plans/
-AGENTS.md
 .sisyphus
+.opencode

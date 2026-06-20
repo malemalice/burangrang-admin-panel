@@ -8,10 +8,6 @@ export class RiskControlDto {
 
   @ApiProperty({ required: false })
   @Expose()
-  eliminate?: string;
-
-  @ApiProperty({ required: false })
-  @Expose()
   eliminationControl?: string;
 
   @ApiProperty({ required: false })

@@ -39,11 +39,19 @@ export default function WaterQualityParametersPage() {
         { label: 'Inactive', value: 'false' },
       ],
     },
+    {
+      id: 'dateSampleTakenRange',
+      label: 'Date Sample Taken',
+      type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
+    },
   ];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const dateRange = activeFilters.dateSampleTakenRange?.value as { from?: string; to?: string } | undefined;
       const params = {
         page,
         limit,
@@ -51,6 +59,8 @@ export default function WaterQualityParametersPage() {
         isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
         sortBy: 'createdAt',
         sortOrder: 'desc' as 'desc',
+        dateSampleTakenFrom: dateRange?.from?.split('T')[0],
+        dateSampleTakenTo: dateRange?.to?.split('T')[0],
       };
       const response = await waterQualityParameterService.getAll(params);
       const result = response.data as PaginatedResponse<WaterQualityParameter>;
@@ -84,10 +94,18 @@ export default function WaterQualityParametersPage() {
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     filters.forEach((filter) => {
-      newActiveFilters[filter.id] = {
-        value: filter.value,
-        label: filter.value === 'true' ? 'Active' : 'Inactive',
-      };
+      if (filter.id === 'dateSampleTakenRange') {
+        const range = filter.value as { from?: string; to?: string };
+        newActiveFilters[filter.id] = {
+          value: range,
+          label: [range.from, range.to].filter(Boolean).join(' - '),
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: filter.value === 'true' ? 'Active' : 'Inactive',
+        };
+      }
     });
     setActiveFilters(newActiveFilters);
     setPage(1);

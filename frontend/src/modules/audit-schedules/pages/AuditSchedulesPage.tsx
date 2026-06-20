@@ -27,6 +27,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/to
 
 import { AuditSchedule } from '../types/audit-schedule.types';
 import auditSchedulesService from '../services/auditSchedulesService';
+import { formatPeriodLabel, auditPeriodsService } from '@/modules/audit-periods';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
 import api from '@/core/lib/api';
@@ -89,6 +90,7 @@ const AuditSchedulesPage = () => {
   const [auditElements, setAuditElements] = useState<Array<{ value: string; label: string }>>([]);
   const [areas, setAreas] = useState<Array<{ value: string; label: string }>>([]);
   const [auditors, setAuditors] = useState<Array<{ value: string; label: string }>>([]);
+  const [auditPeriods, setAuditPeriods] = useState<Array<{ value: string; label: string }>>([]);
   const [assessmentStats, setAssessmentStats] = useState<Record<string, {
     total: number;
     filled: number;
@@ -100,17 +102,18 @@ const AuditSchedulesPage = () => {
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        const [auditElementsResponse, areasResponse, usersResponse] = await Promise.all([
+        const [auditElementsResponse, areasResponse, usersResponse, periodsResponse] = await Promise.all([
           api.get('/audit-elements', {
             params: { page: 1, limit: 1000, isActive: true, options: true },
           }),
-          areaService.getAreas({ 
-            page: 1, 
+          areaService.getAreas({
+            page: 1,
             limit: 1000,
             filters: { isActive: true },
             options: true
           }),
-          userService.getAll({ page: 1, limit: 1000, options: true }),
+          userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
+          auditPeriodsService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
 
         setAuditElements(
@@ -131,6 +134,13 @@ const AuditSchedulesPage = () => {
           usersResponse.data.map((user: any) => ({
             value: user.id,
             label: `${user.firstName} ${user.lastName}`,
+          }))
+        );
+
+        setAuditPeriods(
+          (periodsResponse.data || []).map((p: any) => ({
+            value: p.id,
+            label: formatPeriodLabel(p.month, p.year),
           }))
         );
       } catch (error) {
@@ -159,6 +169,12 @@ const AuditSchedulesPage = () => {
       label: 'Auditors',
       type: 'multiSelectSearchable',
       options: auditors,
+    },
+    {
+      id: 'auditPeriodId',
+      label: 'Audit Period',
+      type: 'multiSelectSearchable',
+      options: auditPeriods,
     },
     {
       id: 'status',
@@ -334,6 +350,14 @@ const AuditSchedulesPage = () => {
         }
       }
 
+      if (activeFilters.auditPeriodId?.value) {
+        if (Array.isArray(activeFilters.auditPeriodId.value)) {
+          params.periodId = activeFilters.auditPeriodId.value;
+        } else {
+          params.periodId = [activeFilters.auditPeriodId.value];
+        }
+      }
+
       // Handle date range filters
       if (activeFilters.createdAt?.value) {
         const dateRange = activeFilters.createdAt.value as { from?: Date; to?: Date };
@@ -357,7 +381,7 @@ const AuditSchedulesPage = () => {
       // Add other filters (excluding handled ones)
       // Note: 'code' filter removed as backend doesn't support it
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (!['status', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'auditDate', 'code'].includes(key)) {
+        if (!['status', 'auditElementId', 'areaIds', 'auditorIds', 'auditPeriodId', 'createdAt', 'auditDate', 'code'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -418,6 +442,12 @@ const AuditSchedulesPage = () => {
         newActiveFilters[filter.id] = {
           value: filter.value,
           label: selectedAuditors.map(opt => opt.label).join(', ')
+        };
+      } else if (filter.id === 'auditPeriodId' && Array.isArray(filter.value)) {
+        const selectedPeriods = auditPeriods.filter(opt => filter.value.includes(opt.value));
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: selectedPeriods.map(opt => opt.label).join(', ')
         };
       } else if ((filter.id === 'createdAt' || filter.id === 'auditDate') && typeof filter.value === 'object' && !Array.isArray(filter.value)) {
         const dateRange = filter.value as { from?: Date; to?: Date };
@@ -516,8 +546,19 @@ const AuditSchedulesPage = () => {
       header: 'Audit Date',
       cell: (auditSchedule: AuditSchedule) => (
         <div>
-          {auditSchedule.auditDate 
-            ? format(new Date(auditSchedule.auditDate), 'dd MMM yyyy') 
+          {auditSchedule.auditDate
+            ? format(new Date(auditSchedule.auditDate), 'dd MMM yyyy')
+            : 'N/A'}
+        </div>
+      ),
+    },
+    {
+      id: 'period',
+      header: 'Period',
+      cell: (auditSchedule: AuditSchedule) => (
+        <div>
+          {auditSchedule.period
+            ? formatPeriodLabel(auditSchedule.period.month, auditSchedule.period.year)
             : 'N/A'}
         </div>
       ),
@@ -623,7 +664,7 @@ const AuditSchedulesPage = () => {
         actions={
           <PermissionGuard permission="audit-schedule:create">
             <ThemeButton onClick={() => navigate('/audit-schedules/new')}>
-              <Plus className="mr-2 h-4 w-4" /> New Audit Schedule
+              <Plus className="mr-2 h-4 w-4" /> New Audit
             </ThemeButton>
           </PermissionGuard>
         }
@@ -656,7 +697,7 @@ const AuditSchedulesPage = () => {
             handleDialogCancel();
           }
         }}
-        title="Delete Audit Schedule"
+        title="Delete Audit"
         description={`Are you sure you want to delete the audit schedule "${auditScheduleToDelete?.code}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"

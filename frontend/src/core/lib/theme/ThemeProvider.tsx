@@ -29,7 +29,7 @@ interface ThemeProviderProps {
  */
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
-  defaultTheme = 'blue',
+  defaultTheme = 'navy',
   defaultMode = 'light',
 }) => {
   // Use the theme hook
@@ -37,12 +37,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   
   // Initialize CSS variables when the component mounts
   useEffect(() => {
-    // Don't re-initialize on mount - the IIFE in utils.ts already handled it
-    // This prevents overwriting the correct saved theme with defaults
-    
-    // Load theme settings from backend on app startup (only once)
     const loadBackendTheme = async () => {
+      const hasLoadedTheme = sessionStorage.getItem('theme-loaded');
+
+      if (hasLoadedTheme) return;
+
       try {
+        sessionStorage.setItem('theme-loaded', 'true');
         if (themeValue.loadThemeFromBackend) {
           await themeValue.loadThemeFromBackend();
         }
@@ -51,16 +52,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       }
     };
 
-    // Only load backend theme if user appears to be authenticated
-    // Use a flag to prevent multiple calls
-    const accessToken = localStorage.getItem('access_token');
-    const hasLoadedTheme = sessionStorage.getItem('theme-loaded');
+    // Load on mount if already authenticated
+    loadBackendTheme();
 
-    if (accessToken && !hasLoadedTheme) {
-      sessionStorage.setItem('theme-loaded', 'true');
-      loadBackendTheme();
-    }
-  }, []); // Empty dependency array to run only once
+    // Re-load after login (ThemeProvider is outside AuthProvider so it can't use useAuth)
+    window.addEventListener('auth:login', loadBackendTheme);
+    return () => window.removeEventListener('auth:login', loadBackendTheme);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
   return (
     <ThemeContext.Provider value={themeValue}>

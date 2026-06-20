@@ -5,6 +5,7 @@ import {
   WaterQualityParameterCategoryEnum,
   WaterQualityLabReportCategoryEnum,
 } from '../types/waste-management.types';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 const WATER_LAB_REPORT_CATEGORY_LABELS: Record<WaterQualityLabReportCategoryEnum, string> = {
   [WaterQualityLabReportCategoryEnum.WASTEWATER]: 'Wastewater',
@@ -38,19 +39,23 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
   const grouped = groupResultsByCategory(results);
 
   return (
-    <div
-      className="bg-white p-8 space-y-6"
-      style={{ width: '210mm', fontFamily: 'Arial, sans-serif' }}
-      aria-hidden="true"
-    >
+    <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
       <div className="mb-8 border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Water Quality Lab Report: {report.reportCode}
-        </h1>
-        <p className="text-sm text-gray-600">
-          Report Date: {report.reportDate ? format(new Date(report.reportDate), 'dd MMM yyyy') : '-'}
-        </p>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Water Quality Lab Report: {report.reportCode}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              {report.treatmentPlant?.name ?? '—'}
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* General Information */}

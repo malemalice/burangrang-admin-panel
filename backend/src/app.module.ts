@@ -46,11 +46,15 @@ import { CompaniesModule } from './modules/companies/companies.module';
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
+import { InspectionChecklistsModule } from './modules/inspection-checklists/inspection-checklists.module';
 import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
 import { AuditSchedulesModule } from './modules/audit-schedules/audit-schedules.module';
+import { AuditPeriodsModule } from './modules/audit-periods/audit-periods.module';
 import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
+import { InvestigationReportsModule } from './modules/investigation-reports/investigation-reports.module';
+import { HfacsNodesModule } from './modules/hfacs-nodes/hfacs-nodes.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 import { KpiModule } from './modules/kpi/kpi.module';
 import { KpiHseTargetModule } from './modules/kpi-hse-target/kpi-hse-target.module';
@@ -104,16 +108,23 @@ import { AccessLogsModule } from './modules/access-logs/access-logs.module';
     ManHoursModule,
     // Inspections Module
     InspectionsModule,
+    // Inspection Checklists Module (master data)
+    InspectionChecklistsModule,
     // Audit Policy Module
     AuditPolicyModule,
     // Audit Schedules Module
     AuditSchedulesModule,
+    // Audit Periods Module
+    AuditPeriodsModule,
     // Zoho Webhooks Module
     ZohoWebhooksModule,
     // Risk Register Module
     RiskRegisterModule,
     // Incidents Module
     IncidentsModule,
+    InvestigationReportsModule,
+    // HFACS Catalogue Module (master data for Investigation Sections H & I)
+    HfacsNodesModule,
     // User Permissions Module
     UserPermissionsModule,
     // KPI Module

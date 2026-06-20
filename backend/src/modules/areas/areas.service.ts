@@ -132,9 +132,9 @@ export class AreasService {
     // Filter by whether area has a room assigned
     if (hasRoom !== undefined) {
       if (hasRoom) {
-        and.push({ rooms: { some: {} } });
+        and.push({ rooms: { some: { deletedAt: null } } });
       } else {
-        and.push({ rooms: { none: {} } });
+        and.push({ rooms: { none: { deletedAt: null } } });
       }
     }
 

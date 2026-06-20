@@ -1,5 +1,5 @@
 /**
- * Audit Schedule module types
+ * Audit module types
  * Following TRD.md module structure template
  */
 
@@ -30,6 +30,8 @@ export interface AuditSchedule {
   createdBy: string;
   creator?: User;
   auditors?: User[];
+  auditPeriodId?: string;
+  period?: { id: string; month: number; year: number };
 }
 
 export interface CreateAuditScheduleDTO {
@@ -37,6 +39,7 @@ export interface CreateAuditScheduleDTO {
   areaIds: string[];
   auditDate: Date;
   auditElementId: string;
+  auditPeriodId: string;
   status?: GeneralStatusEnum; // Optional - auto-determined by backend based on audit date
   isActive?: boolean;
   auditorIds?: string[];

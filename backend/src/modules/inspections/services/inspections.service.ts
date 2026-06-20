@@ -23,6 +23,7 @@ import {
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
 import { RiskMitigationDataDto, RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
+import { InspectionChecklistResultDto } from '../dto/inspection-checklist-result.dto';
 
 // Entity type constant for inspection items
 const INSPECTION_ITEM_ENTITY = 'INSPECTION_ITEM';
@@ -147,72 +148,76 @@ export class InspectionsService {
   ): Promise<InspectionDto> {
     const { items, inspectors, areaIds, ...data } = createInspectionDto;
 
-    const inspection = await this.prisma.inspection.create({
-      data: {
-        ...data,
-        createdBy: userId,
-        ...(areaIds && areaIds.length > 0 && {
-          areas: {
-            create: areaIds.map((areaId) => ({
-              areaId,
-            })),
-          },
-        }),
-        ...(items && items.length > 0 && {
-          items: {
-            create: items.map((item) => {
-              const { images, ...itemData } = item;
-              const createData: any = { ...itemData };
-              if (images && images.length > 0) {
-                createData.images = {
-                  create: images.map((img) => ({
-                    imageUrl: img.imageUrl,
-                    caption: img.caption || null,
-                    type: img.type || 'GENERAL',
-                    order: img.order,
-                  })),
-                };
-              }
-              return createData;
+    const inspection = await this.errorHandler.safeExecute(
+      () =>
+        this.prisma.inspection.create({
+          data: {
+            ...data,
+            createdBy: userId,
+            ...(areaIds && areaIds.length > 0 && {
+              areas: {
+                create: areaIds.map((areaId) => ({
+                  areaId,
+                })),
+              },
+            }),
+            ...(items && items.length > 0 && {
+              items: {
+                create: items.map((item) => {
+                  const { images, ...itemData } = item;
+                  const createData: any = { ...itemData };
+                  if (images && images.length > 0) {
+                    createData.images = {
+                      create: images.map((img) => ({
+                        imageUrl: img.imageUrl,
+                        caption: img.caption || null,
+                        type: img.type || 'GENERAL',
+                        order: img.order,
+                      })),
+                    };
+                  }
+                  return createData;
+                }),
+              },
+            }),
+            ...(inspectors && inspectors.length > 0 && {
+              inspectors: {
+                create: inspectors.map((inspector) => ({
+                  ...inspector,
+                })),
+              },
             }),
           },
-        }),
-        ...(inspectors && inspectors.length > 0 && {
-          inspectors: {
-            create: inspectors.map((inspector) => ({
-              ...inspector,
-            })),
-          },
-        }),
-      },
-      include: {
-        items: {
           include: {
-            area: true,
-            riskCategory: true,
-            risk: true,
-            assignedDepartment: true,
-            assignee: true,
-            images: {
+            items: {
+              include: {
+                area: true,
+                riskCategory: true,
+                risk: true,
+                assignedDepartment: true,
+                assignee: true,
+                images: {
+                  orderBy: { order: 'asc' },
+                },
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+            inspectors: {
+              include: {
+                inspector: true,
+              },
               orderBy: { order: 'asc' },
             },
+            areas: {
+              include: {
+                area: true,
+              },
+            },
+            creator: true,
           },
-          orderBy: { createdAt: 'asc' },
-        },
-        inspectors: {
-          include: {
-            inspector: true,
-          },
-          orderBy: { order: 'asc' },
-        },
-        areas: {
-          include: {
-            area: true,
-          },
-        },
-        creator: true,
-      },
-    });
+        }),
+      'Inspection',
+    );
 
     // Create reminder if status is SCHEDULED
     if (inspection.status === GeneralStatusEnum.SCHEDULED) {
@@ -539,10 +544,44 @@ export class InspectionsService {
     });
   }
 
+  private async recomputeFinalInspectionValue(inspectionId: string): Promise<number | null> {
+    // Checklist is 2-level (root → leaves). The universe of leaves is ALL active depth-1 nodes
+    // across ALL active roots in the system — checklistResults can reference any leaf.
+    const [totalLeaves, ratedLeaves] = await Promise.all([
+      this.prisma.inspectionChecklist.count({
+        where: {
+          parentId: { not: null },
+          deletedAt: null,
+          isActive: true,
+          parent: { isActive: true, deletedAt: null },
+        },
+      }),
+      this.prisma.inspectionChecklistResult.count({
+        where: {
+          inspectionItem: { inspectionId },
+          riskRate: { not: null },
+        },
+      }),
+    ]);
+
+    const value =
+      totalLeaves > 0
+        ? Math.round((ratedLeaves / totalLeaves) * 100 * 100) / 100
+        : null;
+
+    await this.prisma.inspection.update({
+      where: { id: inspectionId },
+      data: { finalInspectionValue: value },
+    });
+
+    return value;
+  }
+
   // Inspection Items CRUD operations
   async createItem(
     inspectionId: string,
     createItemDto: CreateInspectionItemDto,
+    userId: string,
   ): Promise<InspectionItemDto> {
     // Verify inspection exists
     const inspection = await this.prisma.inspection.findUnique({
@@ -555,8 +594,8 @@ export class InspectionsService {
       inspection,
     );
 
-    // Extract images and mitigation from DTO
-    const { images, mitigation, dueDateAt, ...itemData } = createItemDto;
+    // Extract images, mitigation, and checklistResults from DTO
+    const { images, mitigation, dueDateAt, checklistResults, ...itemData } = createItemDto;
 
     // Prepare data for creation
     const createData: any = {
@@ -577,6 +616,18 @@ export class InspectionsService {
       };
     }
 
+    // Handle checklist results with nested create if provided
+    if (checklistResults && checklistResults.length > 0) {
+      createData.checklistResults = {
+        create: checklistResults.map((r) => ({
+          checklistItemId: r.checklistItemId,
+          riskRate: r.riskRate || null,
+          notes: r.notes || null,
+          createdBy: userId,
+        })),
+      };
+    }
+
     const item = await this.prisma.inspectionItem.create({
       data: createData,
       include: {
@@ -588,6 +639,19 @@ export class InspectionsService {
         images: {
           orderBy: { order: 'asc' },
         },
+        checklistResults: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -596,6 +660,8 @@ export class InspectionsService {
     if (mitigation) {
       mitigationRecord = await this.createMitigationRecord(item.id, mitigation);
     }
+
+    await this.recomputeFinalInspectionValue(inspectionId);
 
     return this.mapItemToDto(item, mitigationRecord);
   }
@@ -703,6 +769,19 @@ export class InspectionsService {
           images: {
             orderBy: { order: 'asc' },
           },
+          checklistResults: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              checklistItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  parent: { select: { id: true, name: true, code: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: {
           [validatedSortBy]: sortOrder,
@@ -753,6 +832,19 @@ export class InspectionsService {
         images: {
           orderBy: { order: 'asc' },
         },
+        checklistResults: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -772,6 +864,7 @@ export class InspectionsService {
     inspectionId: string,
     itemId: string,
     updateItemDto: UpdateInspectionItemDto,
+    userId: string,
   ): Promise<InspectionItemDto> {
     // Verify item exists and belongs to the inspection
     const existingItem = await this.prisma.inspectionItem.findFirst({
@@ -787,8 +880,8 @@ export class InspectionsService {
       existingItem,
     );
 
-    // Extract images, mitigation, and dueDateAt from DTO
-    const { images, mitigation, dueDateAt, ...itemData } = updateItemDto;
+    // Extract images, mitigation, dueDateAt, and checklistResults from DTO
+    const { images, mitigation, dueDateAt, checklistResults, ...itemData } = updateItemDto;
 
     // Prepare data for update
     const updateData: any = {
@@ -797,15 +890,27 @@ export class InspectionsService {
     };
 
     // Handle images: delete all existing and create new ones
-    // This is necessary since frontend doesn't send image IDs
     if (images !== undefined) {
       updateData.images = {
-        deleteMany: {}, // Delete all existing images
+        deleteMany: {},
         create: images.map((img) => ({
           imageUrl: img.imageUrl,
           caption: img.caption || null,
           type: img.type || 'GENERAL',
           order: img.order,
+        })),
+      };
+    }
+
+    // Handle checklist results: delete all existing and create new ones
+    if (checklistResults !== undefined) {
+      updateData.checklistResults = {
+        deleteMany: {},
+        create: checklistResults.map((r) => ({
+          checklistItemId: r.checklistItemId,
+          riskRate: r.riskRate || null,
+          notes: r.notes || null,
+          createdBy: userId,
         })),
       };
     }
@@ -822,6 +927,19 @@ export class InspectionsService {
         images: {
           orderBy: { order: 'asc' },
         },
+        checklistResults: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -829,16 +947,15 @@ export class InspectionsService {
     let mitigationRecord: RiskMitigationRecord | null = null;
     if (mitigation !== undefined) {
       if (mitigation === null) {
-        // Delete mitigation record if explicitly set to null
         await this.deleteMitigationRecord(itemId);
       } else {
-        // Update or create mitigation record
         mitigationRecord = await this.upsertMitigationRecord(itemId, mitigation);
       }
     } else {
-      // Fetch existing mitigation record if not provided
       mitigationRecord = await this.getMitigationRecord(itemId);
     }
+
+    await this.recomputeFinalInspectionValue(inspectionId);
 
     return this.mapItemToDto(item, mitigationRecord);
   }
@@ -865,6 +982,8 @@ export class InspectionsService {
     await this.prisma.inspectionItem.delete({
       where: { id: itemId },
     });
+
+    await this.recomputeFinalInspectionValue(inspectionId);
   }
 
   // Inspection Images CRUD operations
@@ -1353,6 +1472,19 @@ export class InspectionsService {
           images: {
             orderBy: { order: 'asc' },
           },
+          checklistResults: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              checklistItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  parent: { select: { id: true, name: true, code: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: {
           [validatedSortBy]: sortOrder,
@@ -1393,6 +1525,7 @@ export class InspectionsService {
           select: {
             id: true,
             code: true,
+            finalInspectionValue: true,
             creator: {
               select: {
                 id: true,
@@ -1410,6 +1543,19 @@ export class InspectionsService {
         images: {
           orderBy: { order: 'asc' },
         },
+        checklistResults: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -1424,6 +1570,7 @@ export class InspectionsService {
   async updateItemStandalone(
     itemId: string,
     updateItemDto: UpdateInspectionItemDto,
+    userId: string,
   ): Promise<InspectionItemDto> {
     // Verify item exists
     const existingItem = await this.prisma.inspectionItem.findUnique({
@@ -1436,8 +1583,8 @@ export class InspectionsService {
       existingItem,
     );
 
-    // Extract images, mitigation, and dueDateAt from DTO
-    const { images, mitigation, dueDateAt, ...itemData } = updateItemDto;
+    // Extract images, mitigation, dueDateAt, and checklistResults from DTO
+    const { images, mitigation, dueDateAt, checklistResults, ...itemData } = updateItemDto;
 
     // Prepare update data
     const updateData: any = {
@@ -1447,12 +1594,10 @@ export class InspectionsService {
 
     // Handle images update if provided
     if (images !== undefined) {
-      // Delete existing images
       await this.prisma.inspectionImage.deleteMany({
         where: { inspectionItemId: itemId },
       });
 
-      // Create new images if provided
       if (images.length > 0) {
         updateData.images = {
           create: images.map((img) => ({
@@ -1465,6 +1610,19 @@ export class InspectionsService {
       }
     }
 
+    // Handle checklist results: delete all existing and create new ones
+    if (checklistResults !== undefined) {
+      updateData.checklistResults = {
+        deleteMany: {},
+        create: checklistResults.map((r) => ({
+          checklistItemId: r.checklistItemId,
+          riskRate: r.riskRate || null,
+          notes: r.notes || null,
+          createdBy: userId,
+        })),
+      };
+    }
+
     const item = await this.prisma.inspectionItem.update({
       where: { id: itemId },
       data: updateData,
@@ -1473,6 +1631,7 @@ export class InspectionsService {
           select: {
             id: true,
             code: true,
+            finalInspectionValue: true,
           },
         },
         riskCategory: true,
@@ -1482,6 +1641,19 @@ export class InspectionsService {
         images: {
           orderBy: { order: 'asc' },
         },
+        checklistResults: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            checklistItem: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                parent: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -1489,15 +1661,19 @@ export class InspectionsService {
     let mitigationRecord: RiskMitigationRecord | null = null;
     if (mitigation !== undefined) {
       if (mitigation === null) {
-        // Delete mitigation record if explicitly set to null
         await this.deleteMitigationRecord(itemId);
       } else {
-        // Update or create mitigation record
         mitigationRecord = await this.upsertMitigationRecord(itemId, mitigation);
       }
     } else {
-      // Fetch existing mitigation record if not provided
       mitigationRecord = await this.getMitigationRecord(itemId);
+    }
+
+    const freshValue = await this.recomputeFinalInspectionValue(existingItem.inspectionId);
+
+    // Patch the stale finalInspectionValue so the response reflects the just-computed value
+    if (item.inspection) {
+      item.inspection.finalInspectionValue = freshValue;
     }
 
     return this.mapItemToDto(item, mitigationRecord);
@@ -1506,7 +1682,7 @@ export class InspectionsService {
   // Helper methods for mapping and mitigation records
 
   /**
-   * Map inspection item to DTO with optional mitigation record
+   * Map inspection item to DTO with optional mitigation record and checklist results
    */
   private mapItemToDto(
     item: any,
@@ -1518,6 +1694,32 @@ export class InspectionsService {
       mitigation: mitigationRecord
         ? this.mapMitigationToDto(mitigationRecord)
         : undefined,
+      checklistId: item.checklistId || undefined,
+      checklistResults: item.checklistResults
+        ? item.checklistResults.map((r: any): InspectionChecklistResultDto => ({
+            id: r.id,
+            inspectionItemId: r.inspectionItemId,
+            checklistItemId: r.checklistItemId,
+            riskRate: r.riskRate || undefined,
+            notes: r.notes || undefined,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            checklistItem: r.checklistItem
+              ? {
+                  id: r.checklistItem.id,
+                  name: r.checklistItem.name,
+                  code: r.checklistItem.code ?? null,
+                  parent: r.checklistItem.parent
+                    ? {
+                        id: r.checklistItem.parent.id,
+                        name: r.checklistItem.parent.name,
+                        code: r.checklistItem.parent.code ?? null,
+                      }
+                    : null,
+                }
+              : undefined,
+          }))
+        : [],
     };
   }
 
@@ -1547,7 +1749,6 @@ export class InspectionsService {
         code: this.generateMitigationCode(),
         entity: INSPECTION_ITEM_ENTITY,
         entityId: itemId,
-        eliminate: mitigation.eliminate || null,
         eliminationControl: mitigation.eliminationControl || null,
         substitutionControl: mitigation.substitutionControl || null,
         engineeringControl: mitigation.engineeringControl || null,
@@ -1589,7 +1790,6 @@ export class InspectionsService {
       return this.prisma.riskMitigationRecord.update({
         where: { id: existing.id },
         data: {
-          eliminate: mitigation.eliminate || null,
           eliminationControl: mitigation.eliminationControl || null,
           substitutionControl: mitigation.substitutionControl || null,
           engineeringControl: mitigation.engineeringControl || null,
@@ -1628,7 +1828,6 @@ export class InspectionsService {
       code: record.code,
       entity: record.entity,
       entityId: record.entityId,
-      eliminate: record.eliminate || undefined,
       eliminationControl: record.eliminationControl || undefined,
       substitutionControl: record.substitutionControl || undefined,
       engineeringControl: record.engineeringControl || undefined,

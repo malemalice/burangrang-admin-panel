@@ -1,8 +1,10 @@
 # Work Permit — PRD vs Implementation Gap Audit
 
-**Document Type:** Gap Audit Report  
-**Date:** April 12, 2026  
-**PRD Reference:** `docs/prd-work-permit.md` (BSJ/F.5/H&S Policy 05/Rev 02)  
+**Document type:** Gap Audit
+**Status:** Draft
+**Audience:** Product, Backend, Frontend
+**Last updated:** 2026-04-12
+**PRD Reference:** `docs/prd/work-permit.md` (BSJ/F.5/H&S Policy 05/Rev 02)
 **Scope:** Form fields and data attributes (Sections A–F + Data Model + Status States)
 
 ---
@@ -311,5 +313,30 @@ PRD defines 6 sequential approval stages, each requiring name, date, and digital
 | `EXTENSION_REQUESTED` status | Schema, DTO, Backend |
 
 ---
+
+## Action Items
+
+| Priority | Gap | Affected Layer | Action |
+|---|---|---|---|
+| High | `location` text field (Section B) missing | Schema, DTO, Frontend form | Add `location` string field to schema; expose in DTO and form |
+| High | `workStartTime` / `workEndTime` missing (Section F) | Schema, DTO, Frontend form | Add time-of-day fields to schema; expose in DTO and form |
+| High | `workResultStatus` enum (FINISHED/UNFINISHED) missing | Schema, DTO, Frontend form | Add `workResultStatus` enum and field; expose in DTO and form |
+| High | `workResultNote` text field missing | Schema, DTO, Frontend form | Add `workResultNote` to schema; expose in DTO and form |
+| High | `Approval` model with `signatureData` missing | Schema | Design and add Approval model with signature tracking |
+| High | ENV Coordinator and PIC approval stages missing from status enum | Schema, DTO, Frontend | Add `PENDING_ENV` and `PENDING_PIC` status values |
+| Medium | `unit` field missing on tools, machines, materials, heavyEquipment | Schema, DTO, Frontend form | Add `unit` field to each junction model |
+| Medium | `activity` field missing on hazards; `hazardName` semantic mismatch | Schema, DTO, Frontend form | Add `activity` field; review `hazardName` naming |
+| Medium | PPE vs Safety Equipment category not separated | Schema, DTO, Frontend | Add `category` field to `SafetyEquipment` model |
+| Medium | Typed certificate upload slots E3.1–E3.6 not modeled | Schema, DTO, Frontend form | Design per-type certificate upload model |
+| Medium | Extension start date + times missing | DTO, Frontend form | Add `newStartDate`, time fields to `ExtendWorkPermitDto` |
+| Medium | Vendor HSE Personnel not distinct from Supervisor | Schema, DTO, Frontend form | Add dedicated field or role to workers/supervisors |
+| Low | `formCode` field (BSJ form reference) missing | Schema, DTO | Add `formCode` string field |
+| Low | Free-text "Others" for classifications missing | DTO, Frontend form | Add optional `otherClassification` text field |
+| Low | Free-text "Others" for worker categories missing | DTO, Frontend form | Add optional `otherWorkerCategory` text field |
+| Low | Pre-fill default BSJ HSE Officers missing | Frontend form logic | Seed default HSE officer IDs; auto-populate on form open |
+| Low | Conditional mandatory fields for Confined Space / Hot Work | Frontend form logic | Add conditional validation rules based on work classification |
+| Low | Vendor phone fields missing | Schema, DTO, Frontend form | Add `vendorPhone` and related phone fields |
+| Low | `EXPIRED` status and auto-expiry logic missing | Backend service | Add cron job to set `EXPIRED` status on overdue permits |
+| Low | `EXTENSION_REQUESTED` status missing | Schema, DTO, Backend | Add `EXTENSION_REQUESTED` to status enum and workflow |
 
 *End of audit report.*

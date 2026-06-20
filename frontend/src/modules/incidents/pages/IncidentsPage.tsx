@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
+import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck, ClipboardCheck, ArrowUpDown, FileDown, Loader2 } from 'lucide-react';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { useAuth } from '@/core/lib/auth';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -11,6 +13,13 @@ import api from '@/core/lib/api';
 import roleService from '@/modules/roles/services/roleService';
 
 import { Button } from '@/core/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import {
   Dialog,
@@ -27,6 +36,9 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
 
 import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incident.types';
+import IncidentPDFTemplate from '../components/IncidentPDFTemplate';
+import investigationReportsService from '@/modules/investigation-reports/services/investigationReportsService';
+import { InvestigationStatusEnum } from '@/modules/investigation-reports/types/investigation-report.types';
 import incidentsService from '../services/incidentsService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS, INCIDENT_STATUS_OPTIONS_LIMITED } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
@@ -80,6 +92,10 @@ const IncidentsPage = () => {
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [investigationMap, setInvestigationMap] = useState<Record<string, { id: string; status: InvestigationStatusEnum }>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
+  const bulkPdfRef = useRef<HTMLDivElement>(null);
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -97,7 +113,7 @@ const IncidentsPage = () => {
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
           departmentService.getDepartments({ page: 1, limit: 100, options: true }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
         ]);
 
         setAreas(areasRes.data);
@@ -231,7 +247,7 @@ const IncidentsPage = () => {
   const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
 
   const sorting = useMemo((): { id: string; desc: boolean } | null => {
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortBy = searchParams.get('sortBy') || 'updatedAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     return {
       id: sortBy,
@@ -337,7 +353,7 @@ const IncidentsPage = () => {
       const params: any = {
         page: pageIndex + 1,
         limit,
-        sortBy: sorting?.id ?? 'createdAt',
+        sortBy: sorting?.id ?? 'updatedAt',
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       };
 
@@ -429,6 +445,7 @@ const IncidentsPage = () => {
       const response = await incidentsService.getAll(params);
       setIncidents(response.data);
       setTotalIncidents(response.meta.total);
+      setSelectedIds(new Set());
     } catch (error) {
       console.error('Failed to fetch incidents:', error);
       toast.error('Failed to load incidents');
@@ -440,6 +457,25 @@ const IncidentsPage = () => {
   useEffect(() => {
     fetchIncidents();
   }, [fetchIncidents]);
+
+  // Batch-fetch investigation report statuses for incidents flagged for further investigation
+  useEffect(() => {
+    const flaggedIds = incidents.filter((i) => i.needFurtherInvestigation).map((i) => i.id);
+    if (flaggedIds.length === 0) {
+      setInvestigationMap({});
+      return;
+    }
+    investigationReportsService
+      .getAll({ page: 1, limit: 200, isActive: true })
+      .then((res) => {
+        const map: Record<string, { id: string; status: InvestigationStatusEnum }> = {};
+        for (const r of res.data) {
+          if (r.incidentId) map[r.incidentId] = { id: r.id, status: r.status };
+        }
+        setInvestigationMap(map);
+      })
+      .catch(() => {});
+  }, [incidents]);
 
   // Check approval rights for incidents waiting approval
   useEffect(() => {
@@ -591,6 +627,39 @@ const IncidentsPage = () => {
     return actions;
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === incidents.length && incidents.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(incidents.map((i) => i.id)));
+    }
+  };
+
+  const handleBulkExportPDF = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setIsBulkExporting(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        bulkPdfRef,
+        buildPdfOptions({ filename: `incidents-export-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` }),
+      );
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsBulkExporting(false);
+    }
+  };
+
   const handleSearch = (term: string) => {
     updateSearchParams(next => {
       const trimmed = term.trim();
@@ -606,7 +675,7 @@ const IncidentsPage = () => {
         next.set('sortBy', newSorting.id);
         next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
       } else {
-        next.set('sortBy', 'createdAt');
+        next.set('sortBy', 'updatedAt');
         next.set('sortOrder', 'desc');
       }
       next.set('page', '1');
@@ -669,11 +738,11 @@ const IncidentsPage = () => {
     setIsLoading(true);
     try {
       await incidentsService.delete(incidentToDelete.id);
-      toast.success('Incident has been deleted');
+      toast.success('Incident report has been deleted');
       fetchIncidents();
     } catch (error) {
       console.error('Failed to delete incident:', error);
-      toast.error('Failed to delete incident');
+      toast.error('Failed to delete incident report');
     } finally {
       setIsLoading(false);
       setDeleteDialogOpen(false);
@@ -696,7 +765,29 @@ const IncidentsPage = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
+  const selectedIncidents = incidents.filter((i) => selectedIds.has(i.id));
+
   const columns = [
+    {
+      id: 'select',
+      header: () => (
+        <Checkbox
+          checked={incidents.length > 0 && selectedIds.size === incidents.length}
+          onCheckedChange={toggleSelectAll}
+          aria-label="Select all"
+        />
+      ),
+      headerClassName: 'w-10',
+      cellClassName: 'w-10',
+      cell: (row: Incident) => (
+        <Checkbox
+          checked={selectedIds.has(row.id)}
+          onCheckedChange={() => toggleSelect(row.id)}
+          aria-label={`Select ${row.code}`}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     {
       id: 'code',
       header: 'Code',
@@ -709,24 +800,39 @@ const IncidentsPage = () => {
       id: 'subject',
       header: 'Subject',
       isSortable: true,
-      cell: (row: Incident) => (
-        <div className="truncate max-w-[250px]" title={row.subject}>
-          {row.subject}
-        </div>
-      ),
+      cell: (row: Incident) => {
+        const inv = row.needFurtherInvestigation ? investigationMap[row.id] : null;
+        return (
+          <div className="flex flex-col gap-1 max-w-[300px]">
+            <div className="truncate" title={row.subject}>{row.subject}</div>
+            {row.needFurtherInvestigation && (
+              <div>
+                {!inv && (
+                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-[10px] py-0">
+                    Needs Investigation Report
+                  </Badge>
+                )}
+                {inv && inv.status === InvestigationStatusEnum.COMPLETE && (
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] py-0">
+                    Investigation Complete
+                  </Badge>
+                )}
+                {inv && inv.status !== InvestigationStatusEnum.COMPLETE && (
+                  <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 text-[10px] py-0">
+                    Investigation Draft
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'incidentDate',
       header: 'Incident Date',
       isSortable: true,
       cell: (row: Incident) => format(new Date(row.incidentDate), 'dd MMM yyyy'),
-    },
-    {
-      id: 'incidentType',
-      header: 'Type',
-      cell: (row: Incident) => (
-        <span className="text-sm">{row.incidentType.replace(/_/g, ' ')}</span>
-      ),
     },
     {
       id: 'priority',
@@ -755,6 +861,8 @@ const IncidentsPage = () => {
     {
       id: 'actions',
       header: 'Actions',
+      headerClassName: 'sticky right-0 bg-card shadow-[-1px_0_0_0_hsl(var(--border))]',
+      cellClassName: 'sticky right-0 bg-card shadow-[-1px_0_0_0_hsl(var(--border))]',
       cell: (row: Incident) => {
         const modeActions = getModeActions(row);
 
@@ -781,6 +889,34 @@ const IncidentsPage = () => {
               </TooltipContent>
             </Tooltip>
             
+            {/* Investigation report quick-jump - shown for incidents flagged for investigation */}
+            {row.needFurtherInvestigation && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const inv = investigationMap[row.id];
+                      if (inv) {
+                        navigate(`/investigation-reports/${inv.id}`);
+                      } else {
+                        navigate(`/investigation-reports/new?incidentId=${row.id}`);
+                      }
+                    }}
+                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    aria-label="Investigation report"
+                  >
+                    <ClipboardCheck className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{investigationMap[row.id] ? 'View Investigation Report' : 'Create Investigation Report'}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
             {/* Mode-specific action buttons: Edit, Submit, Approve - icon-only with tooltips */}
             {modeActions.map((action, index) => {
               // Determine color based on action type
@@ -849,10 +985,49 @@ const IncidentsPage = () => {
     },
   ];
 
+  const sortValue = `${sorting?.id ?? 'updatedAt'}_${sorting?.desc === false ? 'asc' : 'desc'}`;
+
+  const handleSortSelect = (value: string) => {
+    const [id, order] = value.split('_');
+    handleSortingChange({ id, desc: order === 'desc' });
+  };
+
+  const sortDropdown = (
+    <div className="flex items-center gap-2">
+      <Select value={sortValue} onValueChange={handleSortSelect}>
+        <SelectTrigger className="h-9 w-[175px] text-sm">
+          <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="updatedAt_desc">Updated At (Newest)</SelectItem>
+          <SelectItem value="updatedAt_asc">Updated At (Oldest)</SelectItem>
+          <SelectItem value="createdAt_desc">Created At (Newest)</SelectItem>
+          <SelectItem value="createdAt_asc">Created At (Oldest)</SelectItem>
+        </SelectContent>
+      </Select>
+      {selectedIds.size > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBulkExportPDF}
+          disabled={isBulkExporting}
+        >
+          {isBulkExporting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileDown className="mr-2 h-4 w-4" />
+          )}
+          {isBulkExporting ? 'Exporting...' : `Export PDF (${selectedIds.size})`}
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <>
       <PageHeader
-        title="Incidents"
+        title="Incident Reports"
         subtitle="Manage incident reports and tracking"
         actions={
           <div className="flex items-center gap-2">
@@ -869,13 +1044,13 @@ const IncidentsPage = () => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>View Incident Workflow</p>
+                <p>View Incident Report Workflow</p>
               </TooltipContent>
             </Tooltip>
             <PermissionGuard permission="incident:create">
               <Button onClick={() => navigate('/incidents/new')}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Incident
+                Create Incident Report
               </Button>
             </PermissionGuard>
           </div>
@@ -910,25 +1085,44 @@ const IncidentsPage = () => {
         activeFilters={activeFilters}
         sorting={sorting}
         onSortingChange={handleSortingChange}
+        toolbarExtra={sortDropdown}
       />
 
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Incident"
-        description={`Are you sure you want to delete incident "${incidentToDelete?.code}"? This action will mark it as inactive.`}
+        title="Delete Incident Report"
+        description={`Are you sure you want to delete incident report "${incidentToDelete?.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"
         variant="destructive"
       />
 
+      {/* Hidden bulk PDF render target */}
+      {selectedIncidents.length > 0 && (
+        <div
+          ref={bulkPdfRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          {selectedIncidents.map((incident, i) => (
+            <div
+              key={incident.id}
+              style={i < selectedIncidents.length - 1 ? { pageBreakAfter: 'always' } : undefined}
+            >
+              <IncidentPDFTemplate incident={incident} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Workflow Information Dialog — incident workflow per docs/prd-incidents.md and TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
         <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden" hideCloseButton>
           <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle>Incident Workflow</DialogTitle>
+            <DialogTitle>Incident Report Workflow</DialogTitle>
             <DialogDescription>
-              Incidents move from creation, to HSE follow-up and submit, then to approval by the configured approver(s).
+              Incident Reports move from creation, to HSE follow-up and submit, then to approval by the configured approver(s).
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-6">
@@ -951,15 +1145,15 @@ const IncidentsPage = () => {
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
-                    <dd className="mt-0.5 font-medium text-foreground">Incident creator</dd>
+                    <dd className="mt-0.5 font-medium text-foreground">Incident Report creator</dd>
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
-                    <dd className="mt-0.5 text-muted-foreground">User who created the incident (any department); creator or same department can edit</dd>
+                    <dd className="mt-0.5 text-muted-foreground">User who created the incident report (any department); creator or same department can edit</dd>
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
-                  Create incident and fill all sections except Control Measures & Outcomes. Editable until submitted for verification.
+                  Create incident report and fill all sections except Control Measures & Outcomes. Editable until submitted for verification.
                 </p>
               </div>
 
@@ -1023,7 +1217,7 @@ const IncidentsPage = () => {
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
-                    <dd className="mt-0.5 text-muted-foreground">HSE Department Head (per Master Approval for incidents; default one line)</dd>
+                    <dd className="mt-0.5 text-muted-foreground">HSE Department Head (per Master Approval for incident reports; default one line)</dd>
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">

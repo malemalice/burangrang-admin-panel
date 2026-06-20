@@ -135,11 +135,15 @@ export const authApi = {
   login: async (email: string, password: string) => {
     const response = await api.post('/auth/login', { email, password });
     const { accessToken, refreshToken, user } = response.data;
-    
+
     // Store both tokens in localStorage
     setAccessToken(accessToken);
     setRefreshToken(refreshToken);
-    
+
+    // Clear theme-loaded flag so ThemeProvider reloads theme from backend on next login
+    sessionStorage.removeItem('theme-loaded');
+    window.dispatchEvent(new CustomEvent('auth:login'));
+
     return { user };
   },
   

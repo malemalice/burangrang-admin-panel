@@ -1,0 +1,116 @@
+services:
+  # PostgreSQL Database (Production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: burangrang-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-burangrang_prod}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - burangrang-prod-network
+
+  # Backend API (Production)
+  backend:
+    build:
+      context: /var/www/bsj-production/backend
+      dockerfile: Dockerfile
+    container_name: burangrang-prod-backend
+    restart: unless-stopped
+    env_file:
+      - /var/www/bsj-production/backend/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@burangrang-prod-postgres:5432/${DB_NAME:-burangrang_prod}?schema=public
+    volumes:
+      - uploads_prod_data:/app/uploads
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pm2", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - burangrang-prod-network
+      - burangrang-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-prod.rule=Host(`bsj-api-prod.benwara.com`)"
+      - "traefik.http.routers.backend-prod.entrypoints=websecure"
+      - "traefik.http.routers.backend-prod.tls=true"
+      - "traefik.http.routers.backend-prod.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend-prod.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.backend-prod-ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.backend-prod-ratelimit.ratelimit.burst=50"
+      - "traefik.http.routers.backend-prod.middlewares=backend-prod-ratelimit"
+      - "traefik.http.middlewares.backend-prod-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.backend-prod-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.backend-prod-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.backend-prod-headers.headers.contentTypeNosniff=true"
+
+  # Frontend Admin Panel (Production)
+  frontend:
+    build:
+      context: /var/www/bsj-production/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://bsj-api-prod.benwara.com
+    container_name: burangrang-prod-frontend
+    restart: unless-stopped
+    expose:
+      - "8080"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - burangrang-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-prod.rule=Host(`bsj-prod.benwara.com`)"
+      - "traefik.http.routers.frontend-prod.entrypoints=websecure"
+      - "traefik.http.routers.frontend-prod.tls=true"
+      - "traefik.http.routers.frontend-prod.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-prod.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.frontend-prod-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.frontend-prod-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.frontend-prod-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.routers.frontend-prod.middlewares=frontend-prod-headers"
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  uploads_prod_data:
+    driver: local
+
+networks:
+  burangrang-prod-network:
+    driver: bridge
+  burangrang-network:
+    external: true

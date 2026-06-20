@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, ClipboardCheck, Check, X, FileDown, Loader2 } from 'lucide-react';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
+import IncidentPDFTemplate from '../components/IncidentPDFTemplate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import incidentsService from '../services/incidentsService';
+import investigationReportsService from '@/modules/investigation-reports/services/investigationReportsService';
+import type { InvestigationReport } from '@/modules/investigation-reports/types/investigation-report.types';
 import { 
   Incident, 
   StopActivityEnum, 
@@ -33,6 +37,9 @@ const IncidentDetailPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [investigationReport, setInvestigationReport] = useState<InvestigationReport | null>(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const pdfTargetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -53,6 +60,23 @@ const IncidentDetailPage = () => {
 
     fetchIncident();
   }, [id, navigate]);
+
+  // Look up linked investigation report (if any)
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    investigationReportsService
+      .getByIncidentId(id)
+      .then((report) => {
+        if (!cancelled) setInvestigationReport(report);
+      })
+      .catch(() => {
+        if (!cancelled) setInvestigationReport(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   // Fetch approval status/history
   useEffect(() => {
@@ -90,6 +114,23 @@ const IncidentDetailPage = () => {
 
     fetchApprovalStatus();
   }, [id]);
+
+  const handleExportPDF = async () => {
+    if (!incident) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await generateTableAwarePdf(
+        pdfTargetRef,
+        buildPdfOptions({ filename: `${incident.code}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` }),
+      );
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
@@ -133,7 +174,7 @@ const IncidentDetailPage = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-            <p className="mt-2 text-muted-foreground">Loading incident details...</p>
+            <p className="mt-2 text-muted-foreground">Loading incident report details...</p>
           </div>
         </div>
       </div>
@@ -145,14 +186,14 @@ const IncidentDetailPage = () => {
       <div className="container mx-auto py-10">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <p className="text-muted-foreground">Incident not found</p>
+            <p className="text-muted-foreground">Incident report not found</p>
             <Button
               variant="outline"
               onClick={() => navigate(-1)}
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incidents
+              Back to Incident Reports
             </Button>
           </div>
         </div>
@@ -163,8 +204,8 @@ const IncidentDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={`Incident: ${incident.code}`}
-        subtitle="View and manage incident information"
+        title={`Incident Report: ${incident.code}`}
+        subtitle="View and manage incident report information"
         actions={
           <div className="flex gap-2">
             <Button
@@ -173,8 +214,39 @@ const IncidentDetailPage = () => {
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Incidents
+              Back to Incident Reports
             </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF || isLoading}
+            >
+              {isExportingPDF ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="mr-2 h-4 w-4" />
+              )}
+              {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+            </Button>
+            {investigationReport ? (
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/investigation-reports/${investigationReport.id}`)}
+              >
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                View Investigation Report
+              </Button>
+            ) : (
+              incident.needFurtherInvestigation && (
+                <Button
+                  onClick={() => navigate(`/investigation-reports/new?incidentId=${id}`)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Create Investigation Report
+                </Button>
+              )
+            )}
             {(incident.status !== GeneralStatusEnum.WAITING_APPROVAL && incident.status !== GeneralStatusEnum.CLOSE) && (
               <>
                 <Button
@@ -266,7 +338,7 @@ const IncidentDetailPage = () => {
             {incident.description && (
               <div className="mt-6">
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-                <p className="text-sm whitespace-pre-wrap">{incident.description}</p>
+                <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.description }} />
               </div>
             )}
           </CardContent>
@@ -400,6 +472,58 @@ const IncidentDetailPage = () => {
           </Card>
         )}
 
+        {/* Third Parties */}
+        {incident.thirdParties && incident.thirdParties.length > 0 && (
+          <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  Third Parties
+                </CardTitle>
+                <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                  {incident.thirdParties.length} {incident.thirdParties.length === 1 ? 'person' : 'persons'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.thirdParties.map((tp, index) => (
+                <Card key={tp.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Third Party {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
+                        <p className="mt-1 text-sm">{tp.name}</p>
+                      </div>
+                      {tp.gender && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Gender</h3>
+                          <p className="mt-1 text-sm">{tp.gender}</p>
+                        </div>
+                      )}
+                      {tp.company && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Company</h3>
+                          <p className="mt-1 text-sm">{tp.company}</p>
+                        </div>
+                      )}
+                      {tp.position && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Position</h3>
+                          <p className="mt-1 text-sm">{tp.position}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Witnesses */}
         {incident.witnesses && incident.witnesses.length > 0 && (
           <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
@@ -478,6 +602,12 @@ const IncidentDetailPage = () => {
                         <div>
                           <h3 className="text-sm font-medium text-muted-foreground">Asset Code</h3>
                           <p className="mt-1 text-sm">{asset.assetCode}</p>
+                        </div>
+                      )}
+                      {asset.brand && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Brand</h3>
+                          <p className="mt-1 text-sm">{asset.brand}</p>
                         </div>
                       )}
                     </div>
@@ -563,8 +693,9 @@ const IncidentDetailPage = () => {
         )}
 
         {/* Control Measures & Outcomes */}
-        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution || 
-          incident.stopActivityDescription || incident.treatmentDescription || incident.dueDate ||
+        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution ||
+          incident.stopActivityDescription || incident.stopLocally || incident.stopWholeSchool ||
+          incident.treatmentDescription || incident.dueDate ||
           incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED || incident.treatment !== TreatmentEnum.NOT_SPECIFIED || 
           incident.absence !== AbsenceEnum.NOT_SPECIFIED) && (
           <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
@@ -603,32 +734,64 @@ const IncidentDetailPage = () => {
               </div>
               {incident.controlMeasure && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Control Measure</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Action Taken Following The Incident</h3>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.controlMeasure }} />
                 </div>
               )}
               {incident.expectedOutcome && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Expected Outcome</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.expectedOutcome }} />
                 </div>
               )}
-              {incident.stopActivityDescription && (
+              {incident.needToStopActivity === StopActivityEnum.YES && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Stop Activity Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.stopActivityDescription}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">If Yes (Jika Ya)</h3>
+                  <div className="space-y-2 pl-4">
+                    <div className="flex items-start gap-2 text-sm">
+                      {incident.stopLocally ? (
+                        <Check className="h-4 w-4 text-primary mt-0.5" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <span>
+                        Stop activity locally related to the accident/incident/nearmiss
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 text-sm">
+                      {incident.stopWholeSchool ? (
+                        <Check className="h-4 w-4 text-primary mt-0.5" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <span>
+                        Stop the whole school activities
+                        <span className="block text-xs text-muted-foreground">
+                          Hentikan seluruh kegiatan sekolah
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  {incident.stopActivityDescription && !incident.stopLocally && !incident.stopWholeSchool && (
+                    <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                      {incident.stopActivityDescription}
+                    </p>
+                  )}
                 </div>
               )}
               {incident.treatmentDescription && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Treatment Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.treatmentDescription}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.treatmentDescription }} />
                 </div>
               )}
               {incident.resolution && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Resolution</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.resolution}</p>
+                  <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: incident.resolution }} />
                 </div>
               )}
             </CardContent>
@@ -669,12 +832,21 @@ const IncidentDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Incident"
-        description={`Are you sure you want to delete incident "${incident.code}"? This action will mark it as inactive.`}
+        title="Delete Incident Report"
+        description={`Are you sure you want to delete incident report "${incident.code}"? This action will mark it as inactive.`}
         onConfirm={handleDeleteConfirm}
         confirmText="Delete"
         variant="destructive"
       />
+
+      {/* Hidden PDF render target */}
+      <div
+        ref={pdfTargetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        <IncidentPDFTemplate incident={incident} />
+      </div>
     </>
   );
 };

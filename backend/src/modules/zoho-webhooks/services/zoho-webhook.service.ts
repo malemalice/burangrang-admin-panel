@@ -1,5 +1,12 @@
-import { GeneralStatusEnum, Prisma } from '@prisma/client';
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  GeneralStatusEnum,
+  IncidentClassificationEnum,
+  IncidentTypeEnum,
+  Prisma,
+  PriorityEnum,
+  SourceEnum,
+} from '@prisma/client';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
@@ -26,7 +33,6 @@ interface InboundProcessingParams {
 interface InboundUpdateContext {
   mappingId: string;
   hseTaskId: string;
-  departmentId: string;
   mappedStatus: GeneralStatusEnum | null;
   zohoStatus: string | null;
 }
@@ -256,33 +262,52 @@ export class ZohoWebhookService {
       return;
     }
 
-    const departmentId = await this.resolveDepartmentId(ticketData.departmentId);
+    const assignedDepartmentId = await this.resolveDepartmentId(
+      ticketData.departmentId,
+    );
     const integrationUserId = await this.resolveIntegrationUserId();
     const initialStatus = await this.resolveInboundDefaultStatus();
-    const generatedCode = this.generateRiskAssessmentCode(ticketData.ticketNumber);
+    const areaId = await this.resolveAreaId(ticketData.area);
+    const riskCategoryId = await this.resolveRiskCategoryId(
+      ticketData.riskCategory,
+    );
+    const incidentType = await this.resolveIncidentType(ticketData.incidentType);
+    const incidentClassification = await this.resolveIncidentClassification(
+      ticketData.incidentClassification,
+    );
+    const generatedCode = this.generateIncidentCode(ticketData.ticketNumber);
+    const subject = ticketData.subject?.trim() || 'No subject';
     const mappedDescription = this.composeDescription(ticketData);
-    const actionPlan = this.composeActionPlan(ticketData);
+    const priority = this.mapPriorityToIncidentPriority(ticketData.priority);
 
-    const createdRiskAssessment = await this.prisma.riskAssessment.create({
+    const createdIncident = await this.prisma.incident.create({
       data: {
         code: generatedCode,
+        subject,
         description: mappedDescription,
-        departmentId,
-        assessmentDate: new Date(),
+        incidentDate: new Date(),
+        areaId,
+        incidentType,
+        incidentClassification,
+        priority,
+        riskCategoryId,
+        assignedDepartmentId,
+        requesterId: integrationUserId,
+        reportedBy: integrationUserId,
         createdBy: integrationUserId,
         status: initialStatus,
+        source: SourceEnum.ZOHO,
         isActive: true,
-        actionPlan,
       },
     });
 
-    await this.prisma.zohoTicketRiskAssessmentMap.create({
+    await this.prisma.zohoTicketIncidentMap.create({
       data: {
         zohoTicketId: ticketData.id,
         zohoTicketNumber: ticketData.ticketNumber,
-        hseTaskId: createdRiskAssessment.id,
+        hseTaskId: createdIncident.id,
         lastZohoStatus: null,
-        lastHseStatus: createdRiskAssessment.status,
+        lastHseStatus: createdIncident.status,
         rawPayload: payload as unknown as Prisma.InputJsonValue,
       },
     });
@@ -295,7 +320,7 @@ export class ZohoWebhookService {
       eventType,
       eventKey,
       zohoTicketId: ticketData.id,
-      hseTaskId: createdRiskAssessment.id,
+      hseTaskId: createdIncident.id,
       legacyRoute: isLegacyRoute,
       result: 'processed',
     });
@@ -309,16 +334,26 @@ export class ZohoWebhookService {
       params.ticketData,
     );
 
-    const updatedRiskAssessment = await this.updateMappedRiskAssessmentFromZoho(
-      params.ticketData,
+    const currentIncident = await this.prisma.incident.findUnique({
+      where: { id: updateContext.hseTaskId },
+      select: { status: true },
+    });
+
+    const shouldUpdateStatus =
+      updateContext.mappedStatus !== null &&
+      currentIncident !== null &&
+      this.getStatusRank(updateContext.mappedStatus) > this.getStatusRank(currentIncident.status);
+
+    const updatedIncident = await this.updateMappedIncidentFromZoho(
       updateContext,
+      shouldUpdateStatus,
     );
 
-    await this.prisma.zohoTicketRiskAssessmentMap.update({
+    await this.prisma.zohoTicketIncidentMap.update({
       where: { id: updateContext.mappingId },
       data: {
         lastZohoStatus: updateContext.zohoStatus,
-        lastHseStatus: updateContext.mappedStatus ?? updatedRiskAssessment.status,
+        lastHseStatus: updateContext.mappedStatus ?? (updatedIncident?.status ?? currentIncident?.status ?? undefined),
         rawPayload: params.payload as unknown as Prisma.InputJsonValue,
       },
     });
@@ -341,7 +376,7 @@ export class ZohoWebhookService {
     payload: ZohoWebhookDto,
     ticketData: ZohoTicketAddDataDto,
   ): Promise<InboundUpdateContext> {
-    const mapping = await this.prisma.zohoTicketRiskAssessmentMap.findUnique({
+    const mapping = await this.prisma.zohoTicketIncidentMap.findUnique({
       where: { zohoTicketId: ticketData.id },
       select: {
         id: true,
@@ -353,39 +388,49 @@ export class ZohoWebhookService {
 
     if (!mapping?.hseTaskId) {
       throw new Error(
-        `No risk assessment mapping found for Zoho ticket ${ticketData.id}`,
+        `No incident mapping found for Zoho ticket ${ticketData.id}`,
       );
     }
 
-    const departmentId = await this.resolveDepartmentId(ticketData.departmentId);
     const zohoStatus = this.extractZohoStatusValue(payload);
     const mappedStatus = await this.resolveInboundStatusFromZoho(zohoStatus);
 
     return {
       mappingId: mapping.id,
       hseTaskId: mapping.hseTaskId,
-      departmentId,
       mappedStatus,
       zohoStatus,
     };
   }
 
-  private async updateMappedRiskAssessmentFromZoho(
-    ticketData: ZohoTicketAddDataDto,
+  private async updateMappedIncidentFromZoho(
     updateContext: InboundUpdateContext,
-  ) {
-    const mappedDescription = this.composeDescription(ticketData);
-    const actionPlan = this.composeActionPlan(ticketData);
+    shouldUpdateStatus: boolean,
+  ): Promise<{ status: GeneralStatusEnum } | null> {
+    if (!shouldUpdateStatus) {
+      return null;
+    }
 
-    return this.prisma.riskAssessment.update({
+    return this.prisma.incident.update({
       where: { id: updateContext.hseTaskId },
       data: {
-        description: mappedDescription,
-        departmentId: updateContext.departmentId,
-        status: updateContext.mappedStatus ?? undefined,
-        actionPlan,
+        status: updateContext.mappedStatus!,
       },
+      select: { status: true },
     });
+  }
+
+  private getStatusRank(status: GeneralStatusEnum): number {
+    const ranks: Record<GeneralStatusEnum, number> = {
+      [GeneralStatusEnum.SCHEDULED]: 0,
+      [GeneralStatusEnum.DRAFT]: 1,
+      [GeneralStatusEnum.OPEN]: 2,
+      [GeneralStatusEnum.WAITING_APPROVAL]: 3,
+      [GeneralStatusEnum.DONE]: 4,
+      [GeneralStatusEnum.CLOSE]: 4,
+      [GeneralStatusEnum.REJECTED]: 4,
+    };
+    return ranks[status] ?? 0;
   }
 
   private extractTicketData(payload: ZohoWebhookDto): ZohoTicketAddDataDto {
@@ -399,6 +444,16 @@ export class ZohoWebhookService {
       priority: this.extractPriorityValue(data.priority),
       departmentId: this.normalizeNullableString(
         this.readStringField(data.departmentId),
+      ),
+      area: this.normalizeNullableString(this.readStringField(data.area)),
+      riskCategory: this.normalizeNullableString(
+        this.readStringField(data.riskCategory),
+      ),
+      incidentType: this.normalizeNullableString(
+        this.readStringField(data.incidentType),
+      ),
+      incidentClassification: this.normalizeNullableString(
+        this.readStringField(data.incidentClassification),
       ),
     };
   }
@@ -546,14 +601,20 @@ export class ZohoWebhookService {
   private extractZohoStatusValue(payload: ZohoWebhookDto): string | null {
     const payloadStatus = this.readStringField(payload.data?.status);
 
-    if (payloadStatus) {
-      return payloadStatus;
+    if (!payloadStatus) {
+      return null;
     }
 
-    return null;
+    const parsedStatus = this.tryParseJsonObject(payloadStatus);
+    if (parsedStatus) {
+      const name = this.readStringField(parsedStatus.name);
+      return name ?? payloadStatus;
+    }
+
+    return payloadStatus;
   }
 
-  private generateRiskAssessmentCode(ticketNumber: string | undefined): string {
+  private generateIncidentCode(ticketNumber: string | undefined): string {
     const timestamp = new Date()
       .toISOString()
       .replace(/[-:.TZ]/g, '')
@@ -563,40 +624,188 @@ export class ZohoWebhookService {
       .slice(0, 6)
       .toUpperCase();
     const ticketSuffix = ticketNumber?.trim() ? `-${ticketNumber.trim()}` : '';
-    return `ZRA-${timestamp}${ticketSuffix}-${randomSuffix}`;
+    return `ZIC-${timestamp}${ticketSuffix}-${randomSuffix}`;
+  }
+
+  /**
+   * Looks up a Zoho source value in a configured incident field map
+   * (Zoho value -> HSE value). Returns the mapped HSE value or null when the
+   * Zoho value is empty or has no/blank mapping. Callers fall back to the
+   * configured default_* value when this returns null.
+   */
+  private async resolveFromIncidentMap(
+    settingKey: string,
+    zohoValue: string | null | undefined,
+  ): Promise<string | null> {
+    if (!zohoValue) {
+      return null;
+    }
+
+    const map = await this.zohoConfigService.getJsonRecord(settingKey, {});
+    const mapped = map[zohoValue]?.trim();
+    return mapped ? mapped : null;
+  }
+
+  private async resolveAreaId(zohoArea?: string | null): Promise<string> {
+    const mappedAreaId = await this.resolveFromIncidentMap(
+      SETTINGS_KEYS.ZOHO_INCIDENT_AREA_MAP,
+      zohoArea,
+    );
+
+    if (mappedAreaId) {
+      const area = await this.prisma.area.findFirst({
+        where: { id: mappedAreaId, isActive: true },
+        select: { id: true },
+      });
+
+      if (area?.id) {
+        return area.id;
+      }
+    }
+
+    const configuredAreaId = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_DEFAULT_AREA_ID,
+      '',
+    );
+
+    if (configuredAreaId) {
+      const area = await this.prisma.area.findFirst({
+        where: { id: configuredAreaId, isActive: true },
+        select: { id: true },
+      });
+
+      if (area?.id) {
+        return area.id;
+      }
+    }
+
+    throw new Error(
+      'Unable to resolve default area for inbound Zoho ticket (set zoho.inbound.default_area_id)',
+    );
+  }
+
+  private async resolveRiskCategoryId(
+    zohoRiskCategory?: string | null,
+  ): Promise<string> {
+    const mappedRiskCategoryId = await this.resolveFromIncidentMap(
+      SETTINGS_KEYS.ZOHO_INCIDENT_RISK_CATEGORY_MAP,
+      zohoRiskCategory,
+    );
+
+    if (mappedRiskCategoryId) {
+      const riskCategory = await this.prisma.riskCategory.findFirst({
+        where: { id: mappedRiskCategoryId, isActive: true },
+        select: { id: true },
+      });
+
+      if (riskCategory?.id) {
+        return riskCategory.id;
+      }
+    }
+
+    const configuredRiskCategoryId = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_DEFAULT_RISK_CATEGORY_ID,
+      '',
+    );
+
+    if (configuredRiskCategoryId) {
+      const riskCategory = await this.prisma.riskCategory.findFirst({
+        where: { id: configuredRiskCategoryId, isActive: true },
+        select: { id: true },
+      });
+
+      if (riskCategory?.id) {
+        return riskCategory.id;
+      }
+    }
+
+    throw new Error(
+      'Unable to resolve default risk category for inbound Zoho ticket (set zoho.inbound.default_risk_category_id)',
+    );
+  }
+
+  private async resolveIncidentType(
+    zohoIncidentType?: string | null,
+  ): Promise<IncidentTypeEnum> {
+    const mapped = await this.resolveFromIncidentMap(
+      SETTINGS_KEYS.ZOHO_INCIDENT_INCIDENT_TYPE_MAP,
+      zohoIncidentType,
+    );
+
+    if (
+      mapped &&
+      Object.values(IncidentTypeEnum).includes(mapped as IncidentTypeEnum)
+    ) {
+      return mapped as IncidentTypeEnum;
+    }
+
+    const configured = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_DEFAULT_INCIDENT_TYPE,
+      '',
+    );
+
+    if (
+      configured &&
+      Object.values(IncidentTypeEnum).includes(configured as IncidentTypeEnum)
+    ) {
+      return configured as IncidentTypeEnum;
+    }
+
+    return IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE;
+  }
+
+  private async resolveIncidentClassification(
+    zohoIncidentClassification?: string | null,
+  ): Promise<IncidentClassificationEnum> {
+    const mapped = await this.resolveFromIncidentMap(
+      SETTINGS_KEYS.ZOHO_INCIDENT_INCIDENT_CLASSIFICATION_MAP,
+      zohoIncidentClassification,
+    );
+
+    if (
+      mapped &&
+      Object.values(IncidentClassificationEnum).includes(
+        mapped as IncidentClassificationEnum,
+      )
+    ) {
+      return mapped as IncidentClassificationEnum;
+    }
+
+    const configured = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_DEFAULT_INCIDENT_CLASSIFICATION,
+      '',
+    );
+
+    if (
+      configured &&
+      Object.values(IncidentClassificationEnum).includes(
+        configured as IncidentClassificationEnum,
+      )
+    ) {
+      return configured as IncidentClassificationEnum;
+    }
+
+    return IncidentClassificationEnum.MINOR;
   }
 
   private composeDescription(ticket: ZohoTicketAddDataDto): string {
-    const subject = ticket.subject?.trim() || 'No subject';
-    const description = ticket.description?.trim() || 'No description';
-    const priority = ticket.priority?.trim() || 'Unspecified';
-
-    return `[Zoho Subject] ${subject}\n[Zoho Priority] ${priority}\n[Zoho Description] ${description}`;
+    return ticket.description?.trim() || '';
   }
 
-  private composeActionPlan(ticket: ZohoTicketAddDataDto): string {
-    const mappedSeverity = this.mapPriorityToSeverity(ticket.priority);
-    return `Inbound Zoho Ticket ${ticket.id} mapped with severity=${mappedSeverity}`;
-  }
-
-  private mapPriorityToSeverity(
+  private mapPriorityToIncidentPriority(
     priority: string | undefined,
-  ): 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' {
+  ): PriorityEnum {
     const normalized = this.extractPriorityLabel(priority).toLowerCase().trim();
 
-    if (normalized === 'urgent' || normalized === 'critical') {
-      return 'EXTREME';
+    if (
+      normalized === 'urgent' ||
+      normalized === 'critical' ||
+      normalized === 'high'
+    ) {
+      return PriorityEnum.HIGH;
     }
 
-    if (normalized === 'high') {
-      return 'HIGH';
-    }
-
-    if (normalized === 'medium') {
-      return 'MEDIUM';
-    }
-
-    return 'LOW';
+    return PriorityEnum.NORMAL;
   }
 
   private async tryCreateWebhookLogOrIgnoreUnique(params: {
@@ -757,5 +966,129 @@ export class ZohoWebhookService {
 
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  async discoverFieldValues(): Promise<{
+    area: string[];
+    riskCategory: string[];
+    incidentType: string[];
+    incidentClassification: string[];
+  }> {
+    const logs = await this.prisma.tZohoWebhookLogs.findMany({
+      where: {
+        status: 'PROCESSED',
+        eventType: ZOHO_EVENT_TYPES.TICKET_ADD,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: { payload: true },
+    });
+
+    const area = new Set<string>();
+    const riskCategory = new Set<string>();
+    const incidentType = new Set<string>();
+    const incidentClassification = new Set<string>();
+
+    for (const log of logs) {
+      const normalized = this.normalizeInboundPayload(
+        log.payload as unknown as ZohoWebhookDto,
+      );
+      const ticket = this.extractTicketData(normalized);
+      if (ticket.area) area.add(ticket.area);
+      if (ticket.riskCategory) riskCategory.add(ticket.riskCategory);
+      if (ticket.incidentType) incidentType.add(ticket.incidentType);
+      if (ticket.incidentClassification)
+        incidentClassification.add(ticket.incidentClassification);
+    }
+
+    return {
+      area: [...area].sort(),
+      riskCategory: [...riskCategory].sort(),
+      incidentType: [...incidentType].sort(),
+      incidentClassification: [...incidentClassification].sort(),
+    };
+  }
+
+  async listOutboundJobs(params: {
+    page: number;
+    limit: number;
+    status?: string;
+  }): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number } }> {
+    const { page, limit, status } = params;
+    const where: Prisma.ZohoOutboundJobWhereInput = status
+      ? { status: status as import('@prisma/client').ZohoOutboundJobStatusEnum }
+      : {};
+
+    const [jobs, total] = await Promise.all([
+      this.prisma.zohoOutboundJob.findMany({
+        where,
+        include: {
+          mapping: {
+            select: { hseTaskId: true, zohoTicketNumber: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.zohoOutboundJob.count({ where }),
+    ]);
+
+    return { data: jobs, meta: { total, page, limit } };
+  }
+
+  async retryDeadLetterJob(id: string): Promise<void> {
+    const job = await this.prisma.zohoOutboundJob.findUnique({ where: { id } });
+
+    if (!job) {
+      throw new NotFoundException(`Outbound job ${id} not found`);
+    }
+
+    if (job.status !== 'FAILED_DEAD_LETTER') {
+      throw new BadRequestException(
+        `Job ${id} has status "${job.status}" — only FAILED_DEAD_LETTER jobs can be retried`,
+      );
+    }
+
+    await this.prisma.zohoOutboundJob.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        nextRetryAt: new Date(),
+        attemptCount: 0,
+        lastError: null,
+      },
+    });
+  }
+
+  async listWebhookLogs(params: {
+    page: number;
+    limit: number;
+    status?: string;
+  }): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number } }> {
+    const { page, limit, status } = params;
+    const where = status ? { status } : {};
+
+    const [logs, total] = await Promise.all([
+      this.prisma.tZohoWebhookLogs.findMany({
+        where,
+        select: {
+          id: true,
+          eventType: true,
+          ticketId: true,
+          status: true,
+          errorSummary: true,
+          correlationId: true,
+          createdAt: true,
+          processedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.tZohoWebhookLogs.count({ where }),
+    ]);
+
+    return { data: logs, meta: { total, page, limit } };
   }
 }

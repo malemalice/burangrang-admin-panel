@@ -1,14 +1,35 @@
 # QA Test Plan: Notification System
 
-**Scope:** Notification delivery (in-app and email), no duplicate notifications/emails, list/filter/mark-read, and regression after double-notification fixes.  
-**References:** [prd-notifications.md](prd-notifications.md), [notification-bugs.md](notification-bugs.md).
+**Document type:** QA Test Plan
+**Status:** Draft
+**Audience:** QA, Backend, Frontend
+**Scope:** Notification delivery (in-app and email), no duplicate notifications/emails, list/filter/mark-read, and regression after double-notification fixes.
+**References:** [prd/notifications.md](prd/notifications.md), [notification-bugs.md](notification-bugs.md).
+**Last updated:** 2026-05-12
 
 ---
 
 ## 1. Prerequisites
 
+### 1.1 Roles
+
+| Role | Required Permissions | Purpose |
+|---|---|---|
+| Requester | `incident:create`, `work-permit:create`, `notification:list`, `notification:read`, `notification:update` | Submits requests; receives approval notifications |
+| Approver | `incident:update`, `work-permit:update`, `notification:list`, `notification:read`, `notification:update` | Approves/rejects; receives pending-approval notifications |
+| Admin | All above + `notification:create`, `notification:delete` | Creates test notifications; verifies DB state |
+
+### 1.2 Users
+
+| User | Role | Email | Purpose |
+|---|---|---|---|
+| test-requester@example.com | Requester | valid inbox | Receives approval result notifications |
+| test-approver@example.com | Approver | valid inbox | Receives pending approval notifications |
+| test-admin@example.com | Admin | — | Creates reminders; verifies DB |
+
+### 1.3 Setup
+
 - Backend and frontend running; SMTP configured (or use a test inbox) so email can be verified.
-- At least two users: **Requester** (submits incident/work permit), **Approver** (in approval chain). Requester and Approver must have valid email addresses in profile.
 - Notification types seeded (e.g. APPROVAL_APPROVED, APPROVAL_REJECTED, INCIDENT_APPROVED, WORK_PERMIT_APPROVED, REMINDER, etc.).
 - For reminders: at least one reminder configured (target USER or ROLE) that will become due during the test window, or trigger manually if supported.
 

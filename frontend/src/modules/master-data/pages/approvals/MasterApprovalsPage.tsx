@@ -69,22 +69,23 @@ const MasterApprovalsPage = () => {
   const fetchApprovals = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params = {
+      const params: Record<string, any> = {
         page: pageIndex + 1,
         limit,
         sortBy: 'entity',
         sortOrder: 'asc',
-        search: searchTerm,
-        filters: {
-          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
-            ...acc,
-            [key]: item.value
-          }), {}),
-          isActive: activeFilters.isActive?.value === true ? true : 
-                   activeFilters.isActive?.value === false ? false : 
-                   undefined,
-        },
       };
+
+      const entityFilter = activeFilters.entity?.value;
+      const effectiveSearch = entityFilter || searchTerm || undefined;
+      if (effectiveSearch) params.search = effectiveSearch;
+
+      const isActiveRaw = activeFilters.isActive?.value;
+      if (isActiveRaw !== undefined && isActiveRaw !== '') {
+        params.isActive = typeof isActiveRaw === 'boolean'
+          ? isActiveRaw
+          : isActiveRaw === 'true';
+      }
 
       const response = await masterApprovalService.getAll(params);
       setApprovals(response.data);
@@ -115,10 +116,12 @@ const MasterApprovalsPage = () => {
   const handleApplyFilters = (filterValues: FilterValue[]) => {
     const newFilters: Record<string, { value: any; label: string }> = {};
     filterValues.forEach(filter => {
-      newFilters[filter.id] = {
-        value: filter.value,
-        label: String(filter.value)
-      };
+      if (filter.id === 'isActive') {
+        const isActive = filter.value === 'true' || filter.value === true;
+        newFilters[filter.id] = { value: filter.value, label: isActive ? 'Active' : 'Inactive' };
+      } else {
+        newFilters[filter.id] = { value: filter.value, label: String(filter.value) };
+      }
     });
     setActiveFilters(newFilters);
     setPageIndex(0);

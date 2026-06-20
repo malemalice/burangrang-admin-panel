@@ -168,6 +168,19 @@ export const permissions = [
   { name: 'incident-security:delete', description: 'Delete security incidents' },
   { name: 'incident-security:list', description: 'List all security incidents' },
 
+  // Investigation Report Management
+  { name: 'investigation-report:create', description: 'Create new investigation reports' },
+  { name: 'investigation-report:read', description: 'View investigation report information' },
+  { name: 'investigation-report:update', description: 'Update investigation report information' },
+  { name: 'investigation-report:delete', description: 'Delete investigation reports' },
+  { name: 'investigation-report:list', description: 'List all investigation reports' },
+
+  // Audit Period Management
+  { name: 'audit-period:create', description: 'Create new audit periods' },
+  { name: 'audit-period:read', description: 'View audit period information' },
+  { name: 'audit-period:delete', description: 'Delete audit periods' },
+  { name: 'audit-period:list', description: 'List all audit periods' },
+
   // Audit Schedule Management
   { name: 'audit-schedule:create', description: 'Create new audit schedules' },
   { name: 'audit-schedule:read', description: 'View audit schedule information' },
@@ -196,12 +209,30 @@ export const permissions = [
   { name: 'inspection:delete', description: 'Delete inspections' },
   { name: 'inspection:list', description: 'List all inspections' },
 
+  // Inspection Checklist Management (master data — templates, categories, leaf items)
+  { name: 'inspection-checklist:create', description: 'Create inspection checklist templates and items' },
+  { name: 'inspection-checklist:read', description: 'View inspection checklist information' },
+  { name: 'inspection-checklist:update', description: 'Update inspection checklist templates and items' },
+  { name: 'inspection-checklist:delete', description: 'Delete inspection checklist templates and items' },
+  { name: 'inspection-checklist:list', description: 'List all inspection checklists' },
+
+  // HFACS Catalogue Management (master data — investigation report cause tree)
+  { name: 'hfacs-node:create', description: 'Create new HFACS catalogue nodes' },
+  { name: 'hfacs-node:read', description: 'View HFACS catalogue information' },
+  { name: 'hfacs-node:update', description: 'Update HFACS catalogue nodes' },
+  { name: 'hfacs-node:delete', description: 'Delete HFACS catalogue nodes' },
+  { name: 'hfacs-node:list', description: 'List all HFACS catalogue nodes' },
+
   // Certificate Management
   { name: 'certificate:create', description: 'Create new certificates' },
   { name: 'certificate:read', description: 'View certificate information' },
   { name: 'certificate:update', description: 'Update certificate information' },
   { name: 'certificate:delete', description: 'Delete certificates' },
   { name: 'certificate:list', description: 'List all certificates' },
+
+  // Audit Report
+  { name: 'audit-report:list', description: 'View audit report summary' },
+  { name: 'audit-report:read', description: 'Access audit report detail' },
 
   // Audit Policy Management
   { name: 'audit-policy:create', description: 'Create new audit policies' },
@@ -286,6 +317,11 @@ export const permissions = [
   { name: 'reminder:update', description: 'Update reminder information' },
   { name: 'reminder:delete', description: 'Delete reminders' },
   { name: 'reminder:list', description: 'List all reminders' },
+  {
+    name: 'reminder:manage-department',
+    description:
+      'Manage department/role/office-level reminders created by other users (prevents orphans when creator leaves)',
+  },
 
   // PPE Management
   { name: 'ppe:create', description: 'Create new PPE records' },

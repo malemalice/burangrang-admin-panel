@@ -63,7 +63,6 @@ export class MenusController {
   }
 
   @Get('sidebar')
-  @Permissions('menu:read')
   @ApiOperation({
     summary: 'Get active menus for sidebar navigation filtered by user permissions',
     description:

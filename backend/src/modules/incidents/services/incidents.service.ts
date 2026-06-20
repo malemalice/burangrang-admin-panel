@@ -24,12 +24,15 @@ import { APPROVAL_CHAIN_STATUS } from '../../../shared/constants/approval-status
 import { ROLE_CODES } from '../../../shared/constants/role-codes';
 import { IncidentInjuredPersonDto } from '../dto/incident-injured-person.dto';
 import { IncidentWitnessDto } from '../dto/incident-witness.dto';
+import { IncidentThirdPartyDto } from '../dto/incident-third-party.dto';
 import { IncidentAssetDto } from '../dto/incident-asset.dto';
 import { IncidentImageDto } from '../dto/incident-image.dto';
 import { IncidentAttachmentDto } from '../dto/incident-attachment.dto';
 import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
+import { IncidentZohoSyncService } from '../../zoho-webhooks/services/incident-zoho-sync.service';
+import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
 
 interface FindAllOptions {
   page?: number;
@@ -57,6 +60,7 @@ export class IncidentsService {
   private incidentMapper: (entity: any) => IncidentDto;
   private injuredPersonMapper: (entity: any) => IncidentInjuredPersonDto;
   private witnessMapper: (entity: any) => IncidentWitnessDto;
+  private thirdPartyMapper: (entity: any) => IncidentThirdPartyDto;
   private assetMapper: (entity: any) => IncidentAssetDto;
   private imageMapper: (entity: any) => IncidentImageDto;
   private attachmentMapper: (entity: any) => IncidentAttachmentDto;
@@ -67,6 +71,7 @@ export class IncidentsService {
     private readonly dtoMapper: DtoMapperService,
     private readonly masterApprovalsService: MasterApprovalsService,
     private readonly notificationsService: NotificationsService,
+    private readonly incidentZohoSyncService: IncidentZohoSyncService,
   ) {
     // Initialize related entity mappers
     this.injuredPersonMapper = this.dtoMapper.createRelationMapper(
@@ -88,6 +93,8 @@ export class IncidentsService {
         },
       },
     );
+
+    this.thirdPartyMapper = this.dtoMapper.createSimpleMapper(IncidentThirdPartyDto);
 
     this.assetMapper = this.dtoMapper.createSimpleMapper(IncidentAssetDto);
     this.imageMapper = this.dtoMapper.createSimpleMapper(IncidentImageDto);
@@ -139,6 +146,10 @@ export class IncidentsService {
         mapper: (witness: any) => this.witnessMapper(witness),
         isArray: true,
       },
+      thirdParties: {
+        mapper: (thirdParty: any) => this.thirdPartyMapper(thirdParty),
+        isArray: true,
+      },
       assets: {
         mapper: (asset: any) => this.assetMapper(asset),
         isArray: true,
@@ -187,6 +198,7 @@ export class IncidentsService {
     const {
       injuredPersons,
       witnesses,
+      thirdParties,
       assets,
       images,
       attachments,
@@ -211,6 +223,12 @@ export class IncidentsService {
               witnesses.length > 0 && {
                 witnesses: {
                   create: witnesses,
+                },
+              }),
+            ...(thirdParties &&
+              thirdParties.length > 0 && {
+                thirdParties: {
+                  create: thirdParties,
                 },
               }),
             ...(assets &&
@@ -253,6 +271,9 @@ export class IncidentsService {
               },
               orderBy: { order: 'asc' },
             },
+            thirdParties: {
+              orderBy: { order: 'asc' },
+            },
             assets: {
               orderBy: { order: 'asc' },
             },
@@ -267,7 +288,87 @@ export class IncidentsService {
       'creating incident',
     );
 
+    // Outbound Zoho sync: create a Zoho ticket for HSE-originated incidents.
+    // Skip ZOHO-sourced incidents — they already have a ticket + mapping.
+    if (incident.source !== SourceEnum.ZOHO) {
+      try {
+        await this.syncCreatedIncidentToZoho(incident);
+      } catch (error) {
+        const body = (error as { responseBody?: unknown }).responseBody;
+        console.error(
+          `[Incident] Zoho sync failed for incident ${incident.id}, but incident was created successfully: ${error instanceof Error ? error.message : String(error)} | zohoResponse: ${JSON.stringify(body)}`,
+        );
+      }
+    }
+
     return this.incidentMapper(incident);
+  }
+
+  private async syncCreatedIncidentToZoho(incident: {
+    id: string;
+    code: string;
+    subject: string;
+    description: string | null;
+    status: GeneralStatusEnum;
+  }): Promise<void> {
+    const payload = await this.buildZohoCreatePayload(incident);
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    await this.incidentZohoSyncService.createTicketForIncident({
+      incidentId: incident.id,
+      payload,
+      lastHseStatus: incident.status,
+    });
+  }
+
+  private async buildZohoCreatePayload(incident: {
+    code: string;
+    subject: string;
+    description: string | null;
+    status: GeneralStatusEnum;
+  }): Promise<SdpRequestPayload> {
+    const [targetStatus, requesterId] = await Promise.all([
+      this.incidentZohoSyncService.resolveZohoStatusForHseStatus(incident.status),
+      this.incidentZohoSyncService.getOutboundRequesterId(),
+    ]);
+
+    const subject = incident.subject?.trim() || incident.code;
+    const description =
+      incident.description?.trim() ||
+      `Incident ${incident.code} created from HSE Dashboard`;
+
+    return {
+      subject,
+      description,
+      status: targetStatus ? { name: targetStatus } : { name: 'Open' },
+      ...(requesterId ? { requester: { id: requesterId } } : {}),
+    };
+  }
+
+  private async enqueueIncidentStatusSync(
+    incidentId: string,
+    oldStatus: GeneralStatusEnum,
+    newStatus: GeneralStatusEnum,
+  ): Promise<void> {
+    if (oldStatus === newStatus) {
+      return;
+    }
+
+    try {
+      await this.incidentZohoSyncService.enqueueStatusSyncIfNeeded({
+        incidentId,
+        oldStatus,
+        newStatus,
+      });
+    } catch (error) {
+      console.error(
+        `[Incident] Zoho status sync failed for incident ${incidentId}:`,
+        error,
+      );
+    }
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -406,6 +507,9 @@ export class IncidentsService {
                 },
                 orderBy: { order: 'asc' },
               },
+              thirdParties: {
+                orderBy: { order: 'asc' },
+              },
               assets: {
                 orderBy: { order: 'asc' },
               },
@@ -512,6 +616,9 @@ export class IncidentsService {
           },
           orderBy: { order: 'asc' },
         },
+        thirdParties: {
+          orderBy: { order: 'asc' },
+        },
         assets: {
           orderBy: { order: 'asc' },
         },
@@ -579,6 +686,7 @@ export class IncidentsService {
     const {
       injuredPersons,
       witnesses,
+      thirdParties,
       assets,
       images,
       attachments,
@@ -614,6 +722,12 @@ export class IncidentsService {
               witnesses: {
                 deleteMany: {},
                 create: witnesses,
+              },
+            }),
+            ...(thirdParties !== undefined && {
+              thirdParties: {
+                deleteMany: {},
+                create: thirdParties,
               },
             }),
             ...(assets !== undefined && {
@@ -657,6 +771,9 @@ export class IncidentsService {
               },
               orderBy: { order: 'asc' },
             },
+            thirdParties: {
+              orderBy: { order: 'asc' },
+            },
             assets: {
               orderBy: { order: 'asc' },
             },
@@ -671,7 +788,46 @@ export class IncidentsService {
       'updating incident',
     );
 
+    if (existingIncident) {
+      await this.enqueueIncidentFieldSync(id, existingIncident, incident);
+    }
+
     return this.incidentMapper(incident);
+  }
+
+  private async enqueueIncidentFieldSync(
+    id: string,
+    existingIncident: { subject: string; description: string | null; status: GeneralStatusEnum },
+    updated: { subject: string; description: string | null; status: GeneralStatusEnum },
+  ): Promise<void> {
+    const payload: SdpRequestPayload = {};
+
+    if (updated.subject !== existingIncident.subject) {
+      payload.subject = updated.subject?.trim() || undefined;
+    }
+    if (updated.description !== existingIncident.description) {
+      payload.description = updated.description?.trim() || undefined;
+    }
+
+    const statusChanged = updated.status !== existingIncident.status;
+    if (statusChanged) {
+      const targetStatus = await this.incidentZohoSyncService.resolveZohoStatusForHseStatus(updated.status);
+      if (targetStatus) {
+        payload.status = { name: targetStatus };
+      }
+    }
+
+    if (Object.keys(payload).length === 0) return;
+
+    try {
+      await this.incidentZohoSyncService.enqueueFullPayloadSync({
+        incidentId: id,
+        payload,
+        skipIfSameStatus: !statusChanged,
+      });
+    } catch (error) {
+      console.error(`[Incident] Zoho field sync failed for incident ${id}:`, error);
+    }
   }
 
   async remove(id: string): Promise<IncidentDto> {
@@ -700,6 +856,9 @@ export class IncidentsService {
               include: {
                 department: true,
               },
+              orderBy: { order: 'asc' },
+            },
+            thirdParties: {
               orderBy: { order: 'asc' },
             },
             assets: {
@@ -838,6 +997,9 @@ export class IncidentsService {
             },
             orderBy: { order: 'asc' },
           },
+          thirdParties: {
+            orderBy: { order: 'asc' },
+          },
           assets: {
             orderBy: { order: 'asc' },
           },
@@ -852,6 +1014,8 @@ export class IncidentsService {
 
       // Send notification to approvers
       await this.sendSubmissionNotification(id, updated);
+
+      await this.enqueueIncidentStatusSync(id, incident.status, updated.status);
 
       return this.incidentMapper(updated);
     }, 'Submitting incident for approval');
@@ -942,6 +1106,9 @@ export class IncidentsService {
             },
             orderBy: { order: 'asc' },
           },
+          thirdParties: {
+            orderBy: { order: 'asc' },
+          },
           assets: {
             orderBy: { order: 'asc' },
           },
@@ -955,6 +1122,8 @@ export class IncidentsService {
       });
 
       // Notifications are sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
+
+      await this.enqueueIncidentStatusSync(id, incident.status, updated.status);
 
       return this.incidentMapper(updated);
     }, 'Approving incident');
@@ -1026,6 +1195,9 @@ export class IncidentsService {
             },
             orderBy: { order: 'asc' },
           },
+          thirdParties: {
+            orderBy: { order: 'asc' },
+          },
           assets: {
             orderBy: { order: 'asc' },
           },
@@ -1039,6 +1211,8 @@ export class IncidentsService {
       });
 
       // Rejection notification is sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
+
+      await this.enqueueIncidentStatusSync(id, incident.status, updated.status);
 
       return this.incidentMapper(updated);
     }, 'Rejecting incident');

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/core/lib/utils";
 
@@ -52,8 +52,11 @@ export function ModalCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  // Open upward when there isn't enough room below the trigger (and more room above).
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -99,15 +102,32 @@ export function ModalCombobox({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inContainer = containerRef.current?.contains(target);
+      const inDropdown = dropdownRef.current?.contains(target);
+      if (!inContainer && !inDropdown) {
         setOpen(false);
         setSearchQuery("");
       }
     };
 
+    const handleScrollOrResize = (e: Event) => {
+      if (e.type === 'scroll' && dropdownRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      setOpen(false);
+      setSearchQuery("");
+    };
+
     if (open) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
     }
   }, [open]);
 
@@ -130,7 +150,7 @@ export function ModalCombobox({
   // Focus search input when dropdown opens
   useEffect(() => {
     if (open && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 0);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
       // Load initial data if async search is enabled
       if (onSearch && searchQuery === "") {
         handleSearch("");
@@ -185,10 +205,19 @@ export function ModalCombobox({
   };
 
   const handleToggle = () => {
-    setOpen(!open);
-    if (!open) {
+    if (!open && buttonRef.current) {
+      // Decide whether to open above or below the trigger. The dropdown is positioned
+      // with `position: absolute` relative to the (relative) container, so it always
+      // stays anchored to the field — immune to transformed ancestors such as a centered
+      // Radix Dialog. We only need to pick a direction here.
+      const rect = buttonRef.current.getBoundingClientRect();
+      const DROPDOWN_MAX_HEIGHT = 300;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setOpenUp(spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow);
       setSearchQuery("");
     }
+    setOpen((prev) => !prev);
   };
 
   return (
@@ -207,16 +236,18 @@ export function ModalCombobox({
           className
         )}
       >
-        <span className="line-clamp-1">{displayValue}</span>
+        <span className="flex-1 truncate min-w-0" title={displayValue}>{displayValue}</span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
       </button>
       
       {open && (
-        <div 
-          className="absolute z-[100] w-full mt-1 rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
-          style={{
-            maxHeight: '300px',
-          }}
+        <div
+          ref={dropdownRef}
+          className={cn(
+            "absolute left-0 z-[9999] flex w-full flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+            openUp ? "bottom-full mb-1" : "top-full mt-1"
+          )}
+          style={{ maxHeight: 300 }}
         >
           {/* Search input */}
           <div className="flex items-center border-b px-3 py-2">
@@ -236,7 +267,7 @@ export function ModalCombobox({
           </div>
 
           {/* Options list */}
-          <div className="max-h-[250px] overflow-y-auto p-1">
+          <div className="flex-1 overflow-y-auto p-1" onWheel={(e) => e.stopPropagation()}>
             {isLoading && filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
@@ -279,7 +310,7 @@ export function ModalCombobox({
                       <Check className="h-4 w-4" />
                     )}
                   </span>
-                  <span>{option.label}</span>
+                  <span className="break-words">{option.label}</span>
                 </div>
               ))
             )}

@@ -90,8 +90,8 @@ export class TreatmentPlantsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       isActive,
       search,
       officeId,

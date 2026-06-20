@@ -21,7 +21,7 @@ interface YearComparisonChartProps {
 export function YearComparisonChart({ data }: YearComparisonChartProps) {
   const chartData = [
     {
-      metric: 'Total SIFR',
+      metric: 'Total Security Incident Frequency Rate',
       '2023-2024': data.find((r) => r.year === '2023-2024')?.totalSifr ?? 0,
       '2024-2025': data.find((r) => r.year === '2024-2025')?.totalSifr ?? 0,
     },

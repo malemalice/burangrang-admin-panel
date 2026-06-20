@@ -137,7 +137,7 @@ const AuditResultsPage = () => {
   const filterFields: FilterField[] = [
     {
       id: 'auditScheduleCode',
-      label: 'Audit Schedule Code',
+      label: 'Audit Code',
       type: 'text',
       placeholder: 'Search by audit schedule code...',
     },

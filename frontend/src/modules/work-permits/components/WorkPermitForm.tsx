@@ -337,15 +337,17 @@ function WorkerCertificateReadonly({
   );
 }
 
-/** Resolves latest valid DONE screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). */
+/** Resolves the latest available (DONE, not yet consumed) screening for the selected worker and keeps `healthScreeningId` in sync (read-only UI). In edit mode, also accepts a screening already consumed by this permit. */
 function WorkerAutoLinkedHealthScreening({
   control,
   index,
   setValue,
+  workPermitId,
 }: {
   control: Control<FormValues>;
   index: number;
   setValue: UseFormSetValue<FormValues>;
+  workPermitId?: string;
 }) {
   const userId = useWatch({ control, name: `workers.${index}.userId` });
   const linkedId = useWatch({ control, name: `workers.${index}.healthScreeningId` });
@@ -375,7 +377,11 @@ function WorkerAutoLinkedHealthScreening({
           limit: 20,
         });
         if (cancelled) return;
-        const pick = res.data.find(isHealthScreeningListItemEligible);
+        const pick = res.data.find(
+          (s) =>
+            isHealthScreeningListItemEligible(s) ||
+            (workPermitId && s.consumedByWorkPermitId === workPermitId && s.status === 'DONE'),
+        );
         if (pick) {
           setValue(`workers.${index}.healthScreeningId`, pick.id);
           setPreview(pick);
@@ -395,7 +401,7 @@ function WorkerAutoLinkedHealthScreening({
     return () => {
       cancelled = true;
     };
-  }, [userId, index, setValue]);
+  }, [userId, index, setValue, workPermitId]);
 
   return (
     <>
@@ -425,26 +431,25 @@ function WorkerAutoLinkedHealthScreening({
                 </Link>
               </p>
               <p className="text-xs text-muted-foreground">Status: {preview.status}</p>
-              {preview.validUntil && (
-                <p className="text-xs text-muted-foreground">
-                  Valid until: {new Date(preview.validUntil).toLocaleDateString()}
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Available declaration from {new Date(preview.createdAt).toLocaleDateString()}
+              </p>
             </div>
           ) : (
             <p className="text-muted-foreground">
-              No completed declaration in the validity window for this worker. If a declaration file is stored on the{' '}
+              No available declaration for this worker. Each work permit requires a fresh declaration —
+              if a declaration file is stored on the{' '}
               <Link
                 to={userId?.trim() ? `/work-permits/workers/${userId}` : '/work-permits/workers'}
                 className="text-primary underline-offset-4 hover:underline"
               >
                 worker profile
               </Link>
-              , the permit can still be validated by the system. Otherwise complete a{' '}
+              , the permit can still be validated. Otherwise start a new{' '}
               <Link to="/health-screenings" className="text-primary underline" target="_blank" rel="noreferrer">
                 health declaration
               </Link>{' '}
-              online first.
+              for this worker.
             </p>
           )}
         </div>
@@ -691,7 +696,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       workStagesDescription: '',
       workClassificationOtherDetail: '',
       requireCourseVerification: false,
-      classifications: [{ workClassificationId: '', order: 0 }],
+      classifications: [],
       employees: [],
       workers: [
         {
@@ -944,7 +949,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 applicants: [],
               };
             }),
-            userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
+            userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }).catch((error) => {
               console.error('Failed to fetch users:', error);
               return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
             }),
@@ -1138,6 +1143,18 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     }
   };
 
+  const sanitizeEmployees = (employees: FormValues['employees']) => {
+    if (!employees?.length) return [];
+    return employees
+      .map((e, index) => ({
+        ...e,
+        userId: e.userId?.trim() || undefined,
+        employeeName: e.employeeName?.trim() || undefined,
+        order: index,
+      }))
+      .filter((e) => e.userId || e.employeeName);
+  };
+
   const sanitizeHazards = (hazards: FormValues['hazards']) => {
     if (!hazards?.length) {
       return [];
@@ -1202,6 +1219,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const sanitizedData: FormValues = {
         ...data,
         hazards: sanitizeHazards(data.hazards),
+        employees: sanitizeEmployees(data.employees),
       };
 
       const dataForApi: FormValues = classificationContentEnabled
@@ -1714,6 +1732,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     control={form.control}
                     index={index}
                     setValue={form.setValue}
+                    workPermitId={workPermit?.id}
                   />
                 </CardContent>
               </Card>

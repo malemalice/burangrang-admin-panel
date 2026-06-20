@@ -1,51 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/core/components/ui/form';
-import { Textarea } from '@/core/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
 import PageHeader from '@/core/components/ui/PageHeader';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/core/components/ui/select';
 
-import { InspectionItem, UpdateInspectionItemDTO } from '../types/inspection-item.types';
+import { InspectionItem } from '../types/inspection-item.types';
+import { CreateInspectionItemDTO } from '../../types/inspection.types';
 import inspectionItemsService from '../services/inspectionItemsService';
-import { riskCategoryService, riskService, departmentService } from '@/modules/master-data';
-import { RiskCategory, Risk, Department } from '@/core/lib/types';
-import userService from '@/modules/users/services/userService';
-import { User } from '@/core/lib/types';
-import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
-
-const formSchema = z.object({
-  riskCategoryId: z.string().min(1, 'Type of Hazard is required'),
-  riskId: z.string().min(1, 'Risk is required'),
-  assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
-  assigneeId: z.string().optional(),
-  description: z.string().optional(),
-  followUpNotes: z.string().optional(),
-  status: z.nativeEnum(GeneralStatusEnum),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+import InspectionItemForm from '../../components/InspectionItemForm';
 
 const EditInspectionItemPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -54,140 +18,40 @@ const EditInspectionItemPage = () => {
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? '';
   const [item, setItem] = useState<InspectionItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [risks, setRisks] = useState<Risk[]>([]);
-  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoadingRisks, setIsLoadingRisks] = useState(false);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      riskCategoryId: '',
-      riskId: '',
-      assignedDepartmentId: '',
-      assigneeId: undefined,
-      description: '',
-      followUpNotes: '',
-      status: GeneralStatusEnum.OPEN,
-    },
-  });
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchItem = async () => {
       if (!id) return;
-
       try {
         setIsLoading(true);
-        const [itemData, deptsRes, usersRes, riskCategoriesRes] = await Promise.all([
-          inspectionItemsService.getById(id),
-          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
-        ]);
-
-        setItem(itemData);
-        setDepartments(deptsRes.data);
-        setUsers(usersRes.data);
-        setRiskCategories(riskCategoriesRes.data);
-
-        // Load risks for the selected risk category
-        if (itemData.riskCategoryId) {
-          await loadRisks(itemData.riskCategoryId);
-        }
-
-        // Set form values
-        form.reset({
-          riskCategoryId: itemData.riskCategoryId,
-          riskId: itemData.riskId,
-          assignedDepartmentId: itemData.assignedDepartmentId,
-          assigneeId: itemData.assigneeId || undefined,
-          description: itemData.description || '',
-          followUpNotes: itemData.followUpNotes || '',
-          status: itemData.status,
-        });
+        const data = await inspectionItemsService.getById(id);
+        setItem(data);
       } catch (error) {
-        console.error('Failed to fetch data:', error);
-        toast.error('Failed to load inspection item');
+        console.error('Failed to fetch Inspection Finding Monitoring:', error);
+        toast.error('Failed to load Inspection Finding Monitoring');
         navigate(`/inspections/items${returnTo}`);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
-  }, [id, navigate, form]);
+    fetchItem();
+  }, [id, navigate, returnTo]);
 
-  const loadRisks = async (riskCategoryId: string) => {
+  const handleSubmit = async (itemData?: CreateInspectionItemDTO) => {
+    if (!id || !itemData) return;
     try {
-      setIsLoadingRisks(true);
-      const response = await riskService.getAll({
-        page: 1,
-        limit: 100,
-        isActive: true,
-        riskCategoryId,
-        options: true,
-      });
-      setRisks(response.data);
+      await inspectionItemsService.update(id, itemData);
+      toast.success('Inspection Finding Monitoring updated successfully');
+      navigate(`/inspections/items/${id}`, { state: { returnTo } });
     } catch (error) {
-      console.error('Failed to fetch risks:', error);
-      toast.error('Failed to load risks');
-    } finally {
-      setIsLoadingRisks(false);
+      console.error('Failed to update Inspection Finding Monitoring:', error);
+      toast.error('Failed to update Inspection Finding Monitoring');
     }
   };
 
-  const handleRiskCategoryChange = async (riskCategoryId: string) => {
-    form.setValue('riskCategoryId', riskCategoryId);
-    form.setValue('riskId', ''); // Reset risk selection
-    await loadRisks(riskCategoryId);
-  };
-
-  const riskOptions: ModalComboboxOption[] = risks.map(risk => ({
-    value: risk.id,
-    label: `${risk.name}${risk.description ? ` - ${risk.description}` : ''}`
-  }));
-
-  const riskCategoryOptions: ModalComboboxOption[] = riskCategories.map(category => ({
-    value: category.id,
-    label: category.name
-  }));
-
-  const departmentOptions: ModalComboboxOption[] = departments.map(dept => ({
-    value: dept.id,
-    label: dept.name
-  }));
-
-  const userOptions: ModalComboboxOption[] = users.map(user => ({
-    value: user.id,
-    label: user.name || `${user.firstName} ${user.lastName}`
-  }));
-
-  const onSubmit = async (values: FormValues) => {
-    if (!id) return;
-
-    try {
-      setIsSubmitting(true);
-      const updateData: UpdateInspectionItemDTO = {
-        riskCategoryId: values.riskCategoryId,
-        riskId: values.riskId,
-        assignedDepartmentId: values.assignedDepartmentId,
-        assigneeId: values.assigneeId || undefined,
-        description: values.description || undefined,
-        followUpNotes: values.followUpNotes || undefined,
-        status: values.status,
-      };
-
-      await inspectionItemsService.update(id, updateData);
-      toast.success('Inspection item updated successfully');
-      navigate(`/inspections/items${returnTo}`);
-    } catch (error) {
-      console.error('Failed to update inspection item:', error);
-      toast.error('Failed to update inspection item');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleCancel = () => {
+    navigate(`/inspections/items/${id}`, { state: { returnTo } });
   };
 
   if (isLoading) {
@@ -198,15 +62,17 @@ const EditInspectionItemPage = () => {
     );
   }
 
+  if (!item) return null;
+
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
-        title="Edit Inspection Item"
-        subtitle="Update inspection item information"
+        title="Edit Inspection Finding Monitoring"
+        subtitle="Update Inspection Finding Monitoring details"
         actions={
           <Button
             variant="outline"
-            onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
+            onClick={handleCancel}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Details
@@ -215,191 +81,49 @@ const EditInspectionItemPage = () => {
       />
 
       <div className="max-w-4xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Inspection Item Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="riskCategoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Type of Hazard <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <ModalCombobox
-                            options={riskCategoryOptions}
-                            value={field.value}
-                            onValueChange={handleRiskCategoryChange}
-                            placeholder="Select type of hazard"
-                            searchPlaceholder="Search type of hazard..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="riskId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Risk <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <ModalCombobox
-                            options={riskOptions}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder={isLoadingRisks ? "Loading risks..." : "Select risk"}
-                            searchPlaceholder="Search risk..."
-                            disabled={isLoadingRisks || !form.watch('riskCategoryId')}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="assignedDepartmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Assigned Department <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <ModalCombobox
-                            options={departmentOptions}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select department"
-                            searchPlaceholder="Search department..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="assigneeId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assignee</FormLabel>
-                        <FormControl>
-                          <ModalCombobox
-                            options={userOptions}
-                            value={field.value || ''}
-                            onValueChange={(value) => field.onChange(value || undefined)}
-                            placeholder="Select assignee (optional)"
-                            searchPlaceholder="Search user..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Status <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {INSPECTION_ITEM_STATUS_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter inspection item description (optional)"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="followUpNotes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Follow-up Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter follow-up notes (optional)"
-                          rows={4}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+        <InspectionItemForm
+          initialItem={{
+            id: item.id,
+            areaId: item.areaId,
+            status: item.status,
+            riskCategoryId: item.riskCategoryId,
+            riskId: item.riskId,
+            assignedDepartmentId: item.assignedDepartmentId,
+            assigneeId: item.assigneeId,
+            description: item.description,
+            followUpNotes: item.followUpNotes,
+            findings: item.findings,
+            dueDateAt: item.dueDateAt ? new Date(item.dueDateAt).toISOString().split('T')[0] : undefined,
+            images: item.images?.map((img) => ({
+              imageUrl: img.imageUrl,
+              caption: img.caption,
+              order: img.order,
+              type: img.type,
+            })),
+            mitigation: item.mitigation
+              ? {
+                  eliminationControl: item.mitigation.eliminationControl,
+                  substitutionControl: item.mitigation.substitutionControl,
+                  engineeringControl: item.mitigation.engineeringControl,
+                  administrationControl: item.mitigation.administrationControl,
+                  personalProtectiveEquipment: item.mitigation.personalProtectiveEquipment,
+                  transfer: item.mitigation.transfer,
+                  accept: item.mitigation.accept,
+                  legalAspect: item.mitigation.legalAspect,
+                }
+              : undefined,
+            checklistResults: item.checklistResults?.map((r) => ({
+              checklistItemId: r.checklistItemId,
+              riskRate: r.riskRate,
+              notes: r.notes,
+            })),
+          }}
+          formMode="creator"
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+        />
       </div>
-    </div>
+    </>
   );
 };
 

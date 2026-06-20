@@ -71,12 +71,10 @@ const SettingsManagementPage = () => {
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      // Trim search term and only send if not empty
-      const trimmedSearch = searchTerm.trim();
       const response = await settingsService.getAllSettings({
         page: currentPage,
         limit: pageSize,
-        search: trimmedSearch || undefined,
+        search: searchTerm || undefined,
         // Remove isActive filter to show all settings (active and inactive)
       });
 

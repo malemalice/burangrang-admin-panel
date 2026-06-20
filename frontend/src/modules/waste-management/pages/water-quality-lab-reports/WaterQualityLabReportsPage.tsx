@@ -8,6 +8,8 @@ import { Button } from '@/core/components/ui/button';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { treatmentPlantSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
 import {
   WaterQualityLabReport,
@@ -146,6 +148,8 @@ export default function WaterQualityLabReportsPage() {
       id: 'reportDateRange',
       label: 'Report Date',
       type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
     },
   ];
 
@@ -404,8 +408,8 @@ export default function WaterQualityLabReportsPage() {
         </div>
       )}
       <PageHeader
-        title="Waste Water Lab Results"
-        subtitle="Water quality laboratory test reports"
+        title="Water Monitoring"
+        subtitle="Water monitoring laboratory reports"
         actions={
           <div className="flex gap-2">
             <Button
@@ -446,11 +450,19 @@ export default function WaterQualityLabReportsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onOpenChange={() => setDeleteId(null)}
-        title="Delete Report"
-        description="Are you sure you want to delete this report? This action cannot be undone."
+        title="Delete Water Monitoring"
+        description="Are you sure you want to delete this water monitoring record? This action cannot be undone."
         onConfirm={handleDelete}
         variant="destructive"
       />
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="water-quality-lab-reports"
+          entityLabel="Water Quality Lab Report"
+          subjectPicker={treatmentPlantSubjectPicker}
+        />
+      </div>
     </>
   );
 }

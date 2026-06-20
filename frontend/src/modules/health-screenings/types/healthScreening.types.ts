@@ -1,7 +1,7 @@
 import type { QuizAttemptDTO } from '@/modules/quizzes/types/quiz.types';
 import type { Quiz, QuizAttempt } from '@/modules/quizzes/types/quiz.types';
 
-/** IN_PROGRESS = filling. DONE = submitted. EXPIRED = outside validity window from createdAt. */
+/** IN_PROGRESS = filling. DONE = submitted. EXPIRED = legacy row force-expired by single-use migration. */
 export type HealthScreeningStatus = 'IN_PROGRESS' | 'DONE' | 'EXPIRED';
 
 export interface HealthScreeningListItem {
@@ -14,8 +14,12 @@ export interface HealthScreeningListItem {
   status: HealthScreeningStatus;
   /** ISO timestamp when submit included both declaration acknowledgements (audit). */
   declarationTermsAcceptedAt?: string | null;
-  /** Derived: createdAt + health_declaration_validity_days (API). */
-  validUntil?: string | null;
+  /** Single-use binding: set to the WorkPermit id once linked to a permit; cleared on reject. */
+  consumedByWorkPermitId?: string | null;
+  /** WorkPermit.code joined for display. */
+  consumedByWorkPermitCode?: string | null;
+  /** API-derived: status === 'DONE' && consumedByWorkPermitId == null. */
+  isAvailable?: boolean;
   createdAt: string;
   updatedAt: string;
   quiz?: { id: string; title: string };

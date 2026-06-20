@@ -569,7 +569,6 @@ const WorkClassificationForm = ({ classification, mode }: WorkClassificationForm
 
                           const parts = mitigations.flatMap((m) => {
                             const items: Array<{ label: string; value: string }> = [];
-                            if (m.eliminate?.trim()) items.push({ label: 'Eliminate', value: m.eliminate });
                             if (m.eliminationControl?.trim()) items.push({ label: 'Elimination Control', value: m.eliminationControl });
                             if (m.substitutionControl?.trim()) items.push({ label: 'Substitution Control', value: m.substitutionControl });
                             if (m.engineeringControl?.trim()) items.push({ label: 'Engineering Control', value: m.engineeringControl });

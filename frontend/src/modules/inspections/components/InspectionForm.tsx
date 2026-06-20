@@ -126,7 +126,7 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
             filters: { isActive: true },
             options: true
           }),
-          userService.getAll({ page: 1, limit: 1000, options: true }),
+          userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
         ]);
         setAreas(areasResponse.data);
         setUsers(usersResponse.data);
@@ -186,7 +186,7 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
   const onSubmit = async (data: FormValues) => {
     try {
       // Transform the date if provided
-      let inspectionData: CreateInspectionDTO = {
+      const inspectionData: CreateInspectionDTO = {
         code: data.code as string,
         areaIds: data.areaIds as string[],
         inspectionDate: new Date(data.inspectionDate),
@@ -393,4 +393,3 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
 };
 
 export default InspectionForm;
-

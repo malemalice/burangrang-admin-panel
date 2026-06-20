@@ -17,6 +17,29 @@ function toDateInputString(date: Date): string {
   return format(date, 'yyyy-MM-dd');
 }
 
+function getPresetRange(preset: 'past_week' | 'past_month'): { from: string; to: string } {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(from.getDate() - (preset === 'past_week' ? 7 : 30));
+  return {
+    from: format(from, 'yyyy-MM-dd'),
+    to: format(today, 'yyyy-MM-dd'),
+  };
+}
+
+function detectPreset(from: string | Date | undefined, to: string | Date | undefined): string | null {
+  if (!from || !to) return null;
+  const fromStr = typeof from === 'string' ? from.split('T')[0] : format(from, 'yyyy-MM-dd');
+  const toStr = typeof to === 'string' ? to.split('T')[0] : format(to, 'yyyy-MM-dd');
+  const today = format(new Date(), 'yyyy-MM-dd');
+  if (toStr !== today) return null;
+  const weekAgo = format(new Date(new Date().setDate(new Date().getDate() - 7)), 'yyyy-MM-dd');
+  const monthAgo = format(new Date(new Date().setDate(new Date().getDate() - 30)), 'yyyy-MM-dd');
+  if (fromStr === weekAgo) return 'Past Week';
+  if (fromStr === monthAgo) return 'Past Month';
+  return null;
+}
+
 /** Parse a filter value that may be date-only (yyyy-MM-dd) or full ISO. Date-only is parsed as local midnight to avoid UTC midnight displaying as 7:00 AM in GMT+7. */
 function parseFilterDate(value: string | Date | undefined): Date | null {
   if (value === undefined || value === null) return null;
@@ -43,6 +66,8 @@ export type FilterField = {
   placeholder?: string;
   /** Controls whether a date range field should use date-only or datetime inputs. */
   dateRangeMode?: 'date' | 'datetime';
+  /** Show "Past Week" / "Past Month" preset buttons above the from/to pickers. Only for type='dateRange'. */
+  showRelativePresets?: boolean;
 };
 
 type DateRangeFilterValue = {
@@ -75,6 +100,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   className,
 }) => {
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
+  const [activePresets, setActivePresets] = useState<Record<string, 'past_week' | 'past_month' | null>>({});
   const { isDark } = useTheme();
   const prevIsOpenRef = useRef(false);
 
@@ -83,6 +109,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     if (isOpen && !prevIsOpenRef.current) {
       // Drawer just opened - sync with initialValues
       setFilterValues(initialValues || []);
+      setActivePresets({});
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialValues]);
@@ -299,7 +326,27 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               )}
 
               {field.type === 'dateRange' && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  {field.showRelativePresets && (
+                    <div className="flex gap-2">
+                      {(['past_week', 'past_month'] as const).map((preset) => (
+                        <Button
+                          key={preset}
+                          type="button"
+                          variant={activePresets[field.id] === preset ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const range = getPresetRange(preset);
+                            updateFilterValue(field.id, range);
+                            setActivePresets(prev => ({ ...prev, [field.id]: preset }));
+                          }}
+                        >
+                          {preset === 'past_week' ? 'Past Week' : 'Past Month'}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -335,6 +382,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                               ? (field.dateRangeMode === 'date' ? value : new Date(value).toISOString())
                               : undefined
                           });
+                          setActivePresets(prev => ({ ...prev, [field.id]: null }));
                         }}
                         className="w-full"
                       />
@@ -376,11 +424,13 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                               ? (field.dateRangeMode === 'date' ? value : new Date(value).toISOString())
                               : undefined
                           });
+                          setActivePresets(prev => ({ ...prev, [field.id]: null }));
                         }}
                         className="w-full"
                       />
                     </PopoverContent>
                   </Popover>
+                  </div>
                 </div>
               )}
             </div>
@@ -430,12 +480,17 @@ export const FilterBadges: React.FC<{
 
         if (field.type === 'dateRange') {
           const dateRange = filter.value as { from?: string | Date; to?: string | Date };
-          const fromDate = parseFilterDate(dateRange.from as string | undefined);
-          const toDate = parseFilterDate(dateRange.to as string | undefined);
-          const dateFormat = field.dateRangeMode === 'date' ? 'PPP' : 'PPp';
-          const fromStr = fromDate ? format(fromDate, dateFormat) : '';
-          const toStr = toDate ? format(toDate, dateFormat) : '';
-          displayValue = fromStr && toStr ? `${fromStr} - ${toStr}` : (fromStr || toStr);
+          const presetLabel = detectPreset(dateRange.from, dateRange.to);
+          if (presetLabel) {
+            displayValue = presetLabel;
+          } else {
+            const fromDate = parseFilterDate(dateRange.from as string | undefined);
+            const toDate = parseFilterDate(dateRange.to as string | undefined);
+            const dateFormat = field.dateRangeMode === 'date' ? 'PPP' : 'PPp';
+            const fromStr = fromDate ? format(fromDate, dateFormat) : '';
+            const toStr = toDate ? format(toDate, dateFormat) : '';
+            displayValue = fromStr && toStr ? `${fromStr} - ${toStr}` : (fromStr || toStr);
+          }
         } else if (Array.isArray(filter.value)) {
           displayValue = filter.value.map(v => {
             const option = field.options?.find(o => o.value === v);

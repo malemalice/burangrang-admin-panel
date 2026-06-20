@@ -664,7 +664,7 @@ export const seedWasteManagement = async () => {
       const dispatchOrders = await Promise.all([
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-001`,
+            dispatchCode: `DO-${currentYear}-0001`,
             dispatchDate: new Date(),
             quantity: 500,
             memo: 'Pengiriman limbah B3 ke PT. Pengolah Limbah Indonesia',
@@ -676,7 +676,7 @@ export const seedWasteManagement = async () => {
         }),
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-002`,
+            dispatchCode: `DO-${currentYear}-0002`,
             dispatchDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
             quantity: 300,
             memo: 'Pengiriman limbah non-B3 ke bank sampah',
@@ -688,7 +688,7 @@ export const seedWasteManagement = async () => {
         }),
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-003`,
+            dispatchCode: `DO-${currentYear}-0003`,
             dispatchDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
             quantity: 750,
             memo: 'Pengiriman limbah padat ke TPA regional',
@@ -700,7 +700,7 @@ export const seedWasteManagement = async () => {
         }),
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-004`,
+            dispatchCode: `DO-${currentYear}-0004`,
             dispatchDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
             quantity: 200,
             memo: 'Pengiriman limbah organik ke komposter',
@@ -712,7 +712,7 @@ export const seedWasteManagement = async () => {
         }),
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-005`,
+            dispatchCode: `DO-${currentYear}-0005`,
             dispatchDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 2 weeks from now
             quantity: 1000,
             memo: 'Pengiriman limbah berbahaya ke vendor terdaftar',
@@ -724,7 +724,7 @@ export const seedWasteManagement = async () => {
         }),
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-006`,
+            dispatchCode: `DO-${currentYear}-0006`,
             dispatchDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
             quantity: 150,
             memo: 'Pengiriman ditolak karena dokumen tidak lengkap',
@@ -736,7 +736,7 @@ export const seedWasteManagement = async () => {
         }),
         prisma.dispatchOrder.create({
           data: {
-            dispatchCode: `DO-${currentYear}-007`,
+            dispatchCode: `DO-${currentYear}-0007`,
             dispatchDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
             quantity: 450,
             memo: 'Menunggu persetujuan manajer untuk pengiriman',

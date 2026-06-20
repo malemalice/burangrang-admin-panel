@@ -186,7 +186,7 @@ const ViewAuditCriteriaPage = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await userService.getAll({ page: 1, limit: 1000, options: true });
+        const response = await userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } });
         const map: Record<string, string> = {};
         response.data.forEach((user: any) => {
           const firstLast = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
@@ -526,9 +526,9 @@ const ViewAuditCriteriaPage = () => {
                 </div>
               </div>
 
-              {/* Audit Schedule */}
+              {/* Audit */}
               <div className="space-y-2 pt-2 border-t">
-                <label className="text-sm font-medium text-muted-foreground">Audit Schedule</label>
+                <label className="text-sm font-medium text-muted-foreground">Audit</label>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-mono text-muted-foreground">
                     {auditSchedule.code}

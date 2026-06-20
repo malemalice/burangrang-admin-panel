@@ -2,10 +2,10 @@
  * Reminders module types
  */
 
-// Re-export core types that are used by reminders module
 export type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
-// Reminder status enum
+// ----- Enums -----
+
 export enum ReminderStatus {
   PENDING = 'PENDING',
   SENT = 'SENT',
@@ -14,7 +14,6 @@ export enum ReminderStatus {
   FAILED = 'FAILED',
 }
 
-// Reminder repeat type enum
 export enum ReminderRepeatType {
   NONE = 'NONE',
   DAILY = 'DAILY',
@@ -22,85 +21,135 @@ export enum ReminderRepeatType {
   MONTHLY = 'MONTHLY',
 }
 
-// Interface for reminder data from API that matches backend structure
-export interface ReminderDTO {
-  id: string;
-  userId: string;
-  entity?: string;
-  entityId?: string;
-  message: string;
-  remindAt: string; // ISO 8601 date string
-  repeatType?: ReminderRepeatType;
-  repeatUntil?: string; // ISO 8601 date string
-  status: ReminderStatus;
-  lastSentAt?: string | null; // ISO 8601 date string
-  createdAt: string;
-  updatedAt: string;
+export enum ReminderTargetType {
+  USER = 'USER',
+  ROLE = 'ROLE',
+  DEPARTMENT = 'DEPARTMENT',
+  OFFICE = 'OFFICE',
 }
 
-// Frontend reminder model
-export interface Reminder {
+export enum ReminderOccurrenceState {
+  SCHEDULED = 'SCHEDULED',
+  FIRED = 'FIRED',
+  ACKNOWLEDGED = 'ACKNOWLEDGED',
+  DISMISSED = 'DISMISSED',
+  MISSED = 'MISSED',
+  FAILED = 'FAILED',
+}
+
+// ----- Core reminder shape -----
+
+export interface ReminderDTO {
   id: string;
-  userId: string;
+  targetType: ReminderTargetType;
+  targetId: string;
+  createdBy: string;
   entity?: string;
   entityId?: string;
+  subjectType?: string;
+  subjectId?: string;
   message: string;
   remindAt: string;
   repeatType?: ReminderRepeatType;
   repeatUntil?: string;
+  dayOfMonth?: number;
+  dayOfWeek?: number;
+  status: ReminderStatus;
+  lastSentAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Reminder {
+  id: string;
+  targetType: ReminderTargetType;
+  targetId: string;
+  createdBy: string;
+  entity?: string;
+  entityId?: string;
+  subjectType?: string;
+  subjectId?: string;
+  message: string;
+  remindAt: string;
+  repeatType?: ReminderRepeatType;
+  repeatUntil?: string;
+  dayOfMonth?: number;
+  dayOfWeek?: number;
   status: ReminderStatus;
   lastSentAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// Interface for creating a reminder
 export interface CreateReminderDTO {
+  targetType?: ReminderTargetType;
+  // Required by backend; left optional here so the legacy ReminderForm (which has no
+  // targetId field) still compiles. The new RemindersSection always provides it.
+  targetId?: string;
   entity?: string;
   entityId?: string;
+  subjectType?: string;
+  subjectId?: string;
   message: string;
-  remindAt: string; // ISO 8601 date string
+  remindAt: string;
   repeatType?: ReminderRepeatType;
-  repeatUntil?: string; // ISO 8601 date string (required if repeatType is not NONE)
+  repeatUntil?: string;
+  dayOfMonth?: number;
+  dayOfWeek?: number;
+  allowPast?: boolean;
 }
 
-// Interface for updating a reminder
 export interface UpdateReminderDTO {
+  targetType?: ReminderTargetType;
+  targetId?: string;
   entity?: string;
   entityId?: string;
+  subjectType?: string;
+  subjectId?: string;
   message?: string;
-  remindAt?: string; // ISO 8601 date string
+  remindAt?: string;
   repeatType?: ReminderRepeatType;
-  repeatUntil?: string; // ISO 8601 date string
+  repeatUntil?: string;
+  dayOfMonth?: number;
+  dayOfWeek?: number;
   status?: ReminderStatus;
+  allowPast?: boolean;
 }
 
-// Reminder form data for frontend forms
 export interface ReminderFormData {
+  targetType: ReminderTargetType;
+  targetId: string;
   entity?: string;
   entityId?: string;
+  subjectType?: string;
+  subjectId?: string;
   message: string;
-  remindAt: string; // ISO 8601 date string
+  remindAt: string;
   repeatType: ReminderRepeatType;
-  repeatUntil?: string; // ISO 8601 date string
+  repeatUntil?: string;
+  dayOfMonth?: number;
+  dayOfWeek?: number;
 }
 
-// Reminder filter options
 export interface ReminderFilters {
   status?: ReminderStatus;
+  targetType?: ReminderTargetType;
+  targetId?: string;
   entity?: string;
   entityId?: string;
-  fromDate?: string; // ISO 8601 date string
-  toDate?: string; // ISO 8601 date string
+  subjectType?: string;
+  subjectId?: string;
+  fromDate?: string;
+  toDate?: string;
   search?: string;
 }
 
-// Reminder search parameters
+import type { PaginationParams } from '@/core/lib/types';
+
 export interface ReminderSearchParams extends PaginationParams {
   filters?: ReminderFilters;
 }
 
-// Reminder log interface
 export interface ReminderLog {
   id: string;
   reminderId: string;
@@ -114,7 +163,44 @@ export interface ReminderLog {
   createdAt: string;
 }
 
-// Reminder statistics for dashboard/reporting
+// ----- Occurrence shape -----
+
+export interface ReminderOccurrenceDTO {
+  id: string;
+  reminderId: string;
+  scheduledAt: string;
+  firedAt?: string;
+  state: ReminderOccurrenceState;
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  dismissedBy?: string;
+  dismissedAt?: string;
+  failureReason?: string;
+  notificationId?: string;
+  message: string;
+  entity?: string;
+  entityId?: string;
+  subjectType?: string;
+  subjectId?: string;
+  targetType: ReminderTargetType;
+  targetId: string;
+}
+
+export interface ReminderOccurrence extends ReminderOccurrenceDTO {}
+
+export interface FindOccurrencesParams {
+  from: string;
+  to: string;
+  scope?: 'mine' | 'all';
+  entity?: string;
+  subjectType?: string;
+  subjectId?: string;
+  reminderId?: string;
+  state?: ReminderOccurrenceState;
+}
+
+// ----- Stats -----
+
 export interface ReminderStats {
   total: number;
   pending: number;
@@ -122,11 +208,7 @@ export interface ReminderStats {
   expired: number;
   cancelled: number;
   failed: number;
-  byEntity: Array<{
-    entity: string;
-    count: number;
-  }>;
+  byEntity: Array<{ entity: string; count: number }>;
   upcoming: number;
   overdue: number;
 }
-

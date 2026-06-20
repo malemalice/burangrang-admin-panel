@@ -19,6 +19,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { Editor } from '@/core/components/ui/editor';
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { Badge } from '@/core/components/ui/badge';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
@@ -56,6 +58,7 @@ import {
   MechanismOfInjuryEnum,
   CreateIncidentInjuredPersonDTO,
   CreateIncidentWitnessDTO,
+  CreateIncidentThirdPartyDTO,
   CreateIncidentAssetDTO,
   CreateIncidentImageDTO,
   CreateIncidentAttachmentDTO,
@@ -92,6 +95,7 @@ const injuredPersonSchema = z.object({
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
   mechanismOfInjury: z.nativeEnum(MechanismOfInjuryEnum).default(MechanismOfInjuryEnum.NOT_SPECIFIED),
+  position: z.string().optional(),
   departmentId: z.string().optional(),
 });
 
@@ -99,7 +103,16 @@ const injuredPersonSchema = z.object({
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
   gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
+  position: z.string().optional(),
   departmentId: z.string().optional(),
+});
+
+// Schema for third party - external persons involved (contractors, visitors)
+const thirdPartySchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
+  company: z.string().optional(),
+  position: z.string().optional(),
 });
 
 // Schema for asset - quantity allows blank (empty string) to match create behavior
@@ -108,6 +121,7 @@ const assetSchema = z.object({
   entityId: z.string().min(1, 'Asset selection is required'),
   assetName: z.string().min(1, 'Asset name is required'),
   assetCode: z.string().optional(),
+  brand: z.string().optional(),
   quantity: z.union([
     z.number().int().positive(),
     z.string(),
@@ -139,11 +153,13 @@ const formSchema = z.object({
   dueDate: z.string().optional(),
   expectedOutcome: z.string().optional(),
   needToStopActivity: z.nativeEnum(StopActivityEnum).default(StopActivityEnum.NOT_SPECIFIED),
-  stopActivityDescription: z.string().optional(),
+  stopLocally: z.boolean().default(false),
+  stopWholeSchool: z.boolean().default(false),
   treatment: z.nativeEnum(TreatmentEnum).default(TreatmentEnum.NOT_SPECIFIED),
   treatmentDescription: z.string().optional(),
   absence: z.nativeEnum(AbsenceEnum).default(AbsenceEnum.NOT_SPECIFIED),
   resolution: z.string().optional(),
+  needFurtherInvestigation: z.boolean().default(false),
   assignedDepartmentId: z.string().min(1, 'Assigned department is required'),
   assigneeId: z.string().optional(),
   status: z.nativeEnum(GeneralStatusEnum),
@@ -151,6 +167,7 @@ const formSchema = z.object({
   isActive: z.boolean().default(true),
   injuredPersons: z.array(injuredPersonSchema).optional(),
   witnesses: z.array(witnessSchema).optional(),
+  thirdParties: z.array(thirdPartySchema).optional(),
   assets: z.array(assetSchema).optional(),
 });
 
@@ -212,11 +229,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       dueDate: '',
       expectedOutcome: '',
       needToStopActivity: StopActivityEnum.NOT_SPECIFIED,
-      stopActivityDescription: '',
+      stopLocally: false,
+      stopWholeSchool: false,
       treatment: TreatmentEnum.NOT_SPECIFIED,
       treatmentDescription: '',
       absence: AbsenceEnum.NOT_SPECIFIED,
       resolution: '',
+      needFurtherInvestigation: false,
       assignedDepartmentId: '',
       assigneeId: '',
       status: GeneralStatusEnum.DRAFT,
@@ -224,6 +243,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       isActive: true,
       injuredPersons: [],
       witnesses: [],
+      thirdParties: [],
       assets: [],
     },
   });
@@ -304,6 +324,15 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   });
 
   const {
+    fields: thirdPartyFields,
+    append: appendThirdParty,
+    remove: removeThirdParty,
+  } = useFieldArray({
+    control: form.control,
+    name: 'thirdParties',
+  });
+
+  const {
     fields: assetFields,
     append: appendAsset,
     remove: removeAsset,
@@ -332,7 +361,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
           departmentService.getDepartments({ page: 1, limit: 100, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           // Fetch technicians: users with TECHNICIAN role and job position
           technicianRole 
             ? userService.getUsers({ 
@@ -400,11 +429,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               : '',
             expectedOutcome: incident.expectedOutcome || '',
             needToStopActivity: incident.needToStopActivity,
-            stopActivityDescription: incident.stopActivityDescription || '',
+            stopLocally: incident.stopLocally ?? false,
+            stopWholeSchool: incident.stopWholeSchool ?? false,
             treatment: incident.treatment,
             treatmentDescription: incident.treatmentDescription || '',
             absence: incident.absence,
             resolution: incident.resolution || '',
+            needFurtherInvestigation: incident.needFurtherInvestigation ?? false,
             assignedDepartmentId: incident.assignedDepartmentId,
             assigneeId: incident.assigneeId || '',
             status: incident.status,
@@ -418,13 +449,22 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 injuredBodyPart: p.injuredBodyPart,
                 typeOfInjury: p.typeOfInjury,
                 mechanismOfInjury: p.mechanismOfInjury,
+                position: p.position || '',
                 departmentId: p.departmentId || '',
               })) || [],
             witnesses:
               incident.witnesses?.map((w) => ({
                 witnessName: w.witnessName || '',
                 gender: w.gender ?? undefined,
+                position: w.position || '',
                 departmentId: w.departmentId || '',
+              })) || [],
+            thirdParties:
+              incident.thirdParties?.map((tp) => ({
+                name: tp.name || '',
+                gender: tp.gender ?? undefined,
+                company: tp.company || '',
+                position: tp.position || '',
               })) || [],
             assets:
               incident.assets?.map((a, index) => {
@@ -440,6 +480,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   entityId,
                   assetName: a.assetName,
                   assetCode: a.assetCode || '',
+                  brand: a.brand || '',
                   quantity: a.quantity ?? undefined,
                 };
               }) || [],
@@ -773,38 +814,33 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     if (isLoading || isApproving) return true;
     
     if (resolvedMode === 'creator') {
-      // Creator: cannot fill 'Control Measures & Outcomes' section
-      const controlMeasureFields = [
-        'controlMeasure',
+      // Creator: cannot fill investigation-outcome fields (Section B sub-fields filled by investigator)
+      // needToStopActivity, stopLocally, stopWholeSchool, controlMeasure are filled by creator (BSJ Section B1/B3)
+      const investigatorOnlyFields = [
         'dueDate',
         'expectedOutcome',
-        'needToStopActivity',
-        'stopActivityDescription',
         'treatment',
         'treatmentDescription',
         'absence',
         'resolution',
       ];
-      return controlMeasureFields.includes(fieldName);
+      return investigatorOnlyFields.includes(fieldName);
     }
-    
+
     if (resolvedMode === 'investigator') {
-      // Investigator: only can update 'Control Measures & Outcomes' sections
-      const controlMeasureFields = [
-        'controlMeasure',
+      // Investigator: can only update investigation-outcome fields
+      const investigatorOnlyFields = [
         'dueDate',
         'expectedOutcome',
-        'needToStopActivity',
-        'stopActivityDescription',
         'treatment',
         'treatmentDescription',
         'absence',
         'resolution',
       ];
-      return !controlMeasureFields.includes(fieldName);
+      return !investigatorOnlyFields.includes(fieldName);
     }
-    
-    // Approver: can edit all fields (including Control Measures & Outcomes); save before approve/reject
+
+    // Approver: can edit all fields; save before approve/reject
     return false;
   };
 
@@ -837,11 +873,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       expectedOutcome: data.expectedOutcome || undefined,
       needToStopActivity: data.needToStopActivity,
-      stopActivityDescription: data.stopActivityDescription || undefined,
+      stopLocally: data.stopLocally ?? false,
+      stopWholeSchool: data.stopWholeSchool ?? false,
       treatment: data.treatment,
       treatmentDescription: data.treatmentDescription || undefined,
       absence: data.absence,
       resolution: data.resolution || undefined,
+      needFurtherInvestigation: data.needFurtherInvestigation ?? false,
       assignedDepartmentId: data.assignedDepartmentId,
       assigneeId: data.assigneeId || undefined,
       status: statusOverride ?? data.status,
@@ -855,6 +893,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           injuredBodyPart: p.injuredBodyPart,
           typeOfInjury: p.typeOfInjury,
           mechanismOfInjury: p.mechanismOfInjury,
+          position: p.position || undefined,
           departmentId: p.departmentId || undefined,
           order: index,
         })) || undefined,
@@ -862,7 +901,16 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         data.witnesses?.map((w, index) => ({
           witnessName: w.witnessName || undefined,
           gender: w.gender,
+          position: w.position || undefined,
           departmentId: w.departmentId || undefined,
+          order: index,
+        })) || undefined,
+      thirdParties:
+        data.thirdParties?.map((tp, index) => ({
+          name: tp.name,
+          gender: tp.gender,
+          company: tp.company || undefined,
+          position: tp.position || undefined,
           order: index,
         })) || undefined,
       assets:
@@ -890,6 +938,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             entityId: entityId || undefined,
             assetName: a.assetName,
             assetCode: a.assetCode || undefined,
+            brand: (a as any).brand || undefined,
             quantity: a.quantity || undefined,
             order: index,
           };
@@ -988,11 +1037,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         expectedOutcome: data.expectedOutcome || undefined,
         needToStopActivity: data.needToStopActivity,
-        stopActivityDescription: data.stopActivityDescription || undefined,
+        stopLocally: data.stopLocally ?? false,
+        stopWholeSchool: data.stopWholeSchool ?? false,
         treatment: data.treatment,
         treatmentDescription: data.treatmentDescription || undefined,
         absence: data.absence,
         resolution: data.resolution || undefined,
+        needFurtherInvestigation: data.needFurtherInvestigation ?? false,
         assignedDepartmentId: data.assignedDepartmentId,
         assigneeId: data.assigneeId || undefined,
         status: statusToSet,
@@ -1006,6 +1057,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             injuredBodyPart: p.injuredBodyPart,
             typeOfInjury: p.typeOfInjury,
             mechanismOfInjury: p.mechanismOfInjury,
+            position: p.position || undefined,
             departmentId: p.departmentId || undefined,
             order: index,
           })) || undefined,
@@ -1013,7 +1065,16 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           data.witnesses?.map((w, index) => ({
             witnessName: w.witnessName || undefined,
             gender: w.gender,
+            position: w.position || undefined,
             departmentId: w.departmentId || undefined,
+            order: index,
+          })) || undefined,
+        thirdParties:
+          data.thirdParties?.map((tp, index) => ({
+            name: tp.name,
+            gender: tp.gender,
+            company: tp.company || undefined,
+            position: tp.position || undefined,
             order: index,
           })) || undefined,
         assets:
@@ -1083,7 +1144,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident Report</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -1333,12 +1394,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter incident description"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('description')}
-                          readOnly={isFieldDisabled('description')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1485,6 +1544,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         injuredBodyPart: InjuredBodyPartEnum.NOT_SPECIFIED,
                         typeOfInjury: TypeOfInjuryEnum.NOT_SPECIFIED,
                         mechanismOfInjury: MechanismOfInjuryEnum.NOT_SPECIFIED,
+                        position: '',
                         departmentId: '',
                       })
                     }
@@ -1559,6 +1619,20 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
                               </SelectContent>
                             </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`injuredPersons.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Engineer, Operator" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1674,6 +1748,11 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={TypeOfInjuryEnum.LACERATION}>
                                   Laceration
                                 </SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.DERMATITIS}>Dermatitis</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.PARALYSIS}>Paralysis</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.AMPUTATION}>Amputation</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.CRUSH}>Crush</SelectItem>
+                                <SelectItem value={TypeOfInjuryEnum.ABRASION}>Abrasion</SelectItem>
                                 <SelectItem value={TypeOfInjuryEnum.CONCUSSION}>
                                   Concussion
                                 </SelectItem>
@@ -1728,12 +1807,155 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                                 <SelectItem value={MechanismOfInjuryEnum.FALL_FROM_HEIGHT}>
                                   Fall From Height
                                 </SelectItem>
+                                <SelectItem value={MechanismOfInjuryEnum.SHARP_OBJECTS}>Sharp Objects</SelectItem>
+                                <SelectItem value={MechanismOfInjuryEnum.HEAT_COLD}>Heat / Cold</SelectItem>
+                                <SelectItem value={MechanismOfInjuryEnum.MANUAL_HANDLING}>Manual Handling</SelectItem>
                                 <SelectItem value={MechanismOfInjuryEnum.FLYING_OBJECT}>
                                   Flying Object
                                 </SelectItem>
                                 <SelectItem value={MechanismOfInjuryEnum.OTHER}>Other</SelectItem>
                               </SelectContent>
                             </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
+
+            {/* Third Parties */}
+            <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                      Third Parties
+                    </CardTitle>
+                    {thirdPartyFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                        {thirdPartyFields.length} {thirdPartyFields.length === 1 ? 'person' : 'persons'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-violet-600 hover:bg-violet-700 text-white"
+                    onClick={() =>
+                      appendThirdParty({
+                        name: '',
+                        gender: undefined,
+                        company: '',
+                        position: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Third Party
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  External persons involved (contractors, visitors). Click the button above to add.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {thirdPartyFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-lg bg-violet-50/50 dark:bg-violet-950/20">
+                  <Users className="h-8 w-8 text-violet-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No third parties added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Third Party" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {thirdPartyFields.map((field, index) => (
+                <Card key={field.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Third Party {index + 1}</CardTitle>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeThirdParty(index)}
+                        className="h-8"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter full name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.gender`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value || ''}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value={GenderEnum.MALE}>Male</SelectItem>
+                                <SelectItem value={GenderEnum.FEMALE}>Female</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.company`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company / Organization</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. PT. OCS, Contractor Name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`thirdParties.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Cleaner SPV, Project Engineer" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1771,6 +1993,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                       appendWitness({
                         witnessName: '',
                         gender: undefined,
+                        position: '',
                         departmentId: '',
                       })
                     }
@@ -1852,6 +2075,20 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
 
                       <FormField
                         control={form.control}
+                        name={`witnesses.${index}.position`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position / Job Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Engineer, Operator" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
                         name={`witnesses.${index}.departmentId`}
                         render={({ field }) => (
                           <FormItem>
@@ -1903,6 +2140,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         entityId: '',
                         assetName: '',
                         assetCode: '',
+                        brand: '',
                         quantity: undefined,
                       })
                     }
@@ -2037,6 +2275,20 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                             </FormItem>
                           );
                         }}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`assets.${index}.brand` as any}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Brand</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter brand name" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
 
                       <FormField
@@ -2315,6 +2567,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                           <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
                           <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
                           <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.SELF}>Self</SelectItem>
+                          <SelectItem value={TreatmentEnum.HEALTH_SERVICES}>Health Services (Outpatient)</SelectItem>
                           <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -2356,14 +2610,12 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   name="controlMeasure"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Control Measure</FormLabel>
+                      <FormLabel>Action Taken Following The Incident</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter control measures"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('controlMeasure')}
-                          readOnly={isFieldDisabled('controlMeasure')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2378,12 +2630,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Expected Outcome</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter expected outcome"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('expectedOutcome')}
-                          readOnly={isFieldDisabled('expectedOutcome')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2391,25 +2641,53 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="stopActivityDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Stop Activity Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter stop activity description"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('stopActivityDescription')}
-                          readOnly={isFieldDisabled('stopActivityDescription')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
+                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
+                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
+                    <FormField
+                      control={form.control}
+                      name="stopLocally"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopLocally')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop activity locally related to the accident/incident/nearmiss
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stopWholeSchool"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopWholeSchool')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop the whole school activities
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan seluruh kegiatan sekolah
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <FormField
                   control={form.control}
@@ -2418,12 +2696,10 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Treatment Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter treatment description"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('treatmentDescription')}
-                          readOnly={isFieldDisabled('treatmentDescription')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2438,14 +2714,38 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Resolution</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter resolution"
-                          className="min-h-[100px]"
-                          {...field}
+                        <Editor
+                          value={field.value || ''}
+                          onChange={field.onChange}
                           disabled={isFieldDisabled('resolution')}
-                          readOnly={isFieldDisabled('resolution')}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="needFurtherInvestigation"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isFieldDisabled('resolution')}
+                          className="mt-0.5"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-medium cursor-pointer">
+                          Need further investigation
+                        </FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Tick to allow HSE to create a formal Investigation Report (BSJ/F/H-3-3.5C) for this incident.
+                        </p>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -2596,8 +2896,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     : resolvedMode === 'investigator'
                     ? 'Submit'
                     : mode === 'create' 
-                    ? 'Create Incident' 
-                    : 'Update Incident'}
+                    ? 'Create Incident Report'
+                    : 'Update Incident Report'}
                 </Button>
               )}
             </div>

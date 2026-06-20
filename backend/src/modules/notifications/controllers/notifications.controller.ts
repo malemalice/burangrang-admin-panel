@@ -94,7 +94,6 @@ export class NotificationsController {
     description: 'Filter by notification type ID',
   })
   @ApiResponse({ status: 200, type: [NotificationDto] })
-  @Permissions('notification:read')
   async getUserNotifications(
     @Query() query: FindNotificationsDto,
     @Request() req: any,
@@ -108,7 +107,6 @@ export class NotificationsController {
     status: 200,
     schema: { type: 'object', properties: { count: { type: 'number' } } },
   })
-  @Permissions('notification:unread-count')
   async getUnreadCount(@Request() req: any): Promise<{ count: number }> {
     const count = await this.notificationsService.getUnreadCount(req.user.id);
     return { count };

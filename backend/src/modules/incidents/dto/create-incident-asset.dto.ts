@@ -29,6 +29,11 @@ export class CreateIncidentAssetDto {
   @ApiProperty({ required: false })
   assetCode?: string;
 
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  brand?: string;
+
   @Transform(({ value }) => {
     if (value === '' || value === null || value === undefined) return undefined;
     const num = Number(value);

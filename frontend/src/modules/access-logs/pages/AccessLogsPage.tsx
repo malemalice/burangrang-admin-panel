@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Eye } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -30,26 +30,99 @@ const toEndOfMinuteInclusive = (d: Date): Date => {
   return end;
 };
 
+const FILTER_PARAM_KEYS = ['dateFrom', 'dateTo', 'userId', 'method', 'endpoint', 'payloadSearch'] as const;
+
 const AccessLogsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
-  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({
-    id: 'createdAt',
-    desc: true,
-  });
-  const [activeFilters, setActiveFilters] = useState<
-    Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }>
-  >({});
   const [statistics, setStatistics] = useState<AccessLogStatistics | null>(null);
   const [userOptions, setUserOptions] = useState<{ label: string; value: string }[]>([]);
+
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const n = raw ? Number(raw) : 1;
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) - 1 : 0;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const n = raw ? Number(raw) : 10;
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 10;
+  }, [searchParams]);
+
+  const sorting = useMemo((): { id: string; desc: boolean } | null => {
+    const sortBy = searchParams.get('sortBy') ?? 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') ?? 'desc';
+    return { id: sortBy, desc: sortOrder !== 'asc' };
+  }, [searchParams]);
+
+  const activeFilters = useMemo(() => {
+    const out: Record<string, { value: unknown; label: string }> = {};
+
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? coerceDate(dateFrom) : undefined;
+      const to = dateTo ? coerceDate(dateTo) : undefined;
+      const fmtFrom = (d: Date) => format(d, 'PP pp');
+      const fmtTo = (d: Date) => format(toEndOfMinuteInclusive(d), 'PP pp');
+      const label =
+        from && to
+          ? `${fmtFrom(from)} – ${fmtTo(to)}`
+          : from
+            ? `From ${fmtFrom(from)}`
+            : to
+              ? `Until ${fmtTo(to)}`
+              : 'DateTime range';
+      out.dateRange = { value: { from, to }, label };
+    }
+
+    const userId = searchParams.get('userId');
+    if (userId) {
+      const opt = userOptions.find((o) => o.value === userId);
+      out.userId = { value: userId, label: opt?.label ?? userId };
+    }
+
+    const method = searchParams.get('method');
+    if (method) out.method = { value: method, label: method };
+
+    const endpoint = searchParams.get('endpoint');
+    if (endpoint) out.endpoint = { value: endpoint, label: endpoint };
+
+    const payloadSearch = searchParams.get('payloadSearch');
+    if (payloadSearch)
+      out.payloadSearch = {
+        value: payloadSearch,
+        label:
+          payloadSearch.length > 20
+            ? `Payload: ${payloadSearch.slice(0, 20)}…`
+            : `Payload: ${payloadSearch}`,
+      };
+
+    return out;
+  }, [searchParams, userOptions]);
+
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
 
   const filterFields: FilterField[] = [
     { id: 'dateRange', label: 'DateTime range', type: 'dateRange' },
     { id: 'userId', label: 'User', type: 'searchableSelect', options: userOptions },
+    {
+      id: 'method',
+      label: 'Method',
+      type: 'select',
+      options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => ({ label: m, value: m })),
+    },
     { id: 'endpoint', label: 'Endpoint', type: 'text', placeholder: 'Filter by path' },
     { id: 'payloadSearch', label: 'Payload', type: 'text', placeholder: 'Search in payload' },
   ];
@@ -57,11 +130,10 @@ const AccessLogsPage = () => {
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);
     try {
-      const dateRange = activeFilters.dateRange?.value as
-        | { from?: Date | string | number; to?: Date | string | number }
+      const dateRangeValue = activeFilters.dateRange?.value as
+        | { from?: Date; to?: Date }
         | undefined;
-      const dateFrom = coerceDate(dateRange?.from);
-      const dateTo = coerceDate(dateRange?.to);
+      const dateTo = dateRangeValue?.to;
       const dateToParam = dateTo ? toEndOfMinuteInclusive(dateTo).toISOString() : undefined;
       const params = {
         page: pageIndex + 1,
@@ -69,17 +141,15 @@ const AccessLogsPage = () => {
         sortBy: sorting?.id ?? 'createdAt',
         sortOrder: (sorting?.desc ? 'desc' : 'asc') as 'asc' | 'desc',
         userId: activeFilters.userId?.value as string | undefined,
+        method: activeFilters.method?.value as string | undefined,
         endpoint: activeFilters.endpoint?.value as string | undefined,
-        dateFrom: dateFrom?.toISOString(),
+        dateFrom: dateRangeValue?.from?.toISOString(),
         dateTo: dateToParam,
         payloadSearch: activeFilters.payloadSearch?.value as string | undefined,
       };
       const response = await accessLogService.getAccessLogs(params);
       setLogs(response.data);
       setTotal(response.meta.total);
-      if (response.meta.page && response.meta.page - 1 !== pageIndex) {
-        setPageIndex(response.meta.page - 1);
-      }
     } catch (error) {
       console.error('Failed to fetch access logs:', error);
       toast.error('Failed to load access logs');
@@ -122,59 +192,28 @@ const AccessLogsPage = () => {
     loadUserOptions();
   }, []);
 
-  const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<
-      string,
-      {
-        value:
-          | string
-          | string[]
-          | { from?: Date | string | number; to?: Date | string | number }
-          | boolean;
-        label: string;
-      }
-    > = {};
-    filters.forEach((filter) => {
-      if (filter.id === 'dateRange' && typeof filter.value === 'object' && filter.value !== null && 'from' in filter.value) {
-        const range = filter.value as {
-          from?: Date | string | number;
-          to?: Date | string | number;
-        };
-        const from = coerceDate(range.from);
-        const to = coerceDate(range.to);
-        const fmtFrom = (d: Date) => format(d, 'PP pp');
-        const fmtTo = (d: Date) => format(toEndOfMinuteInclusive(d), 'PP pp');
-        const label =
-          from && to
-            ? `${fmtFrom(from)} – ${fmtTo(to)}`
-            : from
-              ? `From ${fmtFrom(from)}`
-              : to
-                ? `Until ${fmtTo(to)}`
-                : 'DateTime range';
-        newActiveFilters[filter.id] = { value: { from, to }, label };
-      } else if (filter.id === 'userId') {
-        const opt = userOptions.find((o) => o.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value as string,
-          label: opt?.label ?? String(filter.value),
-        };
-      } else if (filter.id === 'payloadSearch') {
-        const val = String(filter.value);
-        newActiveFilters[filter.id] = {
-          value: val,
-          label: val.length > 20 ? `Payload: ${val.slice(0, 20)}…` : `Payload: ${val}`,
-        };
-      } else {
-        newActiveFilters[filter.id] = {
-          value: filter.value as string,
-          label: String(filter.value),
-        };
-      }
-    });
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0);
-  };
+  const handleApplyFilters = useCallback(
+    (filters: FilterValue[]) => {
+      updateSearchParams((next) => {
+        FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+        filters.forEach((filter) => {
+          if (filter.id === 'dateRange') {
+            const range = filter.value as
+              | { from?: Date | string | number; to?: Date | string | number }
+              | undefined;
+            const from = coerceDate(range?.from);
+            const to = coerceDate(range?.to);
+            if (from) next.set('dateFrom', from.toISOString());
+            if (to) next.set('dateTo', to.toISOString());
+          } else if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+            next.set(filter.id, String(filter.value));
+          }
+        });
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
 
   const formatUser = (log: AccessLog) => {
     if (log.user) {
@@ -351,15 +390,29 @@ const AccessLogsPage = () => {
           pageIndex,
           limit,
           pageCount: Math.ceil(total / limit) || 1,
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: (page) => updateSearchParams((next) => next.set('page', String(page + 1))),
+          onPageSizeChange: (size) =>
+            updateSearchParams((next) => {
+              next.set('limit', String(size));
+              next.set('page', '1');
+            }),
           total,
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}
-        onSortingChange={setSorting}
+        onSortingChange={(sort) =>
+          updateSearchParams((next) => {
+            if (sort) {
+              next.set('sortBy', sort.id);
+              next.set('sortOrder', sort.desc ? 'desc' : 'asc');
+            } else {
+              next.delete('sortBy');
+              next.delete('sortOrder');
+            }
+          })
+        }
         hideSearch
         wrapperClassName="max-w-full"
       />

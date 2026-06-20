@@ -20,8 +20,7 @@ import {
   GeneralStatusEnum,
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
-import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
-import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
+import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -55,8 +54,8 @@ export class RiskAssessmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalsService: ApprovalsService,
+    private readonly masterApprovalsService: MasterApprovalsService,
     private readonly remindersService: RemindersService,
-    private readonly riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService,
   ) { }
 
   async create(
@@ -161,21 +160,6 @@ export class RiskAssessmentService {
             error,
           );
         }
-      }
-
-      console.log(
-        `[RiskAssessment] create before zoho sync assessmentId=${assessmentWithRelations.id} code=${assessmentWithRelations.code}`,
-      );
-      try {
-        await this.syncCreatedRiskAssessmentToZoho(assessmentWithRelations);
-        console.log(
-          `[RiskAssessment] create zoho sync success assessmentId=${assessmentWithRelations.id}`,
-        );
-      } catch (error) {
-        console.error(
-          `[RiskAssessment] Zoho sync failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
-          error,
-        );
       }
 
       return this.mapToDtoWithMitigations(assessmentWithRelations);
@@ -344,6 +328,9 @@ export class RiskAssessmentService {
       oldStatus === GeneralStatusEnum.SCHEDULED &&
       newStatus !== GeneralStatusEnum.SCHEDULED &&
       newStatus !== undefined;
+    const statusChangedToWaitingApproval =
+      oldStatus !== GeneralStatusEnum.WAITING_APPROVAL &&
+      newStatus === GeneralStatusEnum.WAITING_APPROVAL;
     const assessmentDateChanged =
       data.assessmentDate &&
       data.assessmentDate.getTime() !==
@@ -420,6 +407,15 @@ export class RiskAssessmentService {
     // actually submits their approval/rejection action, not when status changes to WAITING_APPROVAL.
     // The approval workflow is defined in m_approvals and shown in allApprovalLines.
 
+    // Notify requester + first approval line when submitted for approval
+    if (statusChangedToWaitingApproval) {
+      await this.masterApprovalsService.sendApprovalRequestNotifications(
+        assessment.id,
+        APPROVAL_ENTITIES.RISK_ASSESSMENT,
+        assessment.createdBy,
+      );
+    }
+
     // Handle reminder creation/deletion based on status changes
     if (statusChangedFromScheduled) {
       // Status changed from SCHEDULED to something else - delete reminders
@@ -474,14 +470,6 @@ export class RiskAssessmentService {
           error,
         );
       }
-    }
-
-    if (newStatus && oldStatus !== newStatus) {
-      await this.riskAssessmentZohoSyncService.enqueueStatusSyncIfNeeded({
-        riskAssessmentId: assessment.id,
-        oldStatus,
-        newStatus,
-      });
     }
 
     return this.mapToDtoWithMitigations(assessment as any);
@@ -570,6 +558,11 @@ export class RiskAssessmentService {
     code: string,
   ): Promise<void> {
     try {
+      // Idempotency: cancel any reminder still pending for this assessment so a
+      // double submit / concurrent status change can never leave two active
+      // reminders firing duplicate notifications.
+      await this.deleteRemindersForRiskAssessment(assessmentId);
+
       const now = new Date();
       const assessmentReminderTime =
         this.convertAssessmentDateToReminderTime(assessmentDate);
@@ -1135,7 +1128,6 @@ export class RiskAssessmentService {
         code: this.generateMitigationCode(),
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: itemId,
-        eliminate: mitigation.eliminate || null,
         eliminationControl: mitigation.eliminationControl || null,
         substitutionControl: mitigation.substitutionControl || null,
         engineeringControl: mitigation.engineeringControl || null,
@@ -1178,7 +1170,6 @@ export class RiskAssessmentService {
       return this.prisma.riskMitigationRecord.update({
         where: { id: existing.id },
         data: {
-          eliminate: mitigation.eliminate || null,
           eliminationControl: mitigation.eliminationControl || null,
           substitutionControl: mitigation.substitutionControl || null,
           engineeringControl: mitigation.engineeringControl || null,
@@ -1222,7 +1213,6 @@ export class RiskAssessmentService {
       code: record.code,
       entity: record.entity,
       entityId: record.entityId,
-      eliminate: record.eliminate || undefined,
       eliminationControl: record.eliminationControl || undefined,
       substitutionControl: record.substitutionControl || undefined,
       engineeringControl: record.engineeringControl || undefined,
@@ -1235,44 +1225,6 @@ export class RiskAssessmentService {
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     };
-  }
-
-  private async syncCreatedRiskAssessmentToZoho(
-    assessment: RiskAssessment & {
-      department: { id: string; name: string };
-      creator: {
-        id: string;
-        email?: string | null;
-        firstName: string;
-        lastName: string;
-      };
-      assignee: {
-        id: string;
-        firstName: string;
-        lastName: string;
-      } | null;
-    },
-  ): Promise<void> {
-    const payload = await this.buildZohoCreatePayload(assessment);
-
-    console.log('[RiskAssessment] zoho create payload prepared', {
-      assessmentId: assessment.id,
-      payloadKeys: Object.keys(payload),
-      payload,
-    });
-
-    if (Object.keys(payload).length === 0) {
-      console.log(
-        `[RiskAssessment] zoho create skipped because payload empty assessmentId=${assessment.id}`,
-      );
-      return;
-    }
-
-    await this.riskAssessmentZohoSyncService.createTicketForRiskAssessment({
-      riskAssessmentId: assessment.id,
-      payload,
-      lastHseStatus: assessment.status,
-    });
   }
 
   private async cleanupFailedRiskAssessmentCreation(
@@ -1324,39 +1276,4 @@ export class RiskAssessmentService {
     }
   }
 
-  private async buildZohoCreatePayload(
-    assessment: RiskAssessment & {
-      department: { id: string; name: string };
-      creator: {
-        id: string;
-        email?: string | null;
-        firstName: string;
-        lastName: string;
-      };
-      assignee: {
-        id: string;
-        firstName: string;
-        lastName: string;
-      } | null;
-    },
-  ): Promise<SdpRequestPayload> {
-    const targetStatus =
-      await this.riskAssessmentZohoSyncService.resolveZohoStatusForHseStatus(
-        assessment.status,
-      );
-
-    const subject = assessment.code;
-    const description =
-      assessment.description?.trim() ||
-      `Risk assessment ${assessment.code} created from HSE Dashboard`;
-
-    return {
-      subject,
-      description,
-      requester: {
-        id: '5',
-      },
-      status: targetStatus ? { name: targetStatus } : { name: 'Open' },
-    };
-  }
 }

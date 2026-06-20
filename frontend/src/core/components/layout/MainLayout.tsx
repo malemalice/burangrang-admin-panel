@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import DynamicSidebar from './DynamicSidebar';
 import TopNavbar from './TopNavbar';
 import { Toaster } from "sonner";
@@ -10,29 +10,10 @@ import { useIsMobile } from '@/core/hooks/useIsMobile';
 import { useAuth } from '@/core/lib/auth';
 import { useLocation } from 'react-router-dom';
 import { isUUID } from '@/core/hooks/useEntityDisplayName';
-import { Menu } from '@/modules/menus/types/menu.types';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
-
-/**
- * Flattens the full menu tree into a path→name lookup map.
- * Skips entries with no real path (path === '#' or null).
- */
-const buildPathNameMap = (menus: Menu[]): Record<string, string> => {
-  const map: Record<string, string> = {};
-  const traverse = (items: Menu[]) => {
-    for (const item of items) {
-      if (item.path && item.path !== '#') {
-        map[item.path] = item.name;
-      }
-      if (item.children?.length) traverse(item.children);
-    }
-  };
-  traverse(menus);
-  return map;
-};
 
 /**
  * Sets the browser tab title from the current route using menu names from the backend.
@@ -41,8 +22,7 @@ const buildPathNameMap = (menus: Menu[]): Record<string, string> => {
  */
 const RouteAwareTitleManager = () => {
   const location = useLocation();
-  const { menus } = useMenuContext();
-  const pathNameMap = useMemo(() => buildPathNameMap(menus), [menus]);
+  const { pathNameMap } = useMenuContext();
 
   const segments = location.pathname.split('/').filter(Boolean);
   const routeTitle = segments
@@ -93,7 +73,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             : "bg-admin-background text-admin-foreground"
         )}>
           <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
-            <div className="animate-fade-in min-w-0 overflow-hidden">
+            <div className="animate-fade-in min-w-0">
               {children}
             </div>
           </main>
@@ -121,7 +101,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         )}>
           <TopNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
           <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
-            <div className="animate-fade-in min-w-0 overflow-hidden">
+            <div className="animate-fade-in min-w-0">
               {children}
             </div>
           </main>

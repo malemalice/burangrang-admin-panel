@@ -3,7 +3,7 @@ import type { RiskMitigation } from '@/modules/risk-assessment/services/riskMiti
 import { format } from 'date-fns';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Copy, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
@@ -30,10 +30,7 @@ import {
   WORK_PERMIT_SECTION_G_SUB,
 } from '../constants/workPermitSections';
 import type { WorkPermit, WorkPermitWorker } from '../types/work-permit.types';
-import {
-  hasHealthDeclarationFile,
-  isHealthScreeningEligible,
-} from '../utils/healthScreeningEligibility';
+import { hasHealthDeclarationFile } from '../utils/healthScreeningEligibility';
 import workPermitService from '../services/workPermitService';
 
 const displayField = (v: string | number | boolean | null | undefined) => {
@@ -56,15 +53,18 @@ function getPublicDetailErrorMessage(e: unknown): string {
 
 const screeningBadgeClass = {
   valid: 'border-0 bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200',
+  linkedHere: 'border-0 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200',
   warn: 'border-0 bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200',
   muted: 'border-0 bg-muted text-muted-foreground',
 } as const;
 
 function PublicWorkPermitWorkersList({
   workers,
+  workPermitId,
   publicApplicantToken,
 }: {
   workers: WorkPermitWorker[];
+  workPermitId: string;
   publicApplicantToken?: string;
 }) {
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
@@ -77,14 +77,14 @@ function PublicWorkPermitWorkersList({
     if (!hs) {
       return { label: 'No online declaration', className: screeningBadgeClass.muted };
     }
-    if (isHealthScreeningEligible(hs)) {
-      return { label: 'Valid', className: screeningBadgeClass.valid };
-    }
-    if (hs.status === 'DONE' && hs.validUntil) {
-      const expired = new Date(hs.validUntil).getTime() < Date.now();
-      if (expired) {
-        return { label: 'Expired', className: screeningBadgeClass.warn };
+    if (hs.status === 'DONE') {
+      if (hs.consumedByWorkPermitId === workPermitId) {
+        return { label: 'Linked to this permit', className: screeningBadgeClass.linkedHere };
       }
+      if (hs.consumedByWorkPermitId == null) {
+        return { label: 'Ready — not yet linked', className: screeningBadgeClass.valid };
+      }
+      return { label: 'Used by another permit', className: screeningBadgeClass.muted };
     }
     return {
       label: hs.status === 'IN_PROGRESS' ? 'In progress' : hs.status.replace(/_/g, ' '),
@@ -126,10 +126,11 @@ function PublicWorkPermitWorkersList({
       {workers.map((worker) => {
         const userId = worker.userId;
         const hs = worker.healthScreening;
-        const eligible = hs ? isHealthScreeningEligible(hs) : false;
+        const linkedHere =
+          hs?.status === 'DONE' && hs.consumedByWorkPermitId === workPermitId;
         const hasFile = hasHealthDeclarationFile(worker.healthDeclarationUrl);
-        /** Show health form link whenever the online declaration is not valid (file alone does not block—users can still open/share the public questionnaire). */
-        const showLinkActions = Boolean(publicApplicantToken) && !eligible;
+        /** Show health form link whenever the worker has no declaration consumed by THIS permit (file alone does not block — users can still open/share the public questionnaire). */
+        const showLinkActions = Boolean(publicApplicantToken) && !linkedHere;
         const cached = userId ? linkByUserId[userId] : undefined;
         const screeningBadge = getScreeningBadge(worker);
 
@@ -160,14 +161,14 @@ function PublicWorkPermitWorkersList({
               <Badge variant="secondary" className={screeningBadge.className}>
                 {screeningBadge.label}
               </Badge>
-              {hs?.validUntil ? (
-                <span className="text-xs text-muted-foreground">
-                  {eligible
-                    ? `Valid through ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`
-                    : hs.status === 'DONE' &&
-                        new Date(hs.validUntil).getTime() < Date.now()
-                      ? `Expired ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`
-                      : `Review by ${format(new Date(hs.validUntil), 'MMM d, yyyy')}`}
+              {hs?.status === 'DONE' && !linkedHere && hs.consumedByWorkPermitId != null ? (
+                <span className="text-xs text-amber-700 dark:text-amber-400">
+                  Declaration used by another permit — a new declaration is needed.
+                </span>
+              ) : null}
+              {hs?.status === 'DONE' && !linkedHere && hs.consumedByWorkPermitId == null ? (
+                <span className="text-xs text-green-700 dark:text-green-400">
+                  Declaration complete — will be linked when this permit is saved.
                 </span>
               ) : null}
             </div>
@@ -197,7 +198,7 @@ function PublicWorkPermitWorkersList({
                     <Button
                       type="button"
                       size="sm"
-                      variant="secondary"
+                      variant="outline"
                       onClick={() => void copyLink(cached.linkUrl)}
                     >
                       <Copy className="mr-2 h-4 w-4" />
@@ -206,7 +207,6 @@ function PublicWorkPermitWorkersList({
                     <Button
                       type="button"
                       size="sm"
-                      variant="secondary"
                       onClick={() =>
                         window.open(cached.linkUrl, '_blank', 'noopener,noreferrer')
                       }
@@ -238,6 +238,10 @@ type Props = {
   mitigationsErrorByRiskId: Record<string, string | undefined>;
   /** When set, show worker health declaration status and token-based fill links */
   publicApplicantToken?: string;
+  /** Re-fetches the public permit so newly completed worker declarations appear */
+  onRefresh?: () => void;
+  /** Disables the refresh button + shows a spinner while a refresh is in flight */
+  refreshing?: boolean;
 };
 
 /**
@@ -252,6 +256,8 @@ export function PublicWorkPermitReadOnlyDetail({
   mitigationsLoadingByRiskId,
   mitigationsErrorByRiskId,
   publicApplicantToken,
+  onRefresh,
+  refreshing = false,
 }: Props) {
 
   const createdByLabel = (() => {
@@ -404,8 +410,24 @@ export function PublicWorkPermitReadOnlyDetail({
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
               <WorkPermitSubsectionTitle>{WORK_PERMIT_SECTION_B_SUB.workers}</WorkPermitSubsectionTitle>
+              {publicApplicantToken && onRefresh ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Refresh permit status
+                </Button>
+              ) : null}
             </CardHeader>
             <CardContent>
               {publicApplicantToken ? (
@@ -414,7 +436,7 @@ export function PublicWorkPermitReadOnlyDetail({
                     Each worker on this permit must have a valid health declaration: either a completed online
                     declaration (below) or a declaration file already stored on the worker profile. Links are
                     time-limited—share one with the worker to complete the questionnaire, or open it for them. After
-                    they finish, refresh this page to see updated status.
+                    they finish, click <strong>Refresh permit status</strong> above to see the updated status.
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -423,6 +445,7 @@ export function PublicWorkPermitReadOnlyDetail({
               ) : (
                 <PublicWorkPermitWorkersList
                   workers={workPermit.workers!}
+                  workPermitId={workPermit.id}
                   publicApplicantToken={publicApplicantToken}
                 />
               )}

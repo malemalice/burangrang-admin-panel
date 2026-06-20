@@ -56,8 +56,6 @@ import { SETTINGS_KEYS } from '../settings/constants/settings-keys';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-const HEALTH_DECLARATION_VALIDITY_DAYS_KEY = 'health_declaration_validity_days';
-
 @Injectable()
 export class WorkPermitsService {
   private rawWorkPermitMapper: (entity: any) => WorkPermitDto;
@@ -156,15 +154,19 @@ export class WorkPermitsService {
           worker: {
             include: {
               user: { include: { profession: true } },
-              healthScreenings: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: { id: true, status: true, createdAt: true, quizId: true },
-              },
             },
           },
         },
         orderBy: { order: 'asc' },
+      },
+      consumedHealthScreenings: {
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          quizId: true,
+          consumedByWorkPermitId: true,
+        },
       },
       heavyEquipment: {
         include: { heavyEquipment: true },
@@ -203,10 +205,15 @@ export class WorkPermitsService {
     }>,
   ): Promise<void> {
     const userIds = [...new Set(workers.map((w) => w.userId))];
-    const existing = await this.prisma.worker.findMany({
-      where: { userId: { in: userIds } },
-    });
+    const [existing, userRows] = await Promise.all([
+      this.prisma.worker.findMany({ where: { userId: { in: userIds } } }),
+      this.prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, firstName: true, lastName: true, email: true },
+      }),
+    ]);
     const byUser = new Map(existing.map((x) => [x.userId, x]));
+    const userById = new Map(userRows.map((u) => [u.id, u]));
     for (const w of workers) {
       const row = byUser.get(w.userId);
       const mergedUrl =
@@ -217,8 +224,13 @@ export class WorkPermitsService {
       const hasUrl =
         mergedUrl != null && String(mergedUrl).trim().length > 0;
       if (!hasUrl && !w.healthScreeningId) {
+        const u = userById.get(w.userId);
+        const workerLabel = u
+          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || w.userId
+          : w.userId;
         this.errorHandler.throwBadRequest(
-          'Each worker must have a health declaration URL and/or a linked health screening',
+          `Worker "${workerLabel}" is missing a health declaration. ` +
+          `Upload a declaration file on the worker profile, or start a new health declaration for this worker.`,
         );
       }
     }
@@ -226,7 +238,8 @@ export class WorkPermitsService {
 
   /**
    * For submit: each permit worker must have a declaration file on `t_worker` and/or
-   * a latest health screening with status DONE that is still within the configured validity window.
+   * a completed health screening that is consumed by THIS permit (single-use binding).
+   * Screenings not linked here, linked elsewhere, or not DONE are invalid.
    */
   private async assertAllWorkersHaveHealthSatisfiedForSubmit(
     workPermitId: string,
@@ -240,9 +253,14 @@ export class WorkPermitsService {
             worker: {
               include: {
                 healthScreenings: {
+                  where: { consumedByWorkPermitId: workPermitId },
                   orderBy: { createdAt: 'desc' },
                   take: 1,
-                  select: { id: true, status: true, createdAt: true },
+                  select: {
+                    id: true,
+                    status: true,
+                    consumedByWorkPermitId: true,
+                  },
                 },
               },
             },
@@ -253,11 +271,6 @@ export class WorkPermitsService {
     if (!wp?.workers?.length) {
       this.errorHandler.throwBadRequest('At least one worker is required');
     }
-    const validityDays = await this.settingsHelper.getNumber(
-      HEALTH_DECLARATION_VALIDITY_DAYS_KEY,
-      90,
-    );
-    const ms = validityDays * 24 * 60 * 60 * 1000;
     for (const row of wp.workers) {
       const w = row.worker;
       if (!w) {
@@ -272,18 +285,12 @@ export class WorkPermitsService {
       const hs = w.healthScreenings?.[0];
       if (!hs) {
         this.errorHandler.throwBadRequest(
-          'Each worker must have a health declaration file on the worker profile and/or a completed health declaration in the validity period. Update workers before submitting.',
+          'Each worker must have a completed health declaration attached to this permit. A declaration is single-use per work permit — start a new one for each worker before submitting.',
         );
       }
       if (hs.status !== 'DONE') {
         this.errorHandler.throwBadRequest(
-          'Each worker must have a completed (DONE) health declaration or a declaration file on the worker profile before submitting.',
-        );
-      }
-      const validUntil = new Date(hs.createdAt.getTime() + ms);
-      if (validUntil.getTime() < Date.now()) {
-        this.errorHandler.throwBadRequest(
-          'A worker health declaration is past its validity period. Renew the declaration or upload a file on the worker profile before submitting.',
+          'Each worker must have a completed (DONE) health declaration linked to this permit before submitting.',
         );
       }
     }
@@ -318,7 +325,23 @@ export class WorkPermitsService {
   private async linkHealthScreeningsToWorkers(
     dtos: Array<{ userId: string; order: number; healthScreeningId?: string }>,
     createdRows: { id: string; workerId: string; order: number }[],
+    workPermitId: string,
   ): Promise<void> {
+    // Release any screenings currently consumed by this permit but no longer
+    // selected in the incoming worker list (e.g. worker swap, declaration swap).
+    const selectedIds = dtos
+      .map((d) => d.healthScreeningId)
+      .filter((id): id is string => !!id);
+    await this.prisma.healthScreening.updateMany({
+      where: {
+        consumedByWorkPermitId: workPermitId,
+        ...(selectedIds.length
+          ? { NOT: { id: { in: selectedIds } } }
+          : {}),
+      },
+      data: { consumedByWorkPermitId: null },
+    });
+
     for (const w of dtos) {
       if (!w.healthScreeningId) {
         continue;
@@ -353,9 +376,21 @@ export class WorkPermitsService {
           'Linked health screening must be completed (status DONE)',
         );
       }
+      // Single-use rule: screening must be free, or already linked to THIS permit.
+      if (
+        screening!.consumedByWorkPermitId &&
+        screening!.consumedByWorkPermitId !== workPermitId
+      ) {
+        this.errorHandler.throwBadRequest(
+          'This health declaration is already linked to another work permit. Start a new declaration for this worker.',
+        );
+      }
       await this.prisma.healthScreening.update({
         where: { id: w.healthScreeningId },
-        data: { workerId: row.workerId },
+        data: {
+          workerId: row.workerId,
+          consumedByWorkPermitId: workPermitId,
+        },
       });
     }
   }
@@ -600,7 +635,7 @@ export class WorkPermitsService {
       } else {
         // Internal users must explicitly pick an applicant contractor.
         if (!requestedApplicantId) {
-          this.errorHandler.throwBadRequest('applicantUserId is required when creating a work permit on behalf');
+          this.errorHandler.throwBadRequest('Please select a contractor as the applicant for this work permit');
         }
 
         const applicant = await this.prisma.user.findFirst({
@@ -653,7 +688,6 @@ export class WorkPermitsService {
       }
 
       await this.validateWorkersForPermit(createDto.workers);
-      await this.validateWorkerHealthDeclarations(createDto.workers);
 
       const normalizedHazards = this.normalizeHazards(createDto.hazards);
 
@@ -701,8 +735,8 @@ export class WorkPermitsService {
             employees: createDto.employees
               ? {
                 create: createDto.employees.map((e) => ({
-                  userId: e.userId,
-                  employeeName: e.employeeName,
+                  userId: e.userId?.trim() || undefined,
+                  employeeName: e.employeeName?.trim() || undefined,
                   order: e.order,
                 })),
               }
@@ -812,6 +846,7 @@ export class WorkPermitsService {
       await this.linkHealthScreeningsToWorkers(
         createDto.workers,
         createdWorkerRows,
+        workPermit.id,
       );
 
       if (createDto.classifications?.length) {
@@ -1053,10 +1088,6 @@ export class WorkPermitsService {
    * Map work permit with all relations to DTO
    */
   private async mapWorkPermitWithRelations(workPermit: any): Promise<WorkPermitDto> {
-    const validityDays = await this.settingsHelper.getNumber(
-      HEALTH_DECLARATION_VALIDITY_DAYS_KEY,
-      90,
-    );
     const base = this.mapWorkPermitToDto(workPermit);
 
     // Map nested relations
@@ -1118,11 +1149,51 @@ export class WorkPermitsService {
     }
 
     if (workPermit.workers) {
+      const consumed: any[] = workPermit.consumedHealthScreenings ?? [];
+      const consumedUserIds = new Set<string>(consumed.map((s) => s.userId));
+
+      // Surface latest DONE, not-yet-consumed declarations so the public/authenticated
+      // page can show "Available" status after a worker finishes the questionnaire,
+      // before the applicant submits the permit (which is when consumption fires).
+      const candidateUserIds: string[] = (workPermit.workers ?? [])
+        .map((w: any) => w.worker?.user?.id ?? w.worker?.userId)
+        .filter((id: string | undefined): id is string => !!id && !consumedUserIds.has(id));
+
+      const availableByUserId = new Map<
+        string,
+        { id: string; status: string; quizId: string }
+      >();
+      if (candidateUserIds.length > 0) {
+        const rows = await this.prisma.healthScreening.findMany({
+          where: {
+            userId: { in: candidateUserIds },
+            status: 'DONE',
+            consumedByWorkPermitId: null,
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, userId: true, status: true, quizId: true },
+        });
+        for (const r of rows) {
+          if (!availableByUserId.has(r.userId)) {
+            availableByUserId.set(r.userId, {
+              id: r.id,
+              status: r.status,
+              quizId: r.quizId,
+            });
+          }
+        }
+      }
+
       base.workers = workPermit.workers.map((w: any) => {
         const wr = w.worker;
         const u = wr?.user;
         const prof = u?.profession;
-        const hs = wr?.healthScreenings?.[0];
+        const userIdKey = (u?.id ?? wr?.userId) as string | undefined;
+        const consumedHs = consumed.find((s) => s.userId === userIdKey);
+        const availableHs = !consumedHs && userIdKey
+          ? availableByUserId.get(userIdKey)
+          : undefined;
+        const hs = consumedHs ?? availableHs;
         return {
           id: w.id,
           workerId: w.workerId,
@@ -1135,10 +1206,7 @@ export class WorkPermitsService {
             ? {
               id: hs.id,
               status: hs.status,
-              validUntil: new Date(
-                hs.createdAt.getTime() +
-                  validityDays * 24 * 60 * 60 * 1000,
-              ).toISOString(),
+              consumedByWorkPermitId: consumedHs?.consumedByWorkPermitId ?? null,
               quizId: hs.quizId,
             }
             : undefined,
@@ -1397,18 +1465,25 @@ export class WorkPermitsService {
 
       // Data-level scope: hide rows user is not allowed to see.
       // Approver exception: if the user is a configured approver for WORK_PERMIT,
-      // also include all records that are currently in an approval-pending status.
+      // also include records in approval-pending statuses AND the two post-approval
+      // statuses (WAITING_APPLICANT_SIGN, APPROVED) so that permits remain visible
+      // to approvers after all signatures are collected.
       const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'WorkPermit', where);
       const { isApprover, pendingStatuses } =
         await this.approvalAccessService.isApproverForEntityType(APPROVAL_ENTITIES.WORK_PERMIT, userContext);
 
       let accessWhere: Prisma.WorkPermitWhereInput;
       if (isApprover && pendingStatuses.length > 0) {
-        const approverBranch: Prisma.WorkPermitWhereInput = { status: { in: pendingStatuses as any } };
+        const approverVisibleStatuses = [
+          ...pendingStatuses,
+          WorkPermitStatusEnum.WAITING_APPLICANT_SIGN,
+          WorkPermitStatusEnum.APPROVED,
+        ];
+        const approverBranch: Prisma.WorkPermitWhereInput = { status: { in: approverVisibleStatuses as any } };
         accessWhere =
           scopeWhere && Object.keys(scopeWhere).length > 0
             ? { OR: [scopeWhere, approverBranch] }
-            : approverBranch;
+            : {}; // SUPER scope: no restriction needed; approver branch is irrelevant
       } else {
         accessWhere =
           scopeWhere && Object.keys(scopeWhere).length > 0 ? scopeWhere : {};
@@ -1608,8 +1683,8 @@ export class WorkPermitsService {
       });
       updateData.employees = {
         create: updateDto.employees.map((e) => ({
-          userId: e.userId,
-          employeeName: e.employeeName,
+          userId: e.userId?.trim() || undefined,
+          employeeName: e.employeeName?.trim() || undefined,
           order: e.order,
         })),
       };
@@ -1620,7 +1695,6 @@ export class WorkPermitsService {
         this.errorHandler.throwBadRequest('At least one worker is required');
       }
       await this.validateWorkersForPermit(updateDto.workers);
-      await this.validateWorkerHealthDeclarations(updateDto.workers);
       await this.prisma.$transaction(async (tx) => {
         await tx.workPermitWorker.deleteMany({
           where: { workPermitId: id },
@@ -1805,6 +1879,7 @@ export class WorkPermitsService {
       await this.linkHealthScreeningsToWorkers(
         updateDto.workers,
         createdWorkerRows,
+        id,
       );
     }
 
@@ -2092,18 +2167,25 @@ export class WorkPermitsService {
         this.errorHandler.throwForbidden('You do not have permission to reject this work permit');
       }
 
-      // Update status to REJECTED
-      const updated = await this.prisma.workPermit.update({
-        where: { id },
-        data: {
-          status: WorkPermitStatusEnum.REJECTED,
-        },
-        include: {
-          area: true,
-          company: true,
-          creator: true,
-        },
-      });
+      // Update status to REJECTED and release any single-use health screenings
+      // linked to this permit so the applicant can re-use them on resubmission.
+      const [updated] = await this.prisma.$transaction([
+        this.prisma.workPermit.update({
+          where: { id },
+          data: {
+            status: WorkPermitStatusEnum.REJECTED,
+          },
+          include: {
+            area: true,
+            company: true,
+            creator: true,
+          },
+        }),
+        this.prisma.healthScreening.updateMany({
+          where: { consumedByWorkPermitId: id },
+          data: { consumedByWorkPermitId: null },
+        }),
+      ]);
 
       // Submit rejection record
       await this.masterApprovalsService.submitApproval(
@@ -3071,7 +3153,6 @@ export class WorkPermitsService {
     for (const m of rows) {
       const item: PublicWorkPermitRiskMitigationItemDto = {
         id: m.id,
-        eliminate: m.eliminate ?? undefined,
         eliminationControl: m.eliminationControl ?? undefined,
         substitutionControl: m.substitutionControl ?? undefined,
         engineeringControl: m.engineeringControl ?? undefined,

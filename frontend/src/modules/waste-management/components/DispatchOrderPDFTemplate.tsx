@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { Separator } from '@/core/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/core/components/ui/table';
 import type { ApprovalStatusHistory } from '@/modules/master-data';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import { DispatchOrder } from '../types/waste-management.types';
 
@@ -137,14 +138,22 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
       .join(', ') || null;
 
   return (
-    <div
-      className="bg-white p-8 space-y-8 text-gray-900"
-      style={{ fontFamily: 'Arial, sans-serif' }}
-    >
-      <header className="text-center border-b-2 border-gray-900 pb-4">
-        <h1 className="text-xl font-bold uppercase tracking-tight mb-1">Dispatch Order</h1>
-        <p className="text-sm text-gray-600">WASTE DISPATCH ORDER</p>
-      </header>
+    <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Vendor Collection Tracking: {dispatchOrder.dispatchCode}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">Waste Vendor Collection Tracking</p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
+      </div>
 
       <section className="space-y-3">
         <h2 className="text-sm font-bold uppercase tracking-wide text-gray-800 border-b border-gray-300 pb-2">

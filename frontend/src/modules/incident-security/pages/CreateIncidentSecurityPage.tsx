@@ -10,11 +10,11 @@ const CreateIncidentSecurityPage = () => {
   return (
     <>
       <PageHeader
-        title="Create Security Incident"
+        title="Create Security Incident Report"
         subtitle="Report a new security incident"
         actions={
           <Button variant="outline" onClick={() => navigate('/incident-securities')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incident Securities
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incident Security Reports
           </Button>
         }
       />

@@ -30,7 +30,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
-import { Public } from 'src/shared/decorators/public.decorator';
+import { Public } from '../../shared/decorators/public.decorator';
 import { SETTINGS_KEYS } from './constants/settings-keys';
 
 interface RequestWithUser extends Request {
@@ -130,7 +130,7 @@ export class SettingsController {
 
   // Theme-specific endpoints (must come before generic routes)
   @Get('theme')
-  @Permissions('setting:read')
+  @Public()
   @ApiOperation({ summary: 'Get theme settings' })
   
   @ApiResponse({
@@ -237,6 +237,25 @@ export class SettingsController {
     }
 
     return { value };
+  }
+
+  @Post('values/batch')
+  @Permissions('setting:read')
+  @ApiOperation({ summary: 'Get multiple setting values by keys in one request' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { keys: { type: 'array', items: { type: 'string' } } },
+      required: ['keys'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Map of key → value (null if not found)',
+    schema: { type: 'object', additionalProperties: { type: 'string', nullable: true } },
+  })
+  async getValuesByKeys(@Body() body: { keys: string[] }): Promise<Record<string, string | null>> {
+    return this.settingsService.getValuesByKeys(body.keys);
   }
 
   // Generic routes come LAST to prevent conflicts with specific routes above

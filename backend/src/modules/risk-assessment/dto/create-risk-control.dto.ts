@@ -5,11 +5,6 @@ export class CreateRiskControlDto {
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })
-  eliminate?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiProperty({ required: false })
   eliminationControl?: string;
 
   @IsOptional()

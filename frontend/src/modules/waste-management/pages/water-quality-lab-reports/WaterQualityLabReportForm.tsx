@@ -344,8 +344,8 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Report</CardTitle>
-        <CardDescription>Enter lab report information</CardDescription>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Water Monitoring</CardTitle>
+        <CardDescription>Enter water monitoring information</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

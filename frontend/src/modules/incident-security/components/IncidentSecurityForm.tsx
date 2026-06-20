@@ -32,6 +32,7 @@ import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/s
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Label } from '@/core/components/ui/label';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
 import incidentSecurityService from '../services/incidentSecurityService';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
@@ -137,7 +138,8 @@ const formSchema = z.object({
   dueDate: z.string().optional(),
   expectedOutcome: z.string().optional(),
   needToStopActivity: z.nativeEnum(StopActivityEnum).default(StopActivityEnum.NOT_SPECIFIED),
-  stopActivityDescription: z.string().optional(),
+  stopLocally: z.boolean().default(false),
+  stopWholeSchool: z.boolean().default(false),
   treatment: z.nativeEnum(TreatmentEnum).default(TreatmentEnum.NOT_SPECIFIED),
   treatmentDescription: z.string().optional(),
   absence: z.nativeEnum(AbsenceEnum).default(AbsenceEnum.NOT_SPECIFIED),
@@ -210,7 +212,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
       dueDate: '',
       expectedOutcome: '',
       needToStopActivity: StopActivityEnum.NOT_SPECIFIED,
-      stopActivityDescription: '',
+      stopLocally: false,
+      stopWholeSchool: false,
       treatment: TreatmentEnum.NOT_SPECIFIED,
       treatmentDescription: '',
       absence: AbsenceEnum.NOT_SPECIFIED,
@@ -323,7 +326,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
           departmentService.getDepartments({ page: 1, limit: 100, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           // Fetch technicians: users with TECHNICIAN role and job position
           technicianRole 
             ? userService.getUsers({ 
@@ -391,7 +394,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
               : '',
             expectedOutcome: incident.expectedOutcome || '',
             needToStopActivity: incident.needToStopActivity,
-            stopActivityDescription: incident.stopActivityDescription || '',
+            stopLocally: incident.stopLocally ?? false,
+            stopWholeSchool: incident.stopWholeSchool ?? false,
             treatment: incident.treatment,
             treatmentDescription: incident.treatmentDescription || '',
             absence: incident.absence,
@@ -764,7 +768,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     'dueDate',
     'expectedOutcome',
     'needToStopActivity',
-    'stopActivityDescription',
+    'stopLocally',
+    'stopWholeSchool',
     'treatment',
     'treatmentDescription',
     'absence',
@@ -810,7 +815,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
         dueDate: values.dueDate ? new Date(values.dueDate) : undefined,
         expectedOutcome: values.expectedOutcome || undefined,
         needToStopActivity: values.needToStopActivity,
-        stopActivityDescription: values.stopActivityDescription || undefined,
+        stopLocally: values.stopLocally ?? false,
+        stopWholeSchool: values.stopWholeSchool ?? false,
         treatment: values.treatment,
         treatmentDescription: values.treatmentDescription || undefined,
         absence: values.absence,
@@ -820,10 +826,10 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
 
       if (status === ApprovalStatus.APPROVED) {
         await incidentSecurityService.approve(incident.id, notes, activities);
-        toast.success('Incident Securities approved successfully');
+        toast.success('Security Incident Report approved successfully');
       } else {
         await incidentSecurityService.reject(incident.id, notes);
-        toast.success('Incident Securities rejected successfully');
+        toast.success('Security Incident Report rejected successfully');
       }
 
       navigate('/incident-securities');
@@ -851,14 +857,13 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
       // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
       let statusToSet = data.status;
       if (isSuperUser) {
-        if (resolvedMode === 'creator') {
-          statusToSet = GeneralStatusEnum.OPEN;
-        } else if (resolvedMode === 'investigator') {
-          // Investigator: keep OPEN in update; submit API will move to WAITING_APPROVAL after save
+        if (resolvedMode === 'investigator') {
+          // Investigator: keep OPEN so submit API can transition to WAITING_APPROVAL
           statusToSet = GeneralStatusEnum.OPEN;
         } else if (resolvedMode === 'approver') {
           return;
         }
+        // creator mode: use data.status — super-admin may set any status
       } else if (resolvedMode === 'investigator') {
         // Investigator (non-super_admin): allow OPEN or CLOSE from form; otherwise keep current
         statusToSet =
@@ -886,7 +891,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         expectedOutcome: data.expectedOutcome || undefined,
         needToStopActivity: data.needToStopActivity,
-        stopActivityDescription: data.stopActivityDescription || undefined,
+        stopLocally: data.stopLocally ?? false,
+        stopWholeSchool: data.stopWholeSchool ?? false,
         treatment: data.treatment,
         treatmentDescription: data.treatmentDescription || undefined,
         absence: data.absence,
@@ -950,14 +956,14 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
 
       if (mode === 'create') {
         await incidentSecurityService.create(dto as CreateIncidentDTO);
-        toast.success('Incident created successfully');
+        toast.success('Security Incident Report created successfully');
       } else if (incident) {
         await incidentSecurityService.update(incident.id, dto as UpdateIncidentDTO);
         if (resolvedMode === 'investigator') {
           await incidentSecurityService.submit(incident.id);
-          toast.success('Incident submitted for approval');
+          toast.success('Security Incident Report submitted for approval');
         } else {
-          toast.success('Incident updated successfully');
+          toast.success('Security Incident Report updated successfully');
         }
       }
       navigate('/incident-securities');
@@ -981,7 +987,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Incident Security Report</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -2288,25 +2294,53 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="stopActivityDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Stop Activity Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter stop activity description"
-                          className="min-h-[100px]"
-                          {...field}
-                          disabled={isFieldDisabled('stopActivityDescription')}
-                          readOnly={isFieldDisabled('stopActivityDescription')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {form.watch('needToStopActivity') === StopActivityEnum.YES && (
+                  <div className="md:col-span-2 space-y-3 pl-6 border-l-2 border-muted">
+                    <p className="text-sm font-medium">If Yes (Jika Ya):</p>
+                    <FormField
+                      control={form.control}
+                      name="stopLocally"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopLocally')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop activity locally related to the accident/incident/nearmiss
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan aktivitas terkait kecelakaan/insiden/nearmiss
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stopWholeSchool"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isFieldDisabled('stopWholeSchool')}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Stop the whole school activities
+                            <span className="block text-xs text-muted-foreground">
+                              Hentikan seluruh kegiatan sekolah
+                            </span>
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <FormField
                   control={form.control}
@@ -2492,8 +2526,8 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
                     : resolvedMode === 'investigator'
                     ? 'Submit'
                     : mode === 'create' 
-                    ? 'Create Security Incident' 
-                    : 'Update Security Incident'}
+                    ? 'Create Security Incident Report'
+                    : 'Update Security Incident Report'}
                 </Button>
               )}
             </div>

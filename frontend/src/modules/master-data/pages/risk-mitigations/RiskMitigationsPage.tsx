@@ -264,14 +264,6 @@ const RiskMitigationsPage = () => {
       isSortable: true,
     },
     {
-      id: 'eliminate',
-      header: 'Eliminate',
-      headerClassName: colStrategy,
-      cellClassName: cellOverflow,
-      cell: (mitigation: RiskMitigation) => <TruncateCell text={mitigation.eliminate ?? undefined} />,
-      isSortable: false,
-    },
-    {
       id: 'transfer',
       header: 'Transfer',
       headerClassName: colStrategy,

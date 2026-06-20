@@ -141,7 +141,7 @@ const InspectionItemsPage = () => {
       try {
         const [departmentsResponse, usersResponse, risksResponse, riskCategoriesResponse] = await Promise.all([
           departmentService.getDepartments({ page: 1, limit: 100, options: true }),
-          userService.getUsers({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } }),
           riskService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
         ]);
@@ -310,8 +310,8 @@ const InspectionItemsPage = () => {
       
       setApprovalRights(prev => ({ ...prev, ...rightsMap }));
     } catch (error) {
-      console.error('Failed to fetch inspection items:', error);
-      toast.error('Failed to load inspection items');
+      console.error('Failed to fetch Inspection Finding Monitoring:', error);
+      toast.error('Failed to load Inspection Finding Monitoring');
     } finally {
       setIsLoading(false);
     }
@@ -383,14 +383,14 @@ const InspectionItemsPage = () => {
     
     try {
       await inspectionItemsService.update(editingItem.id, itemData);
-      toast.success('Inspection item updated successfully');
+      toast.success('Inspection Finding Monitoring updated successfully');
       setIsEditItemDialogOpen(false);
       setEditingItem(null);
       setEditingFormMode(null);
       await fetchItems();
     } catch (error) {
-      console.error('Failed to update inspection item:', error);
-      toast.error('Failed to update inspection item');
+      console.error('Failed to update Inspection Finding Monitoring:', error);
+      toast.error('Failed to update Inspection Finding Monitoring');
     }
   };
 
@@ -499,7 +499,7 @@ const InspectionItemsPage = () => {
                     size="icon"
                     onClick={() => navigate(`/inspections/items/${item.id}`, { state: { returnTo: location.search } })}
                     className="text-primary hover:text-primary hover:bg-primary/10"
-                    aria-label={`View inspection item ${item.id}`}
+                    aria-label={`View Inspection Finding Monitoring ${item.id}`}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -522,7 +522,7 @@ const InspectionItemsPage = () => {
                   size="icon"
                   onClick={() => navigate(`/inspections/items/${item.id}`, { state: { returnTo: location.search } })}
                   className="text-primary hover:text-primary hover:bg-primary/10"
-                  aria-label={`View inspection item ${item.id}`}
+                  aria-label={`View Inspection Finding Monitoring ${item.id}`}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -590,7 +590,7 @@ const InspectionItemsPage = () => {
                       try {
                         const rights = await inspectionItemsService.checkApprovalRights(item.id);
                         if (!rights.canApprove) {
-                          toast.error('You do not have approval rights for this inspection item');
+                          toast.error('You do not have approval rights for this Inspection Finding Monitoring');
                           return;
                         }
                         setEditingItem(item);
@@ -642,8 +642,8 @@ const InspectionItemsPage = () => {
   return (
     <>
       <PageHeader
-        title="Inspection Items"
-        subtitle="View and manage inspection items"
+        title="Inspection Finding Monitoring"
+        subtitle="View and manage Inspection Finding Monitoring"
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -665,7 +665,7 @@ const InspectionItemsPage = () => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>View Inspection Item Workflow</p>
+                <p>View Inspection Finding Monitoring Workflow</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -698,7 +698,7 @@ const InspectionItemsPage = () => {
           <DialogHeader>
             <DialogTitle>Create new inspection</DialogTitle>
             <DialogDescription>
-              Create a new inspection and add the first inspection item.
+              Create a new inspection and add the first Inspection Finding Monitoring.
             </DialogDescription>
           </DialogHeader>
           <InspectionItemForm
@@ -727,14 +727,14 @@ const InspectionItemsPage = () => {
             <DialogTitle>
               {editingFormMode === 'creator' && 'Edit as Creator'}
               {editingFormMode === 'updater' && 'Update Action Item'}
-              {editingFormMode === 'verifier' && 'Verify Inspection Item'}
-              {!editingFormMode && 'Edit Inspection Item'}
+              {editingFormMode === 'verifier' && 'Verify Inspection Finding Monitoring'}
+              {!editingFormMode && 'Edit Inspection Finding Monitoring'}
             </DialogTitle>
             <DialogDescription>
-              {editingFormMode === 'creator' && 'Edit inspection item details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
+              {editingFormMode === 'creator' && 'Edit Inspection Finding Monitoring details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
               {editingFormMode === 'updater' && 'Update action item progress (After Images, Follow-up Notes)'}
-              {editingFormMode === 'verifier' && 'Verify and adjust all inspection item fields'}
-              {!editingFormMode && 'Update the inspection item details.'}
+              {editingFormMode === 'verifier' && 'Verify and adjust all Inspection Finding Monitoring fields'}
+              {!editingFormMode && 'Update the Inspection Finding Monitoring details.'}
             </DialogDescription>
           </DialogHeader>
           {editingItem && (
@@ -759,7 +759,6 @@ const InspectionItemsPage = () => {
                   type: img.type,
                 })),
                 mitigation: editingItem.mitigation ? {
-                  eliminate: editingItem.mitigation.eliminate,
                   eliminationControl: (editingItem.mitigation as any).eliminationControl,
                   substitutionControl: (editingItem.mitigation as any).substitutionControl,
                   engineeringControl: (editingItem.mitigation as any).engineeringControl,
@@ -769,6 +768,11 @@ const InspectionItemsPage = () => {
                   accept: editingItem.mitigation.accept,
                   legalAspect: editingItem.mitigation.legalAspect,
                 } : undefined,
+                checklistResults: editingItem.checklistResults?.map(r => ({
+                  checklistItemId: r.checklistItemId,
+                  riskRate: r.riskRate,
+                  notes: r.notes,
+                })),
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {
@@ -783,13 +787,13 @@ const InspectionItemsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Workflow Information Dialog — inspection item workflow per docs/prd-inspections.md and TRD workflow guideline */}
+      {/* Workflow Information Dialog — Inspection Finding Monitoring workflow per docs/prd-inspections.md and TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
         <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle>Inspection Item Workflow</DialogTitle>
+            <DialogTitle>Inspection Finding Monitoring Workflow</DialogTitle>
             <DialogDescription>
-              Inspection items move from recording the finding, to follow-up by the assigned department or assignee, then to verification by an approver.
+              Inspection Finding Monitoring move from recording the finding, to follow-up by the assigned department or assignee, then to verification by an approver.
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-6">
@@ -850,7 +854,7 @@ const InspectionItemsPage = () => {
                   </div>
                   <div>
                     <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
-                    <dd className="mt-0.5 text-muted-foreground">Department or person set as Assigned Department or Assignee on the inspection item</dd>
+                    <dd className="mt-0.5 text-muted-foreground">Department or person set as Assigned Department or Assignee on the Inspection Finding Monitoring</dd>
                   </div>
                 </dl>
                 <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-orange-200/40 dark:border-orange-800/30 pt-2">
@@ -942,7 +946,7 @@ const InspectionItemsPage = () => {
                       </div>
                       <div>
                         <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
-                        <dd className="mt-0.5 text-muted-foreground">User from the item&apos;s Assigned Department with approver job position (e.g. Dept Head), per Master Approval for inspection items</dd>
+                        <dd className="mt-0.5 text-muted-foreground">User from the item&apos;s Assigned Department with approver job position (e.g. Dept Head), per Master Approval for Inspection Finding Monitoring</dd>
                       </div>
                     </dl>
                     <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">

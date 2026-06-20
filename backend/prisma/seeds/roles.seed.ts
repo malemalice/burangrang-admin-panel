@@ -52,6 +52,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'inspection',
     'incident',
     'incident-security',
+    'investigation-report',
     'ppe',
     'safety-equipment',
     'safety-equipment-type',
@@ -66,6 +67,9 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-mitigation',
     'risk-category',
     'risk-matrix',
+    'audit-period',
+    'inspection-checklist',
+    'hfacs-node',
   ];
   const quizPermissions = [
     'quiz:create',
@@ -92,6 +96,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'dashboard',
     'audit-policy',
     'audit-criteria',
+    'audit-report',
     'certificate-category', // category dropdowns on certificate forms (GET /certificates/categories)
     'environmental-measurement',
     'waste-management',

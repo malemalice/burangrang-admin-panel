@@ -256,7 +256,7 @@ export default function DispatchOrderDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Dispatch Order: ${dispatchOrder.dispatchCode}`}
+        title={`Vendor Collection Tracking: ${dispatchOrder.dispatchCode}`}
         subtitle={`Created on ${format(new Date(dispatchOrder.createdAt), 'dd MMM yyyy')}`}
         actions={
           <div className="flex gap-2 flex-wrap">
@@ -338,7 +338,7 @@ export default function DispatchOrderDetailPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
             <div className="min-w-0 flex-1 space-y-1.5">
               <CardTitle>Order Details</CardTitle>
-              <CardDescription>Dispatch information and attachments</CardDescription>
+              <CardDescription>Vendor collection tracking information and attachments</CardDescription>
             </div>
             <div className="flex-shrink-0 pt-0.5">{getStatusBadge(status)}</div>
           </CardHeader>

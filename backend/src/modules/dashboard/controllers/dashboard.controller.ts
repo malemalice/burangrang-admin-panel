@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { WaterQualityLabReportCategoryEnum } from '@prisma/client';
 import {
   ApiTags,
   ApiOperation,
@@ -29,6 +39,7 @@ import {
   SecurityMonthlyIncidentRowDto,
   AdminOverviewDto,
 } from '../dto/dashboard.dto';
+import { WaterQualityLabDashboardDto } from '../dto/water-quality-lab-dashboard.dto';
 import {
   RiskOverview,
   DepartmentProfile,
@@ -49,6 +60,7 @@ import {
   SecuritySifrComparisonData,
   SecurityMonthlyIncidentsData,
   AdminOverviewData,
+  WaterQualityLabDashboardData,
 } from '../types/dashboard.types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -369,4 +381,44 @@ export class DashboardController {
   async getAdminOverview(): Promise<AdminOverviewData> {
     return this.dashboardService.getAdminOverview();
   }
-} 
+
+  @Get('water-quality-lab')
+  @Permissions('waste-management:list')
+  @ApiOperation({
+    summary:
+      'Get water quality lab report dashboard: latest monthly value per plant, for one parameter at a time',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: true,
+    enum: WaterQualityLabReportCategoryEnum,
+    description: 'Lab report category',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    description: 'Year (default: current year)',
+  })
+  @ApiQuery({
+    name: 'parameterId',
+    required: false,
+    description: 'Parameter to plot. If omitted, backend resolves the first available parameter.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns monthly bar-chart data per treatment plant for one parameter',
+    type: WaterQualityLabDashboardDto,
+  })
+  async getWaterQualityLabDashboard(
+    @Query('category') category: WaterQualityLabReportCategoryEnum,
+    @Query('year', new DefaultValuePipe(new Date().getFullYear()), ParseIntPipe) year: number,
+    @Query('parameterId') parameterId?: string,
+  ): Promise<WaterQualityLabDashboardData> {
+    if (!category || !Object.values(WaterQualityLabReportCategoryEnum).includes(category)) {
+      throw new BadRequestException(
+        `category is required and must be one of: ${Object.values(WaterQualityLabReportCategoryEnum).join(', ')}`,
+      );
+    }
+    return this.dashboardService.getWaterQualityLabDashboard({ category, year, parameterId });
+  }
+}

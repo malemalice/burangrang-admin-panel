@@ -167,7 +167,7 @@ export class ZohoOutboundWorkerService {
             lastError: null,
           },
         }),
-        this.prisma.zohoTicketRiskAssessmentMap.update({
+        this.prisma.zohoTicketIncidentMap.update({
           where: { id: job.mappingId },
           data: {
             lastZohoStatus: job.targetStatus,

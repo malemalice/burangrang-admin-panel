@@ -282,6 +282,7 @@ export class UsersService {
   async findAll(
     options?: FindUsersOptions,
     requester?: { role: string; companyId: string | null },
+    isOptions?: boolean,
   ): Promise<{
     data: UserDto[];
     meta: { total: number; page: number; limit: number };
@@ -293,8 +294,11 @@ export class UsersService {
       sortOrder = 'desc',
       isActive,
       search,
+      name,
+      email,
       roleId,
       roleCode,
+      excludeRoleCode,
       officeId,
       departmentId,
       jobPositionId,
@@ -303,7 +307,7 @@ export class UsersService {
 
     let companyId = companyIdFromQuery;
 
-    if (requester) {
+    if (!isOptions && requester) {
       if (requester.role !== (Role.SUPER_ADMIN as string)) {
         if (!requester.companyId) {
           return {
@@ -331,6 +335,31 @@ export class UsersService {
       }
     }
 
+    const andConditions: Prisma.UserWhereInput[] = [];
+
+    if (name) {
+      const nameTerm = name.trim();
+      if (nameTerm.length > 0) {
+        andConditions.push({
+          OR: [
+            { firstName: { contains: nameTerm, mode: 'insensitive' } },
+            { lastName: { contains: nameTerm, mode: 'insensitive' } },
+          ],
+        });
+      }
+    }
+
+    if (email) {
+      const emailTerm = email.trim();
+      if (emailTerm.length > 0) {
+        andConditions.push({ email: { contains: emailTerm, mode: 'insensitive' } });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -341,6 +370,10 @@ export class UsersService {
 
     if (roleCode) {
       where.role = { code: roleCode };
+    }
+
+    if (excludeRoleCode) {
+      where.role = { ...(where.role as object ?? {}), code: { not: excludeRoleCode } };
     }
 
     if (officeId) {
@@ -504,29 +537,30 @@ export class UsersService {
       select: {
         certificateUrl: true,
         healthDeclarationUrl: true,
-        healthScreenings: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          where:
-            requester.role === (Role.SUPER_ADMIN as string)
-              ? undefined
-              : { companyId: requesterCompanyId! },
-          include: {
-            quiz: { select: { id: true, title: true } },
-          },
-        },
       },
     });
 
-    const latestHealthScreening = workerRow?.healthScreenings?.[0]
+    // Query by userId directly so newly submitted declarations (workerId still null) are visible.
+    const latestHealthScreeningRaw = await this.prisma.healthScreening.findFirst({
+      where: {
+        userId: targetUserId,
+        ...(requester.role !== (Role.SUPER_ADMIN as string) && requesterCompanyId
+          ? { companyId: requesterCompanyId }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { quiz: { select: { id: true, title: true } } },
+    });
+
+    const latestHealthScreening = latestHealthScreeningRaw
       ? {
-          id: workerRow.healthScreenings[0].id,
-          status: workerRow.healthScreenings[0].status,
-          quizId: workerRow.healthScreenings[0].quizId,
-          quiz: workerRow.healthScreenings[0].quiz
+          id: latestHealthScreeningRaw.id,
+          status: latestHealthScreeningRaw.status,
+          quizId: latestHealthScreeningRaw.quizId,
+          quiz: latestHealthScreeningRaw.quiz
             ? {
-                id: workerRow.healthScreenings[0].quiz.id,
-                title: workerRow.healthScreenings[0].quiz.title,
+                id: latestHealthScreeningRaw.quiz.id,
+                title: latestHealthScreeningRaw.quiz.title,
               }
             : undefined,
         }

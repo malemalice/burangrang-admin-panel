@@ -14,7 +14,7 @@ const mockConfigService = {
 
 // Inline mail mock: no real email sent; assert call count and args
 const createMockMailService = () => ({
-  sendTemplatedMail: jest.fn().mockResolvedValue(undefined),
+  sendNotificationEmail: jest.fn().mockResolvedValue(undefined),
   sendTemplatedMailWithResult: jest.fn().mockResolvedValue({ success: true }),
 });
 
@@ -86,7 +86,7 @@ describe('NotificationsService (integration)', () => {
   });
 
   describe('createNotificationForRoles', () => {
-    it('creates one notification and calls sendTemplatedMail once per recipient email', async () => {
+    it('creates one notification and calls sendNotificationEmail once per recipient email', async () => {
       const userId = '10000000-0000-0000-0000-000000000001';
       (mockPrisma.user.findMany as jest.Mock)
         .mockResolvedValueOnce([
@@ -118,22 +118,19 @@ describe('NotificationsService (integration)', () => {
 
       await flushPromises();
 
-      expect(mockMailService.sendTemplatedMail).toHaveBeenCalledTimes(1);
-      expect(mockMailService.sendTemplatedMail).toHaveBeenCalledWith(
+      expect(mockMailService.sendNotificationEmail).toHaveBeenCalledTimes(1);
+      expect(mockMailService.sendNotificationEmail).toHaveBeenCalledWith(
+        'requester@example.com',
+        'Incident Approved',
         expect.objectContaining({
-          email: 'requester@example.com',
-          template: 'notification',
-          subject: 'Incident Approved',
-          context: expect.objectContaining({
-            title: 'Incident Approved',
-            message: 'Your incident has been approved.',
-            actionUrl: expect.stringContaining('/incidents/incident-1'),
-          }),
+          title: 'Incident Approved',
+          message: 'Your incident has been approved.',
+          actionUrl: expect.stringContaining('/incidents/incident-1'),
         }),
       );
     });
 
-    it('does not call sendTemplatedMail when recipients yield no emails', async () => {
+    it('does not call sendNotificationEmail when recipients yield no emails', async () => {
       (mockPrisma.user.findMany as jest.Mock).mockResolvedValue([]);
 
       await service.createNotificationForRoles(
@@ -150,10 +147,10 @@ describe('NotificationsService (integration)', () => {
 
       await flushPromises();
 
-      expect(mockMailService.sendTemplatedMail).not.toHaveBeenCalled();
+      expect(mockMailService.sendNotificationEmail).not.toHaveBeenCalled();
     });
 
-    it('calls sendTemplatedMail for each distinct email address', async () => {
+    it('calls sendNotificationEmail for each distinct email address', async () => {
       const userId1 = '10000000-0000-0000-0000-000000000001';
       const userId2 = '10000000-0000-0000-0000-000000000002';
       (mockPrisma.user.findMany as jest.Mock)
@@ -193,10 +190,10 @@ describe('NotificationsService (integration)', () => {
 
       await flushPromises();
 
-      expect(mockMailService.sendTemplatedMail).toHaveBeenCalledTimes(2);
-      const emails = (mockMailService.sendTemplatedMail as jest.Mock).mock.calls.map(
-        (call: unknown[]) => (call[0] as { email: string }).email,
-      );
+      expect(mockMailService.sendNotificationEmail).toHaveBeenCalledTimes(2);
+      const emails = (
+        mockMailService.sendNotificationEmail as jest.Mock
+      ).mock.calls.map((call: unknown[]) => call[0] as string);
       expect(emails).toContain('user1@example.com');
       expect(emails).toContain('user2@example.com');
     });
@@ -231,9 +228,11 @@ describe('NotificationsService (integration)', () => {
 
       await flushPromises();
 
-      expect(mockMailService.sendTemplatedMail).toHaveBeenCalledTimes(1);
-      expect(mockMailService.sendTemplatedMail).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'single@example.com' }),
+      expect(mockMailService.sendNotificationEmail).toHaveBeenCalledTimes(1);
+      expect(mockMailService.sendNotificationEmail).toHaveBeenCalledWith(
+        'single@example.com',
+        'One Event',
+        expect.objectContaining({ message: 'Single notification.' }),
       );
     });
   });

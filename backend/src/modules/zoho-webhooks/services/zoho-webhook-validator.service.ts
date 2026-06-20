@@ -66,7 +66,7 @@ export class ZohoWebhookValidatorService {
   }
 
   async hasEntityMapping(ticketId: string): Promise<boolean> {
-    const mapping = await this.prisma.zohoTicketRiskAssessmentMap.findUnique({
+    const mapping = await this.prisma.zohoTicketIncidentMap.findUnique({
       where: { zohoTicketId: ticketId },
       select: { id: true },
     });

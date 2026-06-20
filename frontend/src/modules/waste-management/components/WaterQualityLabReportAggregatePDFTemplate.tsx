@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { WaterQualityParameterCategoryEnum } from '../types/waste-management.types';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 import type {
   WaterQualityLabReportAggregateData,
   AggregateParameterColumn,
@@ -72,21 +73,22 @@ export function WaterQualityLabReportAggregatePDFTemplate({
   };
 
   return (
-    <div
-      className="bg-white p-8"
-      style={{ width: '210mm', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}
-      aria-hidden="true"
-    >
-      <div className="mb-4 border-b-2 border-gray-800 pb-2">
-        <h1 className="text-xl font-bold text-gray-900">
-          Water Quality Lab Reports – Aggregated Results
-        </h1>
-        <p className="text-xs text-gray-600 mt-1">
-          Aggregated extract of water quality laboratory test records.
-        </p>
-        <p className="text-xs text-gray-600 mt-1">
-          Exported on {format(new Date(), 'dd MMM yyyy, HH:mm')}
-        </p>
+    <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Water Quality Lab Reports – Aggregated Results
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              Aggregated extract of water quality laboratory test records.
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       <table

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { ArrowLeft, Edit, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { usePDF } from 'react-to-pdf';
 
 import { useAuth } from '@/core/lib/auth';
 import api from '@/core/lib/api';
@@ -15,7 +16,11 @@ import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 
 import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection-item.types';
+import { INSPECTION_RISK_RATE_OPTIONS, INSPECTION_RISK_RATE_BADGE_CLASSES } from '@/shared/constants/inspection-risk-rate.enum';
 import inspectionItemsService from '../services/inspectionItemsService';
+import { InspectionItemPDFTemplate } from '../../components/InspectionItemPDFTemplate';
+import { buildPdfOptions, generateTableAwarePdf } from '@/core/lib/pdfExport';
+import type { InspectionChecklistDTO } from '@/modules/master-data/types/master-data.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
@@ -31,6 +36,19 @@ const ViewInspectionItemPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [checklistRoots, setChecklistRoots] = useState<InspectionChecklistDTO[]>([]);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const { targetRef } = usePDF(
+    buildPdfOptions({ filename: 'inspection-item.pdf' }),
+  );
+
+  useEffect(() => {
+    // Use options bypass so users without inspection-checklist:list permission can still load the tree
+    api.get('/inspection-checklists/tree?options=true')
+      .then((response) => setChecklistRoots(response.data))
+      .catch((error) => console.error('Failed to load checklist tree:', error));
+  }, []);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -63,8 +81,8 @@ const ViewInspectionItemPage = () => {
         const data = await inspectionItemsService.getById(id);
         setItem(data);
       } catch (error) {
-        console.error('Failed to fetch inspection item:', error);
-        toast.error('Failed to load inspection item');
+        console.error('Failed to fetch Inspection Finding Monitoring:', error);
+        toast.error('Failed to load Inspection Finding Monitoring');
         navigate(`/inspections/items${returnTo}`);
       } finally {
         setIsLoading(false);
@@ -111,6 +129,22 @@ const ViewInspectionItemPage = () => {
     fetchApprovalStatus();
   }, [id]);
 
+  const handleExportPDF = async () => {
+    if (!item) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const filename = `inspection-item-${item.inspection?.code ?? item.id}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`;
+      await generateTableAwarePdf(targetRef, buildPdfOptions({ filename }));
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   const getStatusBadge = (status: GeneralStatusEnum) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
@@ -142,8 +176,8 @@ const ViewInspectionItemPage = () => {
   return (
     <>
       <PageHeader
-        title="Inspection Item Details"
-        subtitle="View detailed information about this inspection item"
+        title="Inspection Finding Monitoring Details"
+        subtitle="View detailed information about this Inspection Finding Monitoring"
         actions={
           <div className="flex gap-2">
             <Button
@@ -151,9 +185,17 @@ const ViewInspectionItemPage = () => {
               onClick={() => navigate(`/inspections/items${returnTo}`)}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Inspection Items
+              Back to Inspection Finding Monitoring
             </Button>
-            {(!item || item.status !== GeneralStatusEnum.WAITING_APPROVAL || isSuperUser) && (
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
+            </Button>
+            {(!item || (item.status !== GeneralStatusEnum.WAITING_APPROVAL && item.status !== GeneralStatusEnum.CLOSE) || isSuperUser) && (
               <Button onClick={() => navigate(`/inspections/items/${id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
@@ -162,6 +204,15 @@ const ViewInspectionItemPage = () => {
           </div>
         }
       />
+
+      {/* Hidden PDF template */}
+      <div
+        ref={targetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        <InspectionItemPDFTemplate item={item} checklistRoots={checklistRoots} />
+      </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Basic Information and Approval Timeline */}
@@ -287,6 +338,69 @@ const ViewInspectionItemPage = () => {
           </CardContent>
         </Card>
 
+        {(() => {
+          const totalLeaves = checklistRoots.reduce((sum, root) => sum + (root.children?.length || 0), 0);
+          const ratedLeaves = item.checklistResults?.filter((r) => r.riskRate).length ?? 0;
+          const computedValue = totalLeaves > 0 ? (ratedLeaves / totalLeaves) * 100 : null;
+          const finalValue = item.inspection?.finalInspectionValue ?? computedValue;
+          return (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Checklist Results</CardTitle>
+              {finalValue != null && (
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Final Inspection Value</p>
+                  <p className="text-sm font-semibold">
+                    {finalValue.toFixed(2)}% ({ratedLeaves}/{totalLeaves})
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!item.checklistResults || item.checklistResults.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No checklist results</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(
+                  item.checklistResults.reduce<Record<string, NonNullable<typeof item.checklistResults>>>((acc, r) => {
+                    const cat = r.checklistItem?.parent?.name ?? 'Uncategorized';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat]!.push(r);
+                    return acc;
+                  }, {})
+                ).map(([category, results]) => (
+                  <div key={category}>
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">{category}</h4>
+                    <div className="space-y-2">
+                      {results.map((result) => (
+                        <div key={result.id} className="flex flex-col gap-1 rounded-md border bg-muted/30 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm">{result.checklistItem?.name ?? result.checklistItemId}</span>
+                            {result.riskRate ? (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${INSPECTION_RISK_RATE_BADGE_CLASSES[result.riskRate]}`}>
+                                {INSPECTION_RISK_RATE_OPTIONS.find((o) => o.value === result.riskRate)?.label ?? result.riskRate}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Not rated</span>
+                            )}
+                          </div>
+                          {result.notes && (
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{result.notes}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+          );
+        })()}
+
         <Card>
           <CardHeader>
             <CardTitle>Risk Mitigation</CardTitle>
@@ -294,10 +408,6 @@ const ViewInspectionItemPage = () => {
           <CardContent>
             {item.mitigation ? (
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
-                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
-                </div>
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">Elimination Control</p>
                   <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminationControl || 'N/A'}</p>

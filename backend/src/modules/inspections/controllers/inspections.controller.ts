@@ -138,10 +138,11 @@ export class InspectionsController {
   @ApiOperation({ summary: 'Create a new inspection item' })
   @ApiResponse({ status: 201, type: InspectionItemDto })
   async createItem(
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() createItemDto: CreateInspectionItemDto,
   ): Promise<InspectionItemDto> {
-    return this.inspectionsService.createItem(id, createItemDto);
+    return this.inspectionsService.createItem(id, createItemDto, req.user.id);
   }
 
   @Get(':id/items')
@@ -181,11 +182,12 @@ export class InspectionsController {
   @ApiOperation({ summary: 'Update an inspection item' })
   @ApiResponse({ status: 200, type: InspectionItemDto })
   async updateItem(
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Param('itemId') itemId: string,
     @Body() updateItemDto: UpdateInspectionItemDto,
   ): Promise<InspectionItemDto> {
-    return this.inspectionsService.updateItem(id, itemId, updateItemDto);
+    return this.inspectionsService.updateItem(id, itemId, updateItemDto, req.user.id);
   }
 
   @Delete(':id/items/:itemId')

@@ -29,6 +29,7 @@ export default function TreatmentPlantsPage() {
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
 
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
 
@@ -72,6 +73,8 @@ export default function TreatmentPlantsPage() {
         page,
         limit,
         search: search || undefined,
+        sortBy: sorting ? sorting.id : 'createdAt',
+        sortOrder: (sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc') as 'asc' | 'desc',
         isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
         officeId: activeFilters.officeId?.value,
       };
@@ -85,7 +88,7 @@ export default function TreatmentPlantsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, activeFilters]);
+  }, [page, limit, search, activeFilters, sorting]);
 
   useEffect(() => {
     fetchData();
@@ -120,6 +123,11 @@ export default function TreatmentPlantsPage() {
     setActiveFilters(newActiveFilters);
     setPage(1);
   };
+
+  const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
+    setSorting(newSorting);
+    setPage(1);
+  }, []);
 
   const columns = [
     {
@@ -245,6 +253,8 @@ export default function TreatmentPlantsPage() {
           setPage(1);
         }}
         onApplyFilters={handleApplyFilters}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
       />
 
       <ConfirmDialog

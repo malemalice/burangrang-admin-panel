@@ -345,7 +345,7 @@ const AuditScheduleDetailPage = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Audit Schedule: ${auditSchedule.code}`}
+        title={`Audit: ${auditSchedule.code}`}
         subtitle={`Created on ${format(new Date(auditSchedule.createdAt), 'dd MMM yyyy')}`}
         actions={
           <>
@@ -371,7 +371,7 @@ const AuditScheduleDetailPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Audit Schedule Details</CardTitle>
+            <CardTitle>Audit Details</CardTitle>
             <CardDescription>Basic information for this audit schedule</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

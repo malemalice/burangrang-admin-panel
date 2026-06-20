@@ -113,6 +113,17 @@ export class SettingsService {
     return setting ? setting.value : null;
   }
 
+  async getValuesByKeys(keys: string[]): Promise<Record<string, string | null>> {
+    const settings = await this.prisma.setting.findMany({
+      where: { key: { in: keys }, ...isNotDeleted },
+      select: { key: true, value: true },
+    });
+    const map: Record<string, string | null> = {};
+    for (const k of keys) map[k] = null;
+    for (const s of settings) map[s.key] = s.value;
+    return map;
+  }
+
   async getValueByKeyOrThrow(key: string): Promise<string> {
     const value = await this.getValueByKey(key);
     if (value === null) {

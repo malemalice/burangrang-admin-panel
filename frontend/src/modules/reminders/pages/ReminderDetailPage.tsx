@@ -20,10 +20,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/t
 import reminderService from '../services/reminderService';
 import { Reminder, ReminderLog, ReminderStatus } from '../types/reminder.types';
 import { useReminderLogs } from '../hooks/useReminders';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const ReminderDetailPage = () => {
   const { reminderId } = useParams<{ reminderId: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -129,14 +131,18 @@ const ReminderDetailPage = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Reminders
           </Button>
-          <Button variant="outline" onClick={() => navigate(`/reminders/${reminderId}/edit`)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Reminder
-          </Button>
-          <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Reminder
-          </Button>
+          {hasPermission('reminder:update') && (
+            <Button variant="outline" onClick={() => navigate(`/reminders/${reminderId}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Reminder
+            </Button>
+          )}
+          {hasPermission('reminder:delete') && (
+            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Reminder
+            </Button>
+          )}
         </div>
       </div>
 

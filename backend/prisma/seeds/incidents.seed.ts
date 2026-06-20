@@ -101,6 +101,21 @@ export const seedIncidents = async () => {
       return d;
     };
 
+    // Derive Section E booleans (stopLocally, stopWholeSchool) from the legacy
+    // needToStopActivity enum + free-text stopActivityDescription. Heuristic only;
+    // HSE can reclassify manually after seed.
+    const deriveStopFlags = (
+      needToStop: StopActivityEnum,
+      description: string | null,
+    ): { stopLocally: boolean; stopWholeSchool: boolean } => {
+      if (needToStop !== StopActivityEnum.YES) {
+        return { stopLocally: false, stopWholeSchool: false };
+      }
+      const text = (description ?? '').toLowerCase();
+      const isWholeSchool = /\b(all|whole|entire|building|evacuat)/.test(text);
+      return { stopLocally: !isWholeSchool, stopWholeSchool: isWholeSchool };
+    };
+
     // Incident templates - will be spread across Aug 2020 - Jul 2026 with varied dates
     // Distribution target: Fatality 1-2, Major 5-8, Minor 25-35, Near Miss 10-15, Hazard 15-20
     // LTICR: LTI incidents use absence=MORE_THAN_THREE_DAYS, activities=STUDY or WORK
@@ -1048,6 +1063,7 @@ export const seedIncidents = async () => {
               injuredBodyPart: InjuredBodyPartEnum.HAND,
               typeOfInjury: TypeOfInjuryEnum.LACERATION,
               mechanismOfInjury: MechanismOfInjuryEnum.HAND_TOOLS,
+              position: 'Staff Member',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1060,6 +1076,7 @@ export const seedIncidents = async () => {
             {
               witnessName: 'Jane Smith',
               gender: GenderEnum.FEMALE,
+              position: 'Supervisor',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1068,6 +1085,7 @@ export const seedIncidents = async () => {
                   {
                     witnessName: 'Bob Johnson',
                     gender: GenderEnum.MALE,
+                    position: 'Staff Member',
                     departmentId: randomItem(departments).id,
                     order: 2,
                   },
@@ -1082,6 +1100,7 @@ export const seedIncidents = async () => {
             {
               assetName: 'Safety Equipment',
               assetCode: 'SAFE-001',
+              brand: '3M',
               quantity: 1,
               order: 1,
             },
@@ -1090,6 +1109,7 @@ export const seedIncidents = async () => {
                   {
                     assetName: 'Tool Set',
                     assetCode: 'TOOL-001',
+                    brand: 'Bosch',
                     quantity: 1,
                     order: 2,
                   },
@@ -1097,6 +1117,31 @@ export const seedIncidents = async () => {
               : []),
           ]
         : [];
+
+      // Create third parties (external persons: contractors, visitors) if applicable
+      const thirdParties =
+        Math.random() > 0.7
+          ? [
+              {
+                name: 'External Contractor',
+                gender: GenderEnum.MALE,
+                company: 'PT Mitra Kerja',
+                position: 'Contractor',
+                order: 1,
+              },
+              ...(Math.random() > 0.5
+                ? [
+                    {
+                      name: 'Site Visitor',
+                      gender: GenderEnum.FEMALE,
+                      company: 'PT Tamu Sejahtera',
+                      position: 'Visitor',
+                      order: 2,
+                    },
+                  ]
+                : []),
+            ]
+          : [];
 
       const incident = await prisma.incident.create({
         data: {
@@ -1120,6 +1165,7 @@ export const seedIncidents = async () => {
           expectedOutcome: t.expectedOutcome,
           needToStopActivity: t.needToStopActivity,
           stopActivityDescription: t.stopActivityDescription,
+          ...deriveStopFlags(t.needToStopActivity, t.stopActivityDescription),
           treatment: t.treatment,
           treatmentDescription: t.treatmentDescription,
           absence: t.absence,
@@ -1132,6 +1178,7 @@ export const seedIncidents = async () => {
           createdBy: creator.id,
           injuredPersons: injuredPersons.length > 0 ? { create: injuredPersons } : undefined,
           witnesses: witnesses.length > 0 ? { create: witnesses } : undefined,
+          thirdParties: thirdParties.length > 0 ? { create: thirdParties } : undefined,
           assets: assets.length > 0 ? { create: assets } : undefined,
         },
       });
@@ -1175,6 +1222,7 @@ export const seedIncidents = async () => {
               injuredBodyPart: InjuredBodyPartEnum.HAND,
               typeOfInjury: TypeOfInjuryEnum.LACERATION,
               mechanismOfInjury: MechanismOfInjuryEnum.HAND_TOOLS,
+              position: 'Staff Member',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1186,6 +1234,7 @@ export const seedIncidents = async () => {
             {
               witnessName: 'Jane Smith',
               gender: GenderEnum.FEMALE,
+              position: 'Supervisor',
               departmentId: randomItem(departments).id,
               order: 1,
             },
@@ -1194,6 +1243,7 @@ export const seedIncidents = async () => {
                   {
                     witnessName: 'Bob Johnson',
                     gender: GenderEnum.MALE,
+                    position: 'Staff Member',
                     departmentId: randomItem(departments).id,
                     order: 2,
                   },
@@ -1207,6 +1257,7 @@ export const seedIncidents = async () => {
             {
               assetName: 'Security Equipment',
               assetCode: 'SEC-001',
+              brand: 'Hikvision',
               quantity: 1,
               order: 1,
             },
@@ -1215,6 +1266,7 @@ export const seedIncidents = async () => {
                   {
                     assetName: 'CCTV Unit',
                     assetCode: 'CCTV-001',
+                    brand: 'Dahua',
                     quantity: 1,
                     order: 2,
                   },
@@ -1222,6 +1274,31 @@ export const seedIncidents = async () => {
               : []),
           ]
         : [];
+
+      // Create third parties (external persons: contractors, visitors) if applicable
+      const thirdParties =
+        Math.random() > 0.7
+          ? [
+              {
+                name: 'External Contractor',
+                gender: GenderEnum.MALE,
+                company: 'PT Mitra Kerja',
+                position: 'Contractor',
+                order: 1,
+              },
+              ...(Math.random() > 0.5
+                ? [
+                    {
+                      name: 'Site Visitor',
+                      gender: GenderEnum.FEMALE,
+                      company: 'PT Tamu Sejahtera',
+                      position: 'Visitor',
+                      order: 2,
+                    },
+                  ]
+                : []),
+            ]
+          : [];
 
       const incident = await prisma.incident.create({
         data: {
@@ -1245,6 +1322,7 @@ export const seedIncidents = async () => {
           expectedOutcome: t.expectedOutcome,
           needToStopActivity: t.needToStopActivity,
           stopActivityDescription: t.stopActivityDescription,
+          ...deriveStopFlags(t.needToStopActivity, t.stopActivityDescription),
           treatment: t.treatment,
           treatmentDescription: t.treatmentDescription,
           absence: t.absence,
@@ -1257,6 +1335,7 @@ export const seedIncidents = async () => {
           createdBy: creator.id,
           injuredPersons: injuredPersons.length > 0 ? { create: injuredPersons } : undefined,
           witnesses: witnesses.length > 0 ? { create: witnesses } : undefined,
+          thirdParties: thirdParties.length > 0 ? { create: thirdParties } : undefined,
           assets: assets.length > 0 ? { create: assets } : undefined,
         },
       });

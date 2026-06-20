@@ -4,6 +4,7 @@
  */
 
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { InspectionRiskRateEnum } from '@/shared/constants/inspection-risk-rate.enum';
 import type { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import { User } from '@/core/lib/types';
 import { RiskCategory, Risk } from '@/core/lib/types';
@@ -25,8 +26,29 @@ export interface InspectionImage {
   createdAt: Date;
 }
 
+export interface InspectionChecklistResult {
+  id: string;
+  inspectionItemId: string;
+  checklistItemId: string;
+  riskRate?: InspectionRiskRateEnum;
+  notes?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  checklistItem?: {
+    id: string;
+    name: string;
+    code?: string | null;
+    parent?: { id: string; name: string; code?: string | null } | null;
+  };
+}
+
+export interface CreateInspectionChecklistResultDTO {
+  checklistItemId: string;
+  riskRate?: InspectionRiskRateEnum;
+  notes?: string;
+}
+
 export interface RiskMitigationData {
-  eliminate?: string;
   eliminationControl?: string;
   substitutionControl?: string;
   engineeringControl?: string;
@@ -77,6 +99,8 @@ export interface InspectionItem {
   updatedAt: Date;
   images?: InspectionImage[];
   mitigation?: RiskMitigationRecord;
+  checklistId?: string;
+  checklistResults?: InspectionChecklistResult[];
 }
 
 export interface InspectionInspector {
@@ -104,6 +128,7 @@ export interface Inspection {
   creator?: User;
   items?: InspectionItem[];
   inspectors?: InspectionInspector[];
+  finalInspectionValue?: number | null;
 }
 
 export interface CreateInspectionItemDTO {
@@ -119,6 +144,8 @@ export interface CreateInspectionItemDTO {
   dueDateAt?: string;
   images?: CreateInspectionImageDTO[];
   mitigation?: RiskMitigationData;
+  checklistId?: string;
+  checklistResults?: CreateInspectionChecklistResultDTO[];
 }
 
 export interface UpdateInspectionItemDTO extends Partial<CreateInspectionItemDTO> {}

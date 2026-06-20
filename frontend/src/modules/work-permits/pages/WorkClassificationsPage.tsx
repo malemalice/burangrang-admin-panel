@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Eye, Trash2, Plus, MoreHorizontal, ClipboardList } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
@@ -23,21 +23,17 @@ import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
 import { useWorkPermitClassificationContentEnabled } from '../hooks/useWorkPermitClassificationContentEnabled';
 
+const FILTER_PARAM_KEYS = ['name', 'code', 'status'] as const;
+
 const WorkClassificationsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = usePermissions();
   const { enabled: classificationContentEnabled } = useWorkPermitClassificationContentEnabled();
   const { classifications, isLoading, fetchClassifications, pagination } = useWorkClassifications();
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<WorkClassification | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<
-    Record<string, { value: string | boolean; label: string }>
-  >({});
 
   const filterFields: FilterField[] = useMemo(() => {
     return [
@@ -65,28 +61,74 @@ const WorkClassificationsPage = () => {
     ];
   }, []);
 
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const activeFilters = useMemo(() => {
+    const out: Record<string, { value: string | boolean; label: string }> = {};
+    const status = searchParams.get('status');
+    if (status === 'active' || status === 'inactive') {
+      out.status = { value: status, label: status === 'active' ? 'Active' : 'Inactive' };
+    }
+    const name = searchParams.get('name');
+    if (name) out.name = { value: name, label: name };
+    const code = searchParams.get('code');
+    if (code) out.code = { value: code, label: code };
+    return out;
+  }, [searchParams]);
+
+  const sorting = useMemo((): { id: string; desc: boolean } | null => {
+    const sortBy = searchParams.get('sortBy');
+    const sortOrder = searchParams.get('sortOrder');
+    if (!sortBy) return null;
+    return { id: sortBy, desc: sortOrder !== 'asc' };
+  }, [searchParams]);
+
+  const activeTab = useMemo(() => {
+    const status = searchParams.get('status');
+    if (status === 'active') return 'active';
+    if (status === 'inactive') return 'inactive';
+    return 'all';
+  }, [searchParams]);
+
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams],
+  );
+
   const fetchData = useCallback(async () => {
+    const trimmed = searchTerm.trim();
     const params: Parameters<typeof fetchClassifications>[0] = {
       page: pageIndex + 1,
       limit,
+      search: trimmed.length > 0 ? trimmed : undefined,
+      sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'createdAt',
+      sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
     };
 
-    if (searchTerm) {
-      params.search = searchTerm;
+    if (activeFilters.status) {
+      params.isActive = activeFilters.status.value === 'active';
     }
 
-    Object.entries(activeFilters).forEach(([key, item]) => {
-      if (key === 'status') {
-        params.isActive = item.value === 'active';
-      } else if (key === 'name' || key === 'code') {
-        if (!params.search) {
-          params.search = String(item.value);
-        }
-      }
-    });
-
     await fetchClassifications(params);
-  }, [pageIndex, limit, searchTerm, activeFilters, fetchClassifications]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchClassifications]);
 
   useEffect(() => {
     fetchData();
@@ -124,63 +166,81 @@ const WorkClassificationsPage = () => {
     setOpenDropdownId(null);
   }, []);
 
-  const handleSearch = useCallback((term: string) => {
-    setSearchTerm(term);
-    setPageIndex(0);
-  }, []);
+  const handleSearch = useCallback(
+    (term: string) => {
+      const trimmed = term.trim();
+      updateSearchParams((next) => {
+        if (trimmed) next.set('search', trimmed);
+        else next.delete('search');
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams],
+  );
 
   const handleTabChange = useCallback(
     (value: string) => {
-      setActiveTab(value);
-      setPageIndex(0);
-
-      const newFilters: Record<string, { value: string | boolean; label: string }> = {};
-      Object.entries(activeFilters).forEach(([key, item]) => {
-        if (key !== 'status') {
-          newFilters[key] = item;
-        }
+      updateSearchParams((next) => {
+        FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+        if (value === 'active') next.set('status', 'active');
+        else if (value === 'inactive') next.set('status', 'inactive');
+        next.set('page', '1');
       });
-
-      if (value === 'all') {
-        setActiveFilters(newFilters);
-      } else if (value === 'active') {
-        setActiveFilters({
-          ...newFilters,
-          status: { value: 'active', label: 'Active' },
-        });
-      } else if (value === 'inactive') {
-        setActiveFilters({
-          ...newFilters,
-          status: { value: 'inactive', label: 'Inactive' },
-        });
-      }
     },
-    [activeFilters],
+    [updateSearchParams],
   );
 
-  const handleApplyFilters = useCallback((filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: string | boolean; label: string }> = {};
+  const handleApplyFilters = useCallback(
+    (filters: FilterValue[]) => {
+      updateSearchParams((next) => {
+        FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+        filters.forEach((filter: FilterValue) => {
+          if (filter.id === 'status') {
+            next.set('status', String(filter.value));
+          } else if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+            next.set(filter.id, String(filter.value));
+          }
+        });
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams],
+  );
 
-    filters.forEach((filter) => {
-      if (filter.id === 'status') {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: filter.value === 'active' ? 'Active' : 'Inactive',
-        };
-        setActiveTab(
-          filter.value === 'active' ? 'active' : filter.value === 'inactive' ? 'inactive' : 'all',
-        );
-      } else {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: String(filter.value),
-        };
-      }
-    });
+  const handleSortingChange = useCallback(
+    (newSorting: { id: string; desc: boolean } | null) => {
+      updateSearchParams((next) => {
+        if (newSorting) {
+          next.set('sortBy', newSorting.id);
+          next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
+        } else {
+          next.delete('sortBy');
+          next.delete('sortOrder');
+        }
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams],
+  );
 
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0);
-  }, []);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      updateSearchParams((next) => {
+        next.set('page', String(page + 1));
+      });
+    },
+    [updateSearchParams],
+  );
+
+  const handlePageSizeChange = useCallback(
+    (size: number) => {
+      updateSearchParams((next) => {
+        next.set('limit', String(size));
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams],
+  );
 
   const columns = useMemo(
     () => [
@@ -319,14 +379,17 @@ const WorkClassificationsPage = () => {
           pageIndex,
           limit,
           pageCount: pagination?.totalPages || 0,
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
           total: pagination?.total || 0,
         }}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
         searchPlaceholder={
           classificationContentEnabled
             ? 'Search name, code, or safety guideline…'

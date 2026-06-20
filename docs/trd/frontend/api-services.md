@@ -1,0 +1,296 @@
+> [← Frontend TRD Index](./index.md)
+>
+> *Service-layer architecture for module API calls, inter-module fetches with `options: true`, DTO↔model transformation, pagination shapes, and error/loading/403 handling.*
+
+## API Calling Patterns
+
+### 1. Service Layer Architecture
+Each module MUST follow this service pattern:
+
+```typescript
+// modules/[module-name]/services/[moduleName]Service.ts
+import api from '@/core/lib/api';
+import { [Entity]DTO, Create[Entity]DTO, Update[Entity]DTO } from '../types/[moduleName].types';
+
+// Data transformation functions
+const map[Entity]DtoTo[Entity] = ([entity]Dto: [Entity]DTO): [Entity] => ({
+  // Transform DTO to frontend model
+});
+
+const map[Entity]ToUpdateDto = ([entity]: Partial<[Entity]>): Update[Entity]DTO => ({
+  // Transform frontend model to update DTO
+});
+
+const [moduleName]Service = {
+  // GET all with pagination
+  get[Entities]: async (params: PaginationParams): Promise<PaginatedResponse<[Entity]>> => {
+    const queryParams = new URLSearchParams({
+      page: params.page.toString(),
+      limit: params.limit.toString()
+    });
+
+    // Add search and filters
+    if (params.search) queryParams.append('search', params.search);
+    if (params.filters) {
+      Object.entries(params.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/[entities]?${queryParams.toString()}`);
+    return {
+      data: response.data.data.map(map[Entity]DtoTo[Entity]),
+      meta: response.data.meta
+    };
+  },
+
+  // GET single entity
+  get[Entity]ById: async (id: string): Promise<[Entity]> => {
+    const response = await api.get(`/[entities]/${id}`);
+    return map[Entity]DtoTo[Entity](response.data);
+  },
+
+  // CREATE entity
+  create[Entity]: async ([entity]Data: Create[Entity]DTO): Promise<[Entity]> => {
+    const response = await api.post('/[entities]', [entity]Data);
+    return map[Entity]DtoTo[Entity](response.data);
+  },
+
+  // UPDATE entity
+  update[Entity]: async (id: string, [entity]Data: Update[Entity]DTO): Promise<[Entity]> => {
+    const response = await api.patch(`/[entities]/${id}`, [entity]Data);
+    return map[Entity]DtoTo[Entity](response.data);
+  },
+
+  // DELETE entity
+  delete[Entity]: async (id: string): Promise<void> => {
+    await api.delete(`/[entities]/${id}`);
+  }
+};
+
+export default [moduleName]Service;
+```
+
+### 2. Inter-Module API Calls
+When one module needs data from another module:
+
+```typescript
+// ❌ DON'T - Direct service import from another module
+import { roleService } from '@/modules/roles';
+
+// ✅ DO - Import through barrel export
+import { roleService } from '@/modules/roles';
+
+// ✅ BETTER - Use shared service for common operations
+import { roleService } from '@/modules/roles';
+
+// In component/service that needs role data
+const fetchRolesForDropdown = async () => {
+  try {
+    const response = await roleService.getRoles({
+      page: 1,
+      limit: 100, // Get all for dropdown
+      options: true // Bypass permission check - user needs options for form, not full module access
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch roles:', error);
+    return [];
+  }
+};
+```
+
+**Options Bypass for Select/Dropdown Data:** When fetching list data for form dropdowns (roles, departments, offices, etc.), add `options: true` to the query params. This allows users who have form access (e.g. `certificate:create`) but not the list permission (e.g. `department:list`) to still load options. The backend accepts `?options=true` and bypasses the permission check for authenticated users on endpoints that support it.
+
+### User Dropdown Filtering — Employee vs Contractor
+
+The system has two user types distinguished by role code:
+- **Employees** — all users whose `role.code !== 'CONTRACTOR'`
+- **Contractors** — users with `role.code === 'CONTRACTOR'`
+
+Use the appropriate filter when fetching users for dropdowns:
+
+**Employees only** — use `filters: { excludeRoleCode: 'CONTRACTOR' }`:
+```typescript
+userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } })
+```
+
+**Contractors only** — use `filters: { roleCode: 'CONTRACTOR' }` (or import `WORK_PERMIT_WORKER_ROLE_CODE` from `workPermitWorkerService`):
+```typescript
+userService.getUsers({ page: 1, limit: 500, options: true, filters: { roleCode: 'CONTRACTOR' } })
+```
+
+**Both** — no filter needed (default behavior).
+
+#### Reference: which fields use which filter
+
+**Employees only** — internal staff roles (assignees, instructors, auditors, HSE officers):
+
+| File | Field | Reason |
+|---|---|---|
+| `modules/courses/pages/CourseForm.tsx` | Instructor | Instructors are internal employees |
+| `modules/courses/pages/CoursesPage.tsx` | Filter: Instructor | Should match form |
+| `modules/incidents/pages/IncidentsPage.tsx` | Filter: Assignee | Incident handlers are internal staff |
+| `modules/incidents/components/IncidentForm.tsx` | Assignee (general users) | Same |
+| `modules/incident-security/pages/IncidentSecuritiesPage.tsx` | Filter: Assignee | Same |
+| `modules/incident-security/components/IncidentSecurityForm.tsx` | Assignee (general users) | Same |
+| `modules/inspections/components/InspectionForm.tsx` | Inspector IDs | Inspectors are internal |
+| `modules/inspections/components/InspectionItemForm.tsx` | Assignee | Inspection assignments go to employees |
+| `modules/inspections/inspection-items/pages/InspectionItemsPage.tsx` | Filter: Assigned user | Same |
+| `modules/audit-schedules/components/AuditScheduleForm.tsx` | Auditor IDs | Auditors are internal |
+| `modules/audit-schedules/components/AuditItemForm.tsx` | Assigned users | Same |
+| `modules/audit-schedules/pages/AuditSchedulesPage.tsx` | Filter: Auditor | Should match form |
+| `modules/audit-schedules/pages/ViewAuditCriteriaPage.tsx` | User lookup map | Auditors are internal |
+| `modules/risk-assessment/components/RiskAssessmentForm.tsx` | User options | Risk assessors are internal |
+| `modules/work-permits/components/WorkPermitForm.tsx` | HSE Officer field | HSE officers are employees |
+| `modules/settings/pages/SettingsPage.tsx` | Zoho sync config | Internal config, employees only |
+
+**Contractors only** — already filtered via `roleCode: 'CONTRACTOR'`:
+
+| File | Field |
+|---|---|
+| `modules/work-permits/components/WorkPermitForm.tsx` | Worker/contractor field |
+| `modules/work-permits/services/workPermitWorkerService.ts` | Worker fetch utility |
+
+**Both (no filter)** — records that apply to anyone on-site:
+
+| File | Field | Reason |
+|---|---|---|
+| `modules/enrollments/components/AssignCourseDialog.tsx` | Assign course to user | Contractors may need safety training |
+| `modules/enrollments/pages/EnrollmentsPage.tsx` | Filter: User | Enrollment applies to both |
+| `modules/certificates/pages/CertificateForm.tsx` | Personnel selection | Safety certs cover contractors too |
+| `modules/certificates/pages/CertificatesPage.tsx` | Filter: Personnel | Should match form |
+| `modules/ppe/pages/withdrawals/PPEWithdrawalForm.tsx` | Requested-for user | PPE issued to anyone on-site |
+| `modules/access-logs/pages/AccessLogsPage.tsx` | Filter: User | Both enter the facility |
+| `modules/reminders/pages/ReminderForm.tsx` | Reminder target | Reminders can target anyone |
+| `modules/reminders/components/reminders-section/RemindersSection.tsx` | Reminder target | Same |
+
+**Already role-filtered** — no additional type filter needed:
+
+| File | Field | Filter |
+|---|---|---|
+| `modules/incidents/components/IncidentForm.tsx` | Technician | `roleId: TECHNICIAN` |
+| `modules/incident-security/components/IncidentSecurityForm.tsx` | Technician | `roleId: TECHNICIAN` |
+
+## Data Transformation Patterns
+
+### 1. DTO to Model Mapping
+Consistent data transformation patterns:
+
+```typescript
+// modules/[module-name]/services/[moduleName]Service.ts
+
+// DTO from backend
+interface [Entity]DTO {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  // ... other backend fields
+}
+
+// Frontend model
+interface [Entity] {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  // ... frontend-specific fields
+}
+
+// Transformation function
+const map[Entity]DtoTo[Entity] = ([entity]Dto: [Entity]DTO): [Entity] => ({
+  id: [entity]Dto.id,
+  name: [entity]Dto.name,
+  status: [entity]Dto.isActive ? 'active' : 'inactive',
+  createdAt: [entity]Dto.createdAt,
+  // ... transform other fields
+});
+
+// Reverse transformation for updates
+const map[Entity]ToUpdateDto = ([entity]: Partial<[Entity]>): Update[Entity]DTO => ({
+  name: [entity].name,
+  isActive: [entity].status === 'active',
+  // ... transform other fields
+});
+```
+
+### 2. Pagination Response Handling
+Standard pagination response pattern:
+
+```typescript
+// Shared types in core/lib/types.ts
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    pageCount: number;
+  };
+}
+
+export interface PaginationParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  filters?: Record<string, any>;
+}
+```
+
+## Error Handling Patterns
+
+### 1. Consistent Error Messages
+Standard error handling across all modules:
+
+```typescript
+// In services
+try {
+  const response = await api.post('/[entities]', data);
+  return map[Entity]DtoTo[Entity](response.data);
+} catch (error: any) {
+  console.error('Error creating [entity]:', error);
+  const errorMessage = error.response?.data?.message || 'Failed to create [entity]';
+  throw new Error(errorMessage);
+}
+
+// In hooks/components
+try {
+  await create[Entity](data);
+} catch (err) {
+  const errorMessage = err instanceof Error ? err.message : 'Failed to create [entity]';
+  toast.error(errorMessage);
+}
+```
+
+### 2. Loading States
+Consistent loading state management:
+
+```typescript
+// In hooks
+const [isLoading, setIsLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+
+// In components
+if (isLoading) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+    </div>
+  );
+}
+```
+
+### 3. Data-Level Access (Backend)
+
+For **data-scoped modules** (Enrollments, Work Permits, Certificates, PPE Withdrawals), the backend enforces row-level access (SELF / DEPARTMENT / SUPER). The frontend does not implement data-level logic; it must handle backend behavior correctly:
+
+- **List (findAll):** The API may return fewer rows or an empty list when the user's role has SELF or DEPARTMENT scope. Treat empty or partial results as **valid** — do not show a generic "error" or assume data is missing due to a bug. Show an empty state (e.g. "No records" or "No records you have access to") when the list is empty.
+- **Single record (get by id, update, delete, related actions):** The API may return **403 Forbidden** (e.g. message "You do not have access to this record") when the user does not have access to that row. Handle 403 with a clear, user-friendly message (e.g. toast or inline: "You do not have access to this record") and navigate away or back to list as appropriate; do not treat 403 as a generic server error.
+- **Principle:** Do not assume the user can see all rows in these modules. Empty lists and 403 on detail/update/delete are expected for users with SELF or DEPARTMENT scope.
+
+Reference: [docs/trd/backend/security.md](../backend/security.md), `docs/auth.md`.

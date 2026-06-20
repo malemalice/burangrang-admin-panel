@@ -58,6 +58,12 @@ export const InspectionDetailsCard = ({ inspection }: InspectionDetailsCardProps
           <p className="text-xs font-medium text-muted-foreground">Last Updated</p>
           <p className="text-sm">{format(new Date(inspection.updatedAt), 'dd MMM yyyy')}</p>
         </div>
+        {inspection.finalInspectionValue != null && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Final Inspection Value</p>
+            <p className="text-sm font-semibold">{inspection.finalInspectionValue.toFixed(2)}%</p>
+          </div>
+        )}
         {inspection.inspectors && inspection.inspectors.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">Inspectors</p>

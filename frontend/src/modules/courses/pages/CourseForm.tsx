@@ -63,7 +63,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true });
+        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } });
         setInstructors(
           instructorsResponse.data.map(user => ({
             id: user.id,

@@ -6,7 +6,9 @@ import {
   UseGuards,
   Query,
   Body,
+  Request,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -25,6 +27,10 @@ import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
+
+interface RequestWithUser extends ExpressRequest {
+  user: { id: string; email: string; role: string };
+}
 
 @ApiTags('Inspection Items')
 @ApiBearerAuth()
@@ -91,9 +97,10 @@ export class InspectionItemsController {
   @ApiOperation({ summary: 'Update an inspection item' })
   @ApiResponse({ status: 200, type: InspectionItemDto })
   async update(
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() updateItemDto: UpdateInspectionItemDto,
   ): Promise<InspectionItemDto> {
-    return this.inspectionsService.updateItemStandalone(id, updateItemDto);
+    return this.inspectionsService.updateItemStandalone(id, updateItemDto, req.user.id);
   }
 }

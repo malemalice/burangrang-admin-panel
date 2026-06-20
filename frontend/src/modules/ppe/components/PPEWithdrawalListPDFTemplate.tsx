@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { PPEWithdrawal, PPEWithdrawalStatus } from '../types/ppe.types';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 interface PPEWithdrawalListPDFTemplateProps {
   withdrawals: PPEWithdrawal[];
@@ -24,27 +25,17 @@ export function PPEWithdrawalListPDFTemplate({
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
-      <div
-        className="mb-6 pb-4"
-        style={{ borderBottom: '2px solid #111' }}
-      >
-        <p
-          className="text-xs font-semibold text-gray-500 mb-1 tracking-widest uppercase"
-          style={{ fontSize: '10px', color: '#888', letterSpacing: '1px', textTransform: 'uppercase' }}
-        >
-          Health, Safety &amp; Environment
-        </p>
-        <h1
-          className="font-bold text-gray-900"
-          style={{ fontSize: '20px', letterSpacing: '0.5px', color: '#111' }}
-        >
-          PPE WITHDRAWAL LIST
-        </h1>
-        <p style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>
-          Generated: {format(generated, 'dd MMMM yyyy HH:mm')}
-          &nbsp;&nbsp;|&nbsp;&nbsp;
-          Total Records: {withdrawals.length}
-        </p>
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">PPE Withdrawal List</h1>
+            <p className="text-sm text-gray-600 mb-1">{withdrawals.length} record(s)</p>
+            <p className="text-sm text-gray-600">Generated on {format(generated, 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* Table */}

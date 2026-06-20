@@ -3,6 +3,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/core/components/ui/table';
 import { MonthlyFlowReport, ReportStatusEnum } from '../types/waste-management.types';
+import PdfAppHeader from '@/core/components/pdf/PdfAppHeader';
 
 interface MonthlyFlowReportPDFTemplateProps {
   report: MonthlyFlowReport;
@@ -18,14 +19,23 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
   };
 
   return (
-    <div
-      className="bg-white p-8 space-y-6"
-      style={{ width: '210mm', fontFamily: 'Arial, sans-serif' }}
-      aria-hidden="true"
-    >
-      {/* Header Section */}
-      <div className="text-center border-b-2 border-foreground pb-4">
-        <h1 className="text-3xl font-bold uppercase tracking-wide mb-2">Monthly Flow Report</h1>
+    <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="mb-8 border-b-2 border-gray-800 pb-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Monthly Flow Report: {report.reportCode}
+            </h1>
+            <p className="text-sm text-gray-600 mb-1">
+              {report.treatmentPlant?.name ?? '—'}
+            </p>
+            <p className="text-sm text-gray-600">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
+          </div>
+          <div className="shrink-0">
+            <PdfAppHeader />
+          </div>
+        </div>
       </div>
 
       {/* Document Information */}

@@ -2,8 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
-/** Signed link TTL for anonymous health screening fill (24 hours). */
-export const HEALTH_SCREENING_PUBLIC_LINK_TTL_SECONDS = 86400;
+/** Signed link TTL for anonymous health screening fill (48 hours). */
+export const HEALTH_SCREENING_PUBLIC_LINK_TTL_SECONDS = 172800;
 
 export interface HealthScreeningPublicLinkPayload {
   screeningId: string;

@@ -15,6 +15,10 @@ RUN npm ci && \
 # Copy application source
 COPY . .
 
+# Allow injecting API URL at build time (e.g. for production vs staging)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build application with environment variables
 RUN npm run build
 

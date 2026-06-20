@@ -510,3 +510,94 @@ export interface CompanyFilters {
   contactPerson?: string;
   status?: 'active' | 'inactive' | 'all';
 }
+
+// =============================================================================
+// INSPECTION CHECKLIST TYPES
+// =============================================================================
+
+export interface InspectionChecklistDTO {
+  id: string;
+  parentId: string | null;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  order: number;
+  isActive: boolean;
+  deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  parent?: InspectionChecklistDTO | null;
+  children?: InspectionChecklistDTO[];
+}
+
+export interface CreateInspectionChecklistDTO {
+  name: string;
+  parentId?: string;
+  code?: string;
+  description?: string;
+  order?: number;
+  isActive?: boolean;
+}
+
+export type UpdateInspectionChecklistDTO = Partial<CreateInspectionChecklistDTO>;
+
+export interface InspectionChecklistSearchParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  isActive?: boolean;
+  rootsOnly?: boolean;
+  options?: boolean;
+}
+
+// =============================================================================
+// HFACS NODE TYPES (Investigation Sections H & I cause catalogue)
+// =============================================================================
+
+export type HfacsSection = 'LATENT_FAILURE' | 'ACTIVE_FAILURE';
+
+export interface HfacsNodeDTO {
+  id: string;
+  parentId: string | null;
+  section: HfacsSection;
+  depth: number; // 0 = Tier1, 1 = Tier2, 2 = Item
+  code?: string | null;
+  labelEn: string;
+  labelId: string;
+  isOther: boolean;
+  order: number;
+  isActive: boolean;
+  deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  parent?: HfacsNodeDTO | null;
+  children?: HfacsNodeDTO[];
+}
+
+export interface CreateHfacsNodeDTO {
+  parentId?: string;
+  section: HfacsSection;
+  code?: string;
+  labelEn: string;
+  labelId: string;
+  isOther?: boolean;
+  order?: number;
+  isActive?: boolean;
+}
+
+export type UpdateHfacsNodeDTO = Partial<CreateHfacsNodeDTO>;
+
+export interface HfacsNodeSearchParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  section?: HfacsSection;
+  depth?: number;
+  parentId?: string | null;
+  isActive?: boolean;
+  options?: boolean;
+}

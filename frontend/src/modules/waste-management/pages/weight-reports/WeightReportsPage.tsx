@@ -17,6 +17,8 @@ import {
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { treatmentPlantSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
@@ -98,6 +100,14 @@ export default function WeightReportsPage() {
       };
       filters.status = { value: status, label: statusLabels[status] ?? status };
     }
+    const reportDateFrom = searchParams.get('reportDateFrom');
+    const reportDateTo = searchParams.get('reportDateTo');
+    if (reportDateFrom || reportDateTo) {
+      filters.reportDateRange = {
+        value: { from: reportDateFrom ?? undefined, to: reportDateTo ?? undefined },
+        label: [reportDateFrom, reportDateTo].filter(Boolean).join(' - '),
+      };
+    }
     return filters;
   }, [searchParams, sources, locations]);
 
@@ -173,17 +183,29 @@ export default function WeightReportsPage() {
         { label: 'Rejected', value: WeightReportStatusEnum.REJECTED },
       ],
     },
+    {
+      id: 'reportDateRange',
+      label: 'Report Date',
+      type: 'dateRange',
+      dateRangeMode: 'date',
+      showRelativePresets: true,
+    },
   ];
 
   const buildListParams = useCallback(
-    (pageNum: number, limitNum: number) => ({
-      page: pageNum,
-      limit: limitNum,
-      search: search || undefined,
-      sourceId: activeFilters.sourceId?.value,
-      storageLocationId: activeFilters.storageLocationId?.value,
-      status: activeFilters.status?.value,
-    }),
+    (pageNum: number, limitNum: number) => {
+      const range = activeFilters.reportDateRange?.value as { from?: string; to?: string } | undefined;
+      return {
+        page: pageNum,
+        limit: limitNum,
+        search: search || undefined,
+        sourceId: activeFilters.sourceId?.value,
+        storageLocationId: activeFilters.storageLocationId?.value,
+        status: activeFilters.status?.value,
+        reportDateFrom: range?.from?.split('T')[0],
+        reportDateTo: range?.to?.split('T')[0],
+      };
+    },
     [search, activeFilters],
   );
 
@@ -222,9 +244,15 @@ export default function WeightReportsPage() {
 
   const handleApplyFilters = (filters: FilterValue[]) => {
     updateSearchParams((next) => {
-      ['sourceId', 'storageLocationId', 'status'].forEach((k) => next.delete(k));
+      ['sourceId', 'storageLocationId', 'status', 'reportDateFrom', 'reportDateTo'].forEach((k) => next.delete(k));
       filters.forEach((filter) => {
-        next.set(filter.id, String(filter.value));
+        if (filter.id === 'reportDateRange') {
+          const range = filter.value as { from?: string; to?: string };
+          if (range.from) next.set('reportDateFrom', range.from.split('T')[0]);
+          if (range.to) next.set('reportDateTo', range.to.split('T')[0]);
+        } else {
+          next.set(filter.id, String(filter.value));
+        }
       });
       next.set('page', '1');
     });
@@ -484,6 +512,14 @@ export default function WeightReportsPage() {
             />
           )}
         </div>
+      </div>
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="weight-reports"
+          entityLabel="Weight Report"
+          subjectPicker={treatmentPlantSubjectPicker}
+        />
       </div>
     </>
   );

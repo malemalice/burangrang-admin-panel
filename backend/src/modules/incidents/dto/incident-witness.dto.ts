@@ -20,6 +20,10 @@ export class IncidentWitnessDto {
   @Expose()
   gender?: GenderEnum;
 
+  @ApiProperty({ required: false, description: 'Job position/title at time of incident' })
+  @Expose()
+  position?: string;
+
   @ApiProperty({ required: false })
   @Expose()
   departmentId?: string;

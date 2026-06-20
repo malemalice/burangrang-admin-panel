@@ -164,6 +164,18 @@ export class UsersController {
     description: 'Search term for name or email',
   })
   @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Filter by name (firstName or lastName contains)',
+  })
+  @ApiQuery({
+    name: 'email',
+    required: false,
+    type: String,
+    description: 'Filter by email (contains)',
+  })
+  @ApiQuery({
     name: 'officeId',
     required: false,
     type: String,
@@ -201,6 +213,12 @@ export class UsersController {
     description: 'Filter by role code (e.g. CONTRACTOR)',
   })
   @ApiQuery({
+    name: 'excludeRoleCode',
+    required: false,
+    type: String,
+    description: 'Exclude users whose role code matches this value (e.g. CONTRACTOR to get employees only)',
+  })
+  @ApiQuery({
     name: 'options',
     required: false,
     type: Boolean,
@@ -234,12 +252,16 @@ export class UsersController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('email') email?: string,
     @Query('officeId') officeId?: string,
     @Query('roleId') roleId?: string,
     @Query('departmentId') departmentId?: string,
     @Query('jobPositionId') jobPositionId?: string,
     @Query('companyId') companyId?: string,
     @Query('roleCode') roleCode?: string,
+    @Query('excludeRoleCode') excludeRoleCode?: string,
+    @Query('options') optionsMode?: string,
   ): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -251,6 +273,12 @@ export class UsersController {
     const trimmedSearch = search?.trim();
     const finalSearch = trimmedSearch && trimmedSearch.length > 0 ? trimmedSearch : undefined;
 
+    const trimmedName = name?.trim();
+    const finalName = trimmedName && trimmedName.length > 0 ? trimmedName : undefined;
+
+    const trimmedEmail = email?.trim();
+    const finalEmail = trimmedEmail && trimmedEmail.length > 0 ? trimmedEmail : undefined;
+
     return this.usersService.findAll(
       {
         page: pageNumber,
@@ -259,12 +287,15 @@ export class UsersController {
         sortOrder,
         isActive: isActiveBoolean,
         search: finalSearch,
+        name: finalName,
+        email: finalEmail,
         officeId,
         roleId,
         departmentId,
         jobPositionId,
         companyId,
         roleCode,
+        excludeRoleCode,
       },
       req.user
         ? {
@@ -272,11 +303,11 @@ export class UsersController {
             companyId: req.user.companyId ?? null,
           }
         : undefined,
+      optionsMode === 'true',
     );
   }
 
   @Get('me')
-  @Permissions('user:read')
   @ApiOperation({ summary: 'Get current user profile' })
   
   @ApiResponse({

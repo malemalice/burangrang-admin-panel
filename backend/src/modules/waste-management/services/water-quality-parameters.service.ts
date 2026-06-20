@@ -15,6 +15,8 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  dateSampleTakenFrom?: string;
+  dateSampleTakenTo?: string;
 }
 
 @Injectable()
@@ -66,6 +68,8 @@ export class WaterQualityParametersService {
       sortOrder = 'asc',
       isActive,
       search,
+      dateSampleTakenFrom,
+      dateSampleTakenTo,
     } = options || {};
     const where: any = {};
 
@@ -78,6 +82,11 @@ export class WaterQualityParametersService {
       ];
     }
     if (isActive !== undefined) where.isActive = isActive;
+    if (dateSampleTakenFrom || dateSampleTakenTo) {
+      where.dateSampleTaken = {};
+      if (dateSampleTakenFrom) where.dateSampleTaken.gte = new Date(dateSampleTakenFrom);
+      if (dateSampleTakenTo) where.dateSampleTaken.lte = new Date(dateSampleTakenTo + 'T23:59:59.999Z');
+    }
 
     const orderBy: any =
       sortBy === 'displayOrder'

@@ -155,10 +155,10 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
 
       if (mode === 'create') {
         await environmentalMeasurementService.createMeasurement(measurementData as CreateEnvironmentalMeasurementDTO);
-        toast.success('Environmental Measurements created successfully');
+        toast.success('Non Water Monitoring created successfully');
       } else if (measurement) {
         await environmentalMeasurementService.updateMeasurement(measurement.id, measurementData as UpdateEnvironmentalMeasurementDTO);
-        toast.success('Environmental Measurements updated successfully');
+        toast.success('Non Water Monitoring updated successfully');
       }
       navigate('/environmental-measurements');
     } catch (error: unknown) {
@@ -181,7 +181,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Environmental Measurement</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Non Water Monitoring</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>

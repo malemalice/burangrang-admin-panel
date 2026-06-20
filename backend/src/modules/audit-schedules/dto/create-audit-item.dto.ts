@@ -75,7 +75,7 @@ export class CreateAuditItemDto {
 
   @ApiProperty()
   @IsInt()
-  @Min(1)
+  @Min(0)
   order: number;
 
   @ApiProperty({ type: [AuditImageDto], required: false })

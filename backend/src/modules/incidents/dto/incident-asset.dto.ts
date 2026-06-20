@@ -29,6 +29,10 @@ export class IncidentAssetDto {
 
   @ApiProperty({ required: false })
   @Expose()
+  brand?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
   quantity?: number;
 
   @ApiProperty()

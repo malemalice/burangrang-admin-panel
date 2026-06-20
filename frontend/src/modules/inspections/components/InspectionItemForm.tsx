@@ -3,8 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Upload, Image as ImageIcon, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, X, Upload, Image as ImageIcon, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Separator } from '@/core/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 
 import { Button } from '@/core/components/ui/button';
 import {
@@ -39,9 +40,13 @@ import {
 } from '@/core/components/ui/dialog';
 import { Label } from '@/core/components/ui/label';
 
-import { CreateInspectionItemDTO, CreateInspectionDTO, InspectionImageTypeEnum } from '../types/inspection.types';
+import { CreateInspectionItemDTO, CreateInspectionDTO, InspectionImageTypeEnum, CreateInspectionChecklistResultDTO } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
 import { riskCategoryService, riskService } from '@/modules/master-data';
+import inspectionChecklistService from '@/modules/master-data/services/inspectionChecklistService';
+import { InspectionChecklistDTO } from '@/modules/master-data/types/master-data.types';
+import { InspectionRiskRateEnum, INSPECTION_RISK_RATE_OPTIONS, INSPECTION_RISK_RATE_BADGE_CLASSES, INSPECTION_RISK_RATE_PILL_CLASSES } from '@/shared/constants/inspection-risk-rate.enum';
+import { cn } from '@/core/lib/utils';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { userService } from '@/modules/users';
 import { User } from '@/core/lib/types';
@@ -55,7 +60,7 @@ import riskMitigationService, { type RiskMitigation } from '@/modules/risk-asses
 import inspectionItemsService from '../inspection-items/services/inspectionItemsService';
 import { generateInspectionCode, getDefaultInspectionStatus } from '../utils/inspection-form.utils';
 
-// Inspection item status options - using GeneralStatusEnum (OPEN, WAITING_APPROVAL, CLOSE)
+// Inspection Finding Monitoring status options - using GeneralStatusEnum (OPEN, WAITING_APPROVAL, CLOSE)
 
 // Image upload interface
 interface ImageUpload {
@@ -69,7 +74,6 @@ interface ImageUpload {
 
 // Mitigation schema for validation
 const mitigationSchema = z.object({
-  eliminate: z.string().optional(),
   eliminationControl: z.string().optional(),
   substitutionControl: z.string().optional(),
   engineeringControl: z.string().optional(),
@@ -80,7 +84,7 @@ const mitigationSchema = z.object({
   legalAspect: z.string().optional(),
 });
 
-// Inspection fields schema (when creating inspection + item from Inspection Items page)
+// Inspection fields schema (when creating inspection + item from Inspection Finding Monitoring page)
 const inspectionFieldsSchema = z.object({
   code: z.string().min(1, 'Code is required'),
   areaIds: z.array(z.string()).min(1, 'At least one area is required'),
@@ -117,7 +121,6 @@ const itemFormRefinement = (data: z.infer<typeof baseItemFormSchema>, ctx: z.Ref
   }
   if (data.riskId && data.mitigation) {
     const hasMitigation = !!(
-      (data.mitigation.eliminate && data.mitigation.eliminate.trim()) ||
       (data.mitigation.eliminationControl && data.mitigation.eliminationControl.trim()) ||
       (data.mitigation.substitutionControl && data.mitigation.substitutionControl.trim()) ||
       (data.mitigation.engineeringControl && data.mitigation.engineeringControl.trim()) ||
@@ -165,6 +168,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     followUpNotes: 'hidden',
     afterImages: 'editable',
     beforeImages: 'editable',
+    checklist: 'editable',
   },
   updater: {
     areaId: 'readonly',
@@ -180,6 +184,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     followUpNotes: 'editable',
     afterImages: 'editable',
     beforeImages: 'hidden',
+    checklist: 'readonly',
   },
   verifier: {
     areaId: 'editable',
@@ -195,6 +200,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     followUpNotes: 'editable',
     afterImages: 'editable',
     beforeImages: 'editable',
+    checklist: 'readonly',
   },
 };
 
@@ -282,6 +288,13 @@ const InspectionItemForm = ({
   const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
+  // Checklist states
+  const [checklistRoots, setChecklistRoots] = useState<InspectionChecklistDTO[]>([]);
+  const [checklistResults, setChecklistResults] = useState<Record<string, { riskRate?: string; notes?: string }>>({});
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState('item-details');
+
   // Approval workflow states
   // Initialize isCheckingApprovalRights to true if we're in verifier mode with an item ID
   // This ensures we show loading state immediately instead of blank/access denied
@@ -349,7 +362,6 @@ const InspectionItemForm = ({
       findings: initialItem?.findings || '',
       dueDateAt: initialItem?.dueDateAt ? new Date(initialItem.dueDateAt).toISOString().split('T')[0] : '',
       mitigation: initialItem?.mitigation || {
-        eliminate: '',
         eliminationControl: '',
         substitutionControl: '',
         engineeringControl: '',
@@ -422,9 +434,9 @@ const InspectionItemForm = ({
         // If user doesn't have permission, we'll just skip it (assignee field is optional)
         // Fetch users when assigneeId is editable or when creating with inspection (for inspectors dropdown)
         const assigneePermission = FIELD_PERMISSIONS[formMode]?.assigneeId;
-        if (assigneePermission === 'editable' || createWithInspection) {
+        if (assigneePermission === 'editable' || assigneePermission === 'readonly' || createWithInspection) {
           try {
-            const usersResponse = await userService.getAll({ page: 1, limit: 1000, options: true });
+            const usersResponse = await userService.getUsers({ page: 1, limit: 1000, options: true, filters: { excludeRoleCode: 'CONTRACTOR' } });
             setUsers(usersResponse.data);
           } catch (userError) {
             // Silently handle user fetch errors - assignee is optional anyway
@@ -440,7 +452,7 @@ const InspectionItemForm = ({
         }
         
         // Load file category for inspection images
-        const category = await uploadService.getCategoryByName('course-materials');
+        const category = await uploadService.getCategoryByName('inspection-images');
         if (category) {
           setFileCategory(category);
         }
@@ -518,7 +530,6 @@ const InspectionItemForm = ({
         // When creating new items (no initialItem.mitigation), pre-populate form with default mitigations
         // Only do this if the risk has changed (not on initial load with existing data)
         const hasExistingMitigation = initialItem?.mitigation && (
-          initialItem.mitigation.eliminate ||
           (initialItem as any).mitigation.eliminationControl ||
           (initialItem as any).mitigation.substitutionControl ||
           (initialItem as any).mitigation.engineeringControl ||
@@ -531,7 +542,6 @@ const InspectionItemForm = ({
         if (!hasExistingMitigation && mitigations.length > 0 && !isInitialMount.current) {
           // Combine all mitigations into a single object (in case there are multiple)
           const combinedMitigation = {
-            eliminate: mitigations.map(m => m.eliminate).filter(Boolean).join('\n') || '',
             eliminationControl: mitigations.map(m => (m as any).eliminationControl).filter(Boolean).join('\n') || '',
             substitutionControl: mitigations.map(m => (m as any).substitutionControl).filter(Boolean).join('\n') || '',
             engineeringControl: mitigations.map(m => (m as any).engineeringControl).filter(Boolean).join('\n') || '',
@@ -562,6 +572,37 @@ const InspectionItemForm = ({
     }
   }, [isLoading, risks.length, riskCategories.length]);
 
+  // Load full checklist tree on mount and auto-expand first category of first root
+  useEffect(() => {
+    const loadChecklist = async () => {
+      setIsLoadingChecklist(true);
+      try {
+        const roots = await inspectionChecklistService.getTree();
+        setChecklistRoots(roots);
+        // Auto-expand the first root
+        if (roots[0]) {
+          setExpandedGroups(new Set([roots[0].id]));
+        }
+      } catch (error) {
+        console.error('Failed to load checklist:', error);
+      } finally {
+        setIsLoadingChecklist(false);
+      }
+    };
+    loadChecklist();
+  }, []);
+
+  // Populate checklist results from initialItem when editing
+  useEffect(() => {
+    if (initialItem?.checklistResults && initialItem.checklistResults.length > 0) {
+      const resultsMap: Record<string, { riskRate?: string; notes?: string }> = {};
+      initialItem.checklistResults.forEach(r => {
+        resultsMap[r.checklistItemId] = { riskRate: r.riskRate, notes: r.notes };
+      });
+      setChecklistResults(resultsMap);
+    }
+  }, [initialItem?.checklistResults]);
+
   // Check approval rights when formMode is verifier and item has an id
   useEffect(() => {
     const checkApprovalRights = async () => {
@@ -578,7 +619,7 @@ const InspectionItemForm = ({
         
         // If user doesn't have approval rights, show error and prevent form usage
         if (!hasRights) {
-          toast.error('You do not have approval rights for this inspection item. Verifier mode is not available.');
+          toast.error('You do not have approval rights for this Inspection Finding Monitoring. Verifier mode is not available.');
         }
       } catch (error) {
         console.error('Failed to check approval rights:', error);
@@ -808,6 +849,32 @@ const InspectionItemForm = ({
     return uploadedImages;
   };
 
+  const itemDetailsFields = ['areaId', 'riskCategoryId', 'riskId', 'assignedDepartmentId', 'mitigation', 'status', 'description', 'findings', 'dueDateAt'];
+  const updatesFields = ['followUpNotes'];
+
+  const handleFormError = (errors: Record<string, unknown>) => {
+    const errorKeys = Object.keys(errors);
+    const hasItemDetailsError = errorKeys.some(k => itemDetailsFields.includes(k));
+    const hasUpdatesError = errorKeys.some(k => updatesFields.includes(k));
+
+    if (hasItemDetailsError) {
+      setActiveTab('item-details');
+    } else if (hasUpdatesError) {
+      setActiveTab('updates');
+    }
+
+    const hasMitigationError = !!errors.mitigation;
+    if (hasMitigationError) {
+      toast.error('Please fill at least one Risk Mitigation field', {
+        description: 'At least one mitigation strategy is required when a risk is selected.',
+      });
+    } else {
+      toast.error('Please complete all required fields', {
+        description: 'Check the highlighted tabs for fields that need attention.',
+      });
+    }
+  };
+
   const handleSubmit = async (data: FormValues | FormValuesWithInspection) => {
     if (!onSubmit) return;
 
@@ -854,7 +921,6 @@ const InspectionItemForm = ({
         }
         const followUpNotes = data.followUpNotes || undefined;
         const hasMitigation = data.mitigation && (
-          data.mitigation.eliminate ||
           (data as any).mitigation.eliminationControl ||
           (data as any).mitigation.substitutionControl ||
           (data as any).mitigation.engineeringControl ||
@@ -864,6 +930,11 @@ const InspectionItemForm = ({
           data.mitigation.accept ||
           data.mitigation.legalAspect
         );
+        const checklistResultsPayload: CreateInspectionChecklistResultDTO[] = Object.entries(checklistResults).map(([checklistItemId, val]) => ({
+          checklistItemId,
+          riskRate: val.riskRate as InspectionRiskRateEnum | undefined,
+          notes: val.notes || undefined,
+        }));
         const itemData: CreateInspectionItemDTO = {
           areaId: data.areaId,
           status: data.status,
@@ -878,7 +949,6 @@ const InspectionItemForm = ({
           images: uploadedImages,
           mitigation: hasMitigation
             ? {
-                eliminate: data.mitigation?.eliminate || undefined,
                 eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
                 substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
                 engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
@@ -889,9 +959,11 @@ const InspectionItemForm = ({
                 legalAspect: data.mitigation?.legalAspect || undefined,
               }
             : undefined,
+          checklistId: checklistRoots[0]?.id || undefined,
+          checklistResults: checklistResultsPayload.length > 0 ? checklistResultsPayload : undefined,
         };
         await inspectionsService.createItem(created.id, itemData);
-        toast.success('Inspection item created successfully');
+        toast.success('Inspection Finding Monitoring created successfully');
         [...beforeImages, ...afterImages].forEach((img) => {
           if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
         });
@@ -907,7 +979,6 @@ const InspectionItemForm = ({
       }
       const followUpNotes = data.followUpNotes || undefined;
       const hasMitigation = data.mitigation && (
-        data.mitigation.eliminate ||
         (data as any).mitigation.eliminationControl ||
         (data as any).mitigation.substitutionControl ||
         (data as any).mitigation.engineeringControl ||
@@ -918,6 +989,11 @@ const InspectionItemForm = ({
         data.mitigation.legalAspect
       );
       const finalStatus = formMode === 'updater' ? GeneralStatusEnum.WAITING_APPROVAL : data.status;
+      const checklistResultsPayload: CreateInspectionChecklistResultDTO[] = Object.entries(checklistResults).map(([checklistItemId, val]) => ({
+        checklistItemId,
+        riskRate: val.riskRate as InspectionRiskRateEnum | undefined,
+        notes: val.notes || undefined,
+      }));
       const itemData: CreateInspectionItemDTO = {
         areaId: data.areaId,
         status: finalStatus,
@@ -932,7 +1008,6 @@ const InspectionItemForm = ({
         images: uploadedImages,
         mitigation: hasMitigation
           ? {
-              eliminate: data.mitigation?.eliminate || undefined,
               eliminationControl: (data as any).mitigation?.eliminationControl || undefined,
               substitutionControl: (data as any).mitigation?.substitutionControl || undefined,
               engineeringControl: (data as any).mitigation?.engineeringControl || undefined,
@@ -943,14 +1018,16 @@ const InspectionItemForm = ({
               legalAspect: data.mitigation?.legalAspect || undefined,
             }
           : undefined,
+        checklistId: checklistRoots[0]?.id || undefined,
+        checklistResults: checklistResultsPayload.length > 0 ? checklistResultsPayload : undefined,
       };
       await onSubmit(itemData);
       [...beforeImages, ...afterImages].forEach((img) => {
         if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
       });
     } catch (error) {
-      console.error('Failed to submit inspection item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to submit inspection item');
+      console.error('Failed to submit Inspection Finding Monitoring:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit Inspection Finding Monitoring');
     } finally {
       setIsSubmitting(false);
     }
@@ -962,7 +1039,14 @@ const InspectionItemForm = ({
 
     try {
       setIsSubmittingApproval(true);
-      
+
+      // Upload and save any images the verifier added before submitting approval
+      const hasNewImages = [...beforeImages, ...afterImages].some(img => img.isNew);
+      if (hasNewImages) {
+        const uploadedImages = await uploadImages();
+        await inspectionItemsService.update(initialItem.id, { images: uploadedImages });
+      }
+
       // Submit approval - backend handles status update based on approval workflow
       // If there's a next approver, status stays WAITING_APPROVAL
       // If all approvals are complete, status changes to CLOSE
@@ -981,8 +1065,8 @@ const InspectionItemForm = ({
         onCancel();
       }
     } catch (error) {
-      console.error('Failed to approve inspection item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to approve inspection item');
+      console.error('Failed to approve Inspection Finding Monitoring:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to approve Inspection Finding Monitoring');
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -1003,7 +1087,7 @@ const InspectionItemForm = ({
       );
 
       // Keep status as OPEN (don't change it)
-      toast.success('Inspection item rejected');
+      toast.success('Inspection Finding Monitoring rejected');
       setRejectDialogOpen(false);
       setApprovalNotes('');
       
@@ -1012,12 +1096,33 @@ const InspectionItemForm = ({
         onCancel(); // This will close the form dialog
       }
     } catch (error) {
-      console.error('Failed to reject inspection item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to reject inspection item');
+      console.error('Failed to reject Inspection Finding Monitoring:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to reject Inspection Finding Monitoring');
     } finally {
       setIsSubmittingApproval(false);
     }
   };
+
+  // Checklist helper functions
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const updateChecklistResult = (leafId: string, field: 'riskRate' | 'notes', value: string) => {
+    setChecklistResults(prev => ({
+      ...prev,
+      [leafId]: { ...prev[leafId], [field]: value },
+    }));
+  };
+
+  const leafItems = checklistRoots.flatMap(root => root.children || []);
+  const ratedCount = leafItems.filter(leaf => checklistResults[leaf.id]?.riskRate).length;
+  const totalCount = leafItems.length;
 
   // Determine which sections to show based on formMode
   // For verifier mode, only show sections if user has approval rights
@@ -1073,7 +1178,7 @@ const InspectionItemForm = ({
             <XCircle className="h-12 w-12 text-destructive mb-4" />
             <p className="text-lg font-semibold mb-2">You do not have approval rights</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Verifier mode is only available for users who have approval rights for this inspection item.
+              Verifier mode is only available for users who have approval rights for this Inspection Finding Monitoring.
             </p>
             {onCancel && (
               <Button variant="outline" onClick={onCancel}>
@@ -1098,10 +1203,17 @@ const InspectionItemForm = ({
     );
   }
 
+  const { errors: formErrors } = form.formState;
+  const itemDetailsHasErrors = !!(
+    formErrors.areaId || formErrors.riskCategoryId || formErrors.riskId ||
+    formErrors.assignedDepartmentId || formErrors.mitigation || formErrors.status
+  );
+  const updatesHasErrors = !!formErrors.followUpNotes;
+
   const formContent = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Inspection section: when creating from Inspection Items page (no existing inspection) */}
+      <form onSubmit={form.handleSubmit(handleSubmit, handleFormError)} className="space-y-6">
+        {/* Inspection section: when creating from Inspection Finding Monitoring page (no existing inspection) */}
         {createWithInspection && (
           <div className="space-y-4">
             <div>
@@ -1227,17 +1339,38 @@ const InspectionItemForm = ({
           </div>
         )}
 
-        {/* Section 1: Creator Section - Area, Risk, Type of Hazard, Findings, Description, Due Date, Risk Mitigation */}
+        {/* Tab layout: Item Details | Checklist | Updates */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="item-details" className="flex-1 gap-1.5">
+              Item Details
+              {itemDetailsHasErrors && <span className="h-2 w-2 rounded-full bg-destructive inline-block flex-shrink-0" />}
+            </TabsTrigger>
+            <TabsTrigger value="checklist" className="flex-1">
+              Checklist
+              {totalCount > 0 && (
+                <span className="ml-1.5 text-xs text-muted-foreground">({ratedCount}/{totalCount})</span>
+              )}
+            </TabsTrigger>
+            {showUpdaterSection && (
+              <TabsTrigger value="updates" className="flex-1 gap-1.5">
+                Updates
+                {updatesHasErrors && <span className="h-2 w-2 rounded-full bg-destructive inline-block flex-shrink-0" />}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          {/* ── Tab 1: Item Details ── */}
+          <TabsContent value="item-details" className="mt-4">
         {showCreatorSection && (
-          <>
-            <div className="space-y-4">
+          <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold">
-                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Section 1: Inspection Item Details (Read Only)' : 'Inspection Item Details'}
+                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Inspection Finding Monitoring Details (Read Only)' : 'Inspection Finding Monitoring Details'}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  {formMode === 'creator' && 'Fill in the inspection item details'}
-                  {formMode === 'updater' && 'Inspection item details (read-only)'}
+                  {formMode === 'creator' && 'Fill in the Inspection Finding Monitoring details'}
+                  {formMode === 'updater' && 'Inspection Finding Monitoring details (read-only)'}
                   {formMode === 'verifier' && 'Information filled by the creator'}
                 </p>
               </div>
@@ -1466,7 +1599,7 @@ const InspectionItemForm = ({
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter inspection item description (optional)"
+                          placeholder="Enter Inspection Finding Monitoring description (optional)"
                           rows={3}
                           {...field}
                           disabled={formMode === 'verifier' && !showVerifierSection}
@@ -1546,15 +1679,15 @@ const InspectionItemForm = ({
               {/* Risk Mitigation Section - only for creator and verifier */}
               <div>
                 <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
-                {form.formState.errors.mitigation && (
+                {formErrors.mitigation && (
                   <p className="text-sm font-medium text-destructive mb-4">
                     {(() => {
-                      const error = form.formState.errors.mitigation;
-                      const message = error && typeof error === 'object' && 'message' in error 
-                        ? String(error.message) 
+                      const error = formErrors.mitigation;
+                      const message = error && typeof error === 'object' && 'message' in error
+                        ? String(error.message)
                         : null;
-                      return message && message !== 'undefined' && message.trim() 
-                        ? message 
+                      return message && message !== 'undefined' && message.trim()
+                        ? message
                         : 'At least one risk mitigation field must be filled';
                     })()}
                   </p>
@@ -1573,11 +1706,6 @@ const InspectionItemForm = ({
                       formMode={formMode}
                       readOnlyComponent={
                         <div className="space-y-4">
-                          <ReadOnlyField
-                            label="Eliminate"
-                            value={form.watch('mitigation.eliminate')}
-                            multiline
-                          />
                           <ReadOnlyField
                             label="Elimination Control"
                             value={form.watch('mitigation.eliminationControl')}
@@ -1622,25 +1750,6 @@ const InspectionItemForm = ({
                       }
                     >
                       <>
-                        <FormField
-                          control={form.control}
-                          name="mitigation.eliminate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Describe elimination strategy..."
-                                  className="min-h-[120px] resize-y"
-                                  {...field}
-                                  value={field.value || ''}
-                                  disabled={formMode === 'verifier' && !showVerifierSection}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
                         <FormField
                           control={form.control}
                           name="mitigation.eliminationControl"
@@ -1797,7 +1906,7 @@ const InspectionItemForm = ({
                     </ConditionalField>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-sm text-muted-foreground">
+                  <div className={`text-center py-8 text-sm ${formErrors.mitigation ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                     Please select a risk to enter mitigation strategies.
                   </div>
                 )}
@@ -1979,49 +2088,221 @@ const InspectionItemForm = ({
                   )}
                 </div>
               )}
-            </div>
-
-            <Separator />
-          </>
+          </div>
         )}
+          </TabsContent>
 
-        {/* Section 2: Updater Section - Image After and Follow-up Notes */}
-        {showUpdaterSection && (
-          <>
+          {/* ── Tab 2: Checklist ── */}
+          <TabsContent value="checklist" className="mt-4">
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold">
-                  {formMode === 'verifier' ? 'Section 2: Action Item Updates' : 'Update Action Item'}
-                </h3>
+                <h3 className="text-lg font-semibold">Checklist</h3>
                 <p className="text-sm text-muted-foreground">
-                  {formMode === 'updater' && 'Update the action item with progress and images'}
-                  {formMode === 'verifier' && 'Information filled by the action item updater'}
+                  {formMode === 'creator'
+                    ? 'Rate each checklist item below'
+                    : 'Checklist filled by the inspector'}
                 </p>
               </div>
 
-              <FormField
-                control={form.control}
-                name="followUpNotes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Follow-up Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter follow-up notes (optional)"
-                        rows={4}
-                        disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+              {/* Hazard rating legend */}
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                  <p className="font-medium text-sm">Rating Legend</p>
+                  <div className="space-y-1">
+                    {[
+                      { color: 'border-green-500', label: 'Safe', labelColor: 'text-green-700', desc: 'No risk of incidents.' },
+                      { color: 'border-yellow-500', label: 'Low Hazard', labelColor: 'text-yellow-700', desc: 'Risk of an incident occurring without a lost-time injury (the injured person can still continue the activity).' },
+                      { color: 'border-orange-500', label: 'Moderate Hazard', labelColor: 'text-orange-700', desc: 'Risk of an incident occurring with a lost-time injury (the injured person cannot continue the activity).' },
+                      { color: 'border-red-500', label: 'Critical Hazard', labelColor: 'text-red-700', desc: 'Risk of an incident occurring with a lost-time injury that could result in death or permanent disability, or cause large and extensive environmental damage, and lead to the stoppage of work processes/activities.' },
+                    ].map(({ color, label, labelColor, desc }) => (
+                      <div key={label} className={`flex items-center gap-3 border-l-4 ${color} pl-3 py-1`}>
+                        <span className={`w-32 shrink-0 text-xs font-semibold ${labelColor}`}>{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+              </div>
 
-            <Separator />
-          </>
-        )}
+              {/* Progress bar */}
+              {totalCount > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">{ratedCount}/{totalCount} items rated</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary rounded-full h-2 transition-all duration-300"
+                      style={{ width: `${totalCount ? (ratedCount / totalCount) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Checklist tree */}
+              {isLoadingChecklist ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading checklist...</span>
+                  </div>
+                </div>
+              ) : checklistRoots.length > 0 ? (
+                <div className="space-y-2">
+                  {checklistRoots.map(root => {
+                    const rootChildren = root.children || [];
+                    const ratedInRoot = rootChildren.filter(item => checklistResults[item.id]?.riskRate).length;
+                    const isExpanded = expandedGroups.has(root.id);
+                    const isComplete = rootChildren.length > 0 && ratedInRoot === rootChildren.length;
+
+                    return (
+                      <div key={root.id} className="border rounded-lg overflow-hidden">
+                        {/* Accordion header — the root item (e.g. "Required Documents") */}
+                        <button
+                          type="button"
+                          className="w-full flex items-center justify-between p-3 bg-muted/40 hover:bg-muted/70 text-left transition-colors"
+                          onClick={() => toggleGroup(root.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {root.code && (
+                              <span className="text-xs font-medium text-muted-foreground">{root.code}.</span>
+                            )}
+                            <span className="font-medium text-sm">{root.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-muted-foreground">
+                              {ratedInRoot}/{rootChildren.length}
+                            </span>
+                            {isComplete && <CheckCircle className="h-4 w-4 text-green-600" />}
+                            {isExpanded
+                              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            }
+                          </div>
+                        </button>
+
+                        {/* Checklist items (children of root) */}
+                        {isExpanded && (
+                          <div className="divide-y">
+                            {rootChildren.length === 0 ? (
+                              <div className="p-3 text-sm text-muted-foreground">No items in this section</div>
+                            ) : (
+                              rootChildren.map(item => {
+                                const result = checklistResults[item.id];
+                                const riskRateLabel = result?.riskRate
+                                  ? INSPECTION_RISK_RATE_OPTIONS.find(o => o.value === result.riskRate)?.label
+                                  : null;
+
+                                return (
+                                  <div key={item.id} className="p-3 space-y-2">
+                                    <div className="flex items-start gap-2">
+                                      {item.code && (
+                                        <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded shrink-0 mt-0.5">
+                                          {item.code}
+                                        </span>
+                                      )}
+                                      <span className="text-sm">{item.name}</span>
+                                    </div>
+
+                                    {getFieldPermission('checklist') === 'editable' ? (
+                                      <>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {INSPECTION_RISK_RATE_OPTIONS.map(opt => {
+                                            const isSelected = result?.riskRate === opt.value;
+                                            return (
+                                              <button
+                                                key={opt.value}
+                                                type="button"
+                                                disabled={isSubmitting}
+                                                onClick={() => updateChecklistResult(item.id, 'riskRate', isSelected ? '' : opt.value)}
+                                                className={cn(
+                                                  'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                                                  isSelected
+                                                    ? INSPECTION_RISK_RATE_PILL_CLASSES[opt.value as InspectionRiskRateEnum]
+                                                    : 'border-border text-muted-foreground hover:bg-muted'
+                                                )}
+                                              >
+                                                {opt.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                        <Textarea
+                                          placeholder="Notes (optional)"
+                                          value={result?.notes || ''}
+                                          onChange={(e) => updateChecklistResult(item.id, 'notes', e.target.value)}
+                                          rows={2}
+                                          className="text-sm resize-none"
+                                          disabled={isSubmitting}
+                                        />
+                                      </>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        {riskRateLabel ? (
+                                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${INSPECTION_RISK_RATE_BADGE_CLASSES[result!.riskRate as InspectionRiskRateEnum]}`}>
+                                            {riskRateLabel}
+                                          </span>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">Not rated</span>
+                                        )}
+                                        {result?.notes && (
+                                          <p className="text-sm text-muted-foreground">{result.notes}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <p className="text-sm text-muted-foreground">No checklist items configured.</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── Tab 3: Updates (updater + verifier only) ── */}
+          {showUpdaterSection && (
+            <TabsContent value="updates" className="mt-4">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {formMode === 'verifier' ? 'Section 2: Action Item Updates' : 'Update Action Item'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {formMode === 'updater' && 'Update the action item with progress and images'}
+                    {formMode === 'verifier' && 'Information filled by the action item updater'}
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="followUpNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Follow-up Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter follow-up notes (optional)"
+                          rows={4}
+                          disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
 
         {/* Submit Buttons */}
         <div className="flex justify-end gap-2">
@@ -2074,9 +2355,9 @@ const InspectionItemForm = ({
     <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Approve Inspection Item</DialogTitle>
+          <DialogTitle>Approve Inspection Finding Monitoring</DialogTitle>
           <DialogDescription>
-            Approve this inspection item. The status will be set to Close.
+            Approve this Inspection Finding Monitoring. The status will be set to Close.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -2127,9 +2408,9 @@ const InspectionItemForm = ({
     <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reject Inspection Item</DialogTitle>
+          <DialogTitle>Reject Inspection Finding Monitoring</DialogTitle>
           <DialogDescription>
-            Reject this inspection item. The status will remain OPEN.
+            Reject this Inspection Finding Monitoring. The status will remain OPEN.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -2189,7 +2470,7 @@ const InspectionItemForm = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{initialItem ? 'Edit' : 'Add'} Inspection Item</CardTitle>
+          <CardTitle>{initialItem ? 'Edit' : 'Add'} Inspection Finding Monitoring</CardTitle>
         </CardHeader>
         <CardContent>{formWithDialogs}</CardContent>
       </Card>

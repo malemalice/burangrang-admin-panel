@@ -13,6 +13,7 @@ const auditSchedulesService = {
     areaId?: string | string[];
     auditElementId?: string | string[];
     auditorIds?: string | string[];
+    periodId?: string | string[];
     status?: string;
     createdAtFrom?: string;
     createdAtTo?: string;
@@ -49,7 +50,12 @@ const auditSchedulesService = {
       const auditorIds = Array.isArray(params.auditorIds) ? params.auditorIds : [params.auditorIds];
       auditorIds.forEach(id => queryParams.append('auditorIds', id));
     }
-    
+
+    if (params.periodId) {
+      const periodIds = Array.isArray(params.periodId) ? params.periodId : [params.periodId];
+      periodIds.forEach(id => queryParams.append('periodId', id));
+    }
+
     const response = await api.get(`/audit-schedules?${queryParams.toString()}`);
     return response.data;
   },

@@ -25,6 +25,7 @@ import {
 } from '@prisma/client';
 import { CreateIncidentInjuredPersonDto } from './create-incident-injured-person.dto';
 import { CreateIncidentWitnessDto } from './create-incident-witness.dto';
+import { CreateIncidentThirdPartyDto } from './create-incident-third-party.dto';
 import { CreateIncidentAssetDto } from './create-incident-asset.dto';
 import { CreateIncidentImageDto } from './create-incident-image.dto';
 import { CreateIncidentAttachmentDto } from './create-incident-attachment.dto';
@@ -127,10 +128,21 @@ export class CreateIncidentDto {
   @ApiProperty({ enum: StopActivityEnum, default: 'NOT_SPECIFIED' })
   needToStopActivity?: StopActivityEnum;
 
+  /** @deprecated Use stopLocally and stopWholeSchool booleans instead. */
   @IsString()
   @IsOptional()
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, deprecated: true })
   stopActivityDescription?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false, default: false })
+  stopLocally?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false, default: false })
+  stopWholeSchool?: boolean;
 
   @IsEnum(TreatmentEnum)
   @IsOptional()
@@ -151,6 +163,11 @@ export class CreateIncidentDto {
   @IsOptional()
   @ApiProperty({ required: false })
   resolution?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false, default: false, description: 'Set true when HSE flags incident for further investigation' })
+  needFurtherInvestigation?: boolean;
 
   @IsNotEmpty()
   @IsUUID()
@@ -190,6 +207,13 @@ export class CreateIncidentDto {
   @IsOptional()
   @ApiProperty({ type: [CreateIncidentWitnessDto], required: false })
   witnesses?: CreateIncidentWitnessDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateIncidentThirdPartyDto)
+  @IsOptional()
+  @ApiProperty({ type: [CreateIncidentThirdPartyDto], required: false })
+  thirdParties?: CreateIncidentThirdPartyDto[];
 
   @IsArray()
   @ValidateNested({ each: true })

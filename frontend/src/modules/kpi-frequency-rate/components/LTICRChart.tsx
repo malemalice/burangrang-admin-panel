@@ -23,7 +23,7 @@ export function LTICRChart({ data }: LTICRChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">LTICR Chart</CardTitle>
+        <CardTitle className="text-lg">LTICR — Loss Time Injury Case Rate</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[320px] w-full">

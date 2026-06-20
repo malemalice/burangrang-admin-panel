@@ -3,12 +3,28 @@
  * Provides global menu state management
  * Following TRD.md patterns for context management
  */
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useSidebarMenus } from '@/modules/menus';
 import { Menu } from '@/modules/menus/types/menu.types';
 
+/** Flattens the full menu tree into a path → display name lookup map. */
+export const buildPathNameMap = (menus: Menu[]): Record<string, string> => {
+  const map: Record<string, string> = {};
+  const traverse = (items: Menu[]) => {
+    for (const item of items) {
+      if (item.path && item.path !== '#') {
+        map[item.path] = item.name;
+      }
+      if (item.children?.length) traverse(item.children);
+    }
+  };
+  traverse(menus);
+  return map;
+};
+
 interface MenuContextType {
   menus: Menu[];
+  pathNameMap: Record<string, string>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -22,9 +38,11 @@ interface MenuProviderProps {
 
 export const MenuProvider = ({ children }: MenuProviderProps) => {
   const { sidebarMenus, isLoading, error, refetch } = useSidebarMenus();
+  const pathNameMap = useMemo(() => buildPathNameMap(sidebarMenus), [sidebarMenus]);
 
   const value: MenuContextType = {
     menus: sidebarMenus,
+    pathNameMap,
     isLoading,
     error,
     refetch,

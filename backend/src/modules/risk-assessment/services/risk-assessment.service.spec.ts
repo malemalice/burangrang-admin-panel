@@ -2,16 +2,16 @@ import { ConflictException } from '@nestjs/common';
 import { GeneralStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ApprovalsService } from '../../approvals/approvals.service';
+import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { RemindersService } from '../../reminders/reminders.service';
-import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
 import { RiskAssessmentService } from './risk-assessment.service';
 
 describe('RiskAssessmentService', () => {
     let service: RiskAssessmentService;
     let prismaService: PrismaService;
     let approvalsService: ApprovalsService;
+    let masterApprovalsService: MasterApprovalsService;
     let remindersService: RemindersService;
-    let riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService;
 
     let riskAssessmentCreateMock: jest.Mock;
     let riskAssessmentFindUniqueMock: jest.Mock;
@@ -22,8 +22,6 @@ describe('RiskAssessmentService', () => {
     let riskMitigationFindManyMock: jest.Mock;
     let reminderFindManyMock: jest.Mock;
     let reminderUpdateMock: jest.Mock;
-    let createTicketForRiskAssessmentMock: jest.Mock;
-    let resolveZohoStatusForHseStatusMock: jest.Mock;
 
     const assessmentRecord = {
         id: 'ra-1',
@@ -76,11 +74,6 @@ describe('RiskAssessmentService', () => {
         riskMitigationFindManyMock = jest.fn().mockResolvedValue([]);
         reminderFindManyMock = jest.fn().mockResolvedValue([]);
         reminderUpdateMock = jest.fn().mockResolvedValue(undefined);
-        createTicketForRiskAssessmentMock = jest.fn().mockResolvedValue({
-            mappingId: 'map-1',
-            zohoTicketId: '2001',
-        });
-        resolveZohoStatusForHseStatusMock = jest.fn().mockResolvedValue('Open');
 
         prismaService = {
             riskAssessment: {
@@ -103,74 +96,23 @@ describe('RiskAssessmentService', () => {
         } as unknown as PrismaService;
 
         approvalsService = {} as ApprovalsService;
+        masterApprovalsService = {
+            sendApprovalRequestNotifications: jest.fn(),
+        } as unknown as MasterApprovalsService;
         remindersService = {
             create: jest.fn(),
         } as unknown as RemindersService;
-        riskAssessmentZohoSyncService = {
-            createTicketForRiskAssessment: createTicketForRiskAssessmentMock,
-            resolveZohoStatusForHseStatus: resolveZohoStatusForHseStatusMock,
-        } as unknown as RiskAssessmentZohoSyncService;
 
         service = new RiskAssessmentService(
             prismaService,
             approvalsService,
+            masterApprovalsService,
             remindersService,
-            riskAssessmentZohoSyncService,
         );
     });
 
     afterEach(() => {
         jest.restoreAllMocks();
-    });
-
-    it('does not fail creation when zoho create fails', async () => {
-        createTicketForRiskAssessmentMock.mockRejectedValueOnce(
-            new Error('SDP request failed before response: fetch failed'),
-        );
-
-        await expect(
-            service.create(
-                {
-                    code: 'RA260315220904',
-                    description: 'Desc',
-                    departmentId: 'dept-1',
-                    assessmentDate: new Date('2026-03-16T00:00:00.000Z'),
-                    status: GeneralStatusEnum.OPEN,
-                    items: [
-                        {
-                            mRiskId: 'risk-1',
-                            mRiskCategoryId: 'cat-1',
-                            likelihoodLevel: 'LOW' as never,
-                            consequenceLevel: 'LOW' as never,
-                            riskMatrixRating: 'A1',
-                            interpretation: 'LOW' as never,
-                            postLikelihoodLevel: 'LOW' as never,
-                            postConsequenceLevel: 'LOW' as never,
-                            postRiskMatrixRating: 'A1',
-                            postInterpretation: 'LOW' as never,
-                        },
-                    ],
-                },
-                'user-1',
-            ),
-        ).resolves.toBeDefined();
-
-        expect(createTicketForRiskAssessmentMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                riskAssessmentId: 'ra-1',
-                payload: {
-                    subject: 'RA260315220904',
-                    description: 'Desc',
-                    requester: { id: '5' },
-                    status: { name: 'Open' },
-                },
-                lastHseStatus: GeneralStatusEnum.OPEN,
-            }),
-        );
-        expect(riskAssessmentItemFindManyMock).not.toHaveBeenCalled();
-        expect(riskMitigationDeleteManyMock).not.toHaveBeenCalled();
-        expect(riskAssessmentItemDeleteManyMock).not.toHaveBeenCalled();
-        expect(riskAssessmentDeleteMock).not.toHaveBeenCalled();
     });
 
     it('converts prisma unique violation on code into conflict exception', async () => {
@@ -196,6 +138,5 @@ describe('RiskAssessmentService', () => {
         ).rejects.toBeInstanceOf(ConflictException);
 
         expect(riskAssessmentDeleteMock).not.toHaveBeenCalled();
-        expect(createTicketForRiskAssessmentMock).not.toHaveBeenCalled();
     });
 });

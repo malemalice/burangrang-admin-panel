@@ -44,8 +44,8 @@ const DASHBOARD_SHORTCUTS: Array<{
   { label: 'Hazard analytics', path: '/dashboard/hazard-analytics', permission: 'incident:list' },
   { label: 'Security team', path: '/dashboard/security-team', permission: 'incident:list' },
   { label: 'Incident profile', path: '/dashboard/incident-profile-analytic', permission: 'incident:list' },
-  { label: 'KPI frequency rate', path: '/dashboard/kpi-frequency-rate', permission: 'incident:list' },
-  { label: 'KPI HSE Target', path: '/dashboard/kpi-hse-target', permission: 'kpi-hse-target:list' },
+  { label: 'Incident Frequency Rate', path: '/dashboard/kpi-frequency-rate', permission: 'incident:list' },
+  { label: 'HSE Target', path: '/dashboard/kpi-hse-target', permission: 'kpi-hse-target:list' },
 ];
 
 function needsActionTypeLabel(type: NeedsMyActionItem['type']): string {

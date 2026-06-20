@@ -163,6 +163,8 @@ export interface CourseSearchParams {
   instructorId?: string;
   categoryId?: string;
   title?: string;
+  status?: string;
+  options?: boolean;
 }
 
 export interface ChapterSearchParams {

@@ -21,6 +21,8 @@ import approvalService, { type ApprovalStatusHistory } from '@/modules/master-da
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import environmentalMeasurementService from '../services/environmentalMeasurementService';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
+import { RemindersSection } from '@/modules/reminders/components/reminders-section';
+import { roomSubjectPicker } from '@/modules/reminders/lib/subject-pickers';
 import { EnvironmentalMeasurementListPDFTemplate } from '../components/EnvironmentalMeasurementListPDFTemplate';
 import { EnvironmentalMeasurementPDFTemplate } from '../components/EnvironmentalMeasurementPDFTemplate';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
@@ -133,6 +135,7 @@ export default function EnvironmentalMeasurementsPage() {
       label: 'Measurement date range',
       type: 'dateRange',
       dateRangeMode: 'date',
+      showRelativePresets: true,
     },
     {
       id: 'roomName',
@@ -503,8 +506,8 @@ export default function EnvironmentalMeasurementsPage() {
   return (
     <>
       <PageHeader
-        title="Environmental Measurements"
-        subtitle="Record and manage environmental measurements for rooms"
+        title="Non Water Monitoring"
+        subtitle="Record and manage non water monitoring for rooms"
         actions={
           <div className="flex gap-2">
             <Button
@@ -583,11 +586,19 @@ export default function EnvironmentalMeasurementsPage() {
             handleDialogCancel();
           }
         }}
-        title="Delete Environmental Measurement"
-        description="Are you sure you want to delete this environmental measurement record? This action cannot be undone."
+        title="Delete Non Water Monitoring"
+        description="Are you sure you want to delete this non water monitoring record? This action cannot be undone."
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
+
+      <div className="mt-6">
+        <RemindersSection
+          entity="environmental-measurements"
+          entityLabel="Environmental Measurement"
+          subjectPicker={roomSubjectPicker}
+        />
+      </div>
     </>
   );
 }
