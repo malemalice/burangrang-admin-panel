@@ -52,7 +52,8 @@ export function ModalCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  // Open upward when there isn't enough room below the trigger (and more room above).
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -205,49 +206,22 @@ export function ModalCombobox({
 
   const handleToggle = () => {
     if (!open && buttonRef.current) {
+      // Decide whether to open above or below the trigger. The dropdown is positioned
+      // with `position: absolute` relative to the (relative) container, so it always
+      // stays anchored to the field — immune to transformed ancestors such as a centered
+      // Radix Dialog. We only need to pick a direction here.
       const rect = buttonRef.current.getBoundingClientRect();
       const DROPDOWN_MAX_HEIGHT = 300;
-      const GAP = 4;
-      const spaceBelow = window.innerHeight - rect.bottom - GAP;
-      const spaceAbove = rect.top - GAP;
-
-      const DROPDOWN_PREFERRED_WIDTH = 300;
-      const spaceToRight = window.innerWidth - rect.left - 16;
-      const useRightAlign = spaceToRight < DROPDOWN_PREFERRED_WIDTH;
-      const horizontalStyle = useRightAlign
-        ? {
-            right: window.innerWidth - rect.right,
-            minWidth: rect.width,
-            maxWidth: Math.min(rect.right - 16, 600),
-          }
-        : {
-            left: rect.left,
-            minWidth: rect.width,
-            maxWidth: Math.min(spaceToRight, 600),
-          };
-
-      if (spaceBelow >= DROPDOWN_MAX_HEIGHT || spaceBelow >= spaceAbove) {
-        setDropdownStyle({
-          position: 'fixed',
-          top: rect.bottom + GAP,
-          ...horizontalStyle,
-          maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceBelow),
-        });
-      } else {
-        setDropdownStyle({
-          position: 'fixed',
-          bottom: window.innerHeight - rect.top + GAP,
-          ...horizontalStyle,
-          maxHeight: Math.min(DROPDOWN_MAX_HEIGHT, spaceAbove),
-        });
-      }
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setOpenUp(spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow);
       setSearchQuery("");
     }
     setOpen((prev) => !prev);
   };
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="relative w-full">
       <button
         ref={buttonRef}
         id={id}
@@ -269,8 +243,11 @@ export function ModalCombobox({
       {open && (
         <div
           ref={dropdownRef}
-          className="z-[9999] flex flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
-          style={dropdownStyle}
+          className={cn(
+            "absolute left-0 z-[9999] flex w-full flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+            openUp ? "bottom-full mb-1" : "top-full mt-1"
+          )}
+          style={{ maxHeight: 300 }}
         >
           {/* Search input */}
           <div className="flex items-center border-b px-3 py-2">
