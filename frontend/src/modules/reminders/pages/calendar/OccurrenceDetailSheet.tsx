@@ -17,6 +17,7 @@ import {
   ReminderOccurrence,
   ReminderOccurrenceState,
 } from '../../types/reminder.types';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import { getEntityEntry } from '../../lib/entity-registry';
 import { resolveReminderDeepLink } from '../../lib/deep-link';
 import { getStateStyle } from '../../lib/occurrence-state';
@@ -30,6 +31,7 @@ interface Props {
 
 export function OccurrenceDetailSheet({ open, onOpenChange, occurrence, onChanged }: Props) {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [busy, setBusy] = useState<'ack' | 'dismiss' | null>(null);
 
   if (!occurrence) return null;
@@ -124,7 +126,7 @@ export function OccurrenceDetailSheet({ open, onOpenChange, occurrence, onChange
           Open in module
         </Button>
 
-        {canActOnOccurrence && (
+        {canActOnOccurrence && hasPermission('reminder:update') && (
           <div className="flex gap-2 mt-3">
             <Button className="flex-1" onClick={handleAck} disabled={busy !== null}>
               {busy === 'ack' ? 'Acknowledging…' : 'Acknowledge'}
